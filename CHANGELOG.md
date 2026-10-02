@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.0 (2026-10-02)
+
+- The office PC is a real screen. E at the desk sits you down in front of the monitor; its apps (desktop, orders, contracts, shop, staff, bank, stock, stats) are drawn on the screen and tapped with the crosshair. Esc or WASD stands up.
+- The little push-button boxes beside the dock doors are gone: the control cabinet and the dock consoles do that now. A pull cord inside each door brings it down without the walk.
+
 ## 1.4.0 (2026-10-02)
 
 - The time clock is a system. The crew walk in from the yard through the staff door, clock in at the reader, work, clock out at the end of the shift and leave the same way. Pay at 06:00 is the hours on the clock at the hourly rate, time and a half past ten. Each has a punctuality trait: some are early, some drift in late, and a word on the clock screen puts them right for a while. Overtime till 20:00, a day off tomorrow, and the odd sick call. Your own card too: clock in and out for a shift report and tracked hours. A timesheet page, and the crew on the office PC and the scanner.

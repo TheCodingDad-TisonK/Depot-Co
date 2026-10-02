@@ -74,7 +74,6 @@
     ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {}
     renderPanel(); sfx('click');
   }
-  function openPc() { introStep('pc'); openPanel('pc'); }
   function closePanel() { if (!ui.panelOpen) return; ui.panelOpen = false; $('dc-panel').hidden = true; panel.kind = null; hudDirty = true; lockPointer(); }
   function renderPanel() {
     if (!ui.panelOpen) return;

@@ -105,7 +105,7 @@
     ['unload', 'Walk into the trailer. Take a box off a pallet with <b>E</b>, or grab the pallet jack by the receiving square and lift a whole pallet.'],
     ['putaway', 'Put it on a rack: look at a slot and press <b>E</b>. Row A, floor level, is nearest. A slot holds 12 boxes of one line.'],
     ['scanner', 'Press <b>Tab</b>. The scanner lists the orders, what is still on the truck, and where every line is stored.'],
-    ['order', 'Orders arrive from 08:30 on the office PC, the wall board and the scanner. Wait for the first one.'],
+    ['order', 'Orders arrive from 08:30 on the office PC (sit down at the desk), the wall board and the scanner. Wait for the first one.'],
     ['pick', 'Take the boxes the order needs off the rack (<b>E</b> on the slot). One box per trip until you buy the cart.'],
     ['bench', 'Carry them to the <b>packing bench</b> on the east side and press E to put them down.'],
     ['pack', 'With empty hands press <b>E</b> on the bench and pack the order. The parcel appears on the shelf beside it.'],

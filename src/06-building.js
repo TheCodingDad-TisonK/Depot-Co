@@ -78,11 +78,10 @@
     var panel = new THREE.Mesh(boxGeo(0.12, DOCKS.h, DOCKS.w), MAT.door); panel.castShadow = true; panel.receiveShadow = true;
     panel.position.set(x - side * 0.22, DOCKS.h / 2, z); scene.add(panel);
     var d = { i: i, side: side, z: z, panel: panel, anim: S.doors[i] ? 1 : 0 };
-    addInter(panel, { prompt: function () { return S.doors[i] ? null : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i)); }, use: function () { if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });
-    // the push-button box beside the door
-    var ctl = box(0.1, 0.3, 0.2, MAT.steelDark, x - side * 0.2, 1.3, z + DOCKS.w / 2 + 0.4);
-    box(0.04, 0.08, 0.08, MAT.green, x - side * 0.26, 1.36, z + DOCKS.w / 2 + 0.4); box(0.04, 0.08, 0.08, MAT.red, x - side * 0.26, 1.24, z + DOCKS.w / 2 + 0.4);
-    addInter(ctl, { prompt: function () { return S.events.power ? 'No power' : (S.doors[i] ? 'Close dock door ' + dockLabel(i) : 'Open dock door ' + dockLabel(i)); }, use: function () { if (S.events.power) { toast('No power. Flip the breaker in the office.', 'bad'); return; } setDoor(i, !S.doors[i]); } });
+    addInter(panel, { prompt: function () { return S.doors[i] ? null : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + ' · the cabinet and the consoles close it'); }, use: function () { if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });
+    // a pull cord inside, to bring a door down without walking to the cabinet
+    var cord = cyl(0.01, 1.2, MAT.red, x - side * 0.35, DOCKS.h - 0.6, z - DOCKS.w / 2 - 0.3, null, 4); var knob = box(0.08, 0.12, 0.08, MAT.red, x - side * 0.35, DOCKS.h - 1.25, z - DOCKS.w / 2 - 0.3);
+    addInter(knob, { prompt: function () { return S.doors[i] ? 'Pull the cord: close dock door ' + dockLabel(i) : null; }, use: function () { if (S.doors[i]) setDoor(i, false); } });
     // bumpers, the number outside, the leveller plate, the sign inside
     box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z - DOCKS.w / 2 + 0.3); box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z + DOCKS.w / 2 - 0.3);
     sign([String(i % 2 + 1)], 1.2, 1.2, x + side * 0.17, DOCKS.h + 1.3, z, side < 0 ? -Math.PI / 2 : Math.PI / 2, { w: 128, h: 128, bg: '#f5b53d', fg: '#1a1205' });

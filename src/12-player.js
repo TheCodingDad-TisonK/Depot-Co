@@ -28,6 +28,7 @@
     return false;
   }
   function updatePlayer(dt) {
+    if (pc.on) { pcCamera(); return; }
     if (driving) {
       updateFork(dt);
       camera.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.35, floorY(S.fork.x, S.fork.z) + 1.75, S.fork.z - Math.cos(S.fork.yaw) * 0.35);
@@ -96,6 +97,7 @@
   document.addEventListener('mousemove', function (e) {
     if (!player.locked || ui.blocked()) return;
     var sx = 0.0022 * SET.sens, iy = SET.invertY ? -1 : 1;
+    if (pc.on) { pc.look.yaw = clamp(pc.look.yaw - e.movementX * sx, -0.5, 0.5); pc.look.pitch = clamp(pc.look.pitch - e.movementY * sx * iy, -0.35, 0.35); return; }
     if (driving) { forkLook.yaw = clamp(forkLook.yaw - e.movementX * sx, -2.4, 2.4); forkLook.pitch = clamp(forkLook.pitch - e.movementY * sx * iy, -1.2, 1.2); return; }
     player.yaw -= e.movementX * sx; player.pitch = clamp(player.pitch - e.movementY * sx * iy, -1.5, 1.5);
   });
@@ -105,9 +107,9 @@
     var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT');
     if (typing && e.code !== 'Escape') return;
     if (!ui.started) return;
-    if (e.code === 'Escape') { e.preventDefault(); if (edit.on && edit.grabbed) { editDrop(true); return; } if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
+    if (e.code === 'Escape') { e.preventDefault(); if (pc.on) { closePc(); return; } if (edit.on && edit.grabbed) { editDrop(true); return; } if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
     if (ui.blocked()) return;
-    if (e.code === 'F2') { e.preventDefault(); if (!driving) editToggle(); return; }
+    if (e.code === 'F2') { e.preventDefault(); if (!driving && !pc.on) editToggle(); return; }
     if (edit.on) {
       if (e.code === 'KeyR') { editRotate(); return; }
       if (e.code === 'Backspace') { e.preventDefault(); editReset(); return; }
@@ -116,7 +118,7 @@
       if (e.code === 'KeyE' && !e.repeat) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; }
       if (e.code === 'KeyG' && !e.repeat) { if (edit.grabbed) editDrop(true); return; }
     }
-    if (e.code === 'Tab') { e.preventDefault(); scanToggle(!ui.scanOpen); return; }
+    if (e.code === 'Tab') { e.preventDefault(); if (!pc.on) scanToggle(!ui.scanOpen); return; }
     if (ui.scanOpen && /^Digit[1-4]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return; }
     player.keys[e.code] = true;
     if (e.repeat) return;
