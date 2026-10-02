@@ -76,7 +76,7 @@
   }
 
   // ── The forklift battery ──────────────────────────────────────────
-  function forkCharging() { return !!S.up.fork && !driving && Math.abs(S.fork.x - SPOT.fork.x) < 1.6 && S.fork.z > SPOT.fork.z - 1.9 && S.fork.batt < 1; }
+  function forkCharging() { if (!S.up.fork || driving || S.fork.batt >= 1) return false; var P = PROPS.charger ? propPlacement('charger') : { x: SPOT.fork.x, z: SPOT.fork.z - 3 }; return dist2(S.fork.x, S.fork.z, P.x, P.z) < 3.2 * 3.2; }
   function tickBattery(dt) {
     if (!S.up.fork) return;
     if (S.fork.batt === undefined) S.fork.batt = 1;

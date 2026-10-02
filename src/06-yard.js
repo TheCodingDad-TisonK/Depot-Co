@@ -69,9 +69,6 @@
     // the staff car park, the smoking shelter, the dumpster, the flag
     for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -19 + b * 2.7, YARD_Y + 0.012, 21, -Math.PI / 2);
     plane(16.2, 0.12, MAT.whiteLine, -10.9, YARD_Y + 0.012, 18.25, -Math.PI / 2);
-    [0, 1, 3, 4].forEach(function (k) { var c = carMesh(CAR_COLS[k % CAR_COLS.length]); c.position.set(-17.65 + k * 2.7, YARD_Y, 21.5); c.rotation.y = Math.PI / 2 + randf(-0.04, 0.04); scene.add(c); });
-    for (var t = -56; t <= 56; t += 14) { tree(t, -56, randf(0.8, 1.2)); tree(t + 7, 56, randf(0.8, 1.2)); }
-    tree(-30, 24, 1.1); tree(30, 26, 0.9);
     // the neighbours across the fence, each with its own dock doors and a name
     [[-130, -30, 40, 9, 32, 'NORTHGATE LOGISTICS', 0], [128, -24, 44, 8, 30, 'VOLT & CO. DISTRIBUTION', 0], [-118, 70, 34, 7, 26, 'FAIRLANE FREIGHT', 1], [0, 150, 90, 12, 40, 'KESSLER WHOLESALE', 1], [136, 82, 40, 10, 30, 'PINECREST STORAGE', 1], [-44, -124, 50, 9, 28, 'LITTLE WONDERS DC', 0]].forEach(function (b) {
       box(b[2], b[3], b[4], MAT.wall, b[0], YARD_Y + b[3] / 2, b[1]);

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 (2026-10-02)
+
+- The time clock is a system. The crew walk in from the yard through the staff door, clock in at the reader, work, clock out at the end of the shift and leave the same way. Pay at 06:00 is the hours on the clock at the hourly rate, time and a half past ten. Each has a punctuality trait: some are early, some drift in late, and a word on the clock screen puts them right for a while. Overtime till 20:00, a day off tomorrow, and the odd sick call. Your own card too: clock in and out for a shift report and tracked hours. A timesheet page, and the crew on the office PC and the scanner.
+- Everything moves in build mode: the rack rows (stock comes with them), the control cabinet, the time clock, the dock consoles, the breaker, the order board, the forklift charger and its bay, the aisle signs, the painted name, the lamp posts, the parked cars and every tree, on top of the furniture and machines. Lamp posts, cars and aisle signs can be bought.
+- The yard lamp posts are out of the truck lanes.
+
 ## 1.3.0 (2026-10-02)
 
 - Build mode, the same editor as Grow Co.: F2, then E grabs any prop and it follows your aim, R turns it a quarter, E puts it down, Esc drops it back, Backspace puts it back where it started, Del removes it. C opens the catalogue: removed pieces to bring back and extras to buy (chairs, tables, lockers, plants, coolers, cots, cabinets, bins, signs, bollards, extinguishers, clocks, notice boards, every poster, trees, bench seats, shelters, dumpsters). Bought extras sell back for half. The layout saves when you leave build mode; the bake comes apart for it and goes back together after.

@@ -61,8 +61,9 @@
   function anyDoorUnlockedAtNight() { return hdoors.some(function (d) { return !hd(d.id).locked; }); }
 
   // ── The control cabinet ───────────────────────────────────────────
-  function buildControlCabinet() {
-    var x = 12.42, z = 12.6, g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = -Math.PI / 2; scene.add(g);
+  function buildControlCabinet() { }
+  function cabinetBuild(c) {
+    var g = c.group;
     box(0.9, 1.3, 0.22, MAT.grey, 0, 1.45, -0.11, g); box(0.9, 0.04, 0.26, MAT.steelDark, 0, 2.12, -0.1, g); box(0.9, 0.04, 0.26, MAT.steelDark, 0, 0.78, -0.1, g);
     box(0.04, 0.12, 0.03, MAT.black, 0.38, 1.0, 0.012, g); cyl(0.012, 0.6, MAT.black, 0.42, 0.45, -0.1, g, 6); cyl(0.012, 1.4, MAT.black, -0.42, 2.8, -0.1, g, 6);
     sign(['CONTROL'], 0.7, 0.14, 0, 2.02, 0.012, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#f5b53d' }, g);
@@ -82,5 +83,5 @@
       scText(c, 16, 226, 'Doors', '#f5b53d', 14);
       hdoors.forEach(function (d, i) { var s = hd(d.id); scButton(sc, 16 + (i % 4) * 98, 236 + Math.floor(i / 4) * 44, 90, 36, d.label.replace(' door', '') + (s.locked ? ' 🔒' : s.open ? ' open' : ''), s.locked, function () { doorLock(d); }, '#ff6b5e'); });
     } });
-    hitBox(0.9, 1.4, 0.3, 0, 1.45, -0.1, { prompt: function () { return null; }, use: function () {} }, g);
+    c.solid(-0.45, 0.45, -0.25, 0.05, 0, 2.2);
   }

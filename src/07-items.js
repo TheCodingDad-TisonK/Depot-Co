@@ -28,7 +28,7 @@
   }
   function syncInstances() {
     SKUS.forEach(function (s) { counts[s.id] = 0; }); counts.pallet = 0; counts.parcel = 0;
-    for (var key in S.slots) { var sl = S.slots[key]; if (!sl || !sl.n) continue; var p = slotParse(key), sp = rackSlotPos(p.r, p.b, p.l); drawPalletWithBoxes(sl.sku, sl.n, sp.x, sp.y, sp.z, 0, { kind: 'slot', key: key }); }
+    for (var key in S.slots) { var sl = S.slots[key]; if (!sl || !sl.n) continue; var p = slotParse(key), sp = rackSlotPos(p.r, p.b, p.l); drawPalletWithBoxes(sl.sku, sl.n, sp.x, sp.y, sp.z, sp.ry || 0, { kind: 'slot', key: key }); }
     S.pallets.forEach(function (pl) { var w = palletWorld(pl); if (!w) return; drawPalletWithBoxes(pl.sku, pl.n, w.x, w.y, w.z, w.ry, { kind: 'pallet', id: pl.id, carried: pl.place !== 'floor' && pl.place !== 'truck' }); });
     var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) putBox(s.id, SPOT.bench.x + (bi % 2 ? 0.23 : -0.23), 0.94 + BOX.h / 2 + Math.floor(bi / 8) * BOX.h, SPOT.bench.z - 1.2 + (Math.floor(bi / 2) % 4) * 0.62, 0, { kind: 'bench', sku: s.id }); });
     S.bench.parcels.forEach(function (oid, i) { putParcel(SPOT.benchOut.x + (i % 2 ? 0.25 : -0.25), 0.63 + 0.23 + Math.floor(i / 4) * 0.47, SPOT.benchOut.z + (Math.floor(i / 2) % 2) * 0.6, 0, { kind: 'shelf', order: oid }); });

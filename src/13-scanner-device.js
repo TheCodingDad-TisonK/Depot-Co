@@ -59,6 +59,8 @@
       y = scanRow(c, y, null, 'Outbound', TRUCK_OUT.map(function (w, i) { return 'OUT ' + (i + 1) + ' ' + fmtTime(w.arrive) + '-' + fmtTime(w.leave); }).join('  '));
       S.trucks.forEach(function (t) { if (y > h - 40) return; y = scanRow(c, y, null, (t.dir === 'in' ? 'IN' : 'OUT') + ' · ' + dockLabel(t.dir === 'in' ? t.dock : 2 + t.dock) + ' · ' + t.state, (t.dir === 'in' ? t.pallets.length + ' pallets' : t.parcels.length + ' parcels') + ' · leaves ' + fmtTime(t.leave), undefined, t.state === 'docked'); });
       y = scanRow(c, y, null, 'Bank ' + money(S.bank), 'rent ' + money(ECON.rent) + ' + wages ' + money(S.staff.reduce(function (a, s) { return a + STAFF_ROLES[s.role].wage; }, 0)) + ' at 06:00', 'rep ' + Math.round(S.rep));
+      S.staff.slice(0, 3).forEach(function (st2) { if (y < h - 40) y = scanRow(c, y, null, st2.name + ' · ' + staffStatus(st2), (Math.round((st2.hoursToday || 0) * 10) / 10) + ' h today', undefined, !!st2.clocked); });
+      if (S.clockedIn && y < h - 40) y = scanRow(c, y, null, 'You: on the clock', 'since ' + fmtTime(S.clockInAt), (Math.round(myHours() * 10) / 10) + ' h', true);
       if (S.contract && S.contract.accepted && y < h - 40) y = scanRow(c, y, null, 'Contract: ' + clientName(S.contract.client).slice(0, 16), S.contract.done + ' of ' + S.contract.need + ' by ' + fmtTime(S.contract.until % 24) + ' · ' + money(S.contract.bonus), undefined, true);
       if (S.up.fork) y = scanRow(c, y, null, 'Forklift battery', forkCharging() ? 'charging' : 'in the bay to charge', Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100) + '%', (S.fork.batt || 1) > 0.3);
     }

@@ -44,8 +44,7 @@
   });
   var officeLight = new THREE.PointLight(0xfff8ea, 0.5, 9, 2); officeLight.position.set(16.5, 3.2, 11); scene.add(officeLight);
   var breakLight = new THREE.PointLight(0xffe9c8, 0.35, 8, 2); breakLight.position.set(-16.5, 3.0, 11); scene.add(breakLight);
-  var yardLights = [];
-  [[-30, -8], [-30, 4], [30, -8], [30, 4]].forEach(function (p) { var l = new THREE.PointLight(0xffd9a0, 0.0, 30, 2); l.position.set(p[0], 6.5, p[1]); scene.add(l); yardLights.push(l); });
+  var yardLights = [];   // filled by the lamp-post props
 
   // ── Textures: every one is drawn on a canvas at boot ──────────────
   function tex(w, h, draw, rx, ry) {

@@ -11,7 +11,7 @@
   function newDay() {
     S.day++; S.stats.days++;
     pay(-ECON.rent, 'Rent, day ' + S.day);
-    S.staff.forEach(function (st) { pay(-STAFF_ROLES[st.role].wage, 'Wages, ' + st.name); });
+    payStaffWages(); staffNewDay(); if (S.clockedIn) { myClock(false); logEvent('The clock ran past midnight: you were clocked out automatically'); }
     if (S.loan > 0) { var interest = Math.round(S.loan * 0.015); pay(-interest, 'Loan interest (1.5%)'); }
     if (S.insured) pay(-40, 'Insurance premium');
     if (isSunday()) { toast('Sunday. The depot is closed: no trucks, no orders.', ''); logEvent('Sunday. Nothing moves today. A good day to sleep through.'); }

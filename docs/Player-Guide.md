@@ -64,6 +64,10 @@ The dock consoles and the bench terminal are touch screens: look at a button and
 | Second inbound bay (two trucks per slot, bigger loads) | $1,400 | 3 |
 | Fourth rack row | $950 | 3 |
 
+## Staff and the time clock
+
+The crew come in from the yard through the staff door and clock in at the reader beside it; from 18:00 (20:00 on overtime) they clock out and leave the same way. Pay at 06:00 is their clocked hours at the hourly rate (the daily wage divided by ten), time and a half past ten hours. Punctuality is a trait: the reader screen shows who is in, who is late and who called in sick, and lets you put someone on overtime, give them tomorrow off, or have a word about lateness. Your own card works too: clock in at the start and out at the end for a shift report.
+
 ## Staff
 
 | Role | Wage | Level | Does |

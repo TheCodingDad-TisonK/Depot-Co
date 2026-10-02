@@ -76,9 +76,13 @@ const SCENARIO = `(async () => {
   T.buyUpgrade('row3'); ok(S.up.rows === 3, 'bought the third row');
   // staff: a second truck, the receiver puts it away, the picker feeds the bench
   T.hireStaff('receiver'); T.hireStaff('picker'); ok(S.staff.length === 2, 'two staff hired');
+  S.staff.forEach((st) => { st.arriveOff = 0; st.sick = false; st.dayOff = false; }); T.setTime(12.9); T.run(60);
+  ok(S.staff.every((st) => st.clocked), 'both clocked in at the reader: ' + S.staff.map((st) => T.staffStatus(st)).join(' / '));
   T.setTime(13.3); T.run(30); const t2 = T.truckAtDoor(0); ok(!!t2, 'second inbound truck docked');
   T.setDoor(0, true); T.signTruck(t2);
   const putaway0 = S.stats.putaway; T.run(150);
+  ok(S.staff[0].hoursToday > 0.5, 'hours accrue on the clock: ' + S.staff[0].hoursToday.toFixed(2));
+  T.myClock(true); ok(S.clockedIn === true, 'you clocked in'); T.myClock(false); ok(S.clockedIn === false && S.stats.hoursWorked >= 0, 'you clocked out with a shift report');
   ok(S.stats.putaway > putaway0, 'receiver put pallets away: ' + (S.stats.putaway - putaway0) + ' boxes');
   const o2 = T.genOrder(false); ok(!!o2, 'second order #' + (o2 && o2.num));
   o2.lines.forEach((l) => { while (T.stockCount(l.sku) < l.qty) { const k = T.findSlotFor(l.sku, 1, 1); S.slots[k] = S.slots[k] && S.slots[k].n ? S.slots[k] : { sku: l.sku, n: 0 }; S.slots[k].n += 1; } });
@@ -97,7 +101,9 @@ const SCENARIO = `(async () => {
   S.contract.accepted = true; S.contract.need = 1; const co = T.genOrder(false); co.client = S.contract.client; co.lines = [{ sku: 'bolts', qty: 1 }]; T.benchAdd('bolts', 1); T.packOrder(co);
   delete S.flags['out' + S.day + '-0']; S.trucks.filter((t) => t.dir === 'out').forEach((t) => { T.truckLeave(t, 'test'); }); T.run(20); T.setTime(10.4); T.run(30); const tc = T.truckAtDoor(2); ok(!!tc, 'outbound truck for the contract test'); T.setDoor(2, true); T.shelfUse({ kind: 'shelf', order: co.id }); T.loadUse(tc.id); T.consoleUse(2); ok(S.contract.done === 1, 'contract counts the on-time ship');
   const bank2 = S.bank; S.contract.until = T.S.day * 24 + T.S.time - 1; T.run(1); ok(S.contract === null && S.bank > bank2, 'contract paid out');
-  S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
+  S.staff.forEach((st) => { st.hoursToday = 8; }); S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
+  ok(S.staff[0].sheet && S.staff[0].sheet[0] && S.staff[0].sheet[0].h === 8 && S.staff[0].sheet[0].pay === Math.round(T.hourly(S.staff[0]) * 8), 'wages paid from the timesheet: ' + JSON.stringify(S.staff[0].sheet[0]));
+  S.level = 3; T.editToggle(); const rackP = T.propInst.rack0; ok(!!rackP, 'rack row A is a prop'); T.editGrab('rack0'); rackP.g.position.set(0.5, 0, -6); T.editDrop(false); const sp = T.slotKey(0, 0, 0); ok(Math.abs(T.propInst.rack0.P.x - 0.5) < 0.01 && S.slots[sp] && S.slots[sp].n > 0, 'rack moved with its stock'); T.editReset('rack0'); T.editToggle();
   S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 15; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(14.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
   // build mode: grab the cot, move it, turn it, put it back, remove and restore, buy a chair
   T.player.x = -14.9; T.player.z = 11.5; T.player.y = 0; T.editToggle(); ok(T.edit.on === true, 'build mode on');
@@ -125,7 +131,7 @@ const SCENARIO = `(async () => {
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, width: 1280, height: 720, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: true } });
   const pageErrors = [];
-  win.webContents.on('console-message', (e, level, msg) => { if (level >= 2 && !/Electron Security Warning/.test(msg)) pageErrors.push(msg); });
+  win.webContents.on('console-message', (e, level, msg, line, src) => { if (level >= 2 && !/Electron Security Warning/.test(msg)) pageErrors.push(msg + ' @ ' + String(src).split('/').pop() + ':' + line); });
   win.webContents.on('render-process-gone', (e, d) => { pageErrors.push('renderer gone: ' + d.reason); });
   await win.loadFile(path.join(__dirname, '..', 'game', 'index.html'));
   await new Promise((r) => setTimeout(r, 1500));

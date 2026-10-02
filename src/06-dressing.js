@@ -40,13 +40,6 @@
     });
     var exitSign = function (x, y, z, ry) { var m = sign(['EXIT'], 0.5, 0.2, x, y, z, ry, { w: 256, h: 96, bg: '#1f7a3a', fg: '#dfffe8' }); var b = box(0.54, 0.24, 0.04, MAT.exit, x, y, z + (ry ? 0 : 0.03), null); b.rotation.y = ry || 0; if (ry) b.position.x += ry > 0 ? -0.03 : 0.03; m.renderOrder = 1; };
     exitSign(14, 2.6, -Z + 0.2, 0); exitSign(-X + 0.2, 2.6, SPOT.staffDoor.z, Math.PI / 2);
-    sign(['DEPOT CO.'], 9, 1.6, 0, 4.4, -Z + 0.17, 0, { w: 1024, h: 192, bg: '#1b232c', fg: '#f5b53d' });
-    sign(['RECEIVE · STORE · PICK · SHIP'], 7, 0.5, 0, 3.3, -Z + 0.17, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' });
-    // the rack block: aisle signs hanging from the roof, the walkway crossings at both ends
-    [[-4, 'AISLE  A · B'], [0, 'AISLE  B · C'], [4, 'AISLE  C · D']].forEach(function (a) {
-      sign([a[1]], 2.2, 0.5, 0, 5.4, a[0], 0, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); sign([a[1]], 2.2, 0.5, 0, 5.4, a[0], Math.PI, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' });
-      cyl(0.006, 1.3, MAT.steelDark, -0.9, 6.3, a[0], null, 4); cyl(0.006, 1.3, MAT.steelDark, 0.9, 6.3, a[0], null, 4);
-    });
     [-13.6, 13.6].forEach(function (x) { for (var z = -7; z <= 7; z += 0.7) plane(1.2, 0.35, MAT.whiteLine, x, 0.0065, z, -Math.PI / 2); });
     // dock lights beside every door, wheel chocks inside, guide rails and a chain hoist
     doors.forEach(function (d) {
@@ -57,26 +50,12 @@
     });
     // the forklift bay, the tool bays and the charger on the south wall
     var bay = function (cx, cz, w, d, label) { plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz - d / 2, -Math.PI / 2); plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz + d / 2, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx - w / 2, 0.0062, cz, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx + w / 2, 0.0062, cz, -Math.PI / 2); plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex([label], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), cx, 0.0066, cz + d / 2 - 0.3, -Math.PI / 2); };
-    bay(SPOT.fork.x, SPOT.fork.z, 2.6, 3.6, 'FORKLIFT'); bay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK'); bay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
-    box(0.5, 1.2, 0.3, MAT.grey, 0, 0.6, Z - 0.35); dress.charger = box(0.06, 0.06, 0.04, glowMat(0x5fd38d, 1.2), 0, 1.0, Z - 0.52); cyl(0.02, 1.6, MAT.black, 0.3, 0.4, Z - 0.6, null, 6).rotation.x = 0.9; sign(['CHARGER'], 0.6, 0.16, 0, 1.35, Z - 0.52, Math.PI, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
-    plane(0.3, 0.12, glowMat(0x5fd38d, 0.4), 0, 0.85, Z - 0.52, 0, Math.PI); box(0.1, 0.06, 0.05, MAT.black, 0.3, 0.6, Z - 0.6); box(0.05, 0.02, 0.05, MAT.steelDark, 0.3, 0.7, Z - 0.5);
-    // by the staff door: the time clock, the card rack, a rubber mat
-    box(0.3, 0.4, 0.12, MAT.grey, -X + 0.26, 1.5, 10.2); plane(0.16, 0.08, MAT.screen, -X + 0.33, 1.58, 10.2, 0, Math.PI / 2); box(0.03, 0.03, 0.08, MAT.red, -X + 0.33, 1.4, 10.2);
-    box(0.08, 0.5, 0.5, MAT.steelDark, -X + 0.24, 1.5, 10.75); for (var k = 0; k < 6; k++) box(0.03, 0.14, 0.06, MAT.paper, -X + 0.3, 1.62 - (k % 3) * 0.14, 10.56 + Math.floor(k / 3) * 0.22);
-    sign(['CLOCK IN'], 0.6, 0.16, -X + 0.21, 1.85, 10.5, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#eef1f5' });
+    bay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK'); bay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
     plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2);
     // the office blinds and the crossing into it
     for (var bl2 = 0; bl2 < 14; bl2++) box(5.4, 0.05, 0.02, MAT.trim, 16.1, 2.26 - bl2 * 0.08, 8.58);
     plane(1.4, 0.08, MAT.yellowLine, 12.5, 0.0062, 9.95, -Math.PI / 2);
     buildPigeons();
-  }
-  function rackEnds(r) {
-    var z = RACK.rows[r];
-    [-1, 1].forEach(function (s) {
-      var x = s > 0 ? RACK.x0 + RACK.bays * RACK.bayW + 0.3 : RACK.x0 - 0.3;
-      box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, z); box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, z - RACK.depth / 2 - 0.1); box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, z + RACK.depth / 2 + 0.1);
-      sign(['MAX LOAD', '1000 kg / level', 'row ' + 'ABCD'[r]], 0.5, 0.5, x + s * 0.06, 1.6, z, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 });
-    });
   }
   function buySnack() {
     if (S.events.power) { toast('No power.', 'bad'); return; }
@@ -117,6 +96,6 @@
     if (dress.turntable) dress.turntable.rotation.y += dt * (wrapperBusy() ? 1.4 : 0);
     if (dress.wrapCarriage) dress.wrapCarriage.position.y = wrapperBusy() ? 0.5 + Math.abs(Math.sin(worldTime * 0.9)) * 1.0 : 1.0;
     dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return (t.dir === 'in' ? t.dock : 2 + t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); l.m.material.emissiveIntensity = coming ? (Math.sin(worldTime * 8) > 0 ? 2.2 : 0.2) : (S.doors[d.i] ? 1.2 : 0.2); });
-    if (dress.charger) dress.charger.material.emissiveIntensity = power ? (forkCharging() ? (Math.sin(worldTime * 3) > 0 ? 1.5 : 0.4) : 1) : 0;
+    if (dress.charger && dress.charger.material) dress.charger.material.emissiveIntensity = power ? (forkCharging() ? (Math.sin(worldTime * 3) > 0 ? 1.5 : 0.4) : 1) : 0;
     tickClocks();
   }

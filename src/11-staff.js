@@ -107,6 +107,7 @@
     if (i < 0 || j < 0 || i >= NAV.w || j >= NAV.h) return false;
     var b = NAV.grid[j * NAV.w + i]; if (b === 0) return true; if (b === 1) return false;
     var x = NAV.x0 + (i + 0.5) * NAV.cell, z = NAV.z0 + (j + 0.5) * NAV.cell;
+    if (x <= -HALL.x + 0.6 && x > -HALL.x - 7.6 && Math.abs(z - SPOT.staffDoor.z) < 0.8) return true;
     for (var k = 0; k < S.trucks.length; k++) { var t = S.trucks[k]; if (t.state !== 'docked') continue; var tb = trailerBounds(t); if (x > tb.x0 - 0.3 && x < tb.x1 - 0.6 && z > tb.z0 + 0.3 && z < tb.z1 - 0.3) return true; if (Math.abs(z - t.z) < 1.0 && ((t.side < 0 && x < -HALL.x + 0.5 && x > tb.x0) || (t.side > 0 && x > HALL.x - 0.5 && x < tb.x1))) return true; }
     return false;
   }
@@ -140,7 +141,7 @@
     return out;
   }
   function laneFor(z) { var L = [-9.6, -4, 0, 4, 7.6], best = L[0]; for (var i = 1; i < L.length; i++) if (Math.abs(L[i] - z) < Math.abs(best - z)) best = L[i]; return best; }
-  function slotStand(key) { var p = slotParse(key), sp = rackSlotPos(p.r, p.b, p.l); var up = laneFor(sp.z + 1.3), dn = laneFor(sp.z - 1.3); var z = Math.abs(up - sp.z) < Math.abs(dn - sp.z) ? up : dn; return { x: sp.x, z: z }; }
+  function slotStand(key) { var p = slotParse(key), sp = rackSlotPos(p.r, p.b, p.l), a = sp.ry || 0, nx = Math.sin(a), nz = Math.cos(a); var A = { x: sp.x + nx * 1.4, z: sp.z + nz * 1.4 }, B = { x: sp.x - nx * 1.4, z: sp.z - nz * 1.4 }; if (NAV.dirty || !NAV.grid) navBuild(); var ca = navCell(A), cb = navCell(B); if (navOpen(ca.i, ca.j)) return A; if (navOpen(cb.i, cb.j)) return B; return A; }
 
   // ── Staff ─────────────────────────────────────────────────────────
   var staffMeshes = {};
@@ -157,13 +158,13 @@
   function voice(st) { return VOICE[st.name] || VOICE.Jo; }
   function staffSay(st, text, col) { var m = staffMeshes[st.id]; if (m && m.visible) say(m, text, col); }
   function staffById(id) { for (var i = 0; i < S.staff.length; i++) if (S.staff[i].id === id) return S.staff[i]; return null; }
-  function staffOnShift() { return S.time >= 8 && S.time < 18 && !isSunday(); }
+  function staffOnShift() { return S.time >= 8 && S.time < 20 && !isSunday(); }
   function onBreak() { return S.time >= 12 && S.time < 12.5; }
   function hireStaff(role) {
     var def = STAFF_ROLES[role]; if (!def) return;
     var name = STAFF_NAMES[S.nextStaffName++ % STAFF_NAMES.length];
-    var st = { id: uid('st'), name: name, role: role, x: SPOT.spawn.x, z: SPOT.spawn.z, yaw: 0, state: 'home', path: [], timer: 0, carry: null, task: null, hiredDay: S.day, look: { skin: pick(SKINS), hair: pick(HAIRS), style: pick(['short', 'long', 'bun', 'bald', 'short']) }, said: 0 };
-    S.staff.push(st); buildStaffMesh(st); logEvent('Hired ' + name + ' as ' + def.name.toLowerCase(), 'good'); hudDirty = true;
+    var st = { id: uid('st'), name: name, role: role, x: SPOT.spawn.x, z: SPOT.spawn.z, yaw: 0, state: 'home', path: [], timer: 0, carry: null, task: null, hiredDay: S.day, look: { skin: pick(SKINS), hair: pick(HAIRS), style: pick(['short', 'long', 'bun', 'bald', 'short']) }, said: 0, punct: randf(0.2, 1), arriveOff: 0, hoursToday: 0, sheet: [] };
+    S.staff.push(st); buildStaffMesh(st); logEvent('Hired ' + name + ' as ' + def.name.toLowerCase() + '. Paid ' + money(def.wage / 10) + ' an hour from the time clock, time and a half past ten hours.', 'good'); hudDirty = true; if (S.time < 17 && !isSunday()) { st.state = 'home'; st.arriveOff = Math.round((S.time + 0.15 - SHIFT_START) * 60); }
   }
   function fireStaff(id) {
     var st = staffById(id); if (!st) return;
@@ -195,31 +196,41 @@
     return need;
   }
   function tickStaff(dt) {
-    var shift = staffOnShift(), brk = onBreak();
+    var brk = onBreak();
     S.staff.forEach(function (st) {
       var m = staffMeshes[st.id]; if (!m) { buildStaffMesh(st); m = staffMeshes[st.id]; }
-      if (!shift) {
-        if (st.state === 'leaving') { if (st.state === 'leaving' && !st.path.length) { st.state = 'home'; } }
-        else if (st.state !== 'home') { staffDropAll(st); staffSay(st, voice(st).bye, '#a0acb8'); staffGo(st, { x: SPOT.spawn.x - 2, z: SPOT.spawn.z + 2.5 }, 'home'); st.state = 'walk'; st.then = 'home'; st.leaving = true; }
-        if (st.state === 'walk') { staffWalk(st, dt); m.visible = true; m.position.set(st.x, floorY(st.x, st.z), st.z); m.rotation.y = st.yaw; animateHuman(m, dt, 'walk', 1.9, null, false); return; }
-        m.visible = false; st.x = SPOT.spawn.x - 2; st.z = SPOT.spawn.z + 2.5; return;
+      if (st.punct === undefined) staffNewDay();
+      var off = isSunday() || st.sick || st.dayOff, end = shiftEnd(st);
+      // not here: at home until the arrival time, then the walk in from the yard to the clock
+      if (st.state === 'home') {
+        m.visible = false; st.x = RAMP_BOTTOM.x; st.z = RAMP_BOTTOM.z;
+        if (!off && !st.clockedOutAt && S.time >= staffArrival(st) && S.time < end - 0.5) { st.state = 'walk'; st.then = 'clockin'; st.path = route({ x: st.x, z: st.z }, clockStand()); }
+        return;
       }
-      if (st.state === 'home') { st.state = 'idle'; st.leaving = false; staffSay(st, voice(st).hi, '#5fd38d'); setMood(m, 'happy'); setTimeout(function () { setMood(m, 'neutral'); }, 2500); }
+      if (st.state === 'gone') { st.state = 'home'; m.visible = false; return; }
       m.visible = true;
       var carrying = !!st.carry || S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; });
-      if (brk && !carrying && st.state !== 'break' && st.state !== 'walk') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -14.5 + randf(-1, 1), z: 11.3 + randf(-0.5, 0.5) }, 'break'); }
+      // the clock at both ends of the shift
+      if (st.state === 'clockin') { staffWait(st, 1.4, function () { staffClockIn(st); st.state = 'idle'; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
+      if (st.clocked && S.time >= end && st.state !== 'leaving' && st.state !== 'clockout' && !(st.state === 'wait' && st.leavingWait)) { staffDropAll(st); st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
+      if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
+      if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
+      var working = st.clocked && !st.leaving;
+      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -14.8 + randf(-1, 1), z: 11.5 + randf(-0.5, 0.5) }, 'break'); }
       if (!brk && st.state === 'break') st.state = 'idle';
-      var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : st.state === 'break' ? 'idle' : 'idle';
+      var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
       else if (st.state === 'wait') { st.timer -= dt; if (st.timer <= 0) { st.state = 'idle'; st.working = false; if (st.after) { var f = st.after; st.after = null; f(); } } }
       else if (st.state === 'break') { /* standing in the break room */ }
-      else if (st.state === 'idle') { if (st.role === 'receiver') receiverThink(st); else if (st.role === 'picker') pickerThink(st); else packerThink(st); }
+      else if (st.state === 'idle' && working) { if (st.role === 'receiver') receiverThink(st); else if (st.role === 'picker') pickerThink(st); else packerThink(st); }
       if ((st.state === 'idle' || st.state === 'break') && Math.random() < dt / 22 && S.time - (st.said || 0) > 0.4) { st.said = S.time; staffSay(st, pick(voice(st).idle), '#a0acb8'); }
       m.position.set(st.x, floorY(st.x, st.z), st.z); m.rotation.y = st.yaw;
       var near = dist2(st.x, st.z, player.x, player.z) < 36;
       animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, carrying);
     });
   }
+  function clockStand() { var P = propPlacement('timeclock'), a = P.rot * Math.PI / 2; return { x: P.x + Math.sin(a) * 1.0, z: P.z + Math.cos(a) * 1.0 }; }
+  function clockFaceYaw() { var P = propPlacement('timeclock'); return P.rot * Math.PI / 2 + Math.PI; }
   function staffWait(st, sec, after, working) { st.state = 'wait'; st.timer = sec; st.after = after; st.working = !!working; }
   function idleAt(st, spot) { if (dist2(st.x, st.z, spot.x, spot.z) > 1) { staffGo(st, spot, 'wait'); st.timer = 1.5; } else staffWait(st, 1.5 + Math.random()); }
   function receiverThink(st) {

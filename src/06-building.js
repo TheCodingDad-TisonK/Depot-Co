@@ -8,7 +8,7 @@
 
   function slotKey(r, b, l) { return r + ',' + b + ',' + l; }
   function slotParse(key) { var p = key.split(',').map(Number); return { r: p[0], b: p[1], l: p[2] }; }
-  function rackSlotPos(r, b, l) { return { x: RACK.x0 + RACK.bayW * (b + 0.5), y: RACK.levels[l], z: RACK.rows[r] }; }
+  function rackSlotPos(r, b, l) { var P = PROPS['rack' + r] ? propPlacement('rack' + r) : { x: 0, z: RACK.rows[r], rot: 0 }, a = P.rot * Math.PI / 2, lx = RACK.x0 + RACK.bayW * (b + 0.5); return { x: P.x + lx * Math.cos(a), y: RACK.levels[l], z: P.z - lx * Math.sin(a), ry: a }; }
   function slotName(key) { var p = slotParse(key); return 'Row ' + 'ABCD'[p.r] + ', bay ' + (p.b + 1) + (p.l === 0 ? ', floor' : p.l === 1 ? ', shelf' : ', top'); }
   function rowName(r) { return 'Row ' + 'ABCD'[r]; }
 
@@ -64,9 +64,7 @@
     sign(['DEPOT CO.'], 12, 2.6, 0, 5, Z + 0.17, 0, { w: 1024, h: 224, bg: '#1b232c', fg: '#f5b53d', border: '#f5b53d' });
     sign(['3PL · STORAGE · FULFILMENT'], 10, 0.8, 0, 3.2, Z + 0.17, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' });
     // the yard lamp posts (the lights themselves live in 05-three)
-    yardLights.forEach(function (l) { cyl(0.08, 7.5, MAT.steelDark, l.position.x, YARD_Y + 3.75, l.position.z, null, 8, 0.11); box(0.6, 0.2, 0.3, MAT.steelDark, l.position.x, l.position.y + 0.15, l.position.z); var lens = box(0.5, 0.04, 0.24, glowMat(0xffd9a0, 0.2), l.position.x, l.position.y + 0.03, l.position.z); yard.lampLenses.push(lens); });
     // the pallet racks the player owns
-    for (var r = 0; r < 4; r++) if (r < S.up.rows) buildRack(r);
     buildOffice(); buildBench(); buildBreakRoom();
     hingedDoor('office', 12.5, 9.45, false, 'the office door', { window: true, swing: 1 });
     hingedDoor('break', -12.5, 9.45, false, 'the break room door', { window: true, swing: -1 });
@@ -99,36 +97,35 @@
   }
   function doorPassable(i) { return doors[i].anim > 0.6; }
 
-  function buildRack(r) {
-    if (rackGroups[r]) return;
-    var g = new THREE.Group(); scene.add(g); rackGroups[r] = g;
-    var z = RACK.rows[r], x0 = RACK.x0, bw = RACK.bayW, dz = RACK.depth / 2 - 0.05;
-    for (var b = 0; b <= RACK.bays; b++) {
-      var ux = x0 + b * bw;
-      [-dz, dz].forEach(function (oz) { box(0.1, 5, 0.1, MAT.rack, ux, 2.5, z + oz, g); box(0.18, 0.02, 0.18, MAT.steelDark, ux, 0.01, z + oz, g); for (var hh = 0.3; hh < 4.9; hh += 0.35) box(0.02, 0.05, 0.06, MAT.steelDark, ux + 0.05, hh, z + oz, g); });
-      for (var br = 0; br < 5; br++) { var yb = 0.4 + br * 1.0; box(0.04, 0.04, RACK.depth - 0.1, MAT.rack, ux, yb, z, g); var dg = box(0.04, 0.04, Math.sqrt((RACK.depth - 0.1) * (RACK.depth - 0.1) + 1.0), MAT.rack, ux, yb + 0.5, z, g); dg.rotation.x = (br % 2 ? 1 : -1) * Math.atan2(1.0, RACK.depth - 0.1); }
-    }
-    for (var l = 1; l < RACK.levels.length; l++) {
-      var y = RACK.levels[l];
-      box(RACK.bays * bw, 0.12, 0.08, MAT.beam, x0 + RACK.bays * bw / 2, y - 0.06, z - dz, g); box(RACK.bays * bw, 0.12, 0.08, MAT.beam, x0 + RACK.bays * bw / 2, y - 0.06, z + dz, g);
-      for (var bp = 0; bp <= RACK.bays; bp++) { box(0.14, 0.2, 0.1, MAT.beam, x0 + bp * bw, y - 0.06, z - dz, g); box(0.14, 0.2, 0.1, MAT.beam, x0 + bp * bw, y - 0.06, z + dz, g); }
-      for (var bb2 = 0; bb2 < RACK.bays; bb2++) { var dk = plane(bw - 0.2, RACK.depth - 0.2, MAT.mesh, x0 + (bb2 + 0.5) * bw, y - 0.005, z, -Math.PI / 2, 0, g); dk.receiveShadow = false; box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, z - 0.3, g); box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, z + 0.3, g); }
-    }
-    for (var bb = 0; bb < RACK.bays; bb++) {
-      var cx = x0 + (bb + 0.5) * bw;
-      var lbl = 'ABCD'[r] + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
-      var lm = new THREE.MeshBasicMaterial({ map: bayLabelTex[lbl] });
-      [-1, 1].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lm); p.position.set(cx, 4.75, z + s * (dz + 0.06)); p.rotation.y = s > 0 ? 0 : Math.PI; g.add(p); });
-      for (var ll = 0; ll < RACK.levels.length; ll++) (function (rr, b2, l2) {
-        var key = slotKey(rr, b2, l2), sp = rackSlotPos(rr, b2, l2), hh = l2 === 2 ? 1.6 : 1.45;
-        slotHits[key] = hitBox(bw - 0.2, hh, RACK.depth, sp.x, sp.y + hh / 2, sp.z, { slot: key, prompt: function () { return slotPrompt(key); }, use: function () { slotUse(key); } }, g);
-      })(r, bb, ll);
-    }
-    solid(x0 - 0.1, x0 + RACK.bays * bw + 0.1, z - RACK.depth / 2, z + RACK.depth / 2);
-    rackEnds(r); NAV.dirty = true;
-    shadowDirty = true;
+  function buildRack(r) { if (PROPS['rack' + r]) buildProp('rack' + r); }
+  // a rack row as a prop: uprights with bracing and base plates, beams with end plates, mesh decks, bay labels, slot hit volumes, the end guards
+  function rackBuild(r) {
+    return function (c) {
+      var x0 = RACK.x0, bw = RACK.bayW, dz = RACK.depth / 2 - 0.05;
+      for (var b = 0; b <= RACK.bays; b++) {
+        var ux = x0 + b * bw;
+        [-dz, dz].forEach(function (oz) { c.box(0.1, 5, 0.1, MAT.rack, ux, 2.5, oz); c.box(0.18, 0.02, 0.18, MAT.steelDark, ux, 0.01, oz); for (var hh = 0.3; hh < 4.9; hh += 0.35) c.box(0.02, 0.05, 0.06, MAT.steelDark, ux + 0.05, hh, oz); });
+        for (var br = 0; br < 5; br++) { var yb = 0.4 + br * 1.0; c.box(0.04, 0.04, RACK.depth - 0.1, MAT.rack, ux, yb, 0); var dg = c.box(0.04, 0.04, Math.sqrt((RACK.depth - 0.1) * (RACK.depth - 0.1) + 1.0), MAT.rack, ux, yb + 0.5, 0); dg.rotation.x = (br % 2 ? 1 : -1) * Math.atan2(1.0, RACK.depth - 0.1); }
+      }
+      for (var l = 1; l < RACK.levels.length; l++) {
+        var y = RACK.levels[l];
+        c.box(RACK.bays * bw, 0.12, 0.08, MAT.beam, x0 + RACK.bays * bw / 2, y - 0.06, -dz); c.box(RACK.bays * bw, 0.12, 0.08, MAT.beam, x0 + RACK.bays * bw / 2, y - 0.06, dz);
+        for (var bp = 0; bp <= RACK.bays; bp++) { c.box(0.14, 0.2, 0.1, MAT.beam, x0 + bp * bw, y - 0.06, -dz); c.box(0.14, 0.2, 0.1, MAT.beam, x0 + bp * bw, y - 0.06, dz); }
+        for (var bb2 = 0; bb2 < RACK.bays; bb2++) { var dk = c.plane(bw - 0.2, RACK.depth - 0.2, MAT.mesh, x0 + (bb2 + 0.5) * bw, y - 0.005, 0, -Math.PI / 2, 0); dk.receiveShadow = false; c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, -0.3); c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, 0.3); }
+      }
+      for (var bb = 0; bb < RACK.bays; bb++) {
+        var cx = x0 + (bb + 0.5) * bw, lbl = 'ABCD'[r] + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
+        var lm = new THREE.MeshBasicMaterial({ map: bayLabelTex[lbl] });
+        [-1, 1].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lm); p.position.set(cx, 4.75, s * (dz + 0.06)); p.rotation.y = s > 0 ? 0 : Math.PI; c.add(p); });
+        for (var ll = 0; ll < RACK.levels.length; ll++) (function (rr, b2, l2) {
+          var key = slotKey(rr, b2, l2), hh2 = l2 === 2 ? 1.6 : 1.45;
+          slotHits[key] = c.hit(bw - 0.2, hh2, RACK.depth, cx, RACK.levels[l2] + hh2 / 2, 0, { slot: key, prompt: function () { return slotPrompt(key); }, use: function () { slotUse(key); } });
+        })(r, bb, ll);
+      }
+      c.solid(x0 - 0.1, x0 + RACK.bays * bw + 0.1, -RACK.depth / 2, RACK.depth / 2, 0, 5);
+      [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + RACK.bays * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'row ' + 'ABCD'[r]], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
+    };
   }
-
   function buildOffice() {
     var x0 = 12.5, z0 = 8.5, X = HALL.x, Z = HALL.z, h = 3.2;
     // the wall along x = x0 with a doorway, the wall along z = z0 with a window, and a ceiling
@@ -142,35 +139,11 @@
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
     var lamp = box(1.2, 0.08, 0.3, MAT.lamp, 16.5, h - 0.05, 11); world.officeLamp = lamp;
     sign(['OFFICE'], 1.4, 0.45, x0 - 0.09, 2.6, 9.95, -Math.PI / 2, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' });
-    // the breaker panel on the east wall
-    var brk = box(0.12, 0.6, 0.4, MAT.grey, HALL.x - 0.21, 1.5, SPOT.breaker.z); box(0.03, 0.12, 0.06, MAT.red, HALL.x - 0.28, 1.5, SPOT.breaker.z);
-    addInter(brk, { prompt: function () { return S.events.power ? 'Reset the breaker' : 'Breaker panel (power is on)'; }, use: function () { flipBreaker(); } });
-    sign(['MAIN BREAKER'], 0.6, 0.15, HALL.x - 0.22, 1.9, SPOT.breaker.z, -Math.PI / 2, { w: 256, h: 64, bg: '#f5b53d', fg: '#1a1205' });
-    // the order board: a wall screen the whole hall can read, on the office's north wall facing the floor
-    var c = document.createElement('canvas'); c.width = 768; c.height = 384; world.boardCtx = c.getContext('2d');
-    world.boardTex = new THREE.CanvasTexture(c); world.boardTex.encoding = THREE.sRGBEncoding; world.boardMat = new THREE.MeshBasicMaterial({ map: world.boardTex });
-    box(3.1, 1.6, 0.08, MAT.black, 16.2, 2.1, z0 - 0.12);
-    var board = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.5), world.boardMat); board.position.set(16.2, 2.1, z0 - 0.17); board.rotation.y = Math.PI; scene.add(board);
-    drawBoard();
   }
 
   function buildBench() {
     var bx = SPOT.bench.x, bz = SPOT.bench.z;
     // the two dock consoles by the outbound doors: dispatch a loaded truck early
-    [SPOT.console0, SPOT.console1].forEach(function (p, i) {
-      var di = 2 + i;
-      box(0.12, 0.6, 0.5, MAT.steelDark, p.x, 1.45, p.z); box(0.14, 0.04, 0.54, MAT.yellow, p.x, 1.77, p.z); cyl(0.012, 1.0, MAT.black, p.x + 0.03, 0.65, p.z, null, 6);
-      touchScreen({ w: 320, h: 240, pw: 0.4, ph: 0.3, x: p.x - 0.065, y: 1.47, z: p.z, ry: -Math.PI / 2, title: 'Dock console ' + dockLabel(di), draw: function (c, sc) {
-        scBg(c, sc.w, sc.h, 'rgba(95,211,141,0.16)'); scHead(c, sc.w, 'DOCK ' + dockLabel(di));
-        var t = truckAtDoor(di), nxt = TRUCK_OUT[i];
-        if (t) { scText(c, 16, 66, 'Truck docked · ' + t.driver, '#5fd38d', 15); scText(c, 16, 86, t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scButton(sc, 16, 104, 288, 44, t.parcels.length ? 'DISPATCH NOW' : 'nothing loaded', t.parcels.length > 0, function () { consoleUse(di); }, '#5fd38d'); }
-        else { scText(c, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(c, 16, 86, 'Next: ' + fmtTime(nxt.arrive) + ' to ' + fmtTime(nxt.leave), '#eef1f5', 13); }
-        scButton(sc, 16, 160, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
-        var packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length; scButton(sc, 164, 160, 140, 40, packed + ' packed waiting', false, function () { scanToggle(true); scanPage(0); });
-        scText(c, 16, 226, S.events.power ? 'NO POWER' : 'mains ok', S.events.power ? '#ff6b5e' : '#5fd38d', 11);
-      } });
-      sign(['DOCK ' + dockLabel(di)], 0.7, 0.18, p.x - 0.12, 1.95, p.z, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
-    });
   }
 
   // the break room: the south-west corner, walled off like the office, with a window onto the floor and a door
