@@ -109,4 +109,5 @@
     else if (e.code === 'KeyG') { if (driving) stopDrive(); else putDown(); }
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
+  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); }, { passive: true });
   window.addEventListener('blur', function () { player.keys = {}; });

@@ -29,8 +29,8 @@
     var g = new THREE.Group(), u = g.userData; u.dynamic = true;
     u.key = 'f' + Math.floor(Math.random() * 1000); u.mood = opt.mood || 'neutral'; u.blink = 0; u.blinkIn = randf(2, 6); u.walk = 0; u.idleT = Math.random() * 10; u.lookYaw = 0; u.lookPitch = 0;
     function leg(x) { var hip = new THREE.Group(); hip.position.set(x, 0.86, 0); cyl(0.075, 0.42, pants, 0, -0.21, 0, hip, 10); var knee = new THREE.Group(); knee.position.set(0, -0.42, 0); cyl(0.065, 0.4, pants, 0, -0.2, 0, knee, 10); box(0.16, 0.08, 0.27, MAT.black, 0, -0.42, 0.04, knee); hip.add(knee); hip.userData.knee = knee; g.add(hip); return hip; }
-    function arm(x) { var sh = new THREE.Group(); sh.position.set(x, 1.38, 0); cyl(0.05, 0.3, shirt, 0, -0.15, 0, sh, 8); var el = new THREE.Group(); el.position.set(0, -0.3, 0); cyl(0.045, 0.28, shirt, 0, -0.14, 0, el, 8); sphere(0.05, skin, 0, -0.3, 0, el); sh.add(el); sh.userData.elbow = el; g.add(sh); return sh; }
-    u.legs = [leg(-0.12), leg(0.12)]; u.arms = [arm(-0.27), arm(0.27)];
+    function arm(x) { var sh = new THREE.Group(); sh.position.set(x, 1.38, 0); sphere(0.065, shirt, 0, 0, 0, sh); cyl(0.052, 0.3, shirt, 0, -0.15, 0, sh, 8); var el = new THREE.Group(); el.position.set(0, -0.3, 0); sphere(0.05, shirt, 0, 0, 0, el); cyl(0.045, 0.26, skin, 0, -0.14, 0, el, 8); var hd = sphere(0.055, skin, 0, -0.3, 0.01, el); hd.scale.set(0.8, 1.1, 0.6); sh.add(el); sh.userData.elbow = el; g.add(sh); return sh; }
+    u.legs = [leg(-0.12), leg(0.12)]; u.arms = [arm(-0.245), arm(0.245)];
     box(0.4, 0.58, 0.23, shirt, 0, 1.14, 0, g); box(0.44, 0.1, 0.26, shirt, 0, 1.4, 0, g);
     if (opt.vest) { box(0.46, 0.46, 0.28, opt.vest, 0, 1.16, 0, g); box(0.48, 0.04, 0.3, MAT.chrome, 0, 1.08, 0, g); box(0.48, 0.04, 0.3, MAT.chrome, 0, 1.24, 0, g); }
     if (opt.name) { var tag = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.05), new THREE.MeshBasicMaterial({ map: textTex([opt.name], { w: 128, h: 48, bg: '#fff', fg: '#1b232c' }) })); tag.position.set(0.1, 1.3, 0.145); g.add(tag); }

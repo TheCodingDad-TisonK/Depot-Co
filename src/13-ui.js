@@ -26,11 +26,11 @@
   // ── The hand scanner (Tab) ────────────────────────────────────────
   var scan = { page: 0 };
   var SCAN_PAGES = ['Orders', 'Putaway', 'Stock', 'Day'];
-  function scanToggle(on) { ui.scanOpen = on; $('dc-scan').hidden = !on; if (on) { sfx('scan'); introStep('scanner'); renderScan(); } }
-  function scanPage(i) { scan.page = i; sfx('click'); renderScan(); }
+  function scanToggle(on) { if (on && driving) return; ui.scanOpen = on; if (on) { sfx('scan'); introStep('scanner'); drawScanner(); } }
+  function scanPage(i) { scan.page = i; sfx('click'); drawScanner(); }
   function sw(sku) { return '<span class="sw" style="background:' + SKU[sku].col + '"></span>'; }
   function renderScan() {
-    if (!ui.scanOpen) return;
+    if (!ui.scanOpen || true) return;   // the HTML scanner is retired: the device in your hand draws its own display
     $('dc-scan-tabs').innerHTML = SCAN_PAGES.map(function (n, i) { return '<button class="' + (i === scan.page ? 'on' : '') + '" data-page="' + i + '">' + (i + 1) + ' ' + n + '</button>'; }).join('');
     $('dc-scan-title').textContent = 'Scanner · ' + SCAN_PAGES[scan.page];
     var h = '';
@@ -206,8 +206,11 @@
       '<h3>Racks</h3><p>Every slot holds up to 12 boxes of one line. The floor and shelf levels are hand-reachable; the top level needs the forklift. Look at a slot and press E to put a box on or take one off. The jack sets a whole pallet into a floor-level slot.</p>' +
       '<h3>Orders</h3><p>Orders arrive between 08:00 and 17:00 on the office PC, the wall board and the scanner. Each one lists lines and a due time, which is the departure of an outbound truck. Pick the boxes, put them on the packing bench, press E on the bench with empty hands and pack. The parcel appears on the shelf beside the bench.</p>' +
       '<h3>Shipping</h3><p>Outbound trucks wait at OUT 1 from 10:30 to 12:00 and OUT 2 from 16:00 to 18:00. Open the door, carry the parcel into the trailer and press E. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
-      '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, lifts with R and F, and takes pallets to the top level. G gets off.</p>' +
+      '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
+      '<h3>Drivers</h3><p>Sign the delivery note with the driver (<kbd>E</kbd> on him by the dock outside) before anything comes off the truck. He will nag after two hours.</p>' +
+      '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery that charges in its bay; flat, it crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
       '<h3>Staff</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC. They work 08:00 to 18:00 and are paid at 06:00. They will not open dock doors: that stays your job.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
+      '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
       '<h3>Tips</h3><p>Keep one slot per line and the scanner tells you where everything is. Pack before the truck arrives, not after. Coffee makes you faster for an hour. Reputation brings more and bigger orders.</p>';
   }

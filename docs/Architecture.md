@@ -26,15 +26,21 @@ They join in file-name order into one function scope, so every `function` is hoi
 | `03-state` | `freshState()`, `load()`, `save()`, `pay()`, `addXp()`, `addRep()`. The state is the single object `S`. |
 | `04-sound` | The feed, toasts, and every sound effect as a small Web Audio synth. |
 | `05-three` | Renderer, camera, lights, every texture drawn on a canvas, every material, the `box`/`plane`/`sign`/`hitBox` helpers, the `inter` list and the `solids` list. |
-| `06-building` | The hall, the yard, the dock doors, the racks (`buildRack`), the office, the bench, the break room, the order board, `floorY()`. |
+| `06-building` | The hall, the dock doors, the racks (`buildRack`), the office, the bench, the break room, the order board, `floorY()`. |
+| `06-doors` | The touch-screen kit (`touchScreen`, UV tap mapping), hinged doors with locks, the control cabinet. |
+| `06-dressing` | Everything that makes the hall look worked in: clocks, fans, posters, fire points, the baler and wrapper, the break room and office props, the KPI board. |
+| `06-yard` | The yard: lanes, dock shelters, fence, barrier gates, gatehouses and guards, car park, neighbours, the road and its traffic, sun, moon, clouds, puddles, rain and snow particles. |
 | `07-items` | Boxes, pallets and parcels as three instanced meshes laid out from `S` every frame (`syncInstances`), the hand, the rack-slot logic, the floor. |
 | `08-trucks` | The timetable, the truck mesh, docking, departure, the receiving fee, loading parcels, the dock consoles. |
 | `09-orders` | Clients, order generation, lateness, the packing bench, packing, the parcel shelf, shipping and pay. |
 | `10-vehicles` | The jack and the cart you push, the forklift you drive. |
 | `11-staff` | The human model, the aisle router, the receiver, the picker, the packer. |
 | `12-player` | Movement, collision against `solids` and `dyn`, the centre raycast that sets `focus`, the keys. |
-| `13-ui` | HUD, scanner, the PC and bench panels, the pause menu, settings, the guide. |
+| `13-scanner-device` | The handheld scanner in the hand and its canvas display. |
+| `13-ui` | HUD, the PC and bench panels, the pause menu, settings, the guide. |
+| `14-bake` | The static-geometry bake: every mesh that never moves is merged by material. Groups flagged `userData.dynamic`, glowing materials and anything interactive are left alone. |
 | `14-events` | The clock, the day roll, lighting by the hour, sleep, coffee, power cuts, the inspector, the prowler, levels, the guided intro. |
+| `14-life` | Seasons and weather, rain ambience and thunder, the radio sequencer, the forklift battery, the stretch wrapper. |
 | `15-boot` | Load, build, the frame loop, autosave, `window.DEPOT`. |
 
 ## How things relate
@@ -43,7 +49,7 @@ They join in file-name order into one function scope, so every `function` is hoi
 - **Interaction is a raycast from the screen centre** against `inter` (hit meshes with a `userData.it` of `{ prompt(), use() }`) plus the three instanced meshes. The nearest hit whose `prompt()` returns text becomes `focus`. `E` calls `focus.use()`.
 - **Collision is axis-aligned boxes.** `solids` is static (walls, racks, furniture). `dyn` is rebuilt every tick from pallets on the floor, docked trailers, closed doors, the forklift. The player is a circle of radius 0.32 moved one axis at a time. `floorY(x, z)` says whether the ground here is the hall (0), a docked trailer (0), the ramp, or the yard (-1.2); a rise of more than half a metre counts as a wall.
 - **Time** runs at one game hour per 37.5 real seconds while open, four times that at night, and stops while a panel or the pause menu is open. Trucks spawn when the clock crosses their slot and a flag keyed by day keeps them from spawning twice.
-- **Staff** walk the aisles through `route(a, b)`: inside the rack block (|x| < 13) they move along one of five fixed z lanes and change lane only at either end.
+- **Staff** walk through `route(a, b)`: A* on a 0.4 m grid built from the static solids, with cells outside the hall open only inside a docked trailer, then string-pulled. Hinged doors never block them (they carry keys).
 - **The test handle** `window.DEPOT.T` exposes the state and the action functions so the smoke test can play without a mouse: `T.run(seconds)` advances the whole world in 50 ms steps.
 
 ## Adding a line, a client, an upgrade

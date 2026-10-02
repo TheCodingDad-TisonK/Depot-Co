@@ -1084,7 +1084,7 @@
     var streak = tex(16, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(210,225,240,0)'); g.addColorStop(0.5, 'rgba(210,225,240,0.9)'); g.addColorStop(1, 'rgba(210,225,240,0)'); c.fillStyle = g; c.fillRect(6, 0, 4, h); });
     var flake = tex(32, 32, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
     var mkPoints = function (n, size, map, range) { var geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { pos[i * 3] = randf(-range, range); pos[i * 3 + 1] = randf(0, 16); pos[i * 3 + 2] = randf(-range, range); } geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); var pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: map, size: size, transparent: true, opacity: 0.85, depthWrite: false, alphaTest: 0.05 })); pts.visible = false; pts.frustumCulled = false; scene.add(pts); return pts; };
-    yard.rain = mkPoints(7000, 0.9, streak, 24); yard.snow = mkPoints(3000, 0.22, flake, 30);
+    yard.rain = mkPoints(6000, 0.55, streak, 24); yard.snow = mkPoints(3000, 0.22, flake, 30);
   }
 
   function tickYard(dt) {
@@ -1101,7 +1101,7 @@
     var W = S.weather || { kind: 'clear', wet: 0, snow: 0, wind: 0.4 };
     var raining = W.kind === 'rain' || W.kind === 'storm', snowing = W.kind === 'snow';
     yard.rain.visible = raining; yard.snow.visible = snowing;
-    if (raining) { var p = yard.rain.geometry.attributes.position.array, px = player.x, pz = player.z; for (var r = 0; r < p.length; r += 3) { p[r + 1] -= (9 + (W.kind === 'storm' ? 4 : 0)) * dt; var inHall = Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z; if (p[r + 1] < (inHall ? HALL.h + 0.3 : YARD_Y) || Math.abs(p[r] - px) > 26 || Math.abs(p[r + 2] - pz) > 26) { p[r] = px + randf(-24, 24); p[r + 1] = randf(6, 16); p[r + 2] = pz + randf(-24, 24); } } yard.rain.geometry.attributes.position.needsUpdate = true; }
+    if (raining) { var p = yard.rain.geometry.attributes.position.array, px = player.x, pz = player.z; for (var r = 0; r < p.length; r += 3) { p[r + 1] -= (9 + (W.kind === 'storm' ? 4 : 0)) * dt; var inHall = Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z, roofY = inHall ? HALL.h + 0.3 : YARD_Y; if (!inHall) for (var tk = 0; tk < S.trucks.length; tk++) { var tb = trailerBounds(S.trucks[tk]); if (p[r] > tb.x0 - 3.5 && p[r] < tb.x1 + 3.5 && p[r + 2] > tb.z0 - 0.4 && p[r + 2] < tb.z1 + 0.4) { roofY = TRAILER.h + 0.1; break; } } if (p[r + 1] < roofY || Math.abs(p[r] - px) > 26 || Math.abs(p[r + 2] - pz) > 26) { p[r] = px + randf(-24, 24); p[r + 1] = randf(6, 16); p[r + 2] = pz + randf(-24, 24); } } yard.rain.geometry.attributes.position.needsUpdate = true; }
     if (snowing) { var q = yard.snow.geometry.attributes.position.array, qx = player.x, qz = player.z; for (var s = 0; s < q.length; s += 3) { q[s + 1] -= 1.3 * dt; q[s] += Math.sin(yard.windT + s) * 0.4 * dt; var inH = Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z; if (q[s + 1] < (inH ? HALL.h + 0.3 : YARD_Y) || Math.abs(q[s] - qx) > 32 || Math.abs(q[s + 2] - qz) > 32) { q[s] = qx + randf(-30, 30); q[s + 1] = randf(6, 16); q[s + 2] = qz + randf(-30, 30); } } yard.snow.geometry.attributes.position.needsUpdate = true; }
     yard.puddles.forEach(function (pm) { pm.material.opacity = W.wet * 0.85; });
     var snowCol = 0xdfe4e9; MAT.yard.color.setHex(0xffffff).lerp(new THREE.Color(snowCol), W.snow * 0.9); MAT.grass.color.setHex(0xffffff).lerp(new THREE.Color(0xf4f6f8), W.snow);
@@ -1278,7 +1278,7 @@
     [-1, 1].forEach(function (s) { var dr = box(0.05, h - 0.1, w / 2 - 0.05, MAT.trailer, L(0.9), h / 2, s * (w / 2 + 0.09 + (w / 2 - 0.05) / 2) * 0 + s * (w / 2 + 0.08), g); dr.rotation.y = 0; dr.position.set(L(0.4 + (w / 2 - 0.05) / 2), h / 2, s * (w / 2 + 0.09)); dr.rotation.y = Math.PI / 2; });   // the rear doors, swung open flat against the sides
     box(len - 2.4, 0.5, 1.6, MAT.steelDark, L(len / 2 + 0.6), -0.45, 0, g); box(len - 3, 0.25, 0.08, MAT.hazard, L(len / 2), -0.25, -(w / 2 + 0.03), g); box(len - 3, 0.25, 0.08, MAT.hazard, L(len / 2), -0.25, w / 2 + 0.03, g);
     [1.9, 3.1].forEach(function (x) { [-1, 1].forEach(function (s) { truckWheel(g, L(x), -0.7, s * 1.0, 0.5, 0.36); }); });
-    [-1, 1].forEach(function (s) { var mg = cyl(0.62, 0.9, MAT.black, L(2.5), -0.55, s * 1.0, g, 16); mg.rotation.z = Math.PI / 2; mg.scale.set(1, 1, 0.55); mg.position.y = -0.45; });
+    [-1, 1].forEach(function (s) { box(2.0, 0.08, 0.5, MAT.black, L(2.5), -0.14, s * 1.05, g); var f1 = box(0.5, 0.08, 0.5, MAT.black, L(1.35), -0.3, s * 1.05, g); f1.rotation.z = side * 0.6; var f2 = box(0.5, 0.08, 0.5, MAT.black, L(3.65), -0.3, s * 1.05, g); f2.rotation.z = -side * 0.6; box(0.06, 0.4, 0.06, MAT.steelDark, L(2.5), -0.35, s * 1.3, g); });
     box(0.08, 0.25, w + 0.3, MAT.steelDark, L(0.3), -0.95, 0, g); box(0.3, 0.12, 0.25, MAT.red, L(0.15), -0.35, -(w / 2 - 0.15), g); box(0.3, 0.12, 0.25, MAT.red, L(0.15), -0.35, w / 2 - 0.15, g);
     sign([t.dir === 'in' ? 'KH 19 ' + t.num : 'DC 20 ' + t.num], 0.5, 0.12, L(0.0), -0.6, 0, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 64, bg: '#f5f1e6', fg: '#1b232c' }, g);
     cyl(0.05, 0.9, MAT.steelDark, L(len - 1.5), -0.65, -0.9, g, 8); cyl(0.05, 0.9, MAT.steelDark, L(len - 1.5), -0.65, 0.9, g, 8); box(0.3, 0.08, 0.3, MAT.steelDark, L(len - 1.5), -1.12, -0.9, g); box(0.3, 0.08, 0.3, MAT.steelDark, L(len - 1.5), -1.12, 0.9, g);
@@ -1692,8 +1692,8 @@
     var g = new THREE.Group(), u = g.userData; u.dynamic = true;
     u.key = 'f' + Math.floor(Math.random() * 1000); u.mood = opt.mood || 'neutral'; u.blink = 0; u.blinkIn = randf(2, 6); u.walk = 0; u.idleT = Math.random() * 10; u.lookYaw = 0; u.lookPitch = 0;
     function leg(x) { var hip = new THREE.Group(); hip.position.set(x, 0.86, 0); cyl(0.075, 0.42, pants, 0, -0.21, 0, hip, 10); var knee = new THREE.Group(); knee.position.set(0, -0.42, 0); cyl(0.065, 0.4, pants, 0, -0.2, 0, knee, 10); box(0.16, 0.08, 0.27, MAT.black, 0, -0.42, 0.04, knee); hip.add(knee); hip.userData.knee = knee; g.add(hip); return hip; }
-    function arm(x) { var sh = new THREE.Group(); sh.position.set(x, 1.38, 0); cyl(0.05, 0.3, shirt, 0, -0.15, 0, sh, 8); var el = new THREE.Group(); el.position.set(0, -0.3, 0); cyl(0.045, 0.28, shirt, 0, -0.14, 0, el, 8); sphere(0.05, skin, 0, -0.3, 0, el); sh.add(el); sh.userData.elbow = el; g.add(sh); return sh; }
-    u.legs = [leg(-0.12), leg(0.12)]; u.arms = [arm(-0.27), arm(0.27)];
+    function arm(x) { var sh = new THREE.Group(); sh.position.set(x, 1.38, 0); sphere(0.065, shirt, 0, 0, 0, sh); cyl(0.052, 0.3, shirt, 0, -0.15, 0, sh, 8); var el = new THREE.Group(); el.position.set(0, -0.3, 0); sphere(0.05, shirt, 0, 0, 0, el); cyl(0.045, 0.26, skin, 0, -0.14, 0, el, 8); var hd = sphere(0.055, skin, 0, -0.3, 0.01, el); hd.scale.set(0.8, 1.1, 0.6); sh.add(el); sh.userData.elbow = el; g.add(sh); return sh; }
+    u.legs = [leg(-0.12), leg(0.12)]; u.arms = [arm(-0.245), arm(0.245)];
     box(0.4, 0.58, 0.23, shirt, 0, 1.14, 0, g); box(0.44, 0.1, 0.26, shirt, 0, 1.4, 0, g);
     if (opt.vest) { box(0.46, 0.46, 0.28, opt.vest, 0, 1.16, 0, g); box(0.48, 0.04, 0.3, MAT.chrome, 0, 1.08, 0, g); box(0.48, 0.04, 0.3, MAT.chrome, 0, 1.24, 0, g); }
     if (opt.name) { var tag = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.05), new THREE.MeshBasicMaterial({ map: textTex([opt.name], { w: 128, h: 48, bg: '#fff', fg: '#1b232c' }) })); tag.position.set(0.1, 1.3, 0.145); g.add(tag); }
@@ -2048,7 +2048,84 @@
     else if (e.code === 'KeyG') { if (driving) stopDrive(); else putDown(); }
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
+  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); }, { passive: true });
   window.addEventListener('blur', function () { player.keys = {}; });
+  // ── The scanner device ────────────────────────────────────────────
+  var scanDev = { g: null, canvas: null, ctx: null, tex: null, t: 0, redrawT: 0, laser: null, laserT: 0, lastFocusSlot: null };
+  function buildScanner() {
+    var g = new THREE.Group(); g.userData.dynamic = true; handGroup.add(g); scanDev.g = g;
+    var body = std({ color: 0x2b3038, roughness: 0.55 }), rub = std({ color: 0x1b1e23, roughness: 0.95 });
+    box(0.095, 0.21, 0.028, body, 0, 0, 0, g); box(0.1, 0.03, 0.03, rub, 0, 0.105, 0, g); box(0.1, 0.03, 0.03, rub, 0, -0.105, 0, g); box(0.012, 0.21, 0.03, rub, -0.05, 0, 0, g); box(0.012, 0.21, 0.03, rub, 0.05, 0, 0, g);
+    box(0.06, 0.016, 0.02, glowMat(0xff2a1a, 0.5), 0, 0.118, 0.0, g);   // the scan window
+    var grip = box(0.05, 0.12, 0.04, rub, 0, -0.1, -0.035, g); grip.rotation.x = 0.5; box(0.03, 0.02, 0.02, MAT.yellow, 0, -0.05, -0.05, g);   // the pistol grip and its trigger
+    for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) box(0.016, 0.012, 0.006, c === 0 && r === 0 ? MAT.yellow : std({ color: 0x4a515b, roughness: 0.6 }), -0.03 + c * 0.02, -0.04 - r * 0.018, 0.016, g);
+    var cv = document.createElement('canvas'); cv.width = 240; cv.height = 300; scanDev.canvas = cv; scanDev.ctx = cv.getContext('2d');
+    var tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 8; scanDev.tex = tx;
+    var scr = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.1), new THREE.MeshBasicMaterial({ map: tx })); scr.position.set(0, 0.04, 0.015); g.add(scr);
+    var gl = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.1), MAT.screenGlass); gl.position.set(0, 0.04, 0.0165); gl.renderOrder = 2; g.add(gl);
+    var laser = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.004), new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0, depthWrite: false })); laser.position.set(0, 0.16, 0.6); scanDev.laser = laser; g.add(laser);
+    sign(['DEPOT CO.'], 0.06, 0.012, 0, -0.098, 0.015, 0, { w: 256, h: 48, bg: '#2b3038', fg: '#a0acb8' }, g);
+    g.position.set(0.3, -0.62, -0.42); g.rotation.set(-0.45, -0.35, 0.1); g.scale.set(1.7, 1.7, 1.7); g.visible = false;
+    drawScanner();
+  }
+  function scanRow(c, y, sw, text, sub, right, hi) {
+    c.fillStyle = hi ? 'rgba(245,181,61,0.12)' : 'rgba(255,255,255,0.05)'; c.fillRect(8, y - 13, 224, sub ? 30 : 20);
+    if (sw) { c.fillStyle = sw; c.fillRect(12, y - 8, 8, 8); }
+    c.fillStyle = '#eef1f5'; c.font = 'bold 11px Bahnschrift, Arial, sans-serif'; c.textAlign = 'left'; c.fillText(String(text).slice(0, 30), sw ? 26 : 12, y);
+    if (sub) { c.fillStyle = '#a0acb8'; c.font = '9px Bahnschrift, Arial, sans-serif'; c.fillText(String(sub).slice(0, 44), sw ? 26 : 12, y + 11); }
+    if (right !== undefined) { c.fillStyle = hi ? '#5fd38d' : '#f5b53d'; c.font = 'bold 11px Bahnschrift, Arial, sans-serif'; c.textAlign = 'right'; c.fillText(String(right), 228, y); c.textAlign = 'left'; }
+    return y + (sub ? 34 : 24);
+  }
+  function drawScanner() {
+    var c = scanDev.ctx; if (!c) return; var w = 240, h = 300;
+    c.fillStyle = '#0a0f13'; c.fillRect(0, 0, w, h); var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(245,181,61,0.14)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#f5b53d'; c.font = 'bold 13px Bahnschrift, Arial, sans-serif'; c.textAlign = 'left'; c.fillText(SCAN_PAGES[scan.page].toUpperCase(), 10, 18);
+    c.fillStyle = '#a0acb8'; c.font = '10px Bahnschrift, Arial, sans-serif'; c.textAlign = 'right'; c.fillText(fmtTime(S.time) + '  ▮▮▮', 230, 18); c.textAlign = 'left';
+    for (var p = 0; p < 4; p++) { c.fillStyle = p === scan.page ? '#f5b53d' : 'rgba(255,255,255,0.18)'; c.fillRect(10 + p * 56, 24, 50, 3); }
+    var y = 46;
+    if (scan.page === 0) {
+      var os = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed' || o.state === 'loaded'; }).sort(function (a, b) { return a.due - b.due; });
+      if (!os.length) { c.fillStyle = '#6b7784'; c.font = '11px Bahnschrift, Arial'; c.fillText('No orders. They arrive from 08:30.', 12, y + 10); }
+      os.slice(0, 4).forEach(function (o) {
+        c.fillStyle = o.late ? '#ff6b5e' : o.rush ? '#ff6b5e' : '#f5b53d'; c.font = 'bold 11px Bahnschrift, Arial'; c.fillText('#' + o.num + ' ' + clientName(o.client).slice(0, 18) + (o.state !== 'open' ? ' · ' + o.state.toUpperCase() : ''), 12, y); c.fillStyle = '#a0acb8'; c.font = '9px Bahnschrift, Arial'; c.textAlign = 'right'; c.fillText('due ' + fmtTime(o.due % 24), 228, y); c.textAlign = 'left'; y += 14;
+        if (o.state === 'open') o.lines.forEach(function (l) { if (y > h - 20) return; var have = Math.min(l.qty, S.bench.boxes[l.sku] || 0), where = slotsWith(l.sku).filter(function (k) { return slotParse(k).l < RACK.top; })[0]; y = scanRow(c, y, SKU[l.sku].col, skuName(l.sku), where ? slotName(where) : (stockCount(l.sku) ? 'top level only' : 'not in stock'), have + '/' + l.qty, have >= l.qty); });
+        y += 4;
+      });
+    } else if (scan.page === 1) {
+      var any = false;
+      S.trucks.forEach(function (t) { if (t.dir !== 'in' || t.state !== 'docked') return; var ps = S.pallets.filter(function (p) { return p.place === 'truck' && p.truck === t.id; }); any = true; c.fillStyle = '#f5b53d'; c.font = 'bold 11px Bahnschrift, Arial'; c.fillText(dockLabel(t.dock) + ' · ' + ps.length + ' pallets · leaves ' + fmtTime(t.leave), 12, y); y += 14; if (!t.signed) { c.fillStyle = '#ff6b5e'; c.font = '9px Bahnschrift, Arial'; c.fillText('Delivery note not signed', 12, y); y += 12; } ps.slice(0, 5).forEach(function (p) { if (y > h - 20) return; var k = findSlotFor(p.sku, p.n, 1); y = scanRow(c, y, SKU[p.sku].col, p.n + ' × ' + skuName(p.sku), k ? '→ ' + slotName(k) : 'no rack space', undefined, false); }); });
+      var fl = S.pallets.filter(function (p) { return p.place === 'floor'; });
+      if (fl.length) { any = true; c.fillStyle = '#f5b53d'; c.font = 'bold 11px Bahnschrift, Arial'; c.fillText('On the floor', 12, y); y += 14; fl.slice(0, 4).forEach(function (p) { if (y > h - 20) return; var k = findSlotFor(p.sku, p.n, 1); y = scanRow(c, y, SKU[p.sku].col, p.n + ' × ' + skuName(p.sku) + (p.wrapped ? ' (wrapped)' : ''), k ? '→ ' + slotName(k) : 'no rack space'); }); }
+      if (S.floor.length) { any = true; y = scanRow(c, y, null, S.floor.length + ' loose on the floor', 'the inspector counts these'); }
+      if (!any) { c.fillStyle = '#6b7784'; c.font = '11px Bahnschrift, Arial'; c.fillText('Nothing to put away.', 12, y + 10); c.fillText('Trucks: ' + TRUCK_IN.map(fmtTime).join(', '), 12, y + 26); }
+    } else if (scan.page === 2) {
+      var sum = stockSummary(), keys = Object.keys(sum).sort(function (a, b) { return sum[b] - sum[a]; });
+      var used = Object.keys(S.slots).filter(function (k) { return S.slots[k].n > 0; }).length;
+      c.fillStyle = '#a0acb8'; c.font = '10px Bahnschrift, Arial'; c.fillText(used + ' / ' + (S.up.rows * RACK.bays * RACK.levels.length) + ' slots · ' + totalStock() + ' boxes', 12, y); y += 16;
+      if (!keys.length) { c.fillStyle = '#6b7784'; c.font = '11px Bahnschrift, Arial'; c.fillText('The racks are empty.', 12, y + 10); }
+      keys.slice(0, 8).forEach(function (k) { if (y > h - 20) return; y = scanRow(c, y, SKU[k].col, skuName(k), slotsWith(k).slice(0, 2).map(slotName).join(' · '), sum[k], true); });
+    } else {
+      c.fillStyle = '#a0acb8'; c.font = '10px Bahnschrift, Arial'; c.fillText('Day ' + S.day + ' · ' + SEASONS[season()] + (isSunday() ? ' · SUNDAY, closed' : '') + ' · ' + (S.weather ? S.weather.kind : 'clear'), 12, y); y += 16;
+      y = scanRow(c, y, null, 'Inbound ' + TRUCK_IN.map(fmtTime).join(' & '), 'wait ' + TRUCK_WAIT + ' h · ' + (S.up.dock2 ? 'both bays' : 'IN 1'));
+      y = scanRow(c, y, null, 'Outbound', TRUCK_OUT.map(function (w, i) { return 'OUT ' + (i + 1) + ' ' + fmtTime(w.arrive) + '-' + fmtTime(w.leave); }).join('  '));
+      S.trucks.forEach(function (t) { if (y > h - 40) return; y = scanRow(c, y, null, (t.dir === 'in' ? 'IN' : 'OUT') + ' · ' + dockLabel(t.dir === 'in' ? t.dock : 2 + t.dock) + ' · ' + t.state, (t.dir === 'in' ? t.pallets.length + ' pallets' : t.parcels.length + ' parcels') + ' · leaves ' + fmtTime(t.leave), undefined, t.state === 'docked'); });
+      y = scanRow(c, y, null, 'Bank ' + money(S.bank), 'rent ' + money(ECON.rent) + ' + wages ' + money(S.staff.reduce(function (a, s) { return a + STAFF_ROLES[s.role].wage; }, 0)) + ' at 06:00', 'rep ' + Math.round(S.rep));
+      if (S.up.fork) y = scanRow(c, y, null, 'Forklift battery', forkCharging() ? 'charging' : 'in the bay to charge', Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100) + '%', (S.fork.batt || 1) > 0.3);
+    }
+    // the slot under the crosshair, if any
+    if (focus && focus.slot && y < h - 30) { var sl = S.slots[focus.slot]; c.fillStyle = 'rgba(95,211,141,0.15)'; c.fillRect(0, h - 30, w, 30); c.fillStyle = '#5fd38d'; c.font = 'bold 10px Bahnschrift, Arial'; c.fillText('▶ ' + slotName(focus.slot), 10, h - 17); c.fillStyle = '#eef1f5'; c.font = '10px Bahnschrift, Arial'; c.fillText(sl && sl.n ? sl.n + ' × ' + skuName(sl.sku) : 'empty', 10, h - 5); }
+    c.fillStyle = '#6b7784'; c.font = '8px Bahnschrift, Arial'; c.textAlign = 'right'; c.fillText('1-4 pages · Tab', 230, h - 5); c.textAlign = 'left';
+    scanDev.tex.needsUpdate = true;
+  }
+  function tickScanner(dt) {
+    if (!scanDev.g) return;
+    var want = ui.scanOpen && !driving ? 1 : 0;
+    scanDev.t = lerp(scanDev.t, want, 1 - Math.pow(0.002, dt));
+    scanDev.g.visible = scanDev.t > 0.02;
+    scanDev.g.position.set(0.26 - scanDev.t * 0.06, -0.62 + scanDev.t * 0.42, -0.42 + scanDev.t * 0.04); scanDev.g.rotation.set(-0.45 + scanDev.t * 0.3, -0.35 + scanDev.t * 0.15, 0.1);
+    if (scanDev.laserT > 0) { scanDev.laserT -= dt; scanDev.laser.material.opacity = Math.max(0, scanDev.laserT * 3); }
+    if (ui.scanOpen) { scanDev.redrawT += dt; var slotNow = focus && focus.slot ? focus.slot : null; if (scanDev.redrawT > 0.5 || slotNow !== scanDev.lastFocusSlot) { scanDev.redrawT = 0; scanDev.lastFocusSlot = slotNow; drawScanner(); if (slotNow && slotNow !== scanDev.lastBeep) { scanDev.lastBeep = slotNow; sfx('scan'); scanDev.laserT = 0.3; } } }
+  }
   // ── HUD ───────────────────────────────────────────────────────────
   var hudT = 0, lastClock = '';
   function updateHud(dt) {
@@ -2076,11 +2153,11 @@
   // ── The hand scanner (Tab) ────────────────────────────────────────
   var scan = { page: 0 };
   var SCAN_PAGES = ['Orders', 'Putaway', 'Stock', 'Day'];
-  function scanToggle(on) { ui.scanOpen = on; $('dc-scan').hidden = !on; if (on) { sfx('scan'); introStep('scanner'); renderScan(); } }
-  function scanPage(i) { scan.page = i; sfx('click'); renderScan(); }
+  function scanToggle(on) { if (on && driving) return; ui.scanOpen = on; if (on) { sfx('scan'); introStep('scanner'); drawScanner(); } }
+  function scanPage(i) { scan.page = i; sfx('click'); drawScanner(); }
   function sw(sku) { return '<span class="sw" style="background:' + SKU[sku].col + '"></span>'; }
   function renderScan() {
-    if (!ui.scanOpen) return;
+    if (!ui.scanOpen || true) return;   // the HTML scanner is retired: the device in your hand draws its own display
     $('dc-scan-tabs').innerHTML = SCAN_PAGES.map(function (n, i) { return '<button class="' + (i === scan.page ? 'on' : '') + '" data-page="' + i + '">' + (i + 1) + ' ' + n + '</button>'; }).join('');
     $('dc-scan-title').textContent = 'Scanner · ' + SCAN_PAGES[scan.page];
     var h = '';
@@ -2256,9 +2333,12 @@
       '<h3>Racks</h3><p>Every slot holds up to 12 boxes of one line. The floor and shelf levels are hand-reachable; the top level needs the forklift. Look at a slot and press E to put a box on or take one off. The jack sets a whole pallet into a floor-level slot.</p>' +
       '<h3>Orders</h3><p>Orders arrive between 08:00 and 17:00 on the office PC, the wall board and the scanner. Each one lists lines and a due time, which is the departure of an outbound truck. Pick the boxes, put them on the packing bench, press E on the bench with empty hands and pack. The parcel appears on the shelf beside the bench.</p>' +
       '<h3>Shipping</h3><p>Outbound trucks wait at OUT 1 from 10:30 to 12:00 and OUT 2 from 16:00 to 18:00. Open the door, carry the parcel into the trailer and press E. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
-      '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, lifts with R and F, and takes pallets to the top level. G gets off.</p>' +
+      '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
+      '<h3>Drivers</h3><p>Sign the delivery note with the driver (<kbd>E</kbd> on him by the dock outside) before anything comes off the truck. He will nag after two hours.</p>' +
+      '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery that charges in its bay; flat, it crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
       '<h3>Staff</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC. They work 08:00 to 18:00 and are paid at 06:00. They will not open dock doors: that stays your job.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
+      '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
       '<h3>Tips</h3><p>Keep one slot per line and the scanner tells you where everything is. Pack before the truck arrives, not after. Coffee makes you faster for an hour. Reputation brings more and bigger orders.</p>';
   }
   // ── Static bake ───────────────────────────────────────────────────
@@ -2542,7 +2622,7 @@
   }
   // ── Boot ──────────────────────────────────────────────────────────
   var loaded = load();
-  buildWorld(); buildTools();
+  buildWorld(); buildTools(); buildScanner();
   S.trucks.forEach(buildTruckMesh); S.staff.forEach(buildStaffMesh);
   // a packed order whose parcel is nowhere (an old save, say) goes back to open with its boxes on the bench
   S.orders.forEach(function (o) { if ((o.state === 'packed' || o.state === 'loaded') && !parcelExists(o.id)) { o.state = 'open'; o.lines.forEach(function (l) { if (l.packed) benchAdd(l.sku, l.packed); l.packed = 0; }); } });
@@ -2550,7 +2630,7 @@
   if (S.fork.pallet && !palletById(S.fork.pallet)) S.fork.pallet = null;
   updateHandMesh(); applySettings(); resize(); rebuildDyn(); drawBoard();
   if (!/nobake=1/.test(location.search)) bakeStatic();
-  camera.position.set(11, 4.5, 12.5); camera.lookAt(-2, 1.2, -3);
+  camera.position.set(12, 3.6, 0); camera.lookAt(0, 1.4, 0); if (!loaded) S.time = 10.5;
   $('dc-start-stats').innerHTML = loaded ? ['Day ' + S.day, 'Level ' + S.level, money(S.bank), Math.round(S.rep) + ' rep', S.stats.shipped + ' shipped'].map(function (s) { return '<span>' + s + '</span>'; }).join('') : ['New depot', money(ECON.start), '2 rack rows', 'a pallet jack'].map(function (s) { return '<span>' + s + '</span>'; }).join('');
   $('dc-start-note').textContent = loaded ? 'Slot ' + BOOT_SLOT + ' · last saved ' + (S.savedAt ? new Date(S.savedAt).toLocaleString() : 'never') : 'Slot ' + BOOT_SLOT + ' · the first truck is due at 07:30';
 
@@ -2569,9 +2649,10 @@
   function frame(nowMs) {
     requestAnimationFrame(frame);
     var dt = Math.min(0.05, Math.max(0.001, (nowMs - last) / 1000)); last = nowMs;
-    if (ui.started && !ui.blocked()) { tickWorld(dt); updatePlayer(dt); autosaveT += dt; if (autosaveT > 30) { autosaveT = 0; save(); } scanT += dt; if (ui.scanOpen && scanT > 1) { scanT = 0; renderScan(); } }
+    if (!ui.started) { var ma = worldTime * 0.07; camera.position.set(Math.cos(ma) * 12, 3.6 + Math.sin(ma * 1.7) * 0.6, Math.sin(ma) * 9.5); camera.lookAt(Math.cos(ma + 1.2) * 4, 1.4, Math.sin(ma + 1.2) * 3); }
+    if (ui.started && !ui.blocked()) { tickWorld(dt); updatePlayer(dt); autosaveT += dt; if (autosaveT > 30) { autosaveT = 0; save(); }  }
     worldTime += dt;
-    doorAnim(dt); placeTools(); syncInstances(); lighting(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
+    doorAnim(dt); placeTools(); syncInstances(); lighting(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); tickScanner(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
     interact(); updatePrompt(); updateHud(dt);
     renderer.render(scene, camera);
     if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + renderer.info.render.calls + ' draws'; fpsN = 0; fpsT = 0; } }

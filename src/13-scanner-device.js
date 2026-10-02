@@ -14,7 +14,7 @@
     var gl = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.1), MAT.screenGlass); gl.position.set(0, 0.04, 0.0165); gl.renderOrder = 2; g.add(gl);
     var laser = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.004), new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0, depthWrite: false })); laser.position.set(0, 0.16, 0.6); scanDev.laser = laser; g.add(laser);
     sign(['DEPOT CO.'], 0.06, 0.012, 0, -0.098, 0.015, 0, { w: 256, h: 48, bg: '#2b3038', fg: '#a0acb8' }, g);
-    g.position.set(0.3, -0.62, -0.42); g.rotation.set(-0.45, -0.35, 0.1); g.visible = false;
+    g.position.set(0.3, -0.62, -0.42); g.rotation.set(-0.45, -0.35, 0.1); g.scale.set(1.7, 1.7, 1.7); g.visible = false;
     drawScanner();
   }
   function scanRow(c, y, sw, text, sub, right, hi) {
@@ -71,7 +71,7 @@
     var want = ui.scanOpen && !driving ? 1 : 0;
     scanDev.t = lerp(scanDev.t, want, 1 - Math.pow(0.002, dt));
     scanDev.g.visible = scanDev.t > 0.02;
-    scanDev.g.position.set(0.3 - scanDev.t * 0.08, -0.62 + scanDev.t * 0.4, -0.42 - scanDev.t * 0.02); scanDev.g.rotation.set(-0.45 + scanDev.t * 0.25, -0.35 + scanDev.t * 0.1, 0.1);
+    scanDev.g.position.set(0.26 - scanDev.t * 0.06, -0.62 + scanDev.t * 0.42, -0.42 + scanDev.t * 0.04); scanDev.g.rotation.set(-0.45 + scanDev.t * 0.3, -0.35 + scanDev.t * 0.15, 0.1);
     if (scanDev.laserT > 0) { scanDev.laserT -= dt; scanDev.laser.material.opacity = Math.max(0, scanDev.laserT * 3); }
     if (ui.scanOpen) { scanDev.redrawT += dt; var slotNow = focus && focus.slot ? focus.slot : null; if (scanDev.redrawT > 0.5 || slotNow !== scanDev.lastFocusSlot) { scanDev.redrawT = 0; scanDev.lastFocusSlot = slotNow; drawScanner(); if (slotNow && slotNow !== scanDev.lastBeep) { scanDev.lastBeep = slotNow; sfx('scan'); scanDev.laserT = 0.3; } } }
   }

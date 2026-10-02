@@ -1,7 +1,7 @@
 //@ boot: load the save, build the world, the frame loop, autosave, the window handle
   // ── Boot ──────────────────────────────────────────────────────────
   var loaded = load();
-  buildWorld(); buildTools();
+  buildWorld(); buildTools(); buildScanner();
   S.trucks.forEach(buildTruckMesh); S.staff.forEach(buildStaffMesh);
   // a packed order whose parcel is nowhere (an old save, say) goes back to open with its boxes on the bench
   S.orders.forEach(function (o) { if ((o.state === 'packed' || o.state === 'loaded') && !parcelExists(o.id)) { o.state = 'open'; o.lines.forEach(function (l) { if (l.packed) benchAdd(l.sku, l.packed); l.packed = 0; }); } });
@@ -9,7 +9,7 @@
   if (S.fork.pallet && !palletById(S.fork.pallet)) S.fork.pallet = null;
   updateHandMesh(); applySettings(); resize(); rebuildDyn(); drawBoard();
   if (!/nobake=1/.test(location.search)) bakeStatic();
-  camera.position.set(11, 4.5, 12.5); camera.lookAt(-2, 1.2, -3);
+  camera.position.set(12, 3.6, 0); camera.lookAt(0, 1.4, 0); if (!loaded) S.time = 10.5;
   $('dc-start-stats').innerHTML = loaded ? ['Day ' + S.day, 'Level ' + S.level, money(S.bank), Math.round(S.rep) + ' rep', S.stats.shipped + ' shipped'].map(function (s) { return '<span>' + s + '</span>'; }).join('') : ['New depot', money(ECON.start), '2 rack rows', 'a pallet jack'].map(function (s) { return '<span>' + s + '</span>'; }).join('');
   $('dc-start-note').textContent = loaded ? 'Slot ' + BOOT_SLOT + ' · last saved ' + (S.savedAt ? new Date(S.savedAt).toLocaleString() : 'never') : 'Slot ' + BOOT_SLOT + ' · the first truck is due at 07:30';
 
@@ -28,9 +28,10 @@
   function frame(nowMs) {
     requestAnimationFrame(frame);
     var dt = Math.min(0.05, Math.max(0.001, (nowMs - last) / 1000)); last = nowMs;
-    if (ui.started && !ui.blocked()) { tickWorld(dt); updatePlayer(dt); autosaveT += dt; if (autosaveT > 30) { autosaveT = 0; save(); } scanT += dt; if (ui.scanOpen && scanT > 1) { scanT = 0; renderScan(); } }
+    if (!ui.started) { var ma = worldTime * 0.07; camera.position.set(Math.cos(ma) * 12, 3.6 + Math.sin(ma * 1.7) * 0.6, Math.sin(ma) * 9.5); camera.lookAt(Math.cos(ma + 1.2) * 4, 1.4, Math.sin(ma + 1.2) * 3); }
+    if (ui.started && !ui.blocked()) { tickWorld(dt); updatePlayer(dt); autosaveT += dt; if (autosaveT > 30) { autosaveT = 0; save(); }  }
     worldTime += dt;
-    doorAnim(dt); placeTools(); syncInstances(); lighting(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
+    doorAnim(dt); placeTools(); syncInstances(); lighting(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); tickScanner(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
     interact(); updatePrompt(); updateHud(dt);
     renderer.render(scene, camera);
     if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + renderer.info.render.calls + ' draws'; fpsN = 0; fpsT = 0; } }

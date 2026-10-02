@@ -14,14 +14,15 @@
 
   var NOTE = '<div class="dc-disclaimer"><b>NOT a Farming Simulator product.</b> This game has nothing to do with Farming Simulator, GIANTS Software, or any Farming Simulator mod. It is a separate, standalone hobby project that exists only because its author enjoyed making it.</div>';
   var splash = $('dc-splash');
-  var menu = el('<div class="dc-front" id="dc-mainmenu" hidden><div class="dc-menu-card"><img src="logo-256.png" alt="Depot Co."><h1>Depot <span style="color:#f5b53d">Co.</span></h1><div class="dc-menu-sub">First-person warehouse simulator</div>' + NOTE + '<div id="dc-menu-main"></div><div class="dc-menu-foot">A game by TheCodingDad' + (window.DEPOT_VERSION ? ' · version ' + window.DEPOT_VERSION : '') + '</div></div></div>');
+  var menu = el('<div class="dc-front" id="dc-mainmenu" hidden><div class="dc-menu-card"><div class="dc-menu-head"><img src="logo-256.png" alt="Depot Co."><div><h1>Depot <span style="color:#f5b53d">Co.</span></h1><div class="dc-menu-sub">First-person warehouse simulator</div></div></div>' + NOTE + '<div id="dc-menu-main"></div><div class="dc-menu-foot">A game by TheCodingDad' + (window.DEPOT_VERSION ? ' · version ' + window.DEPOT_VERSION : '') + ' · <a href="https://github.com/TheCodingDad-TisonK/Depot-Co" target="_blank" style="color:inherit">github</a></div></div></div>');
   document.body.appendChild(menu);
+  var startCard = $('dc-start'); if (startCard) startCard.hidden = true;   // the main menu is the start screen; the live hall shows behind it
 
   var flags = {}; try { ['depotco-skip-splash', 'depotco-autoplay'].forEach(function (k) { flags[k] = sessionStorage.getItem(k) === '1'; sessionStorage.removeItem(k); }); } catch (e) {}
   var splashDone = false;
   function endSplash() { if (splashDone) return; splashDone = true; menu.hidden = false; showMain(); splash.classList.add('fade'); setTimeout(function () { splash.hidden = true; }, 750); }
   if (flags['depotco-skip-splash']) { splash.hidden = true; splashDone = true; menu.hidden = false; }
-  else { setTimeout(endSplash, 2600); splash.addEventListener('click', endSplash); window.addEventListener('keydown', function once() { window.removeEventListener('keydown', once); endSplash(); }); }
+  else { setTimeout(endSplash, 3400); splash.addEventListener('click', endSplash); window.addEventListener('keydown', function once() { window.removeEventListener('keydown', once); endSplash(); }); }
 
   function body(html) { $('dc-menu-main').innerHTML = html; }
   function line(s) { return 'Day ' + (s.day || 1) + ' · level ' + (s.level || 1) + ' · ' + money(s.bank) + ' · rep ' + Math.round(s.rep || 0) + ' · ' + (s.stats && s.stats.shipped || 0) + ' orders shipped'; }

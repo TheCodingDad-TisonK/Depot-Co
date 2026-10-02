@@ -7,11 +7,28 @@ You clock in at 06:00 with $600, two rack rows and a pallet jack. The intro in t
 1. **07:30, the first truck.** Walk to dock **IN 1** on the west wall and open the door: `E` on the door itself or on the green button beside it. The truck backs in and the driver waits. It leaves at 10:30 whether you have emptied it or not, and anything still on it goes back unpaid.
 2. **Unload.** Walk into the trailer. `E` on a pallet takes one box; carry it to a rack and `E` on a slot puts it there. Or grab the pallet jack from the receiving square, `E` on a pallet lifts the whole thing, and `E` on a floor-level slot sets it in. You are paid $12 the moment a pallet is touched.
 3. **The racks.** A slot holds up to twelve boxes of one line. Floor and shelf levels are hand-reachable. The top level needs the forklift. The scanner (`Tab`, page 2) suggests a slot for every pallet.
-4. **08:30, the first order.** It shows on the office PC, the wall board above the office, and the scanner (page 1), with the lines, the due time and the pay. The due time is the departure of an outbound truck.
-5. **Pick.** Walk to the slot the scanner names and `E` takes a box. Carry it to the **packing bench** on the east side and `E` puts it down. One box per trip until you buy the cart.
-6. **Pack.** With empty hands, `E` on the bench opens it. Pack the order. The parcel appears on the shelf beside the bench. An order with at least half its boxes can be packed short for 60% of the pay.
-7. **Ship.** The outbound truck is at **OUT 1** from 10:30 to 12:00 (and OUT 2 from 16:00 to 18:00). Open the door, pick the parcel up, walk into the trailer and `E` loads it. `E` on the dock console sends the truck now; otherwise it leaves on time. You are paid when it goes.
-8. **13:30, the second truck.** Same again. By 17:00 you can sleep on the cot in the break room, which skips to 06:00 and charges rent ($110) and wages.
+4. **The scanner.** `Tab` raises it. Page 1 is the pick list with the slot of every line, page 2 what is still on the truck and where it should go, page 3 the stock, page 4 the day. Point it at a rack slot and the bottom line reads that slot. `1`-`4` or the mouse wheel turn the pages.
+5. **08:30, the first order.** It shows on the office PC, the wall board above the office, and the scanner (page 1), with the lines, the due time and the pay. The due time is the departure of an outbound truck.
+6. **Pick.** Walk to the slot the scanner names and `E` takes a box. Carry it to the **packing bench** on the east side and `E` puts it down. One box per trip until you buy the cart.
+7. **Pack.** With empty hands, `E` on the bench opens it. Pack the order. The parcel appears on the shelf beside the bench. An order with at least half its boxes can be packed short for 60% of the pay.
+8. **Ship.** The outbound truck is at **OUT 1** from 10:30 to 12:00 (and OUT 2 from 16:00 to 18:00). Open the door, pick the parcel up, walk into the trailer and `E` loads it. `E` on the dock console sends the truck now; otherwise it leaves on time. You are paid when it goes.
+9. **13:30, the second truck.** Same again. By 17:00 you can sleep on the cot in the break room, which skips to 06:00 and charges rent ($110) and wages.
+
+## Doors, locks and the cabinet
+
+The office, the break room, the staff entrance and the fire exit have doors. `E` opens or closes one, `Shift+E` locks or unlocks it. Staff carry keys, so a door swings open for them. The control cabinet beside the office door has a touch screen: hall lights, yard lights, every dock door, and **night mode**, which closes and locks everything at once. Leave a dock door open or a person door unlocked at 23:00 and stock goes missing.
+
+## Drivers and the delivery note
+
+When a truck docks the driver climbs down and walks to the dock with the paperwork. Nothing comes off an inbound truck until you press `E` on the driver and sign. Talk to them afterwards if you like. They get impatient after two hours.
+
+## The forklift battery and the wrapper
+
+The forklift runs down while it drives and charges in its own bay by the charger on the south wall. Flat, it crawls. A pallet on the forks that is not wrapped sheds a box on a fast corner: bring the pallet to the stretch wrapper on the jack and press `E` ($2 of film).
+
+## Weather, seasons and Sundays
+
+Four seasons of seven days each. Rain and storms soak the yard, snow settles in winter, and lightning is only noise. Sunday is closed: no trucks, no orders, a good day to sleep through. The radio in the break room has three stations; the vending machine sells a snack that makes you faster.
 
 ## Money
 
