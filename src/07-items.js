@@ -46,7 +46,7 @@
   function instSource(hit) { var o = hit.object; if (o.userData.sku) return instSrc.box[o.userData.sku][hit.instanceId]; if (o.userData.pallet) return instSrc.pallet[hit.instanceId]; if (o.userData.parcel) return instSrc.parcel[hit.instanceId]; return null; }
 
   // ── The hand ──────────────────────────────────────────────────────
-  var handGroup = new THREE.Group(); camera.add(handGroup); scene.add(camera);
+  var handGroup = new THREE.Group(); handGroup.userData.dynamic = true; camera.add(handGroup); scene.add(camera);   // never baked: it rides on the camera
   var handBox = new THREE.Mesh(BOX_GEO, CARD.paint); handBox.position.set(0.38, -0.36, -0.72); handBox.rotation.set(0.15, -0.35, 0.05); handBox.visible = false; handGroup.add(handBox);
   var handParcel = new THREE.Mesh(PARCEL_GEO, MAT.parcel); handParcel.position.set(0.38, -0.36, -0.74); handParcel.rotation.set(0.15, -0.35, 0.05); handParcel.visible = false; handGroup.add(handParcel);
   var handPlug = new THREE.Group(); handPlug.position.set(0.34, -0.3, -0.6); handPlug.rotation.set(0.2, -0.3, 0); handPlug.visible = false; handGroup.add(handPlug);

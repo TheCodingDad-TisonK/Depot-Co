@@ -92,7 +92,7 @@ const SCENARIO = `(async () => {
   S.fork.x = 2; S.fork.z = 19.5; S.fork.yaw = Math.PI / 2; S.fork.lift = 0.1;
   T.startDrive(); ok(T.ui && window.DEPOT.T.player, 'driving the forklift');
   T.forkUse(); ok(S.fork.pallet === fp.id, 'forks lifted the pallet');
-  S.fork.x = -21; S.fork.z = -7.6; S.fork.yaw = 0; S.fork.lift = 1.55;
+  S.fork.x = -21; S.fork.z = -10.6; S.fork.yaw = 0; S.fork.lift = 1.55;
   const k10 = T.slotKey(1, 0, 1); delete S.slots[k10];
   T.forkUse(); ok(!S.fork.pallet && S.slots[k10] && S.slots[k10].n === 8, 'pallet stored on B1 shelf by forklift');
   T.stopDrive(); ok(!S.fork.pallet, 'got off the forklift');
@@ -104,7 +104,7 @@ const SCENARIO = `(async () => {
   const bank2 = S.bank; S.contract.until = T.S.day * 24 + T.S.time - 1; T.run(1); ok(S.contract === null && S.bank > bank2, 'contract paid out');
   S.staff.forEach((st) => { st.hoursToday = 8; }); S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
   ok(S.staff[0].sheet && S.staff[0].sheet[0] && S.staff[0].sheet[0].h === 8 && S.staff[0].sheet[0].pay === Math.round(T.hourly(S.staff[0]) * 8), 'wages paid from the timesheet: ' + JSON.stringify(S.staff[0].sheet[0]));
-  S.level = 3; T.editToggle(); const rackP = T.propInst.rack0; ok(!!rackP, 'rack row A is a prop'); T.editGrab('rack0'); rackP.g.position.set(0.5, 0, -6); T.editDrop(false); const sp = T.slotKey(0, 0, 0); ok(Math.abs(T.propInst.rack0.P.x - 0.5) < 0.01 && S.slots[sp] && S.slots[sp].n > 0, 'rack moved with its stock'); T.editReset('rack0'); T.editToggle();
+  S.level = 3; T.editToggle(); const rackP = T.propInst.rack0; ok(!!rackP, 'rack row A is a prop'); T.editGrab('rack0'); rackP.g.position.set(0.5, 0, -15); T.editDrop(false); const sp = T.slotKey(0, 0, 0); ok(Math.abs(T.propInst.rack0.P.x - 0.5) < 0.01 && S.slots[sp] && S.slots[sp].n > 0, 'rack moved with its stock'); T.editReset('rack0'); T.editToggle();
   S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 25; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(24.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
   // the office PC: sit down, the screen draws, stand up
   T.openPc(); ok(T.pc.on === true, 'sat down at the PC'); T.run(1); ok(T.pc.screen && T.pc.screen.zones.length > 5, 'the PC screen has ' + (T.pc.screen ? T.pc.screen.zones.length : 0) + ' buttons'); T.closePc(); ok(T.pc.on === false, 'stood up from the PC');

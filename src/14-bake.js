@@ -9,7 +9,7 @@
     var m = o.material; if (!m || Array.isArray(m) || m.userData.glow || m.userData.noBake || m.transparent || m === MAT.hit || m === MAT.lamp || m === MAT.skylight || m === MAT.screen || m === MAT.exit) return false;
     if (o.userData.it || inter.indexOf(o) >= 0) return false;
     if (!(o.geometry && o.geometry.attributes && o.geometry.attributes.position)) return false;
-    for (var p = o; p; p = p.parent) if (p.userData && p.userData.dynamic) return false;
+    for (var p = o; p; p = p.parent) { if (p.userData && p.userData.dynamic) return false; if (!p.visible) return false; if (p === camera) return false; }
     return true;
   }
   function bakeStatic() {

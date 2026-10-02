@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.1 (2026-10-02)
+
+- Rack rows sit 6 m apart, so each aisle is 4.8 m wide and the forklift can turn into a bay.
+- Leaving build mode no longer leaves a copy of the hand-held gear frozen in the world: the bake skips anything riding on the camera or hidden.
+
 ## 1.8.0 (2026-10-02)
 
 - The hall is 60 by 48 metres, up from 40 by 28, with an 8 m roof. A rack row holds fifteen bays, there are six rows to buy (A to F), the docks sit further apart, and the forklift has room to turn. The office, lobby and break room moved to the new corners with everything in them.
