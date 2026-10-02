@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.2 (2026-10-02)
+
+- Parts of the forklift cab (pedals, belt buckle, switches, brake knob) sat at the hall origin between rows C and D instead of in the cab; they are children of the forklift now.
+- The production wing is dressed: a quality bench with a station screen and sample parts, a maintenance bench with a vice and shadow board, a tool cabinet, a mould store, a spares shelf, a chiller with twin fans, a granulate dryer, a 400 V switchboard with cable drops, a shift board, a clock and a first-aid box. Floor wear on the forklift route, oil under the moulder, a drain channel, hazard borders round the machines, a crossing at the doorway with bollards and a convex mirror, a PPE sign, light shafts under the skylights, grime at the wall feet, a finished-goods square beside the palletiser, and gutters, downpipes and roof vents outside.
+
 ## 1.9.1 (2026-10-02)
 
 - The baler works: binned boxes and packing offcuts fill its chamber, ten units make a bale (E, or the BALE button on its screen), and outbound trucks take the bales away at $18 each. Rebuilt on the machine kit with a chamber door, ram, power pack, cabinet with screen, lamp stack and E-stop, and the finished bales stacked beside it.
