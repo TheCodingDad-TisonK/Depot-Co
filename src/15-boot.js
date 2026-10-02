@@ -33,8 +33,8 @@
     worldTime += dt;
     doorAnim(dt); placeTools(); syncInstances(); lighting(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); tickScanner(dt); editTick(); tickTimeClock(dt); tickPc(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
     interact(); updatePrompt(); updateHud(dt);
-    renderer.render(scene, camera);
-    if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + renderer.info.render.calls + ' draws'; fpsN = 0; fpsT = 0; } }
+    renderFrame(dt);
+    if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + (post.calls || renderer.info.render.calls) + ' draws'; fpsN = 0; fpsT = 0; } }
   }
   requestAnimationFrame(frame);
   window.addEventListener('beforeunload', function () { if (ui.started) save(); });
@@ -60,7 +60,7 @@
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,
-      addXp: addXp, counts: function () { return { draws: renderer.info.render.calls, inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; }
+      addXp: addXp, counts: function () { return { draws: (post.calls || renderer.info.render.calls), inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; }
     }
   };
 })();

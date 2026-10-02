@@ -51,6 +51,7 @@
     if (overcast) skyTmp.lerp(new THREE.Color(0x6b7482), overcast * day * 0.8); if (weatherFlash > 0.05) skyTmp.lerp(new THREE.Color(0xffffff), weatherFlash * 0.7);
     scene.background.copy(skyTmp); scene.fog.color.copy(skyTmp); scene.fog.near = 70 - overcast * 30; scene.fog.far = 190 - overcast * 90;
     hemi.intensity = 0.12 + day * 0.35 * (1 - overcast * 0.5) + weatherFlash;
+    if (dress.shaftMat) { dress.shaftMat.opacity = 0.06 * day * (1 - overcast * 0.9); if (dress.dust) dress.dust.material.opacity = 0.15 + 0.4 * day * (1 - overcast * 0.6); }
     yard.lampLenses.forEach(function (l) { l.material.emissiveIntensity = day < 0.5 && !S.events.power && !S.flags.yardOff ? 1.6 : 0.15; });
     var power = !S.events.power, lamps = power && !S.flags.lightsOff ? (S.up.lights ? 0.8 : 0.55) : 0;
     hallLights.forEach(function (l) { l.intensity = lamps; });

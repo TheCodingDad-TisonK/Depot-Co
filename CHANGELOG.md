@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0 (2026-10-02)
+
+The look.
+
+- Every surface has a normal map and most a roughness map, all generated: concrete with its slab joints and water marks, corrugated steel with ridges and rivets, roller-door ribs, asphalt, plaster, brick, wood grain, cardboard flaps and labels, chequer plate, rubber matting. Light catches texture now instead of flat colour.
+- Painted machines (the forklift, the truck cabs) are clearcoated with scuffed roughness; metals reflect more of the studio.
+- Contact shadows: a soft dark blob under every prop, vehicle, truck and person.
+- Grime: a dark band at the foot of every wall, tyre scuffs at the dock aprons and in the aisles, oil where machines stand. Light shafts under the skylights with dust drifting in them, fading with the weather.
+- The forklift remodelled again: rounded shells, treaded tyres with bolted rims, an I-section mast with chains and hydraulic hoses, a proper seat and column, a dashboard with gauges, the overhead guard as one bent tube, decals and plates.
+- Trucks: wheel arches over every axle, mud flaps, marker lights along the trailer, wipers, a sun visor, air horns, dirt on the lower panels.
+- A film post pass: a touch of chromatic spread at the edges, saturation and contrast grading, a vignette, grain heavier in the shadows. Off in Settings or on Low quality.
+
 ## 1.6.1 (2026-10-02)
 
 - Charging is a thing you do: take the cable off the charging point, walk it to the forklift and press E to plug in. It charges only while plugged, driving off pulls the plug, and the cable hangs between the reel and the plug. The jack has its own small charger at its bay on the west wall. The charger display shows the state.

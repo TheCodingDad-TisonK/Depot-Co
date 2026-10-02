@@ -36,7 +36,7 @@
   // lights: a sun through the skylights, a sky bounce, and the hall's high bays
   var hemi = new THREE.HemisphereLight(0xdfeaff, 0x5a4d40, 0.45); scene.add(hemi);
   var sun = new THREE.DirectionalLight(0xfff0d8, 1.1); sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -36; sun.shadow.camera.right = 36; sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30; sun.shadow.camera.near = 1; sun.shadow.camera.far = 140; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
+  sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -36; sun.shadow.camera.right = 36; sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30; sun.shadow.camera.near = 1; sun.shadow.camera.far = 140; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
   [[-10, -5], [0, -5], [10, -5], [-10, 5], [0, 5], [10, 5]].forEach(function (p) {
@@ -134,32 +134,62 @@
     });
   }
   var POSTER_KINDS = ['forklift', 'lifting', 'exit', 'nosmoking', 'stacking', 'rota', 'hands', 'safety'];
+  // normal maps: a height field drawn on a canvas, turned into tangent-space normals with a Sobel filter. Linear, never sRGB.
+  function normalTex(w, h, drawHeight, strength, rx, ry) {
+    var hc = document.createElement('canvas'); hc.width = w; hc.height = h; var hx = hc.getContext('2d'); drawHeight(hx, w, h);
+    var src = hx.getImageData(0, 0, w, h).data, out = hx.createImageData(w, h), o = out.data, s = strength || 1;
+    var at = function (x, y) { x = (x + w) % w; y = (y + h) % h; return src[(y * w + x) * 4] / 255; };
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var dx = (at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1)) - (at(x - 1, y - 1) + 2 * at(x - 1, y) + at(x - 1, y + 1));
+      var dy = (at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1)) - (at(x - 1, y - 1) + 2 * at(x, y - 1) + at(x + 1, y - 1));
+      var nx = -dx * s, ny = -dy * s, nz = 1, len = Math.sqrt(nx * nx + ny * ny + nz * nz), i = (y * w + x) * 4;
+      o[i] = (nx / len * 0.5 + 0.5) * 255; o[i + 1] = (ny / len * 0.5 + 0.5) * 255; o[i + 2] = (nz / len * 0.5 + 0.5) * 255; o[i + 3] = 255;
+    }
+    hx.putImageData(out, 0, 0);
+    var t = new THREE.CanvasTexture(hc); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx || 1, ry || 1); t.anisotropy = 8; return t;
+  }
+  function heightNoise(c, w, h, base, n, amp) { c.fillStyle = base; c.fillRect(0, 0, w, h); for (var i = 0; i < n; i++) { var v = Math.floor(128 + (Math.random() - 0.5) * amp); c.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',0.6)'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 4), randf(1, 4)); } }
+  var NRM = {
+    concrete: normalTex(512, 512, function (c, w, h) { heightNoise(c, w, h, '#808080', 14000, 90); for (var i = 0; i < 20; i++) { var r = randf(20, 90), x = Math.random() * w, y = Math.random() * h, g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(60,60,60,0.5)'); g.addColorStop(1, 'rgba(128,128,128,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } c.strokeStyle = '#303030'; c.lineWidth = 4; c.beginPath(); c.moveTo(0, h / 2); c.lineTo(w, h / 2); c.moveTo(w / 2, 0); c.lineTo(w / 2, h); c.stroke(); }, 1.6, 5, 3.5),
+    corrugated: normalTex(256, 128, function (c, w, h) { for (var x = 0; x < w; x++) { var v = Math.floor(128 + Math.sin(x / 16 * Math.PI * 2) * 90); c.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; c.fillRect(x, 0, 1, h); } for (var y = 12; y < h; y += 52) for (var rx = 8; rx < w; rx += 16) { c.fillStyle = '#404040'; c.beginPath(); c.arc(rx, y, 2.2, 0, 6.3); c.fill(); } }, 2.2, 8, 2),
+    ribs: normalTex(128, 256, function (c, w, h) { for (var y = 0; y < h; y++) { var v = Math.floor(128 + Math.sin(y / 20 * Math.PI * 2) * 100); c.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; c.fillRect(0, y, w, 1); } }, 2.0, 2, 4),
+    asphalt: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 9000, 120); }, 1.4, 40, 40),
+    plaster: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 3000, 40); }, 0.8, 4, 2),
+    brick: normalTex(256, 256, function (c, w, h) { c.fillStyle = '#a0a0a0'; c.fillRect(0, 0, w, h); var bw = w / 8, bh = h / 8; for (var r = 0; r < 8; r++) for (var k = -1; k < 9; k++) { var x = k * bw + (r % 2 ? bw / 2 : 0); c.fillStyle = '#404040'; c.fillRect(x, r * bh, bw, bh); c.fillStyle = '#a8a8a8'; c.fillRect(x + 2, r * bh + 2, bw - 4, bh - 4); } heightNoise(c, w, h, 'rgba(0,0,0,0)', 2000, 30); }, 1.8, 2, 0.6),
+    wood: normalTex(256, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var i = 0; i < 70; i++) { var y = Math.random() * h; c.strokeStyle = 'rgba(40,40,40,' + randf(0.2, 0.6) + ')'; c.lineWidth = randf(1, 2); c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(w * 0.3, y + randf(-4, 4), w * 0.7, y + randf(-4, 4), w, y); c.stroke(); } c.fillStyle = '#202020'; [0.2, 0.5, 0.8].forEach(function (f) { c.fillRect(0, h * f, w, 3); }); }, 1.2, 1, 1),
+    cardboard: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 2500, 30); c.fillStyle = '#505050'; c.fillRect(0, h * 0.48, w, 4); c.fillStyle = '#9a9a9a'; c.fillRect(w * 0.44, 0, w * 0.12, h); c.fillStyle = '#8c8c8c'; c.fillRect(w * 0.08, h * 0.08, w * 0.34, h * 0.3); for (var i = 0; i < h; i += 6) { c.fillStyle = 'rgba(100,100,100,0.25)'; c.fillRect(0, i, w, 1); } }, 1.0, 1, 1),
+    chequer: normalTex(128, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 32) for (var x = 0; x < w; x += 32) { var d = ((x + y) / 32) % 2; c.save(); c.translate(x + 16, y + 16); c.rotate(d ? 0.5 : -0.5); c.fillStyle = '#c0c0c0'; c.fillRect(-10, -3, 20, 6); c.restore(); } }, 1.5, 3, 3),
+    rubber: normalTex(128, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.fillStyle = '#b0b0b0'; c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 1.2, 6, 6)
+  };
+  function roughTex(w, h, base, amp, rx, ry) { var t = tex(w, h, function (c) { var v = Math.floor(base * 255); c.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; c.fillRect(0, 0, w, h); for (var i = 0; i < 4000; i++) { var k = Math.floor(v + (Math.random() - 0.5) * amp * 255); c.fillStyle = 'rgba(' + k + ',' + k + ',' + k + ',0.7)'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 6), randf(1, 6)); } for (var j = 0; j < 12; j++) { var r = randf(10, 50), x = Math.random() * w, y = Math.random() * h, g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(' + Math.floor(v - amp * 120) + ',' + Math.floor(v - amp * 120) + ',' + Math.floor(v - amp * 120) + ',0.8)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } }, rx, ry); t.encoding = THREE.LinearEncoding; return t; }
+  var RGH = { floor: roughTex(256, 256, 0.9, 0.25, 5, 3.5), paint: roughTex(256, 256, 0.45, 0.35, 1, 1), metal: roughTex(256, 256, 0.5, 0.3, 1, 1) };
 
   // ── Materials ─────────────────────────────────────────────────────
   var std = function (o) { return new THREE.MeshStandardMaterial(o); };
   var MAT = {
-    floor: std({ map: TEX.concrete, roughness: 0.9, metalness: 0.03 }),
-    yard: std({ map: TEX.asphalt, roughness: 0.95 }),
+    floor: std({ map: TEX.concrete, roughness: 0.92, metalness: 0.03, normalMap: NRM.concrete, normalScale: new THREE.Vector2(0.7, 0.7), roughnessMap: RGH.floor }),
+    yard: std({ map: TEX.asphalt, roughness: 0.95, normalMap: NRM.asphalt, normalScale: new THREE.Vector2(0.6, 0.6) }),
     grass: std({ map: TEX.grass, roughness: 1 }),
-    wall: std({ map: TEX.corrugated, roughness: 0.6, metalness: 0.35 }),
-    wallIn: std({ map: TEX.corrugated, roughness: 0.7, metalness: 0.25, color: 0xcfd6dd }),
+    wall: std({ map: TEX.corrugated, roughness: 0.55, metalness: 0.4, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(1, 1), roughnessMap: RGH.metal }),
+    wallIn: std({ map: TEX.corrugated, roughness: 0.65, metalness: 0.3, color: 0xcfd6dd, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(1, 1) }),
     roof: std({ color: 0x3b4249, roughness: 0.9 }),
     roofIn: std({ color: 0x5c6670, roughness: 0.9, side: THREE.BackSide }),
-    door: std({ map: TEX.corrugatedDoor, roughness: 0.55, metalness: 0.4 }),
-    plaster: std({ map: TEX.plaster, roughness: 0.9 }),
-    brick: std({ map: TEX.brick, roughness: 0.95 }),
-    rack: std({ color: 0xcf6417, roughness: 0.55, metalness: 0.3 }),
+    door: std({ map: TEX.corrugatedDoor, roughness: 0.55, metalness: 0.4, normalMap: NRM.ribs, normalScale: new THREE.Vector2(1, 1) }),
+    plaster: std({ map: TEX.plaster, roughness: 0.9, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.4, 0.4) }),
+    brick: std({ map: TEX.brick, roughness: 0.95, normalMap: NRM.brick, normalScale: new THREE.Vector2(0.9, 0.9) }),
+    rack: std({ color: 0xcf6417, roughness: 0.55, metalness: 0.3, roughnessMap: RGH.paint }),
     beam: std({ color: 0x2b5aa6, roughness: 0.5, metalness: 0.4 }),
     deck: std({ color: 0x6a737c, roughness: 0.7, metalness: 0.5 }),
-    wood: std({ map: TEX.wood, roughness: 0.85 }),
-    parcel: std({ map: TEX.parcel, roughness: 0.9 }),
+    wood: std({ map: TEX.wood, roughness: 0.85, normalMap: NRM.wood, normalScale: new THREE.Vector2(0.6, 0.6) }),
+    parcel: std({ map: TEX.parcel, roughness: 0.9, normalMap: NRM.cardboard, normalScale: new THREE.Vector2(0.5, 0.5) }),
     steel: std({ map: TEX.noiseMetal, roughness: 0.45, metalness: 0.6 }),
     steelDark: std({ color: 0x3a3f45, roughness: 0.5, metalness: 0.6 }),
     chrome: std({ color: 0xd8dde3, roughness: 0.18, metalness: 0.95 }),
     black: std({ color: 0x15171a, roughness: 0.8 }),
     plastic: std({ color: 0x2a2d33, roughness: 0.6 }),
     rubber: std({ color: 0x1d1f22, roughness: 0.95 }),
-    rubberMat: std({ map: TEX.rubberMat, roughness: 0.95 }),
+    rubberMat: std({ map: TEX.rubberMat, roughness: 0.95, normalMap: NRM.rubber, normalScale: new THREE.Vector2(0.8, 0.8) }),
+    chequer: std({ color: 0x8e959c, roughness: 0.45, metalness: 0.7, normalMap: NRM.chequer, normalScale: new THREE.Vector2(1, 1) }),
     yellow: std({ color: 0xf5b53d, roughness: 0.6 }),
     yellowLine: new THREE.MeshBasicMaterial({ color: 0xd9a12c }),
     whiteLine: new THREE.MeshBasicMaterial({ color: 0xd8dbdf }),
@@ -180,10 +210,10 @@
     lamp: new THREE.MeshBasicMaterial({ color: 0xfff6e4 }),
     exit: new THREE.MeshBasicMaterial({ color: 0x5fd38d }),
     glass: std({ color: 0xa9c7e8, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.3 }),
-    forkYellow: std({ color: 0xf2b705, roughness: 0.5, metalness: 0.3 }),
-    truckRed: std({ color: 0xb8322a, roughness: 0.5, metalness: 0.3 }),
-    truckBlue: std({ color: 0x2c5f9e, roughness: 0.5, metalness: 0.3 }),
-    trailer: std({ map: TEX.corrugated, color: 0xf0f2f4, roughness: 0.6, metalness: 0.2 }),
+    forkYellow: new THREE.MeshPhysicalMaterial({ color: 0xf2b705, roughness: 0.42, metalness: 0.25, clearcoat: 0.7, clearcoatRoughness: 0.25, roughnessMap: RGH.paint }),
+    truckRed: new THREE.MeshPhysicalMaterial({ color: 0xb8322a, roughness: 0.4, metalness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.2, roughnessMap: RGH.paint }),
+    truckBlue: new THREE.MeshPhysicalMaterial({ color: 0x2c5f9e, roughness: 0.4, metalness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.2, roughnessMap: RGH.paint }),
+    trailer: std({ map: TEX.corrugated, color: 0xf0f2f4, roughness: 0.55, metalness: 0.25, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }),
     trailerIn: std({ color: 0x9aa0a6, roughness: 0.8, side: THREE.BackSide }),
     skin: std({ color: 0xd9a98a, roughness: 0.8 }),
     hivis: std({ color: 0xf6c21b, roughness: 0.8 }),
@@ -193,9 +223,9 @@
     hit: new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
   };
   function glowMat(col, k) { var m = std({ color: 0x111111, emissive: col, emissiveIntensity: k || 1, roughness: 0.4 }); m.userData.glow = true; return m; }
-  var CARD = {}; SKUS.forEach(function (s) { CARD[s.id] = std({ map: cardboardTex(s.col, s.name), roughness: 0.9 }); });
+  var CARD = {}; SKUS.forEach(function (s) { CARD[s.id] = std({ map: cardboardTex(s.col, s.name), roughness: 0.9, normalMap: NRM.cardboard, normalScale: new THREE.Vector2(0.45, 0.45) }); });
   // the environment map is for reflections only: every lit material takes very little light from it
-  function dimEnv(m) { if (m && m.isMeshStandardMaterial) m.envMapIntensity = 0.22; return m; }
+  function dimEnv(m) { if (m && m.isMeshStandardMaterial) m.envMapIntensity = m.isMeshPhysicalMaterial ? 0.45 : (m.metalness > 0.5 ? 0.4 : 0.22); return m; }
   Object.keys(MAT).forEach(function (k) { dimEnv(MAT[k]); }); Object.keys(CARD).forEach(function (k) { dimEnv(CARD[k]); });
   var std0 = std; std = function (o) { return dimEnv(std0(o)); };
   // a ceiling tile for the rooms, and a plain lining for the inside of a trailer
@@ -230,6 +260,10 @@
     var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: textTex(lines, opt) })); m.position.set(x, y, z); m.rotation.y = ry || 0; (parent || scene).add(m); return m;
   }
   function poster(kind, w, h, x, y, z, ry, parent) { var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), std({ map: posterTex(kind), roughness: 0.95 })); m.position.set(x, y, z); m.rotation.y = ry || 0; (parent || scene).add(m); return m; }
+  // a soft dark blob on the ground under anything that stands on it: the contact shadow the sun map cannot give
+  var blobTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(64, 64, 6, 64, 64, 62); g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(0.55, 'rgba(0,0,0,0.28)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
+  var blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, opacity: 1 }); blobMat.userData.noBake = true;
+  function groundBlob(w, d, x, z, parent, y) { var m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), blobMat); m.rotation.x = -Math.PI / 2; m.position.set(x, (y || 0) + 0.006, z); m.renderOrder = 1; m.receiveShadow = false; m.userData.noBake = true; (parent || scene).add(m); return m; }
   // things the player can look at and press E on
   var inter = [];
   function addInter(mesh, def) { mesh.userData.it = def; inter.push(mesh); return mesh; }

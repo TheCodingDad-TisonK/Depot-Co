@@ -44,6 +44,7 @@
     if (opt.hardhat) { var hh = sphere(0.155, opt.hardhat, 0, 1.66, 0, g); hh.scale.set(1, 0.7, 1); cyl(0.19, 0.02, opt.hardhat, 0, 1.63, 0, g, 16); }
     if (Math.random() < 0.3 && !opt.noBeard) { var bd = sphere(0.1, hair, 0, 1.52, 0.06, g); bd.scale.set(1, 0.55, 0.8); }
     if (Math.random() < 0.25) { [-0.05, 0.05].forEach(function (x) { var ring = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.005, 6, 12), MAT.black); ring.position.set(x, 1.61, 0.13); g.add(ring); }); box(0.03, 0.005, 0.01, MAT.black, 0, 1.61, 0.13, g); }
+    groundBlob(0.9, 0.9, 0, 0, g, 0.002);
     g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; } });
     return g;
   }

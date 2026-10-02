@@ -56,6 +56,23 @@
     for (var bl2 = 0; bl2 < 14; bl2++) box(5.4, 0.05, 0.02, MAT.trim, 16.1, 2.26 - bl2 * 0.08, 8.58);
     plane(1.4, 0.08, MAT.yellowLine, -15.5, 0.0062, 9.95, -Math.PI / 2);
     plane(1.4, 0.08, MAT.yellowLine, 12.5, 0.0062, 9.95, -Math.PI / 2);
+    // grime: a dark gradient along the foot of every wall, tyre scuffs at the dock aprons and in the aisles, oil where machines stand
+    var grimeTex = tex(64, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(20,18,16,0.5)'); g.addColorStop(0.5, 'rgba(20,18,16,0.18)'); g.addColorStop(1, 'rgba(20,18,16,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); for (var i = 0; i < 60; i++) { c.fillStyle = 'rgba(10,10,10,' + randf(0.05, 0.2) + ')'; c.fillRect(Math.random() * w, h - Math.random() * 20, randf(1, 4), randf(1, 3)); } });
+    var grimeMat = new THREE.MeshBasicMaterial({ map: grimeTex, transparent: true, depthWrite: false }); grimeMat.userData.noBake = true;
+    var gw = function (w, h, x, y, z, ry) { var m = plane(w, h, grimeMat, x, y, z, 0, ry); m.renderOrder = 1; m.userData.noBake = true; grimeTex.repeat.set(1, 1); };
+    gw(2 * X - 0.6, 0.7, 0, 0.35, -Z + 0.19, 0); gw(2 * X - 0.6, 0.7, 0, 0.35, Z - 0.19, Math.PI); gw(2 * Z - 0.6, 0.7, -X + 0.19, 0.35, 0, Math.PI / 2); gw(2 * Z - 0.6, 0.7, X - 0.19, 0.35, 0, -Math.PI / 2);
+    var markTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.35)'); g.addColorStop(0.7, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
+    var markMat = new THREE.MeshBasicMaterial({ map: markTex, transparent: true, depthWrite: false, opacity: 0.8 }); markMat.userData.noBake = true;
+    doors.forEach(function (dk) { var m = plane(6, 1.3, markMat, dk.side * (X - 4.5), 0.0045, dk.z + randf(-0.3, 0.3), -Math.PI / 2, 0); m.rotation.z = randf(-0.08, 0.08); m.renderOrder = 1; m.userData.noBake = true; });
+    [-4, 0, 4].forEach(function (z) { for (var mx = -10; mx <= 10; mx += 7) { var m = plane(5, 1.1, markMat, mx + randf(-1, 1), 0.0045, z + randf(-0.4, 0.4), -Math.PI / 2, 0); m.rotation.z = randf(-0.1, 0.1); m.renderOrder = 1; m.userData.noBake = true; } });
+    var oilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(10,10,14,0.55)'); g.addColorStop(0.7, 'rgba(10,10,14,0.25)'); g.addColorStop(1, 'rgba(10,10,14,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
+    var oilMat = new THREE.MeshBasicMaterial({ map: oilTex, transparent: true, depthWrite: false }); oilMat.userData.noBake = true;
+    [[SPOT.fork.x, SPOT.fork.z], [SPOT.jack.x, SPOT.jack.z], [-16, -4], [16, -4]].forEach(function (p) { var m = plane(2.2, 2.2, oilMat, p[0] + randf(-0.4, 0.4), 0.0046, p[1] + randf(-0.4, 0.4), -Math.PI / 2, randf(0, 3)); m.renderOrder = 1; m.userData.noBake = true; });
+    // light shafts under the skylights, with dust drifting in them
+    var shaftMat = new THREE.MeshBasicMaterial({ color: 0xfff1d0, transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); shaftMat.userData.noBake = true; dress.shaftMat = shaftMat;
+    [-7, 0, 7].forEach(function (z) { for (var k = 0; k < 2; k++) { var sh = new THREE.Mesh(new THREE.PlaneGeometry(2 * X - 4, H - 0.2), shaftMat); sh.position.set(0, H / 2 - 0.1, z + (k ? 0.5 : -0.5)); sh.rotation.y = k ? 0.06 : -0.06; sh.userData.noBake = true; sh.renderOrder = 2; scene.add(sh); } });
+    var dustGeo = new THREE.BufferGeometry(), dustPos = new Float32Array(600 * 3); for (var dp = 0; dp < 600; dp++) { dustPos[dp * 3] = randf(-18, 18); dustPos[dp * 3 + 1] = randf(0.5, 6.8); dustPos[dp * 3 + 2] = pick([-7, 0, 7]) + randf(-0.8, 0.8); } dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    dress.dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xfff6e0, size: 0.03, transparent: true, opacity: 0.5, depthWrite: false })); dress.dust.frustumCulled = false; dress.dust.userData.noBake = true; scene.add(dress.dust);
     buildPigeons();
   }
   function buySnack() {
@@ -99,4 +116,5 @@
     dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return (t.dir === 'in' ? t.dock : 2 + t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); l.m.material.emissiveIntensity = coming ? (Math.sin(worldTime * 8) > 0 ? 2.2 : 0.2) : (S.doors[d.i] ? 1.2 : 0.2); });
     if (dress.charger && dress.charger.material) dress.charger.material.emissiveIntensity = power ? (forkCharging() ? (Math.sin(worldTime * 3) > 0 ? 1.5 : 0.4) : 1) : 0;
     tickClocks();
+    if (dress.dust) { var dpa = dress.dust.geometry.attributes.position.array; for (var di = 0; di < dpa.length; di += 3) { dpa[di] += Math.sin(worldTime * 0.3 + di) * 0.004; dpa[di + 1] -= 0.02 * dt; if (dpa[di + 1] < 0.4) dpa[di + 1] = 6.8; } dress.dust.geometry.attributes.position.needsUpdate = true; }
   }

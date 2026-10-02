@@ -41,6 +41,15 @@
     [len + 0.9, len + 2.5].forEach(function (x) { [-1, 1].forEach(function (s) { truckWheel(g, L(x), -0.7, s * 1.05, 0.5, 0.36); }); });
     cyl(0.07, 1.4, MAT.chrome, L(len + 0.45), 2.4, -0.9, g, 10); cyl(0.09, 0.08, MAT.black, L(len + 0.45), 3.12, -0.9, g, 10);
     for (var rl = 0; rl < 5; rl++) box(0.06, 0.06, 0.1, glowMat(0xffa000, 0.8), L(len + 2.9), 2.37, (rl - 2) * 0.5, g);
+    // wheel arches over every axle, mud flaps, marker lights along the trailer, wipers, a sun visor, air horns, dirt on the lower panels
+    [[1.9], [3.1], [len + 0.9], [len + 2.5]].forEach(function (ax) { [-1, 1].forEach(function (s) { var arch = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.07, 8, 20, Math.PI), MAT.black); arch.position.set(L(ax[0]), -0.7, s * (ax[0] > len ? 1.2 : 1.15)); arch.rotation.y = Math.PI / 2; g.add(arch); }); });
+    [-1, 1].forEach(function (s) { box(0.04, 0.4, 0.34, MAT.rubber, L(1.4), -0.95, s * 1.0, g); box(0.04, 0.4, 0.34, MAT.rubber, L(len + 0.4), -0.95, s * 1.05, g); });
+    for (var ml2 = 1.5; ml2 < len; ml2 += 2.5) { [-1, 1].forEach(function (s) { box(0.1, 0.05, 0.06, glowMat(0xffa000, 0.7), L(ml2), 0.15, s * (w / 2 + 0.06), g); }); }
+    box(0.5, 0.02, 0.03, MAT.black, L(len + 3.03), 0.95, -0.5, g).rotation.x = 0.3; box(0.5, 0.02, 0.03, MAT.black, L(len + 3.03), 0.95, 0.4, g).rotation.x = 0.3;
+    box(0.2, 0.08, 2.3, paint, L(len + 3.0), 1.9, 0, g); cyl(0.05, 0.4, MAT.chrome, L(len + 1.0), 2.45, -0.5, g, 10).rotation.z = Math.PI / 2; cyl(0.05, 0.4, MAT.chrome, L(len + 1.0), 2.45, 0.5, g, 10).rotation.z = Math.PI / 2;
+    var dirtTex = tex(64, 64, function (c, w2, h2) { c.clearRect(0, 0, w2, h2); var gr = c.createLinearGradient(0, h2, 0, 0); gr.addColorStop(0, 'rgba(60,50,40,0.45)'); gr.addColorStop(1, 'rgba(60,50,40,0)'); c.fillStyle = gr; c.fillRect(0, 0, w2, h2); }); var dirtMat = new THREE.MeshBasicMaterial({ map: dirtTex, transparent: true, depthWrite: false }); dirtMat.userData.noBake = true;
+    [-1, 1].forEach(function (s) { var dp = plane(len, 0.6, dirtMat, L(len / 2), 0.3, s * (w / 2 + 0.065), 0, s > 0 ? 0 : Math.PI, g); dp.renderOrder = 1; var dc = plane(2.6, 0.6, dirtMat, L(len + 1.7), 0.0, s * 1.21, 0, s > 0 ? 0 : Math.PI, g); dc.renderOrder = 1; });
+    groundBlob(len + 4, 3.4, L(len / 2 + 1.5), 0, g, YARD_Y);
     // the client's name on both sides of the trailer, and the haulier on the cab door
     var cname = t.dir === 'in' ? clientName(t.client) : 'DEPOT CO. FREIGHT';
     if (!clientSignTex[cname]) clientSignTex[cname] = textTex([cname], { w: 1024, h: 160, bg: '#e6e8ea', fg: t.dir === 'in' ? '#2c5f9e' : '#1b232c', size: 80 });
