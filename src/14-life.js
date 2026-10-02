@@ -153,5 +153,5 @@
 
   function tickLife(dt) {
     if (!ui.started || ui.blocked()) return;
-    tickWeatherState(dt); tickRadio(); tickBattery(dt); tickWrapper(dt); tickCables(dt);
+    tickWeatherState(dt); tickRadio(); tickBattery(dt); tickWrapper(dt); tickCables(dt); tickMachines(dt);
   }

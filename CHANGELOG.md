@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0 (2026-10-02)
+
+- **The production wing**, bolted onto the north wall behind a strip curtain: a hopper you tip pallets of raw granulate into, a moulding line that turns granulate into own-brand boxes (crates, storage bins, planters), and a main belt that carries them through the wall into the hall, where a palletiser stacks eight to a pallet and drops it beside itself. A silo stands outside. Order granulate on the office PC's new Production app; it comes with the next inbound truck. Clients start ordering your own goods once they have seen them.
+- **Packing is machinery now.** Pick an order on the bench terminal and the pack line feeds its boxes onto the infeed belt, a case taper closes them into one parcel, and the outfeed drops it on a gravity shelf. It jams now and then; E clears it.
+- **A machine framework** under it all: every machine has an inlet, an outlet and a status lamp stack; belts carry items and hand them to whatever their end touches, so the pieces still work when you move them in build mode and pile up at a gap when they do not. Belts stop in a power cut.
+
 ## 1.8.1 (2026-10-02)
 
 - Rack rows sit 6 m apart, so each aisle is 4.8 m wide and the forklift can turn into a bay.

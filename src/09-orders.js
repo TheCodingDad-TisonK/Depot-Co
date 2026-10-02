@@ -58,7 +58,7 @@
     }
     for (var i = S.orders.length - 1; i >= 0; i--) {
       var o = S.orders[i];
-      if ((o.state === 'open' || o.state === 'packed') && !o.late && n > o.due) { o.late = true; addRep(-2); logEvent('Order #' + o.num + ' is late', 'bad'); rebuildBoardSoon(); }
+      if ((o.state === 'open' || o.state === 'packing' || o.state === 'packed') && !o.late && n > o.due) { o.late = true; addRep(-2); logEvent('Order #' + o.num + ' is late', 'bad'); rebuildBoardSoon(); }
       if (o.state === 'open' && n > o.due + 30) { S.orders.splice(i, 1); addRep(-5); S.stats.late++; logEvent(clientName(o.client) + ' cancelled order #' + o.num, 'bad'); toast('Order #' + o.num + ' cancelled', 'bad'); rebuildBoardSoon(); }
     }
   }
@@ -86,16 +86,6 @@
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }
   function canPackShort(o) { var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }
-  function packOrder(o) {
-    if (o.state !== 'open') return false;
-    var n = orderNeed(o); if (n.have < Math.ceil(n.tot / 2)) return false;
-    o.lines.forEach(function (l) { l.packed = benchTake(l.sku, l.qty); });
-    o.short = n.have < n.tot; o.state = 'packed'; o.packedAt = nowAbs();
-    if (S.bench.parcels.length < 8) S.bench.parcels.push(o.id); else S.floor.push({ kind: 'parcel', order: o.id, x: SPOT.benchOut.x - 1.2 + Math.random() * 0.6, y: 0, z: SPOT.benchOut.z + Math.random() * 1.2, rot: Math.random() });
-    S.stats.packed++; addXp(XP.pack); sfx('tape'); rebuildBoardSoon(); introStep('pack');
-    logEvent('Packed order #' + o.num + (o.short ? ' (short)' : ''), 'good');
-    return true;
-  }
   function shelfPrompt(src) { var o = orderById(src.order); if (S.hand || player.tool) return null; return 'Pick up parcel #' + (o ? o.num : '?') + (o ? ' for ' + clientName(o.client) : ''); }
   function shelfUse(src) { if (S.hand || player.tool) return; var k = S.bench.parcels.indexOf(src.order); if (k < 0) return; S.bench.parcels.splice(k, 1); handSet({ kind: 'parcel', order: src.order }); sfx('pickup'); }
 

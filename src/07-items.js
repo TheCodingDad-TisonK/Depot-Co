@@ -34,7 +34,9 @@
     var BP = PROPS.bench ? propPlacement('bench') : { x: SPOT.bench.x, z: SPOT.bench.z, rot: 0 }, ba = BP.rot * Math.PI / 2, bc = Math.cos(ba), bs = Math.sin(ba);
     var benchW = function (lx, lz) { return { x: BP.x + lx * bc + lz * bs, z: BP.z - lx * bs + lz * bc }; };
     var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) { var w = benchW(bi % 2 ? 0.23 : -0.23, -0.72 + (Math.floor(bi / 2) % 4) * 0.6); putBox(s.id, w.x, 0.94 + BOX.h / 2 + Math.floor(bi / 8) * BOX.h, w.z, ba, { kind: 'bench', sku: s.id }); } });
-    S.bench.parcels.forEach(function (oid, i) { var w = benchW(i % 2 ? 0.25 : -0.25, 2.0 + (Math.floor(i / 2) % 2) * 0.6); putParcel(w.x, 0.63 + 0.23 + Math.floor(i / 4) * 0.47, w.z, ba, { kind: 'shelf', order: oid }); });
+    var LP = PROPS.packline ? propPlacement('packline') : BP, la = LP.rot * Math.PI / 2, lc = Math.cos(la), ls = Math.sin(la);
+    S.bench.parcels.forEach(function (oid, i) { var s = shelfSlot(i); putParcel(LP.x + s.lx * lc + s.lz * ls, s.y, LP.z - s.lx * ls + s.lz * lc, la, { kind: 'shelf', order: oid }); });
+    drawBeltItems();
     S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) { var im = boxInst[f.sku]; if (im) { var ii = counts[f.sku]++; if (ii < 1400) { _e.set(0, f.rot, 0.35); _q.setFromEuler(_e); _v2.set(1, 0.72, 1.08); _m4.compose(_v.set(f.x, f.y + BOX.h * 0.36, f.z), _q, _v2); im.setMatrixAt(ii, _m4); instSrc.box[f.sku][ii] = { kind: 'floor', idx: i }; } } } else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }); });
     var cw = toolWorld('cart'); S.cart.boxes.forEach(function (sku, i) { var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 3 - 1) * 0.42, ly = i < 3 ? 0.3 : 0.82; putBox(sku, cw.x + lx * c, ly + BOX.h / 2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
     S.trucks.forEach(function (t) { if (t.dir !== 'out') return; t.parcels.forEach(function (oid, i) { var pp = truckParcelPos(t, i); putParcel(pp.x, pp.y + 0.23, pp.z, 0, { kind: 'truck' }); }); });

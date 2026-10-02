@@ -13,18 +13,23 @@
     { id: 'shoes',  name: 'Trainers',         col: '#f2f2f2', val: 55,  tier: 3 },
     { id: 'drills', name: 'Cordless drills',  col: '#2f9e44', val: 95,  tier: 3 },
     { id: 'tv',     name: '32" televisions',  col: '#1f2937', val: 180, tier: 4 },
-    { id: 'tyres',  name: 'Tyre sets',        col: '#111111', val: 120, tier: 4 }
+    { id: 'tyres',  name: 'Tyre sets',        col: '#111111', val: 120, tier: 4 },
+    // own-brand goods come off the moulding line in the production wing; raw granulate feeds it and is never ordered by a client
+    { id: 'dccrate',   name: 'Depot Co. crates',       col: '#2f6b9a', val: 42, tier: 1, own: true },
+    { id: 'dcbin',     name: 'Depot Co. storage bins', col: '#6b8e23', val: 36, tier: 1, own: true },
+    { id: 'dcplanter', name: 'Depot Co. planters',     col: '#b5651d', val: 50, tier: 2, own: true },
+    { id: 'raw',       name: 'Raw granulate',          col: '#9aa0a6', val: 0,  tier: 99, raw: true }
   ];
   var SKU = {}; SKUS.forEach(function (s) { SKU[s.id] = s; });
   function skuName(id) { return SKU[id] ? SKU[id].name : id; }
 
   var CLIENTS = [
-    { id: 'hardware', name: 'Kessler Hardware',  likes: ['paint', 'bolts', 'drills', 'lamps'] },
-    { id: 'grocer',   name: 'Northgate Grocers', likes: ['cereal', 'coffee', 'soap'] },
-    { id: 'toyshop',  name: 'Little Wonders',    likes: ['toys', 'books'] },
+    { id: 'hardware', name: 'Kessler Hardware',  likes: ['paint', 'bolts', 'drills', 'lamps', 'dccrate', 'dcbin'] },
+    { id: 'grocer',   name: 'Northgate Grocers', likes: ['cereal', 'coffee', 'soap', 'dccrate'] },
+    { id: 'toyshop',  name: 'Little Wonders',    likes: ['toys', 'books', 'dcbin'] },
     { id: 'sports',   name: 'Fairlane Sports',   likes: ['shoes', 'tyres'] },
     { id: 'electro',  name: 'Volt & Co.',        likes: ['tv', 'lamps', 'drills'] },
-    { id: 'office',   name: 'Pinecrest Offices', likes: ['lamps', 'coffee', 'books', 'paint'] }
+    { id: 'office',   name: 'Pinecrest Offices', likes: ['lamps', 'coffee', 'books', 'paint', 'dcbin', 'dcplanter'] }
   ];
   var STAFF_NAMES = ['Jo', 'Mika', 'Sam', 'Ravi', 'Lena', 'Ada', 'Theo', 'Nour'];
   var DRIVER_NAMES = ['Big Pete', 'Marta', 'Dusty', 'Kofi', 'Hal', 'Yusra'];
@@ -39,7 +44,7 @@
 
   // ── Money ─────────────────────────────────────────────────────────
   var ECON = {
-    start: 600, rent: 110, receiveFee: 12, handling: 14, margin: 0.22, lateCut: 0.5, shortCut: 0.6,
+    start: 600, rent: 110, rawPrice: 120, receiveFee: 12, handling: 14, margin: 0.22, lateCut: 0.5, shortCut: 0.6,
     wage: { receiver: 85, picker: 85, packer: 75 },
     rowPrice: 950, cartPrice: 240, forkPrice: 2800, lightsPrice: 600, pcPrice: 0,
     jackPallet: 8, palletCap: 8, slotCap: 12, cartCap: 6, benchCap: 16

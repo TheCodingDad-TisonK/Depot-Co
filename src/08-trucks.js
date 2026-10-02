@@ -71,7 +71,7 @@
 
   // what an inbound truck brings: lines the clients send, weighted toward what the open orders need and what is low
   function inboundLoad(t) {
-    var tier = tierFor(S.level), cands = SKUS.filter(function (s) { return s.tier <= tier; });
+    var tier = tierFor(S.level), cands = SKUS.filter(function (s) { return s.tier <= tier && !s.own; });
     var need = {}; S.orders.forEach(function (o) { if (o.state !== 'open') return; o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); });
     var count = clamp(2 + Math.floor(S.level / 2) + (S.up.dock2 ? 1 : 0) + randi(-1, 1), 2, 8);
     var client = CLIENTS.filter(function (c) { return c.likes.some(function (s) { return SKU[s].tier <= tier; }); });
@@ -84,6 +84,7 @@
       t.pallets.push(p.id);
       if (S.seenSkus.indexOf(sku) < 0) S.seenSkus.push(sku);
     }
+    while (S.factory && S.factory.rawOrdered > 0 && t.pallets.length < 8) { var rp = newPallet('raw', 8, { place: 'truck', truck: t.id, idx: t.pallets.length, x: 0, z: 0 }); t.pallets.push(rp.id); S.factory.rawOrdered--; }
   }
   function spawnTruck(dir, dock, leaveH) {
     var side = dir === 'in' ? -1 : 1, z = (dir === 'in' ? DOCKS.in : DOCKS.out)[dock].z;

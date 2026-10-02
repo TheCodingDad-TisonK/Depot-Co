@@ -32,9 +32,10 @@
     }
     wallX(-X, -1); wallX(X, 1);
     // the north wall has the fire exit cut out of it at x 23.4 to 24.6
-    box(X + 23.4 + 0.15, H, 0.3, MAT.wall, (-X - 0.15 + 23.4) / 2, H / 2, -Z); solid(-X - 0.15, 23.4, -Z - 0.15, -Z + 0.15);
-    box(X - 24.6 + 0.15, H, 0.3, MAT.wall, (24.6 + X + 0.15) / 2, H / 2, -Z); solid(24.6, X + 0.15, -Z - 0.15, -Z + 0.15);
-    box(1.2, H - 2.3, 0.3, MAT.wall, 24, 2.3 + (H - 2.3) / 2, -Z); solid(23.4, 24.6, -Z - 0.15, -Z + 0.15, 2.3, 9);
+    // the north wall: the belt opening and the doorway into the production wing, and the fire exit, cut out of it
+    var nOpen = [{ x0: WING.belt.x0, x1: WING.belt.x1, h: WING.belt.h }, { x0: WING.door.x0, x1: WING.door.x1, h: WING.door.h }, { x0: 23.4, x1: 24.6, h: 2.3 }], nx = -X - 0.15;
+    nOpen.forEach(function (o) { if (o.x0 > nx) { box(o.x0 - nx, H, 0.3, MAT.wall, (nx + o.x0) / 2, H / 2, -Z); solid(nx, o.x0, -Z - 0.15, -Z + 0.15); } box(o.x1 - o.x0, H - o.h, 0.3, MAT.wall, (o.x0 + o.x1) / 2, o.h + (H - o.h) / 2, -Z); solid(o.x0, o.x1, -Z - 0.15, -Z + 0.15, o.h, 9); nx = o.x1; });
+    box(X + 0.15 - nx, H, 0.3, MAT.wall, (nx + X + 0.15) / 2, H / 2, -Z); solid(nx, X + 0.15, -Z - 0.15, -Z + 0.15);
     box(2 * X + 0.3, H, 0.3, MAT.wall, 0, H / 2, Z); solid(-X - 0.15, X + 0.15, Z - 0.15, Z + 0.15);
     // roof with skylight strips, and the trusses under it
     box(2 * X + 0.6, 0.3, 2 * Z + 0.6, MAT.roof, 0, H + 0.15, 0);
@@ -65,7 +66,7 @@
     sign(['3PL · STORAGE · FULFILMENT'], 10, 0.8, 0, 3.2, Z + 0.17, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' });
     // the yard lamp posts (the lights themselves live in 05-three)
     // the pallet racks the player owns
-    buildOffice(); buildBench(); buildBreakRoom();
+    buildOffice(); buildBench(); buildBreakRoom(); buildWing();
     hingedDoor('office', 22.5, 19.45, false, 'the office door', { window: true, swing: 1 });
     hingedDoor('lobby', -25.5, 19.45, false, 'the lobby door', { window: true, swing: -1 });
     hingedDoor('break', -23, -22.95, false, 'the break room door', { window: true, swing: -1 });
@@ -204,9 +205,9 @@
 
   // where the player stands: the hall floor, a docked trailer's floor, the ramp, or the yard
   function floorY(x, z) {
-    if (Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) return 0;
+    if ((Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z)) return 0;
     for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state !== 'docked') continue; var b = trailerBounds(t); if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return 0; }
     if (x <= -HALL.x && x > -HALL.x - 7.2 && Math.abs(z - SPOT.staffDoor.z) < 1) return lerp(0, YARD_Y, (-HALL.x - x) / 7);
     return YARD_Y;
   }
-  function insideHall(x, z) { return Math.abs(x) < HALL.x && Math.abs(z) < HALL.z; }
+  function insideHall(x, z) { return (Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z); }

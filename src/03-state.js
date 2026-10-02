@@ -9,6 +9,9 @@
       pallets: [],               // { id, sku, n, place: 'truck'|'floor'|'jack'|'fork'|'staff', truck, idx, x, z, y, rot }
       floor: [],                 // loose boxes and parcels on the floor: { kind: 'box'|'parcel', sku|order, x, y, z, rot }
       bench: { boxes: {}, parcels: [] },
+      pack: { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null },           // the pack line
+      factory: { raw: 0, product: 'dccrate', on: false, made: 0, rawOrdered: 0, t: 0, jam: false },   // the moulding line and its hopper
+      pal: { sku: null, n: 0 }, belts: {},                                                   // the palletiser's pallet, and what is on each belt
       cart: { boxes: [], x: SPOT.cart.x, z: SPOT.cart.z, rot: 0 },
       jack: { pallet: null, x: SPOT.jack.x, z: SPOT.jack.z, rot: Math.PI / 2 },
       fork: { x: SPOT.fork.x, z: SPOT.fork.z, yaw: Math.PI, lift: 0.1, pallet: null, batt: 1 },
@@ -22,7 +25,7 @@
       intro: { step: 0, done: false, off: false },
       events: { power: false, powerUntil: 0, nextInspect: 4, inspected: false, prowled: false },
       seenSkus: ['paint', 'bolts', 'cereal', 'lamps'],
-      stats: { received: 0, putaway: 0, picked: 0, packed: 0, shipped: 0, late: 0, earned: 0, spent: 0, fines: 0, days: 0, lost: 0 },
+      stats: { received: 0, putaway: 0, picked: 0, packed: 0, shipped: 0, late: 0, earned: 0, spent: 0, fines: 0, days: 0, lost: 0, made: 0, palletised: 0 },
       ledger: [], log: [], sleptAt: 0, lastOrderAt: 0, orderSeq: 1, truckSeq: 1, flags: {}
     };
   }

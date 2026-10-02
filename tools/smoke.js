@@ -57,7 +57,7 @@ const SCENARIO = `(async () => {
   T.benchUse(); ok(!S.hand && S.bench.boxes[firstLine.sku] === 1, 'box on the bench');
   o.lines.forEach((l, i) => { const need = l.qty - (i === 0 ? 1 : 0); for (let q = 0; q < need; q++) { const k = Object.keys(S.slots).find((kk) => S.slots[kk].sku === l.sku && S.slots[kk].n > 0); S.slots[k].n--; if (!S.slots[k].n) delete S.slots[k]; T.benchAdd(l.sku, 1); } });
   ok(T.canPack(o), 'order packable from the bench');
-  ok(T.packOrder(o) && o.state === 'packed' && S.bench.parcels[0] === o.id, 'packed: parcel on the shelf');
+  ok(T.packOrder(o) && o.state === 'packing', 'order released to the pack line'); T.run(30); ok(o.state === 'packed' && S.bench.parcels[0] === o.id, 'pack line made the parcel: on the shelf');
   // ship it
   T.setTime(10.3); T.run(30);
   const tout = T.truckAtDoor(2); ok(!!tout, 'outbound truck docked at OUT 1');
@@ -99,12 +99,19 @@ const SCENARIO = `(async () => {
   S.fork.x = 0; S.fork.z = 20.5; S.fork.batt = 0.4; T.player.x = 0; T.player.z = 22; T.cableUse('fork'); ok(T.player.tool === 'cable', 'took the charging cable'); T.cablePlugInto('fork'); ok(S.fork.plugged === true && T.player.tool === null, 'forklift plugged in'); const bt0 = S.fork.batt; T.run(20); ok(S.fork.batt > bt0, 'charging while plugged: ' + S.fork.batt.toFixed(2)); T.startDrive(); ok(S.fork.plugged === false, 'driving off pulled the plug'); T.stopDrive();
   // contracts, the bank, damaged goods
   S.level = 3; S.contract = null; S.nextOffer = S.day; T.setTime(9.05); T.run(2); ok(!!S.contract && !S.contract.accepted, 'contract offered');
-  S.contract.accepted = true; S.contract.need = 1; const co = T.genOrder(false); co.client = S.contract.client; co.lines = [{ sku: 'bolts', qty: 1 }]; T.benchAdd('bolts', 1); T.packOrder(co);
+  S.contract.accepted = true; S.contract.need = 1; const co = T.genOrder(false); co.client = S.contract.client; co.lines = [{ sku: 'bolts', qty: 1 }]; T.benchAdd('bolts', 1); T.packOrder(co); T.run(30); ok(co.state === 'packed', 'contract order packed by the line');
   delete S.flags['out' + S.day + '-0']; S.trucks.filter((t) => t.dir === 'out').forEach((t) => { T.truckLeave(t, 'test'); }); T.run(20); T.setTime(10.4); T.run(30); const tc = T.truckAtDoor(2); ok(!!tc, 'outbound truck for the contract test'); T.setDoor(2, true); T.shelfUse({ kind: 'shelf', order: co.id }); T.loadUse(tc.id); T.consoleUse(2); ok(S.contract.done === 1, 'contract counts the on-time ship');
   const bank2 = S.bank; S.contract.until = T.S.day * 24 + T.S.time - 1; T.run(1); ok(S.contract === null && S.bank > bank2, 'contract paid out');
   S.staff.forEach((st) => { st.hoursToday = 8; }); S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
   ok(S.staff[0].sheet && S.staff[0].sheet[0] && S.staff[0].sheet[0].h === 8 && S.staff[0].sheet[0].pay === Math.round(T.hourly(S.staff[0]) * 8), 'wages paid from the timesheet: ' + JSON.stringify(S.staff[0].sheet[0]));
   S.level = 3; T.editToggle(); const rackP = T.propInst.rack0; ok(!!rackP, 'rack row A is a prop'); T.editGrab('rack0'); rackP.g.position.set(0.5, 0, -15); T.editDrop(false); const sp = T.slotKey(0, 0, 0); ok(Math.abs(T.propInst.rack0.P.x - 0.5) < 0.01 && S.slots[sp] && S.slots[sp].n > 0, 'rack moved with its stock'); T.editReset('rack0'); T.editToggle();
+  // the production wing: a pallet of granulate on the jack tips into the hopper, the moulder fills the belt, the palletiser drops a pallet
+  ok(T.inWing(-4, -36) && !T.inWing(-4, -20) && T.floorY(-4, -36) === 0, 'the wing is inside');
+  ok(T.beltSink(T.BELTS.moulderOut) && T.beltSink(T.BELTS.moulderOut).belt && T.beltSink(T.BELTS.moulderOut).belt.id === 'beltMain' && T.beltSink(T.BELTS.beltMain) && T.beltSink(T.BELTS.beltMain).machine && T.beltSink(T.BELTS.beltMain).machine.id === 'palletiser', 'moulder belt joins the main belt which ends at the palletiser');
+  const rawP = T.newPallet('raw', 8, { place: 'jack' }); S.jack.pallet = rawP.id; T.player.tool = 'jack'; T.hopperUse(); ok(S.factory.raw === 40 && !S.jack.pallet, 'granulate tipped into the hopper: 40 units'); T.releaseTool();
+  S.factory.product = 'dcbin'; T.moulderUse(); ok(S.factory.on, 'moulding line started'); T.run(20); ok(S.factory.made >= 1 && (T.beltItems('moulderOut').length + T.beltItems('beltMain').length) >= 1, 'a box came off the moulder onto the belt');
+  T.run(140); ok(S.pallets.some((p) => p.sku === 'dcbin' && p.place === 'floor' && p.n === 8), 'palletiser dropped a pallet of eight own-brand boxes: made ' + S.factory.made + ', hopper ' + S.factory.raw);
+  S.factory.on = false;
   S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 25; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(24.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
   // the office PC: sit down, the screen draws, stand up
   T.openPc(); ok(T.pc.on === true, 'sat down at the PC'); T.run(1); ok(T.pc.screen && T.pc.screen.zones.length > 5, 'the PC screen has ' + (T.pc.screen ? T.pc.screen.zones.length : 0) + ' buttons'); T.closePc(); ok(T.pc.on === false, 'stood up from the PC');
