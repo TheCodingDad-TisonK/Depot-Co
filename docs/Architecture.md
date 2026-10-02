@@ -1,0 +1,53 @@
+# Architecture
+
+Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built from the parts in `src/`. three.js r128 is vendored in `game/vendor/three`. There are no other dependencies at run time.
+
+## Files
+
+| Path | What |
+|---|---|
+| `game/index.html` | The page: splash, start card, HUD, scanner, panel, pause menu. Loads the scripts in order. |
+| `game/depot.css` | Every style. Tokens at the top. |
+| `game/depot.js` | **Generated** from `src/` by `tools/build-game.js`. Never edit it by hand. |
+| `game/menu.js` | The splash and the main menu with the three save slots. Talks to the game through `window.DEPOT`. |
+| `game/version.js` | **Generated** from `package.json` by `tools/sync-version.js`. |
+| `game/logo-256.png`, `logo.png`, `wordmark.png` | **Generated** by `tools/render-brand.js` (a canvas drawing in a hidden Electron window). |
+| `main.js` | The Electron shell: one window, no menu bar, screenshots to `Pictures\Depot Co`. |
+| `tools/smoke.js` | `npm test`. Boots the real page headless and plays a day through the test handle. |
+
+## The parts of `src/`
+
+They join in file-name order into one function scope, so every `function` is hoisted and visible to every other part. The build refuses to join two top-level functions with the same name.
+
+| Part | Holds |
+|---|---|
+| `01-head` | The closure, utilities, the save key for the active slot, the machine settings (`SET`). |
+| `02-config` | The twelve lines (`SKUS`), the six clients, the clock, the economy, the upgrades, staff roles, and every layout number (`HALL`, `RACK`, `DOCKS`, `SPOT`). |
+| `03-state` | `freshState()`, `load()`, `save()`, `pay()`, `addXp()`, `addRep()`. The state is the single object `S`. |
+| `04-sound` | The feed, toasts, and every sound effect as a small Web Audio synth. |
+| `05-three` | Renderer, camera, lights, every texture drawn on a canvas, every material, the `box`/`plane`/`sign`/`hitBox` helpers, the `inter` list and the `solids` list. |
+| `06-building` | The hall, the yard, the dock doors, the racks (`buildRack`), the office, the bench, the break room, the order board, `floorY()`. |
+| `07-items` | Boxes, pallets and parcels as three instanced meshes laid out from `S` every frame (`syncInstances`), the hand, the rack-slot logic, the floor. |
+| `08-trucks` | The timetable, the truck mesh, docking, departure, the receiving fee, loading parcels, the dock consoles. |
+| `09-orders` | Clients, order generation, lateness, the packing bench, packing, the parcel shelf, shipping and pay. |
+| `10-vehicles` | The jack and the cart you push, the forklift you drive. |
+| `11-staff` | The human model, the aisle router, the receiver, the picker, the packer. |
+| `12-player` | Movement, collision against `solids` and `dyn`, the centre raycast that sets `focus`, the keys. |
+| `13-ui` | HUD, scanner, the PC and bench panels, the pause menu, settings, the guide. |
+| `14-events` | The clock, the day roll, lighting by the hour, sleep, coffee, power cuts, the inspector, the prowler, levels, the guided intro. |
+| `15-boot` | Load, build, the frame loop, autosave, `window.DEPOT`. |
+
+## How things relate
+
+- **The save is the world.** Boxes, pallets and parcels have no meshes of their own. `syncInstances()` rebuilds three `InstancedMesh` objects from `S` every frame, and records for each instance where it came from (`instSrc`) so the raycast can say "that box is on pallet X on the floor". Nothing can drift out of sync with the save because there is no second copy.
+- **Interaction is a raycast from the screen centre** against `inter` (hit meshes with a `userData.it` of `{ prompt(), use() }`) plus the three instanced meshes. The nearest hit whose `prompt()` returns text becomes `focus`. `E` calls `focus.use()`.
+- **Collision is axis-aligned boxes.** `solids` is static (walls, racks, furniture). `dyn` is rebuilt every tick from pallets on the floor, docked trailers, closed doors, the forklift. The player is a circle of radius 0.32 moved one axis at a time. `floorY(x, z)` says whether the ground here is the hall (0), a docked trailer (0), the ramp, or the yard (-1.2); a rise of more than half a metre counts as a wall.
+- **Time** runs at one game hour per 37.5 real seconds while open, four times that at night, and stops while a panel or the pause menu is open. Trucks spawn when the clock crosses their slot and a flag keyed by day keeps them from spawning twice.
+- **Staff** walk the aisles through `route(a, b)`: inside the rack block (|x| < 13) they move along one of five fixed z lanes and change lane only at either end.
+- **The test handle** `window.DEPOT.T` exposes the state and the action functions so the smoke test can play without a mouse: `T.run(seconds)` advances the whole world in 50 ms steps.
+
+## Adding a line, a client, an upgrade
+
+- A line: add a row to `SKUS` in `02-config`. Its cardboard texture, colour band and label are generated from it.
+- A client: add to `CLIENTS` with the lines it likes. The trailer sign is drawn from the name.
+- An upgrade: add to `UPGRADES`, then handle its id in `buyUpgrade()` (13-ui) and wherever it changes play.
