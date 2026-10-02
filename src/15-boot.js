@@ -44,7 +44,7 @@
     enter: enter, bootSlot: BOOT_SLOT, guideHtml: guideHtml, version: window.DEPOT_VERSION || 'dev',
     T: {
       get S() { return S; }, player: player, ui: ui, save: save,
-      run: function (sec) { var n = Math.round(sec / 0.05); for (var i = 0; i < n; i++) { tickWorld(0.05); tickLife(0.05); doorAnim(0.05); placeTools(0.05); } syncInstances(); },
+      run: function (sec) { var n = Math.round(sec / 0.05); for (var i = 0; i < n; i++) { tickWorld(0.05); if (driving) updatePlayer(0.05); tickLife(0.05); doorAnim(0.05); placeTools(0.05); } syncInstances(); },
       setTime: function (h) { S.time = h; hudDirty = true; },
       spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckMeshes: truckMeshes, doorPassable: doorPassable, doorPanelScale: function (i) { return doors[i].panel.scale.y; }, truckLeave: truckLeave, setDoor: setDoor,
       palletById: palletById, palletUse: palletUse, palletPrompt: palletPrompt, storePallet: storePallet, findSlotFor: findSlotFor, newPallet: newPallet,

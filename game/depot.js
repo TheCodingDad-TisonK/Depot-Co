@@ -1561,7 +1561,8 @@
     plane(1.2, 0.35, MAT.whiteLine, (W.door.x0 + W.door.x1) / 2, 0.0066, W.z1 + 0.5, -Math.PI / 2); for (var cw = W.door.x0 + 0.3; cw < W.door.x1; cw += 0.7) plane(0.35, 1.6, MAT.whiteLine, cw, 0.0066, W.z1, -Math.PI / 2);
     // the doorway: bollards both sides, a convex traffic mirror, a PPE sign
     [W.door.x0 - 0.6, W.door.x1 + 0.6].forEach(function (bx) { [W.z1 - 0.9, W.z1 + 0.9].forEach(function (bz) { cyl(0.11, 1.0, MAT.yellow, bx, 0.5, bz, null, 10); cyl(0.14, 0.05, MAT.black, bx, 0.025, bz, null, 10); }); });
-    var mir = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.05, metalness: 1.0 })); mir.position.set(W.door.x1 + 1.2, 3.0, W.z1 - 0.3); mir.rotation.x = Math.PI / 2; mir.rotation.z = -0.4; scene.add(mir); cyl(0.03, 0.5, MAT.steelDark, W.door.x1 + 1.2, 3.0, W.z1 - 0.1, null, 6).rotation.x = Math.PI / 2; box(0.08, 0.08, 0.6, MAT.black, W.door.x1 + 1.2, 3.0, W.z1 - 0.3);
+    // the convex traffic mirror: a bracket off the wall above the doorway on the wing side, the dome on its end, tilted down the doorway
+    var mx = W.door.x1 + 1.0, my = 3.3; box(0.14, 0.14, 0.04, MAT.steelDark, mx, my, W.z1 - 0.17); box(0.05, 0.05, 0.55, MAT.steelDark, mx, my, W.z1 - 0.44); var mring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.03, 8, 24), MAT_MACH.guard); mring.position.set(mx, my, W.z1 - 0.72); scene.add(mring); var mir = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.05, metalness: 1.0 })); mir.position.set(mx, my, W.z1 - 0.72); mir.rotation.x = -Math.PI / 2 - 0.35; mir.rotation.order = 'YXZ'; mir.rotation.y = -0.5; scene.add(mir);
     // the finished-goods square in the hall beside the palletiser, and the outside: gutters and downpipes on the wing
     [[-1.0, -22.3, 3.4, 0.08], [-1.0, -16.7, 3.4, 0.08]].forEach(function (l) { plane(l[2], l[3], MAT.yellowLine, l[0], 0.0063, l[1], -Math.PI / 2); }); plane(0.08, 5.6, MAT.yellowLine, 0.7, 0.0063, -19.5, -Math.PI / 2); plane(0.08, 5.6, MAT.yellowLine, -2.7, 0.0063, -19.5, -Math.PI / 2);
     box(wx + 0.4, 0.16, 0.16, MAT.steelDark, cx, h - 0.05, W.z0 - 0.25); [W.x0 + 1, W.x1 - 1].forEach(function (dx) { cyl(0.07, h + 1.1, MAT.steelDark, dx, (h - 1.2) / 2 + 0.05, W.z0 - 0.25, null, 8); }); box(0.16, 0.16, wz, MAT.steelDark, W.x0 - 0.25, h - 0.05, cz); cyl(0.07, h + 1.1, MAT.steelDark, W.x0 - 0.25, (h - 1.2) / 2 + 0.05, W.z0 + 2, null, 8);
@@ -2571,11 +2572,12 @@
     for (var i = 0; i < spots.length; i++) { var x = S.fork.x + spots[i][0], z = S.fork.z + spots[i][1]; if (!collides(x, z, true) && floorY(x, z) > -0.5) { player.x = x; player.z = z; player.y = floorY(x, z); player.yaw = S.fork.yaw + Math.PI; return; } }
     player.x = S.fork.x; player.z = S.fork.z;
   }
+  // an obstacle the truck is already inside (it has to nose up to the wrapper, the racks and the docks) cannot block it, so it can always back out
   function forkCollides(x, z) {
-    var r = 1.0;
+    var r = 1.0, cx = S.fork.x, cz = S.fork.z;
     if (floorY(x, z) < -0.5) return true;
     var all = solids.concat(dyn);
-    for (var i = 0; i < all.length; i++) { var s = all[i]; if (s.fork) continue; if (s.y0 > 2.5) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return true; }
+    for (var i = 0; i < all.length; i++) { var s = all[i]; if (s.fork) continue; if (s.y0 > 2.5) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) { var already = cx > s.x0 - r && cx < s.x1 + r && cz > s.z0 - r && cz < s.z1 + r; if (!already) return true; var dxn = Math.max(s.x0 - x, 0, x - s.x1), dzn = Math.max(s.z0 - z, 0, z - s.z1), dxc = Math.max(s.x0 - cx, 0, cx - s.x1), dzc = Math.max(s.z0 - cz, 0, cz - s.z1); if (dxn + dzn < dxc + dzc - 0.001) return true; } }
     return false;
   }
   var FORK_GEARS = [0.6, 1.0, 1.5];   // top-speed multipliers: creep, normal, fast
@@ -4175,7 +4177,7 @@
     enter: enter, bootSlot: BOOT_SLOT, guideHtml: guideHtml, version: window.DEPOT_VERSION || 'dev',
     T: {
       get S() { return S; }, player: player, ui: ui, save: save,
-      run: function (sec) { var n = Math.round(sec / 0.05); for (var i = 0; i < n; i++) { tickWorld(0.05); tickLife(0.05); doorAnim(0.05); placeTools(0.05); } syncInstances(); },
+      run: function (sec) { var n = Math.round(sec / 0.05); for (var i = 0; i < n; i++) { tickWorld(0.05); if (driving) updatePlayer(0.05); tickLife(0.05); doorAnim(0.05); placeTools(0.05); } syncInstances(); },
       setTime: function (h) { S.time = h; hudDirty = true; },
       spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckMeshes: truckMeshes, doorPassable: doorPassable, doorPanelScale: function (i) { return doors[i].panel.scale.y; }, truckLeave: truckLeave, setDoor: setDoor,
       palletById: palletById, palletUse: palletUse, palletPrompt: palletPrompt, storePallet: storePallet, findSlotFor: findSlotFor, newPallet: newPallet,

@@ -2,7 +2,9 @@
 
 ## 1.10.2 (2026-10-02)
 
+- The forklift could not reverse away from the wrapper (or anything else it had nosed up to with a load): the collision test treated every move inside an obstacle's padding as a hit. An obstacle the truck is already inside can no longer block it, so it always backs out.
 - The forklift beacon lens and both tail lights were built without the forklift as parent, so an amber lens floated at the hall origin at 2.5 m whenever you drove and two red lights sat on the floor there. A nesting-aware scan of every builder finds no other orphans.
+- The traffic mirror at the production doorway is mounted on a wall bracket above the door, in a ring, tilted down the doorway.
 - The overhead guard roof is four round cross tubes with two runners and a round beacon base, instead of thin rods and a loose square plate.
 
 ## 1.10.1 (2026-10-02)

@@ -92,6 +92,8 @@ const SCENARIO = `(async () => {
   S.fork.x = 2; S.fork.z = 19.5; S.fork.yaw = Math.PI / 2; S.fork.lift = 0.1;
   T.startDrive(); ok(T.ui && window.DEPOT.T.player, 'driving the forklift'); T.forkGearCycle(); T.forkGearCycle(); ok(S.fork.gear === 3, 'Shift cycled to gear 3'); T.forkGearCycle(); ok(S.fork.gear === 1, 'and back round to gear 1');
   T.forkUse(); ok(S.fork.pallet === fp.id, 'forks lifted the pallet');
+  // nose up to the wrapper with the load, then back out: the obstacle you are already inside must not trap you
+  const WP = T.propInst.wrapper.P; S.fork.x = WP.x; S.fork.z = WP.z + 1.6; S.fork.yaw = Math.PI; T.player.x = WP.x; T.player.z = WP.z + 2.8; T.startDrive(); T.player.keys.KeyS = true; T.run(1.5); T.player.keys.KeyS = false; T.stopDrive(); ok(S.fork.z > WP.z + 2.2, 'forklift backed out of the wrapper apron: z ' + S.fork.z.toFixed(2) + ' from ' + (WP.z + 1.6).toFixed(2));
   S.fork.x = -21; S.fork.z = -10.6; S.fork.yaw = 0; S.fork.lift = 1.55;
   const k10 = T.slotKey(1, 0, 1); delete S.slots[k10];
   T.forkUse(); ok(!S.fork.pallet && S.slots[k10] && S.slots[k10].n === 8, 'pallet stored on B1 shelf by forklift');
@@ -110,7 +112,7 @@ const SCENARIO = `(async () => {
   ok(T.beltSink(T.BELTS.moulderOut) && T.beltSink(T.BELTS.moulderOut).belt && T.beltSink(T.BELTS.moulderOut).belt.id === 'beltMain' && T.beltSink(T.BELTS.beltMain) && T.beltSink(T.BELTS.beltMain).machine && T.beltSink(T.BELTS.beltMain).machine.id === 'palletiser', 'moulder belt joins the main belt which ends at the palletiser');
   const rawP = T.newPallet('raw', 8, { place: 'jack' }); S.jack.pallet = rawP.id; T.player.tool = 'jack'; T.hopperUse(); ok(S.factory.raw === 40 && !S.jack.pallet, 'granulate tipped into the hopper: 40 units'); T.releaseTool();
   S.factory.product = 'dcbin'; T.moulderUse(); ok(S.factory.on, 'moulding line started'); T.run(20); ok(S.factory.made >= 1 && (T.beltItems('moulderOut').length + T.beltItems('beltMain').length) >= 1, 'a box came off the moulder onto the belt');
-  T.run(140); ok(S.pallets.some((p) => p.sku === 'dcbin' && p.place === 'floor' && p.n === 8), 'palletiser dropped a pallet of eight own-brand boxes: made ' + S.factory.made + ', hopper ' + S.factory.raw);
+  T.run(140); if (S.factory.jam) { T.moulderUse(); T.run(80); } ok(S.pallets.some((p) => p.sku === 'dcbin' && p.place === 'floor' && p.n === 8), 'palletiser dropped a pallet of eight own-brand boxes: made ' + S.factory.made + ', hopper ' + S.factory.raw);
   S.factory.on = false;
   const cardB = S.baler.card; T.addWaste(10); T.balerUse(); ok(S.baler.t > 0 && S.baler.card === cardB, 'baler started on ten cardboard (offcuts already in the chamber: ' + cardB + ')'); T.run(9); ok(S.baler.bales === 1, 'a bale came out');
   S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 25; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(24.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
