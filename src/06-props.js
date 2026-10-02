@@ -276,19 +276,27 @@
     c.sign(['CLOCK IN'], 0.6, 0.16, 0.3, 1.85, 0.0, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#eef1f5' });
     touchScreen({ w: 300, h: 320, pw: 0.3, ph: 0.32, x: 0, y: 1.5, z: 0.07, ry: 0, parent: c.group, title: 'Time clock', draw: drawTimeClock });
   }
-  function consoleBuild(i) { return function (c) {
-    var di = 2 + i;
-    c.box(0.5, 0.6, 0.12, MAT.steelDark, 0, 1.45, 0); c.box(0.54, 0.04, 0.14, MAT.yellow, 0, 1.77, 0); c.cyl(0.012, 1.0, MAT.black, 0, 0.65, -0.03, 6);
+  function consoleBuild(di) { return function (c) {
+    var inbound = di < 2, k = di % 2;
+    c.box(0.5, 0.6, 0.12, MAT.steelDark, 0, 1.45, 0); c.box(0.54, 0.04, 0.14, inbound ? MAT.hazard : MAT.yellow, 0, 1.77, 0); c.cyl(0.012, 1.0, MAT.black, 0, 0.65, -0.03, 6);
     touchScreen({ w: 320, h: 240, pw: 0.4, ph: 0.3, x: 0, y: 1.47, z: 0.065, ry: 0, parent: c.group, title: 'Dock console ' + dockLabel(di), draw: function (cc, sc) {
-      scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.16)'); scHead(cc, sc.w, 'DOCK ' + dockLabel(di));
-      var t = truckAtDoor(di), nxt = TRUCK_OUT[i];
-      if (t) { scText(cc, 16, 66, 'Truck docked · ' + t.driver, '#5fd38d', 15); scText(cc, 16, 86, t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scButton(sc, 16, 104, 288, 44, t.parcels.length ? 'DISPATCH NOW' : 'nothing loaded', t.parcels.length > 0, function () { consoleUse(di); }, '#5fd38d'); }
-      else { scText(cc, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(cc, 16, 86, 'Next: ' + fmtTime(nxt.arrive) + ' to ' + fmtTime(nxt.leave), '#eef1f5', 13); }
-      scButton(sc, 16, 160, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
-      var packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length; scButton(sc, 164, 160, 140, 40, packed + ' packed waiting', false, function () { scanToggle(true); scanPage(0); });
+      scBg(cc, sc.w, sc.h, inbound ? 'rgba(245,181,61,0.16)' : 'rgba(95,211,141,0.16)'); scHead(cc, sc.w, 'DOCK ' + dockLabel(di));
+      var t = truckAtDoor(di);
+      if (inbound) {
+        if (t) { var left = S.pallets.filter(function (q) { return q.place === 'truck' && q.truck === t.id; }).length; scText(cc, 16, 66, 'Truck docked · ' + t.driver + ' · ' + clientName(t.client), '#f5b53d', 14); scText(cc, 16, 86, left + ' of ' + t.pallets.length + ' pallets still on it · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scText(cc, 16, 106, t.signed ? 'Delivery note signed' : 'NOT SIGNED: see the driver outside', t.signed ? '#5fd38d' : '#ff6b5e', 13); }
+        else { scText(cc, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(cc, 16, 86, 'Inbound slots: ' + TRUCK_IN.map(fmtTime).join(' and ') + (S.up.dock2 || k === 0 ? '' : ' (buy the second bay)'), '#eef1f5', 13); }
+        scButton(sc, 16, 128, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
+        var pending = S.pallets.filter(function (q) { return q.place === 'floor'; }).length; scButton(sc, 164, 128, 140, 40, pending + ' on the floor', false, function () { scanToggle(true); scanPage(1); });
+      } else {
+        var nxt = TRUCK_OUT[k];
+        if (t) { scText(cc, 16, 66, 'Truck docked · ' + t.driver, '#5fd38d', 15); scText(cc, 16, 86, t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scButton(sc, 16, 104, 288, 44, t.parcels.length ? 'DISPATCH NOW' : 'nothing loaded', t.parcels.length > 0, function () { consoleUse(di); }, '#5fd38d'); }
+        else { scText(cc, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(cc, 16, 86, 'Next: ' + fmtTime(nxt.arrive) + ' to ' + fmtTime(nxt.leave), '#eef1f5', 13); }
+        scButton(sc, 16, 160, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
+        var packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length; scButton(sc, 164, 160, 140, 40, packed + ' packed waiting', false, function () { scanToggle(true); scanPage(0); });
+      }
       scText(cc, 16, 226, S.events.power ? 'NO POWER' : 'mains ok', S.events.power ? '#ff6b5e' : '#5fd38d', 11);
     } });
-    c.sign(['DOCK ' + dockLabel(di)], 0.7, 0.18, 0, 1.95, 0.0, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
+    c.sign(['DOCK ' + dockLabel(di)], 0.7, 0.18, 0, 1.95, 0.0, 0, { w: 256, h: 64, bg: '#1b232c', fg: inbound ? '#f5b53d' : '#5fd38d' });
   }; }
   function breakerBuild(c) { var brk = c.box(0.4, 0.6, 0.12, MAT.grey, 0, 1.5, 0); c.box(0.06, 0.12, 0.03, MAT.red, 0, 1.5, 0.07); c.hit(0.5, 0.7, 0.2, 0, 1.5, 0.05, { prompt: function () { return S.events.power ? 'Reset the breaker' : 'Breaker panel (power is on)'; }, use: function () { flipBreaker(); } }); c.sign(['MAIN BREAKER'], 0.6, 0.15, 0, 1.9, 0.01, 0, { w: 256, h: 64, bg: '#f5b53d', fg: '#1a1205' }); }
   function boardBuild(c) {
@@ -311,8 +319,10 @@
   for (var rr = 0; rr < 4; rr++) (function (r) { defProp('rack' + r, { label: 'rack row ' + 'ABCD'[r], cat: 'hall', x: 0, z: RACK.rows[r], rot: 0, build: rackBuild(r), when: function () { return r < S.up.rows; } }); })(rr);
   defProp('timeclock', { label: 'time clock', cat: 'wall', wall: true, x: -19.74, z: 10.2, rot: 1, build: timeclockBuild });
   defProp('cabinet', { label: 'control cabinet', cat: 'wall', wall: true, x: 12.42, z: 12.6, rot: 3, build: cabinetBuild });
-  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, x: 19.7, z: -5.5, rot: 3, build: consoleBuild(0) });
-  defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, x: 19.7, z: 2.5, rot: 3, build: consoleBuild(1) });
+  defProp('consoleIn0', { label: 'dock console IN 1', cat: 'wall', wall: true, x: -19.7, z: -5.5, rot: 1, build: consoleBuild(0) });
+  defProp('consoleIn1', { label: 'dock console IN 2', cat: 'wall', wall: true, x: -19.7, z: 2.5, rot: 1, build: consoleBuild(1) });
+  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, x: 19.7, z: -5.5, rot: 3, build: consoleBuild(2) });
+  defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, x: 19.7, z: 2.5, rot: 3, build: consoleBuild(3) });
   defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
   defProp('board', { label: 'order board', cat: 'wall', wall: true, x: 16.2, z: 8.38, rot: 2, build: boardBuild });
   defProp('charger', { label: 'forklift charger', cat: 'hall', x: 0, z: 13.65, rot: 2, build: chargerBuild });

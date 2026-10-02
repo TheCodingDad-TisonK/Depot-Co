@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1 (2026-10-02)
+
+- Consoles beside IN 1 and IN 2 as well: the door button, the docked truck, how many pallets are still on it, and whether the note is signed. The inbound docks had no panel after the button boxes went.
+
 ## 1.5.0 (2026-10-02)
 
 - The office PC is a real screen. E at the desk sits you down in front of the monitor; its apps (desktop, orders, contracts, shop, staff, bank, stock, stats) are drawn on the screen and tapped with the crosshair. Esc or WASD stands up.
