@@ -318,8 +318,9 @@
   sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -36; sun.shadow.camera.right = 36; sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30; sun.shadow.camera.near = 1; sun.shadow.camera.far = 140; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
-  [[-10, -5], [0, -5], [10, -5], [-10, 5], [0, 5], [10, 5]].forEach(function (p) {
-    var l = new THREE.PointLight(0xfff4e0, 0.55, 26, 2); l.position.set(p[0], 6.3, p[1]); scene.add(l); hallLights.push(l);
+  // nine high bays on a 20 x 15 m grid: the hall is 60 x 48 since 2026-10-02, and six lights on the old 20 x 10 grid left the edges dark
+  [[-20, -15], [0, -15], [20, -15], [-20, 0], [0, 0], [20, 0], [-20, 15], [0, 15], [20, 15]].forEach(function (p) {
+    var l = new THREE.PointLight(0xfff4e0, 0.55, 38, 2); l.position.set(p[0], 7.3, p[1]); scene.add(l); hallLights.push(l);
   });
   var officeLight = new THREE.PointLight(0xfff8ea, 0.5, 9, 2); officeLight.position.set(16.5, 3.2, 11); scene.add(officeLight);
   var breakLight = new THREE.PointLight(0xffe9c8, 0.35, 8, 2); breakLight.position.set(-16.5, 3.0, -12); scene.add(breakLight);
@@ -1441,7 +1442,7 @@
   defProp('lockers', { label: 'lockers', cat: 'room', x: -18.4, z: 13.55, rot: 0, build: lockerBuild });
   defProp('hooks', { label: 'coat hooks', cat: 'room', wall: true, x: -16.6, z: 13.83, rot: 2, build: hooksBuild });
   defProp('notice', { label: 'notice board', cat: 'wall', wall: true, x: -17.5, z: 8.59, rot: 0, build: noticeBuild });
-  defProp('firstAid', { label: 'first-aid box', cat: 'wall', wall: true, x: -15.6, z: 13.0, rot: 3, build: firstAidBuild });
+  defProp('firstAid', { label: 'first-aid box', cat: 'wall', wall: true, abs: true, x: -25.6, z: 20.9, rot: 3, build: firstAidBuild });
   defProp('extBreak', { label: 'fire extinguisher', cat: 'wall', wall: true, x: -19.83, z: 13.2, rot: 1, build: extinguisherBuild });
   defProp('posterRota', { label: 'rota poster', cat: 'wall', wall: true, x: -19.83, z: 9.2, rot: 1, build: posterBuild('rota', 0.6, 0.9) });
   defProp('posterSmoke', { label: 'no-smoking poster', cat: 'wall', wall: true, x: -15.6, z: 11.0, rot: 3, build: posterBuild('nosmoking', 0.6, 0.9) });
@@ -4154,7 +4155,7 @@
     if (ui.started) return;
     ui.started = true; $('dc-start').hidden = true; $('dc-hud').hidden = false; hudDirty = true;
     lockPointer(); sfx('ok');
-    if (!loaded) { logEvent('Welcome to Depot Co. Open dock IN 1: the first truck is due at 07:30.', 'rare'); save(); }
+    if (!loaded) { S.time = DAY_START; logEvent('Welcome to Depot Co. Open dock IN 1: the first truck is due at 07:30.', 'rare'); save(); }   // the menu backdrop showed 10:30; the shift starts at 06:00
     else logEvent('Back on shift. Day ' + S.day + ', ' + fmtTime(S.time) + '.');
   }
   $('dc-start-btn').addEventListener('click', enter);
@@ -4174,6 +4175,8 @@
     if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + (post.calls || renderer.info.render.calls) + ' draws'; fpsN = 0; fpsT = 0; } }
   }
   requestAnimationFrame(frame);
+  // a hidden tab gets no animation frames; the world still ticks ten times a second so a docked truck does not wait on a tab switch
+  setInterval(function () { if (!document.hidden) return; var n = performance.now(), dt = Math.min(0.05, Math.max(0.001, (n - last) / 1000)); last = n; worldTime += dt; if (ui.started && !ui.blocked()) { tickWorld(dt); updatePlayer(dt); doorAnim(dt); placeTools(dt); syncInstances(); tickLife(dt); doorsTick(dt); tickTimeClock(dt); scene.updateMatrixWorld(true); interact(); updatePrompt(); } }, 50);
   window.addEventListener('beforeunload', function () { if (ui.started) save(); });
 
   // ── The window handle: the main menu, and the smoke test ──────────

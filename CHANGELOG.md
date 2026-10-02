@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.7 (2026-10-02)
+
+- A new game starts at 06:00. The main menu showed the hall at 10:30 and the clock stayed there when you started, so the 07:30 truck the intro promises had already been missed.
+- Nine high bays on a 20 by 15 m grid light the whole hall; the six lights laid out for the old 40 by 28 hall left the big hall dark in the morning.
+- The first-aid box in the lobby hung over the window; it is beside the door now.
+- The world keeps ticking at 20 Hz while the browser tab is hidden (the pause menu still stops it when the pointer is released).
+
 ## 1.10.6 (2026-10-02)
 
 - The stretch wrapper wraps a pallet set down on its turntable (by forklift or jack), not only one still on the jack.

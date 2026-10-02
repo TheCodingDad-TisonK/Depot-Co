@@ -17,7 +17,7 @@
     if (ui.started) return;
     ui.started = true; $('dc-start').hidden = true; $('dc-hud').hidden = false; hudDirty = true;
     lockPointer(); sfx('ok');
-    if (!loaded) { logEvent('Welcome to Depot Co. Open dock IN 1: the first truck is due at 07:30.', 'rare'); save(); }
+    if (!loaded) { S.time = DAY_START; logEvent('Welcome to Depot Co. Open dock IN 1: the first truck is due at 07:30.', 'rare'); save(); }   // the menu backdrop showed 10:30; the shift starts at 06:00
     else logEvent('Back on shift. Day ' + S.day + ', ' + fmtTime(S.time) + '.');
   }
   $('dc-start-btn').addEventListener('click', enter);
@@ -37,6 +37,8 @@
     if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + (post.calls || renderer.info.render.calls) + ' draws'; fpsN = 0; fpsT = 0; } }
   }
   requestAnimationFrame(frame);
+  // a hidden tab gets no animation frames; the world still ticks ten times a second so a docked truck does not wait on a tab switch
+  setInterval(function () { if (!document.hidden) return; var n = performance.now(), dt = Math.min(0.05, Math.max(0.001, (n - last) / 1000)); last = n; worldTime += dt; if (ui.started && !ui.blocked()) { tickWorld(dt); updatePlayer(dt); doorAnim(dt); placeTools(dt); syncInstances(); tickLife(dt); doorsTick(dt); tickTimeClock(dt); scene.updateMatrixWorld(true); interact(); updatePrompt(); } }, 50);
   window.addEventListener('beforeunload', function () { if (ui.started) save(); });
 
   // ── The window handle: the main menu, and the smoke test ──────────
