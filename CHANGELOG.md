@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.6 (2026-10-02)
+
+- The stretch wrapper wraps a pallet set down on its turntable (by forklift or jack), not only one still on the jack.
+
 ## 1.10.5 (2026-10-02)
 
 - A 0.6 m slot between the hall floor edge and a docked trailer bed dropped to yard level, so you fell in with the jack and the forklift refused the trailer. Every dock has a leveller plate now, with a hinged lip and a hazard edge, and the floor treats a docked trailer as reaching the wall.

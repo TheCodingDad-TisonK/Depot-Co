@@ -4109,16 +4109,18 @@
   // A wrapped pallet keeps its boxes on the forks round a fast corner; an unwrapped one sheds them. Wrap film is $2 a pallet.
   var wrapper = { t: 0, pallet: null };
   function wrapperBusy() { return wrapper.t > 0; }
+  // the pallet the wrapper would wrap: the one on the jack you are holding, else a floor pallet sitting on the turntable
+  function wrapperTarget() { var p = player.tool === 'jack' ? jackPallet() : null; if (p) return p; var P = PROPS.wrapper ? propPlacement('wrapper') : null; if (!P) return null; var best = null, bd = 1.3 * 1.3; S.pallets.forEach(function (q) { if (q.place !== 'floor') return; var d = dist2(q.x, q.z, P.x, P.z); if (d < bd) { bd = d; best = q; } }); return best; }
   function wrapperPrompt() {
     if (wrapperBusy()) return 'Wrapping… ' + Math.ceil(wrapper.t) + ' s';
     if (S.events.power) return 'The wrapper is off: no power';
     if (S.wrap && S.wrap.film <= 0) return 'The film roll is finished: fit a new one on the screen';
-    var p = jackPallet(); if (player.tool === 'jack' && p) return p.wrapped ? 'That pallet is already wrapped' : 'Wrap the pallet';
-    return 'Stretch wrapper · bring a pallet on the jack';
+    var p = wrapperTarget(); if (p) return p.wrapped ? 'That pallet is already wrapped' : 'Wrap the pallet' + (p.place === 'floor' ? ' on the turntable' : '');
+    return 'Stretch wrapper · set a pallet on the turntable, or bring one on the jack';
   }
   function wrapperUse() {
     if (wrapperBusy() || S.events.power) return;
-    var p = jackPallet(); if (!(player.tool === 'jack' && p) || p.wrapped) { sfx('bad'); return; }
+    var p = wrapperTarget(); if (!p || p.wrapped) { sfx('bad'); return; }
     if (!S.wrap) S.wrap = { film: FILM_ROLL, wrapped: 0 }; if (S.wrap.film <= 0) { toast('The film roll is finished. Fit a new one on the wrapper screen.', 'bad'); sfx('bad'); return; }
     S.wrap.film--; S.wrap.wrapped++; wrapper.t = 5; wrapper.pallet = p.id; sfx('hydraulic'); addXp(3); screenDirtyAll();
   }
@@ -4192,7 +4194,7 @@
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
-      hopperUse: hopperUse, moulderUse: moulderUse, balerUse: balerUse, addWaste: addWaste, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, BELTS: BELTS, MACH: MACH, inWing: inWing,
+      hopperUse: hopperUse, moulderUse: moulderUse, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,
