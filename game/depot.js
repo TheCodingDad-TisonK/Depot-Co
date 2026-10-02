@@ -2490,7 +2490,7 @@
       return g;
     };
     rb(1.12, 0.5, 1.95, 0.05, FY, 0, 0.5, -0.25); rb(1.1, 0.9, 0.62, 0.1, FD, 0, 0.62, -1.18); rb(0.9, 0.28, 0.5, 0.05, FY, 0, 1.2, -1.15);
-    rb(0.96, 0.52, 0.96, 0.04, FS, 0, 0.96, -0.35); rb(0.98, 0.04, 0.98, 0.01, MAT.plastic, 0, 1.22, -0.35); box(1.12, 0.03, 0.6, MAT.chequer, 0, 0.76, 0.3, f);
+    rb(0.9, 0.42, 0.7, 0.04, FS, 0, 0.97, -0.5); rb(0.92, 0.03, 0.72, 0.01, MAT.plastic, 0, 1.195, -0.5); rb(0.3, 0.05, 0.04, 0.01, MAT.chrome, 0, 1.0, -0.14); box(1.12, 0.03, 0.6, MAT.chequer, 0, 0.76, 0.3, f);
     rb(0.3, 0.03, 0.18, 0.01, FD, -0.2, 0.78, 0.25).rotation.x = -0.3; rb(0.3, 0.03, 0.18, 0.01, FD, 0.2, 0.78, 0.25).rotation.x = -0.3;
     // the operator's compartment: a contoured seat on a suspension with a belt, armrest and lever bank, the column with its
     // shroud and a wheel with spokes and a spinner knob, a moulded dash with the cluster, key switch, horn and direction lever,

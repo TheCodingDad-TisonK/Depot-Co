@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.3 (2026-10-02)
+
+- The forklift battery cover under the seat was a metre cube; it is a 0.9 by 0.7 deck now, with a latch, and the seat sits at the same height.
+
 ## 1.10.2 (2026-10-02)
 
 - The forklift could not reverse away from the wrapper (or anything else it had nosed up to with a load): the collision test treated every move inside an obstacle's padding as a hit. An obstacle the truck is already inside can no longer block it, so it always backs out.
