@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.6 (2026-10-02)
+
+- Nine more forklift parts (the chequer floor plate, mast rails, crossbars, chains, headlamps and a hook) were built without the forklift as parent and sat at the hall origin, which is open floor in the big hall and in the main menu view. All of them ride on the forklift now.
+
 ## 1.9.5 (2026-10-02)
 
 - Rain and snow stop at the production wing's roof instead of falling through it.
