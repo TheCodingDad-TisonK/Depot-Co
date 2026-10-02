@@ -39,7 +39,7 @@
       dress.fans.push(hub);
     });
     var exitSign = function (x, y, z, ry) { var m = sign(['EXIT'], 0.5, 0.2, x, y, z, ry, { w: 256, h: 96, bg: '#1f7a3a', fg: '#dfffe8' }); var b = box(0.54, 0.24, 0.04, MAT.exit, x, y, z + (ry ? 0 : 0.03), null); b.rotation.y = ry || 0; if (ry) b.position.x += ry > 0 ? -0.03 : 0.03; m.renderOrder = 1; };
-    exitSign(14, 2.6, -Z + 0.2, 0); exitSign(-X + 0.2, 2.6, SPOT.staffDoor.z, Math.PI / 2);
+    exitSign(24, 2.6, -Z + 0.2, 0); exitSign(-X + 0.2, 2.6, SPOT.staffDoor.z, Math.PI / 2);
     [RACK.x0 - 1.1, -RACK.x0 + 1.1].forEach(function (x) { for (var z = RACK.rows[0] - 1; z <= RACK.rows[RACK.rows.length - 1] + 1; z += 0.7) plane(1.2, 0.35, MAT.whiteLine, x, 0.0065, z, -Math.PI / 2); });
     // dock lights beside every door, wheel chocks inside, guide rails and a chain hoist
     doors.forEach(function (d) {

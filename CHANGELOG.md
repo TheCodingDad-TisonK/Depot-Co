@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.4 (2026-10-02)
+
+- The moulder discharges through an opening in its rear platen frame onto the belt; parts no longer appear through a wall.
+- Saves from the first big-hall build (hall generation 2) get their layout reset once more and any docked truck evicted; a truck inside the building is evicted on every load.
+- Floor paint redrawn for the big hall: the pedestrian walkway runs the whole south strip from the lobby to the office, then up the east side and along the north wall to the production door; the exit sign hangs over the fire exit again.
+- Signs are props now, so build mode moves them: the PRODUCTION and WAREHOUSE door signs, the PPE sign, and the RECEIVING, SHIPPING, FINISHED GOODS and RAW GRANULATE floor paint. The catalogue gains a spare wall sign and a floor arrow.
+- The wing's machines rebuilt properly: the hopper is a day bin on braced square legs with a ring girder, a butterfly valve and rotary feeder under the cone, a supported vacuum loader pipe, a caged ladder with a top rail, a level cabinet on a bracket and a kerbed tip point; the dryer is a desiccant cabinet with a door, display and E-stop under its drying hopper, with blower, filter and hoses; the chiller is a full unit with louvred panels, guarded fans, a pump end and piping to the floor manifold; the palletiser has a heavy frame on a base plate with a mesh back guard and a carriage-mounted pusher; the case taper is a solid body with a tunnel through it.
+
 ## 1.9.3 (2026-10-02)
 
 - The moulding line is a real injection moulding machine: two-tone base on levelling feet, injection unit with a loader hopper and a slotted heater cover, fixed and moving platens on four tie bars with nuts, toggle links and a rear platen with its cylinder, mould halves that open and close with the cycle, a sliding safety gate with a window, a swing-arm operator panel with the touchscreen and E-stop, a hydraulic power unit, a water manifold with hoses to the mould, a cable chain and an outfeed chute to the belt. The hopper's feed pipe lands in its throat.

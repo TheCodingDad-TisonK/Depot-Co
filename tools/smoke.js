@@ -57,7 +57,7 @@ const SCENARIO = `(async () => {
   T.benchUse(); ok(!S.hand && S.bench.boxes[firstLine.sku] === 1, 'box on the bench');
   o.lines.forEach((l, i) => { const need = l.qty - (i === 0 ? 1 : 0); for (let q = 0; q < need; q++) { const k = Object.keys(S.slots).find((kk) => S.slots[kk].sku === l.sku && S.slots[kk].n > 0); S.slots[k].n--; if (!S.slots[k].n) delete S.slots[k]; T.benchAdd(l.sku, 1); } });
   ok(T.canPack(o), 'order packable from the bench');
-  ok(T.packOrder(o) && o.state === 'packing', 'order released to the pack line'); T.run(30); ok(o.state === 'packed' && S.bench.parcels[0] === o.id, 'pack line made the parcel: on the shelf');
+  ok(T.packOrder(o) && o.state === 'packing', 'order released to the pack line'); T.run(30); if (S.pack.jam) { T.packUse(); T.run(15); } ok(o.state === 'packed' && S.bench.parcels[0] === o.id, 'pack line made the parcel: on the shelf ' + JSON.stringify({ st: o.state, pack: S.pack, pi: T.beltItems('packIn').length, po: T.beltItems('packOut').length, inst: !!T.propInst.packline, sink: T.beltSink(T.BELTS.packIn) ? (T.beltSink(T.BELTS.packIn).machine || T.beltSink(T.BELTS.packIn).belt).id : null, power: S.events.power }));
   // ship it
   T.setTime(10.3); T.run(30);
   const tout = T.truckAtDoor(2); ok(!!tout, 'outbound truck docked at OUT 1');
@@ -99,7 +99,7 @@ const SCENARIO = `(async () => {
   S.fork.x = 0; S.fork.z = 20.5; S.fork.batt = 0.4; T.player.x = 0; T.player.z = 22; T.cableUse('fork'); ok(T.player.tool === 'cable', 'took the charging cable'); T.cablePlugInto('fork'); ok(S.fork.plugged === true && T.player.tool === null, 'forklift plugged in'); const bt0 = S.fork.batt; T.run(20); ok(S.fork.batt > bt0, 'charging while plugged: ' + S.fork.batt.toFixed(2)); T.startDrive(); ok(S.fork.plugged === false, 'driving off pulled the plug'); T.stopDrive();
   // contracts, the bank, damaged goods
   S.level = 3; S.contract = null; S.nextOffer = S.day; T.setTime(9.05); T.run(2); ok(!!S.contract && !S.contract.accepted, 'contract offered');
-  S.contract.accepted = true; S.contract.need = 1; const co = T.genOrder(false); co.client = S.contract.client; co.lines = [{ sku: 'bolts', qty: 1 }]; T.benchAdd('bolts', 1); T.packOrder(co); T.run(30); ok(co.state === 'packed', 'contract order packed by the line');
+  S.contract.accepted = true; S.contract.need = 1; const co = T.genOrder(false); co.client = S.contract.client; co.lines = [{ sku: 'bolts', qty: 1 }]; T.benchAdd('bolts', 1); T.packOrder(co); T.run(30); if (S.pack.jam) { T.packUse(); T.run(15); } ok(co.state === 'packed', 'contract order packed by the line');
   delete S.flags['out' + S.day + '-0']; S.trucks.filter((t) => t.dir === 'out').forEach((t) => { T.truckLeave(t, 'test'); }); T.run(20); T.setTime(10.4); T.run(30); const tc = T.truckAtDoor(2); ok(!!tc, 'outbound truck for the contract test'); T.setDoor(2, true); T.shelfUse({ kind: 'shelf', order: co.id }); T.loadUse(tc.id); T.consoleUse(2); ok(S.contract.done === 1, 'contract counts the on-time ship');
   const bank2 = S.bank; S.contract.until = T.S.day * 24 + T.S.time - 1; T.run(1); ok(S.contract === null && S.bank > bank2, 'contract paid out');
   S.staff.forEach((st) => { st.hoursToday = 8; }); S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');

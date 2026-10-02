@@ -3,7 +3,7 @@
   function freshState() {
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
-      hall: 2,                   // the hall layout generation; 1 was the 40 x 28 hall
+      hall: 3,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
       up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false },
       slots: {},                 // "row,bay,level" -> { sku, n }
       pallets: [],               // { id, sku, n, place: 'truck'|'floor'|'jack'|'fork'|'staff', truck, idx, x, z, y, rot }
@@ -35,10 +35,14 @@
     try {
       var raw = localStorage.getItem(SAVE); if (!raw) return false;
       var s = JSON.parse(raw); if (!s || typeof s !== 'object') return false;
-      var f = freshState(), oldHall = !('hall' in s) || s.hall < 2;
+      var f = freshState(), oldHall = !('hall' in s) || s.hall < 2, hall2 = s.hall === 2;
       for (var k in f) if (!(k in s)) s[k] = f[k];
       for (var k2 in f.stats) if (!(k2 in s.stats)) s.stats[k2] = f.stats[k2];
-      if (oldHall) { s.hall = 2; s.layout = {}; s.custom = []; s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); (s.staff || []).forEach(function (st) { if (st.x !== undefined) { st.x = clamp(st.x, -HALL.x + 2, HALL.x - 2); st.z = clamp(st.z, -HALL.z + 2, HALL.z - 2); } }); s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; s.fork.x = SPOT.fork.x; s.fork.z = SPOT.fork.z; s.fork.plugged = false; (s.pallets || []).forEach(function (p) { if (p.place === 'floor') { p.x = clamp(p.x, -HALL.x + 2, HALL.x - 2); p.z = clamp(p.z, -HALL.z + 2, HALL.z - 2); } }); }
+      // a save from the first big-hall build kept its old layout and any docked truck inside the new walls: the same clean-up again, once
+      if (hall2) { s.hall = 3; s.layout = {}; s.custom = []; s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); }
+      // any truck that would sit inside the building is evicted, whatever the save says
+      s.trucks = (s.trucks || []).filter(function (t) { var inside = Math.abs(t.x) < HALL.x + 0.2; if (inside) s.pallets = (s.pallets || []).filter(function (p) { return !(p.place === 'truck' && p.truck === t.id); }); return !inside; });
+      if (oldHall) { s.hall = 3; s.layout = {}; s.custom = []; s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); (s.staff || []).forEach(function (st) { if (st.x !== undefined) { st.x = clamp(st.x, -HALL.x + 2, HALL.x - 2); st.z = clamp(st.z, -HALL.z + 2, HALL.z - 2); } }); s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; s.fork.x = SPOT.fork.x; s.fork.z = SPOT.fork.z; s.fork.plugged = false; (s.pallets || []).forEach(function (p) { if (p.place === 'floor') { p.x = clamp(p.x, -HALL.x + 2, HALL.x - 2); p.z = clamp(p.z, -HALL.z + 2, HALL.z - 2); } }); }
       for (var k3 in f.up) if (!(k3 in s.up)) s.up[k3] = f.up[k3];
       for (var k4 in f.events) if (!(k4 in s.events)) s.events[k4] = f.events[k4];
       S = s; return true;

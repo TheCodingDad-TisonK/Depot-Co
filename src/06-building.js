@@ -49,10 +49,10 @@
     function lineZ(z0, z1, x, w) { plane(w || 0.1, z1 - z0, MAT.yellowLine, x, 0.006, (z0 + z1) / 2, -Math.PI / 2); }
     function square(cx, cz, s) { lineX(cx - s / 2, cx + s / 2, cz - s / 2); lineX(cx - s / 2, cx + s / 2, cz + s / 2); lineZ(cz - s / 2, cz + s / 2, cx - s / 2); lineZ(cz - s / 2, cz + s / 2, cx + s / 2); }
     square(SPOT.stageIn.x, SPOT.stageIn.z, 3.4); square(SPOT.stageOut.x, SPOT.stageOut.z, 3.4);
-    lineX(-X + 0.3, 12.2, 8.2); lineX(-X + 0.3, 12.2, 9.4);                       // the pedestrian walkway along the south strip
+    lineX(-X + 0.3, 22.2, 18.2); lineX(-X + 0.3, 22.2, 19.4);                      // the pedestrian walkway along the south strip, lobby to office
+    lineZ(-Z + 1.6, 18.2, 24.4); lineZ(-Z + 1.6, 19.4, 25.6); lineX(WING.door.x1 + 0.4, 24.4, -Z + 1.6); lineX(WING.door.x1 + 0.4, 25.6, -Z + 2.8);   // up the east side and along the north wall to the production door
+
     lineZ(-Z + 0.3, Z - 0.3, RACK.x0 - 0.4); lineZ(-Z + 0.3, Z - 0.3, -RACK.x0 + 0.4);              // the rack block edges
-    plane(2.6, 0.9, new THREE.MeshBasicMaterial({ map: textTex(['RECEIVING'], { w: 512, h: 128, bg: '#2a2f36', fg: '#f5b53d' }) }), SPOT.stageIn.x, 0.007, SPOT.stageIn.z + 2.2, -Math.PI / 2);
-    plane(2.6, 0.9, new THREE.MeshBasicMaterial({ map: textTex(['SHIPPING'], { w: 512, h: 128, bg: '#2a2f36', fg: '#5fd38d' }) }), SPOT.stageOut.x, 0.007, SPOT.stageOut.z + 2.2, -Math.PI / 2);
     // dock doors
     DOCKS.in.forEach(function (d, i) { buildDoor(i, -1, d.z); });
     DOCKS.out.forEach(function (d, i) { buildDoor(2 + i, 1, d.z); });
