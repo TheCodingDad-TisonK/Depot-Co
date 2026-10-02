@@ -13,7 +13,7 @@ Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built fro
 | `game/version.js` | **Generated** from `package.json` by `tools/sync-version.js`. |
 | `game/logo-256.png`, `logo.png`, `wordmark.png` | **Generated** by `tools/render-brand.js` (a canvas drawing in a hidden Electron window). |
 | `main.js` | The Electron shell: one window, no menu bar, screenshots to `Pictures\Depot Co`. |
-| `tools/smoke.js` | `npm test`. Boots the real page headless and plays a day through the test handle. |
+| `tools/smoke.js` | `npm test`. Boots the real page headless and plays a day through the test handle: 91 checks, including the pack line, the moulding line and the palletiser. |
 
 ## The parts of `src/`
 
@@ -49,6 +49,8 @@ They join in file-name order into one function scope, so every `function` is hoi
 - **Interaction is a raycast from the screen centre** against `inter` (hit meshes with a `userData.it` of `{ prompt(), use() }`) plus the three instanced meshes. The nearest hit whose `prompt()` returns text becomes `focus`. `E` calls `focus.use()`.
 - **Collision is axis-aligned boxes.** `solids` is static (walls, racks, furniture). `dyn` is rebuilt every tick from pallets on the floor, docked trailers, closed doors, the forklift. The player is a circle of radius 0.32 moved one axis at a time. `floorY(x, z)` says whether the ground here is the hall (0), a docked trailer (0), the ramp, or the yard (-1.2); a rise of more than half a metre counts as a wall.
 - **Time** runs at one game hour per 37.5 real seconds while open, four times that at night, and stops while a panel or the pause menu is open. Trucks spawn when the clock crosses their slot and a flag keyed by day keeps them from spawning twice.
+- **The hall grew** from 40 x 28 to 60 x 48 on 2026-10-02. Prop defaults authored for the small hall are shifted at `defProp` by the `grown()` rule in `06-props` (a coordinate with |v| >= 8 moves 10 m outward) unless the def says `abs: true`; everything newer is authored in the big hall with `abs: true`. The save carries `hall: 3` and `load()` in `03-state` migrates older generations (clears layout overrides, parks the tools, evicts any truck that would sit inside the walls).
+- **Machines** (`12-machines`): a registry `MACH` of machines with an inlet and an outlet in their own prop frame, a status and a lamp stack, and `BELTS` with a path per prop. A belt hands an item at its end to whatever is within 1.3 m of that end, another belt or a machine, so moving the pieces in build mode keeps a line working and piles items up at a gap. Belt items are drawn with the instanced boxes and parcels. Animated parts of a machine live in a `userData.dynamic` subgroup so the static bake leaves them alone. The pack line owns `packOrder` (an order is in state `packing` while on it), the moulding line and hopper feed the main belt to the palletiser, and the baler and wrapper sit on the same registry. The production wing itself and the machine props are built in `06-props2-factory`.
 - **Staff** walk through `route(a, b)`: A* on a 0.4 m grid built from the static solids, with cells outside the hall open only inside a docked trailer, then string-pulled. Hinged doors never block them (they carry keys).
 - **The test handle** `window.DEPOT.T` exposes the state and the action functions so the smoke test can play without a mouse: `T.run(seconds)` advances the whole world in 50 ms steps.
 

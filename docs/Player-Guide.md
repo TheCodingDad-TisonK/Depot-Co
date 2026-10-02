@@ -2,7 +2,7 @@
 
 ## The building
 
-The staff door on the west wall opens into the entrance lobby: the time clock, lockers, coat hooks and the notice board. Through the lobby door is the hall. The break room is the north-west corner above IN 1 (cot, coffee, vending machine, radio), the office the south-east corner. `F8` opens a dev console for testing.
+The staff door on the west wall opens into the entrance lobby: the time clock, lockers, coat hooks and the notice board. Through the lobby door is the hall, 60 by 48 metres: six rack rows of fifteen bays, the docks on the west (IN) and east (OUT) walls, the pack line by the office. The break room is the north-west corner (cot, coffee, vending machine, radio), the office the south-east corner. Through the strip curtain in the north wall is the production wing, with its hopper, moulding line and the belt to the palletiser. `F8` opens a dev console for testing.
 
 ## Your first day
 
@@ -14,7 +14,7 @@ You clock in at 06:00 with $600, two rack rows and a pallet jack. The intro in t
 4. **The scanner.** `Tab` raises it. Page 1 is the pick list with the slot of every line, page 2 what is still on the truck and where it should go, page 3 the stock, page 4 the day. Point it at a rack slot and the bottom line reads that slot. `1`-`4` or the mouse wheel turn the pages.
 5. **08:30, the first order.** It shows on the office PC, the wall board above the office, and the scanner (page 1), with the lines, the due time and the pay. The due time is the departure of an outbound truck.
 6. **Pick.** Walk to the slot the scanner names and `E` takes a box. Carry it to the **packing bench** on the east side and `E` puts it down. One box per trip until you buy the cart.
-7. **Pack.** With empty hands, `E` on the bench opens it. Pack the order. The parcel appears on the shelf beside the bench. An order with at least half its boxes can be packed short for 60% of the pay.
+7. **Pack.** With empty hands, `E` on the bench opens it. Pick the order and release it to the pack line: its boxes ride the infeed belt into the case taper, and the parcel rolls down the outfeed onto the gravity shelf at the end of the line. An order with at least half its boxes can be released short for 60% of the pay.
 8. **Ship.** The outbound truck is at **OUT 1** from 10:30 to 12:00 (and OUT 2 from 16:00 to 18:00). Open the door, pick the parcel up, walk into the trailer and `E` loads it. `E` on the dock console sends the truck now; otherwise it leaves on time. You are paid when it goes.
 9. **13:30, the second truck.** Same again. By 17:00 you can sleep on the cot in the break room, which skips to 06:00 and charges rent ($110) and wages.
 
@@ -40,7 +40,7 @@ When a truck docks the driver climbs down, walks along the trailer, climbs the d
 
 ## The forklift battery and the wrapper
 
-The forklift runs down while it drives and charges in its own bay by the charger on the south wall. Flat, it crawls. A pallet on the forks that is not wrapped sheds a box on a fast corner: bring the pallet to the stretch wrapper on the jack and press `E` ($2 of film).
+The forklift runs down while it drives, faster in third gear (Shift cycles creep, normal and fast), and charges only while its cable is plugged in at the charging point on the south wall: take the cable off the reel, walk it to the truck, `E` plugs it in. Flat, it crawls. A pallet on the forks that is not wrapped sheds a box on a fast corner: bring the pallet to the stretch wrapper on the jack and press `E` ($2 of film).
 
 ## Weather, seasons and Sundays
 
