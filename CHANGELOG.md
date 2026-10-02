@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.5 (2026-10-02)
+
+- Rain and snow stop at the production wing's roof instead of falling through it.
+
 ## 1.9.4 (2026-10-02)
 
 - The moulder discharges through an opening in its rear platen frame onto the belt; parts no longer appear through a wall.
