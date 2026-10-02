@@ -123,7 +123,7 @@
   function tickBattery(dt) {
     if (!S.up.fork) return;
     if (S.fork.batt === undefined) S.fork.batt = 1;
-    if (driving && Math.abs(forkSpeed) > 0.1) { S.fork.batt = clamp(S.fork.batt - dt / 1500, 0, 1); if (S.fork.batt <= 0 && !S.flags.battDead) { S.flags.battDead = 1; toast('Forklift battery flat. Push it to the charger.', 'bad'); } }
+    if (driving && Math.abs(forkSpeed) > 0.1) { S.fork.batt = clamp(S.fork.batt - dt / 1500 * (S.fork.gear === 3 ? 1.8 : S.fork.gear === 1 ? 0.7 : 1), 0, 1); if (S.fork.batt <= 0 && !S.flags.battDead) { S.flags.battDead = 1; toast('Forklift battery flat. Push it to the charger.', 'bad'); } }
     else if (forkCharging() && !S.events.power) { S.fork.batt = clamp(S.fork.batt + dt / 110, 0, 1); if (S.fork.batt >= 1 && S.flags.battDead) { S.flags.battDead = 0; toast('Forklift charged.', 'good'); } }
   }
 

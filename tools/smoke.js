@@ -90,7 +90,7 @@ const SCENARIO = `(async () => {
   // the forklift: lift a floor pallet and store it on the shelf level
   const fp = T.newPallet('paint', 8, { place: 'floor', x: 3.5, y: 0, z: 19.5, rot: 0 });
   S.fork.x = 2; S.fork.z = 19.5; S.fork.yaw = Math.PI / 2; S.fork.lift = 0.1;
-  T.startDrive(); ok(T.ui && window.DEPOT.T.player, 'driving the forklift');
+  T.startDrive(); ok(T.ui && window.DEPOT.T.player, 'driving the forklift'); T.forkGearCycle(); T.forkGearCycle(); ok(S.fork.gear === 3, 'Shift cycled to gear 3'); T.forkGearCycle(); ok(S.fork.gear === 1, 'and back round to gear 1');
   T.forkUse(); ok(S.fork.pallet === fp.id, 'forks lifted the pallet');
   S.fork.x = -21; S.fork.z = -10.6; S.fork.yaw = 0; S.fork.lift = 1.55;
   const k10 = T.slotKey(1, 0, 1); delete S.slots[k10];

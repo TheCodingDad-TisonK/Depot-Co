@@ -70,7 +70,7 @@
     var dirLever = cyl(0.008, 0.14, FD, 0.08, 0.28, 0.0, colGrp, 6); dirLever.rotation.z = -1.2; sphere(0.014, FD, 0.17, 0.3, 0, colGrp);
     // the dash: a moulded cowl ahead of the column, the cluster, a key switch, the horn, a rocker, the hour meter
     rb(0.6, 0.2, 0.26, 0.05, FS, 0, 1.12, 0.42); var cowl = rb(0.56, 0.12, 0.22, 0.04, FD, 0, 1.25, 0.4); cowl.rotation.x = 0.3;
-    var cl = plane(0.3, 0.1, new THREE.MeshBasicMaterial({ map: textTex(['24V ▮▮▮▮▮▮▯▯   0.0 km/h', '⏱ 0412.6 h   ⚠ ✓'], { w: 512, h: 160, bg: '#0d1216', fg: '#5fd38d', size: 30 }) }), 0, 1.27, 0.3, -1.2, 0); cl.userData.noBake = true;
+    var cl = plane(0.3, 0.1, new THREE.MeshBasicMaterial({ map: textTex(['24V ▮▮▮▮▮▮▯▯   0.0 km/h', '⏱ 0412.6 h   ⚠ ✓'], { w: 512, h: 160, bg: '#0d1216', fg: '#5fd38d', size: 30 }) }), 0, 1.27, 0.3, -1.2, 0, f); cl.userData.noBake = true;
     cyl(0.018, 0.02, MAT.chrome, -0.2, 1.24, 0.29, f, 10).rotation.x = -1.2; box(0.012, 0.03, 0.004, MAT.black, -0.2, 1.255, 0.285, f); cyl(0.022, 0.012, MAT.red, 0.2, 1.24, 0.29, f, 12).rotation.x = -1.2; box(0.03, 0.02, 0.01, FD, -0.12, 1.22, 0.3, f); box(0.03, 0.02, 0.01, MAT.green, -0.12, 1.2, 0.3, f);
     sign(['HORN'], 0.06, 0.016, 0.2, 1.21, 0.31, 0, { w: 128, h: 32, bg: '#1b232c', fg: '#eef1f5' }, f);
     // the floor: pedals and the parking brake
@@ -135,10 +135,13 @@
     for (var i = 0; i < all.length; i++) { var s = all[i]; if (s.fork) continue; if (s.y0 > 2.5) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return true; }
     return false;
   }
+  var FORK_GEARS = [0.6, 1.0, 1.5];   // top-speed multipliers: creep, normal, fast
+  function forkGearCycle() { var F = S.fork; F.gear = ((F.gear || 1) % 3) + 1; sfx('click'); toast('Gear ' + F.gear + (F.gear === 3 ? ': fast. Mind unwrapped loads on the corners.' : F.gear === 1 ? ': creep' : ''), ''); hudDirty = true; }
   function updateFork(dt) {
     var k = player.keys, F = S.fork;
     var throttle = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), batt = F.batt === undefined ? 1 : F.batt, cap = batt <= 0 ? 0.15 : batt < 0.15 ? 0.5 : 1;
-    if (throttle) forkSpeed = clamp(forkSpeed + throttle * 3.2 * dt, -2.6 * cap, 4.2 * cap); else forkSpeed *= Math.max(0, 1 - 3 * dt);
+    var gear = F.gear || 1, gm = FORK_GEARS[gear - 1];
+    if (throttle) forkSpeed = clamp(forkSpeed + throttle * 3.2 * gm * dt, -2.6 * cap, 4.2 * gm * cap); else forkSpeed *= Math.max(0, 1 - 3 * dt);
     if (throttle && batt <= 0 && !forkLook.flatSaid) { forkLook.flatSaid = true; toast('Flat battery: crawl mode. Park it in its bay by the charger.', 'bad'); }
     // an unwrapped load sheds a box on a fast corner
     var p0 = forkPallet();
@@ -154,7 +157,7 @@
     if (lift) { F.lift = clamp(F.lift + lift * 1.1 * dt, 0.1, 3.7); if (!forkLook.hyd) { forkLook.hyd = true; sfx('hydraulic'); } } else forkLook.hyd = false;
     if (forkSpeed && Math.random() < dt * 1.5) sfx('forklift');
     var p = forkPallet();
-    $('h-drive').innerHTML = '<b>W/S</b> drive · <b>A/D</b> steer · <b>R/F</b> forks at ' + F.lift.toFixed(1) + ' m · <b>E</b> ' + (p ? 'set the pallet down' : 'lift a pallet') + ' · <b>G</b> get off · battery <b>' + Math.round((F.batt === undefined ? 1 : F.batt) * 100) + '%</b>' + (p && !p.wrapped ? ' · <span style="color:var(--amber)">unwrapped load</span>' : '');
+    $('h-drive').innerHTML = '<b>W/S</b> drive · <b>A/D</b> steer · <b>R/F</b> forks at ' + F.lift.toFixed(1) + ' m · <b>E</b> ' + (p ? 'set the pallet down' : 'lift a pallet') + ' · <b>G</b> get off · battery <b>' + Math.round((F.batt === undefined ? 1 : F.batt) * 100) + '%</b> · <b>Shift</b> gear <b>' + (F.gear || 1) + '</b>' + (p && !p.wrapped ? ' · <span style="color:var(--amber)">unwrapped load</span>' : '');
   }
   function forkUse() {
     var tip = forkTip(), F = S.fork, p = forkPallet();

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.0 (2026-10-02)
+
+- Forklift gears: Shift cycles creep, normal and fast while driving. Fast is half again quicker, drinks the battery and throws unwrapped loads on the corners. The gear shows in the driving HUD.
+- The dash cluster screen was the last forklift part floating at the hall origin; it rides in the cab now.
+
 ## 1.9.6 (2026-10-02)
 
 - Nine more forklift parts (the chequer floor plate, mast rails, crossbars, chains, headlamps and a hook) were built without the forklift as parent and sat at the hall origin, which is open floor in the big hall and in the main menu view. All of them ride on the forklift now.

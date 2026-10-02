@@ -125,6 +125,7 @@
     if (e.repeat) return;
     if (e.code === 'KeyE') useFocus();
     else if (e.code === 'KeyG') { if (driving) stopDrive(); else putDown(); }
+    else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving && !e.repeat) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
   document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); }, { passive: true });

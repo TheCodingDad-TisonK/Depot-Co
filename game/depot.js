@@ -2511,7 +2511,7 @@
     var dirLever = cyl(0.008, 0.14, FD, 0.08, 0.28, 0.0, colGrp, 6); dirLever.rotation.z = -1.2; sphere(0.014, FD, 0.17, 0.3, 0, colGrp);
     // the dash: a moulded cowl ahead of the column, the cluster, a key switch, the horn, a rocker, the hour meter
     rb(0.6, 0.2, 0.26, 0.05, FS, 0, 1.12, 0.42); var cowl = rb(0.56, 0.12, 0.22, 0.04, FD, 0, 1.25, 0.4); cowl.rotation.x = 0.3;
-    var cl = plane(0.3, 0.1, new THREE.MeshBasicMaterial({ map: textTex(['24V ▮▮▮▮▮▮▯▯   0.0 km/h', '⏱ 0412.6 h   ⚠ ✓'], { w: 512, h: 160, bg: '#0d1216', fg: '#5fd38d', size: 30 }) }), 0, 1.27, 0.3, -1.2, 0); cl.userData.noBake = true;
+    var cl = plane(0.3, 0.1, new THREE.MeshBasicMaterial({ map: textTex(['24V ▮▮▮▮▮▮▯▯   0.0 km/h', '⏱ 0412.6 h   ⚠ ✓'], { w: 512, h: 160, bg: '#0d1216', fg: '#5fd38d', size: 30 }) }), 0, 1.27, 0.3, -1.2, 0, f); cl.userData.noBake = true;
     cyl(0.018, 0.02, MAT.chrome, -0.2, 1.24, 0.29, f, 10).rotation.x = -1.2; box(0.012, 0.03, 0.004, MAT.black, -0.2, 1.255, 0.285, f); cyl(0.022, 0.012, MAT.red, 0.2, 1.24, 0.29, f, 12).rotation.x = -1.2; box(0.03, 0.02, 0.01, FD, -0.12, 1.22, 0.3, f); box(0.03, 0.02, 0.01, MAT.green, -0.12, 1.2, 0.3, f);
     sign(['HORN'], 0.06, 0.016, 0.2, 1.21, 0.31, 0, { w: 128, h: 32, bg: '#1b232c', fg: '#eef1f5' }, f);
     // the floor: pedals and the parking brake
@@ -2576,10 +2576,13 @@
     for (var i = 0; i < all.length; i++) { var s = all[i]; if (s.fork) continue; if (s.y0 > 2.5) continue; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r) return true; }
     return false;
   }
+  var FORK_GEARS = [0.6, 1.0, 1.5];   // top-speed multipliers: creep, normal, fast
+  function forkGearCycle() { var F = S.fork; F.gear = ((F.gear || 1) % 3) + 1; sfx('click'); toast('Gear ' + F.gear + (F.gear === 3 ? ': fast. Mind unwrapped loads on the corners.' : F.gear === 1 ? ': creep' : ''), ''); hudDirty = true; }
   function updateFork(dt) {
     var k = player.keys, F = S.fork;
     var throttle = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), batt = F.batt === undefined ? 1 : F.batt, cap = batt <= 0 ? 0.15 : batt < 0.15 ? 0.5 : 1;
-    if (throttle) forkSpeed = clamp(forkSpeed + throttle * 3.2 * dt, -2.6 * cap, 4.2 * cap); else forkSpeed *= Math.max(0, 1 - 3 * dt);
+    var gear = F.gear || 1, gm = FORK_GEARS[gear - 1];
+    if (throttle) forkSpeed = clamp(forkSpeed + throttle * 3.2 * gm * dt, -2.6 * cap, 4.2 * gm * cap); else forkSpeed *= Math.max(0, 1 - 3 * dt);
     if (throttle && batt <= 0 && !forkLook.flatSaid) { forkLook.flatSaid = true; toast('Flat battery: crawl mode. Park it in its bay by the charger.', 'bad'); }
     // an unwrapped load sheds a box on a fast corner
     var p0 = forkPallet();
@@ -2595,7 +2598,7 @@
     if (lift) { F.lift = clamp(F.lift + lift * 1.1 * dt, 0.1, 3.7); if (!forkLook.hyd) { forkLook.hyd = true; sfx('hydraulic'); } } else forkLook.hyd = false;
     if (forkSpeed && Math.random() < dt * 1.5) sfx('forklift');
     var p = forkPallet();
-    $('h-drive').innerHTML = '<b>W/S</b> drive · <b>A/D</b> steer · <b>R/F</b> forks at ' + F.lift.toFixed(1) + ' m · <b>E</b> ' + (p ? 'set the pallet down' : 'lift a pallet') + ' · <b>G</b> get off · battery <b>' + Math.round((F.batt === undefined ? 1 : F.batt) * 100) + '%</b>' + (p && !p.wrapped ? ' · <span style="color:var(--amber)">unwrapped load</span>' : '');
+    $('h-drive').innerHTML = '<b>W/S</b> drive · <b>A/D</b> steer · <b>R/F</b> forks at ' + F.lift.toFixed(1) + ' m · <b>E</b> ' + (p ? 'set the pallet down' : 'lift a pallet') + ' · <b>G</b> get off · battery <b>' + Math.round((F.batt === undefined ? 1 : F.batt) * 100) + '%</b> · <b>Shift</b> gear <b>' + (F.gear || 1) + '</b>' + (p && !p.wrapped ? ' · <span style="color:var(--amber)">unwrapped load</span>' : '');
   }
   function forkUse() {
     var tip = forkTip(), F = S.fork, p = forkPallet();
@@ -3342,6 +3345,7 @@
     if (e.repeat) return;
     if (e.code === 'KeyE') useFocus();
     else if (e.code === 'KeyG') { if (driving) stopDrive(); else putDown(); }
+    else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving && !e.repeat) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
   document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); }, { passive: true });
@@ -3784,7 +3788,7 @@
       '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
       '<h3>Drivers</h3><p>Open the dock door and the driver walks in and waits beside it. Sign the delivery note (<kbd>E</kbd> on him) before anything comes off the truck. He will nag after two hours.</p>' +
       '<h3>The pack line and the production wing</h3><p>Boxes go on the bench as before, but packing is a machine now: pick an order on the bench terminal and the line feeds its boxes onto the infeed belt, the case taper closes them into one parcel, and the parcel rolls down the outfeed onto the shelf. It jams now and then: <kbd>E</kbd> on it clears the jam.</p><p>Through the strip curtain in the north wall is the production wing. Order pallets of raw granulate on the office PC (Production app); they come with the next inbound truck. Bring one on the jack to the hopper and <kbd>E</kbd> tips it in. Start the moulding line on its screen or with <kbd>E</kbd>, pick a product, and own-brand boxes come down the main belt into the hall, where the palletiser stacks them eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your goods once they have seen them.</p>' +
-      '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
+      '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, Shift cycles three gears (creep, normal, fast; fast drinks the battery and throws unwrapped loads on corners), lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
       '<h3>Staff and the time clock</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at 06:00. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
       '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
@@ -4091,7 +4095,7 @@
   function tickBattery(dt) {
     if (!S.up.fork) return;
     if (S.fork.batt === undefined) S.fork.batt = 1;
-    if (driving && Math.abs(forkSpeed) > 0.1) { S.fork.batt = clamp(S.fork.batt - dt / 1500, 0, 1); if (S.fork.batt <= 0 && !S.flags.battDead) { S.flags.battDead = 1; toast('Forklift battery flat. Push it to the charger.', 'bad'); } }
+    if (driving && Math.abs(forkSpeed) > 0.1) { S.fork.batt = clamp(S.fork.batt - dt / 1500 * (S.fork.gear === 3 ? 1.8 : S.fork.gear === 1 ? 0.7 : 1), 0, 1); if (S.fork.batt <= 0 && !S.flags.battDead) { S.flags.battDead = 1; toast('Forklift battery flat. Push it to the charger.', 'bad'); } }
     else if (forkCharging() && !S.events.power) { S.fork.batt = clamp(S.fork.batt + dt / 110, 0, 1); if (S.fork.batt >= 1 && S.flags.battDead) { S.flags.battDead = 0; toast('Forklift charged.', 'good'); } }
   }
 
@@ -4176,7 +4180,7 @@
       slotKey: slotKey, slotUse: slotUse, slotPrompt: slotPrompt, stockCount: stockCount, totalStock: totalStock,
       grabTool: grabTool, releaseTool: releaseTool, toolWorld: toolWorld,
       genOrder: genOrder, orderById: orderById, benchAdd: benchAdd, benchUse: benchUse, packOrder: packOrder, canPack: canPack, shelfUse: shelfUse, loadUse: loadUse, consoleUse: consoleUse, consolePrompt: consolePrompt,
-      hireStaff: hireStaff, fireStaff: fireStaff, buyUpgrade: buyUpgrade, startDrive: startDrive, stopDrive: stopDrive, forkUse: forkUse, forkTip: forkTip,
+      hireStaff: hireStaff, fireStaff: fireStaff, buyUpgrade: buyUpgrade, startDrive: startDrive, stopDrive: stopDrive, forkGearCycle: forkGearCycle, forkUse: forkUse, forkTip: forkTip,
       handSet: handSet, putDown: putDown, interact: interact, useFocus: useFocus, focusText: function () { return focusText; },
       lookAt: function (x, y, z) { camera.position.set(player.x, player.y + 1.62, player.z); camera.lookAt(x, y, z); camera.updateMatrixWorld(true); player.yaw = Math.atan2(-(x - player.x), -(z - player.z)); player.pitch = Math.atan2(y - camera.position.y, Math.sqrt(dist2(x, z, player.x, player.z))); interact(); return focusText; },
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
