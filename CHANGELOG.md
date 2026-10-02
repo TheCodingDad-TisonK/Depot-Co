@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.3 (2026-10-02)
+
+- The moulding line is a real injection moulding machine: two-tone base on levelling feet, injection unit with a loader hopper and a slotted heater cover, fixed and moving platens on four tie bars with nuts, toggle links and a rear platen with its cylinder, mould halves that open and close with the cycle, a sliding safety gate with a window, a swing-arm operator panel with the touchscreen and E-stop, a hydraulic power unit, a water manifold with hoses to the mould, a cable chain and an outfeed chute to the belt. The hopper's feed pipe lands in its throat.
+
 ## 1.9.2 (2026-10-02)
 
 - Parts of the forklift cab (pedals, belt buckle, switches, brake knob) sat at the hall origin between rows C and D instead of in the cab; they are children of the forklift now.

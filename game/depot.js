@@ -1616,27 +1616,46 @@
   function shelfSlot(i) { return { lx: i % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(i / 2) * 0.26, y: 0.66 - Math.floor(i / 2) * 0.016 + 0.2 }; }
   // ── The moulding line prop: hopper throat, heated barrel, clamp with a moving platen between tie bars, cooling fan, control cabinet, outfeed belt
   function moulderBuild(c) {
-    c.box(2.4, 0.3, 4.4, MAT_MACH.frame, 0, 0.15, 0.2); c.box(2.5, 0.06, 4.5, MAT.hazard, 0, 0.33, 0.2);
-    c.box(1.2, 0.8, 1.2, MAT_MACH.blue, 0, 0.75, -1.6); c.cyl(0.42, 0.5, MAT_MACH.frame, 0, 1.45, -1.6, 14, 0.2); c.cyl(0.22, 0.4, MAT_MACH.frame, 0, 1.9, -1.6, 12);     // the throat under the feed pipe
-    var motor = c.cyl(0.3, 0.7, MAT_MACH.blue, 0, 0.95, -2.3, 14); motor.rotation.x = Math.PI / 2; var fan = c.cyl(0.26, 0.04, MAT.black, 0, 0.95, -2.7, 16); fan.rotation.x = Math.PI / 2;
-    var barrel = c.cyl(0.24, 2.0, MAT_MACH.frame, 0, 1.0, -0.6, 16); barrel.rotation.x = Math.PI / 2; for (var hb = -1.4; hb <= 0.2; hb += 0.4) { var band = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.05, 8, 20), std({ color: 0x8a3b1e, roughness: 0.6, metalness: 0.4 })); band.position.set(0, 1.0, hb); c.group.add(band); }
-    c.box(0.6, 0.6, 0.4, MAT_MACH.frame, 0.7, 0.75, -1.0); c.box(0.5, 0.12, 0.3, MAT.black, 0.7, 1.1, -1.0);
-    // the clamp: a fixed platen at the front, a moving platen (the ram) on four tie bars, guards each side
-    var tie = [[-0.55, 0.65], [0.55, 0.65], [-0.55, 1.55], [0.55, 1.55]]; tie.forEach(function (t) { var tb = c.cyl(0.04, 1.6, MAT.chrome, t[0], t[1], 1.2, 10); tb.rotation.x = Math.PI / 2; });
-    c.box(1.4, 1.5, 0.22, MAT_MACH.blue, 0, 1.1, 1.95); c.box(1.4, 1.5, 0.22, MAT_MACH.blue, 0, 1.1, 0.45);
-    var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn); var ram = box(1.2, 1.3, 0.3, MAT_MACH.panel, 0, 1.1, 1.0, dyn); box(0.6, 0.6, 0.1, MAT_MACH.frame, 0, 0, -0.15, ram); var mould = c.box(0.7, 0.7, 0.2, MAT_MACH.frame, 0, 1.1, 1.75);
-    var GL = std({ color: 0x9fc4d6, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.35, side: THREE.DoubleSide }); [-0.9, 0.9].forEach(function (x) { c.plane(1.6, 1.4, GL, x, 1.2, 1.2, 0, Math.PI / 2); c.box(0.04, 1.5, 0.04, MAT_MACH.guard, x, 1.15, 0.4); c.box(0.04, 1.5, 0.04, MAT_MACH.guard, x, 1.15, 2.0); c.box(0.04, 0.04, 1.6, MAT_MACH.guard, x, 1.9, 1.2); });
-    var wheel = cyl(0.3, 0.06, MAT.black, -1.0, 1.0, -0.6, dyn, 16); wheel.rotation.z = Math.PI / 2; for (var bl = 0; bl < 5; bl++) { var b2 = box(0.5, 0.02, 0.08, MAT_MACH.frame, 0, 0, 0, wheel); b2.rotation.y = bl * 1.257; } c.cyl(0.32, 0.02, MAT_MACH.frame, -1.03, 1.0, -0.6, 16).rotation.z = Math.PI / 2;
-    [[-0.9, 0.5, 0.2], [0.9, 0.5, 0.0], [0.9, 0.9, 1.4]].forEach(function (p) { var hs = c.cyl(0.025, 0.9, MAT.black, p[0], p[1], p[2], 6); hs.rotation.x = 0.9; });
-    // the outfeed chute from the mould to the belt, and the belt
-    var chute = c.box(0.7, 0.03, 1.0, MAT_MACH.roller, 0, 0.95, 2.45); chute.rotation.x = 0.25; c.box(0.03, 0.14, 1.0, MAT_MACH.guard, -0.35, 1.0, 2.45).rotation.x = 0.25; c.box(0.03, 0.14, 1.0, MAT_MACH.guard, 0.35, 1.0, 2.45).rotation.x = 0.25;
+    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), BL = MAT_MACH.blue, CH = MAT.chrome;
+    var rbx = function (w, h, d, r, mat, x, y, z, parent) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; mm.receiveShadow = true; (parent || c.group).add(mm); return mm; };
+    var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
+    // the base: a dark skirt on levelling feet, a light bevelled bed, a hazard band, the cable chain down the operator side
+    rbx(1.6, 0.34, 5.4, 0.03, DG, 0, 0.17, -0.3); rbx(1.5, 0.56, 5.4, 0.05, LG, 0, 0.62, -0.3); c.box(1.52, 0.04, 5.42, MAT.hazard, 0, 0.36, -0.3);
+    [[-0.65, -2.8], [0.65, -2.8], [-0.65, -0.3], [0.65, -0.3], [-0.65, 2.2], [0.65, 2.2]].forEach(function (p) { c.cyl(0.08, 0.06, DG, p[0], 0.03, p[1], 10); c.cyl(0.03, 0.1, CH, p[0], 0.05, p[1], 8); });
+    c.box(0.12, 0.08, 2.6, DG, 0.82, 0.95, 0.4); for (var cl = -0.8; cl < 1.6; cl += 0.16) c.box(0.14, 0.1, 0.03, MAT.black, 0.82, 0.95, cl);
+    // the injection unit at the back: housing, loader hopper on the throat, the barrel in its slotted heater cover, the nozzle to the fixed platen
+    rbx(1.2, 1.1, 1.7, 0.05, LG, 0, 1.45, -1.7); rbx(1.22, 0.3, 1.72, 0.03, BL, 0, 0.9, -1.7);
+    c.cyl(0.14, 0.4, DG, 0, 2.2, -1.9, 12); c.cyl(0.32, 0.5, LG, 0, 2.6, -1.9, 16, 0.14); c.cyl(0.32, 0.5, LG, 0, 3.1, -1.9, 16); c.cyl(0.33, 0.04, DG, 0, 3.37, -1.9, 16); c.box(0.16, 0.14, 0.16, MAT.black, 0.25, 2.55, -1.9); c.cyl(0.04, 0.4, DG, 0.42, 2.8, -1.9, 8);
+    c.box(0.26, 0.16, 0.3, DG, 0.5, 2.1, -1.5); var ib = c.cyl(0.18, 0.5, BL, 0, 1.3, -2.8, 14); ib.rotation.x = Math.PI / 2; c.cyl(0.2, 0.08, DG, 0, 1.3, -2.55, 14).rotation.x = Math.PI / 2;
+    rbx(0.56, 0.56, 1.1, 0.06, LG, 0, 1.55, -0.3); for (var sl = -0.75; sl < 0.15; sl += 0.12) c.box(0.58, 0.03, 0.04, MAT.black, 0, 1.75, sl); for (var sl2 = -0.75; sl2 < 0.15; sl2 += 0.12) c.box(0.58, 0.03, 0.04, MAT.black, 0, 1.35, sl2);
+    var nz = c.cyl(0.06, 0.4, CH, 0, 1.55, 0.35, 10); nz.rotation.x = Math.PI / 2; c.cyl(0.1, 0.1, DG, 0, 1.55, 0.25, 10).rotation.x = Math.PI / 2;
+    // the clamp: fixed platen, four tie bars with nuts, the moving platen on the toggles, the rear platen and its cylinder
+    rbx(1.5, 1.5, 0.25, 0.03, DG, 0, 1.3, 0.6); rbx(1.5, 1.5, 0.22, 0.03, DG, 0, 1.3, 2.5); c.cyl(0.14, 0.45, BL, 0, 1.3, 2.85, 14).rotation.x = Math.PI / 2; c.cyl(0.06, 0.4, CH, 0, 1.3, 3.05, 10).rotation.x = Math.PI / 2;
+    [[-0.58, 0.72], [0.58, 0.72], [-0.58, 1.88], [0.58, 1.88]].forEach(function (t) { var tb = c.cyl(0.045, 2.2, CH, t[0], t[1], 1.55, 12); tb.rotation.x = Math.PI / 2; [0.42, 2.68].forEach(function (nz2) { c.cyl(0.09, 0.12, DG, t[0], t[1], nz2, 8).rotation.x = Math.PI / 2; }); });
+    var ram = rbx(1.36, 1.36, 0.2, 0.03, DG, 0, 1.3, 1.25, dyn); rbx(0.64, 0.74, 0.16, 0.02, MAT_MACH.roller, 0, 0, -0.18, ram); c.box(0.06, 0.06, 0.06, MAT.black, 0, 0, 0, ram);
+    rbx(0.64, 0.74, 0.16, 0.02, MAT_MACH.roller, 0, 1.3, 0.81); c.box(0.5, 0.06, 0.04, MAT.black, 0, 1.0, 0.9);
+    [[-0.45, 1.0], [0.45, 1.0], [-0.45, 1.6], [0.45, 1.6]].forEach(function (l) { var lk = c.box(0.08, 0.06, 0.6, DG, l[0], l[1], 1.85, 0); lk.rotation.x = l[1] > 1.3 ? 0.5 : -0.5; var lk2 = c.box(0.08, 0.06, 0.6, DG, l[0], l[1], 2.15); lk2.rotation.x = l[1] > 1.3 ? -0.5 : 0.5; });
+    c.cyl(0.05, 1.3, CH, 0, 1.3, 1.9, 8).rotation.z = Math.PI / 2;
+    // the guards: a sliding gate with a window on the operator side, a fixed sheet with a window on the other, a top cover carrying the lamp stack
+    var GL = std({ color: 0x9fc4d6, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+    c.box(0.05, 1.7, 2.1, MAT_MACH.guard, 0.82, 1.35, 1.55); c.box(0.05, 1.7, 2.1, LG, 0.84, 1.35, 1.55); c.plane(1.3, 0.9, GL, 0.87, 1.45, 1.55, 0, Math.PI / 2); c.box(0.06, 0.08, 1.4, DG, 0.87, 0.95, 1.55); c.box(0.06, 0.08, 1.4, DG, 0.87, 1.95, 1.55); c.box(0.06, 1.0, 0.08, DG, 0.87, 1.45, 0.85); c.box(0.06, 1.0, 0.08, DG, 0.87, 1.45, 2.25); c.box(0.08, 0.3, 0.04, MAT.black, 0.9, 1.3, 2.1);
+    c.box(0.05, 1.7, 2.1, LG, -0.84, 1.35, 1.55); c.plane(0.9, 0.6, GL, -0.87, 1.5, 1.55, 0, -Math.PI / 2); c.box(0.06, 0.06, 1.0, DG, -0.87, 1.2, 1.55); c.box(0.06, 0.06, 1.0, DG, -0.87, 1.8, 1.55);
+    rbx(1.7, 0.06, 2.2, 0.02, LG, 0, 2.22, 1.55); c.box(1.7, 0.04, 0.1, DG, 0, 2.2, 0.5); c.box(1.7, 0.04, 0.1, DG, 0, 2.2, 2.6);
+    MACH.moulder.lamps = lampStack(c, -0.5, 2.25, 0.7); var spin = cyl(0.07, 0.1, glowMat(0xf5b53d, 1.0), 0.5, 2.3, 0.7, dyn, 10); box(0.03, 0.12, 0.03, MAT.black, 0.05, 0, 0, spin); c.cyl(0.02, 0.1, DG, 0.5, 2.25, 0.7, 6);
+    // the operator panel on a swing arm, with the touchscreen and the E-stop
+    c.box(0.08, 0.5, 0.08, DG, 0.9, 1.25, -0.3); var arm = c.box(0.45, 0.06, 0.06, DG, 1.1, 1.5, -0.3); c.box(0.08, 0.4, 0.08, DG, 1.32, 1.3, -0.3);
+    rbx(0.1, 0.62, 0.5, 0.02, LG, 1.37, 1.05, -0.3); var scr = touchScreen({ w: 400, h: 260, pw: 0.42, ph: 0.28, x: 1.43, y: 1.12, z: -0.3, ry: Math.PI / 2, parent: c.group, title: 'Moulding line', draw: moulderScreenDraw }); scr.mesh.userData.propId = 'moulder';
+    c.box(0.04, 0.1, 0.1, MAT.yellow, 1.43, 0.8, -0.45); c.cyl(0.03, 0.03, MAT.red, 1.46, 0.8, -0.45, 10).rotation.z = Math.PI / 2; c.box(0.04, 0.03, 0.03, glowMat(0x5fd38d, 1.2), 1.43, 0.8, -0.2);
+    // the hydraulic power unit behind, the water manifold with its hoses to the mould, the outfeed chute to the belt
+    rbx(1.1, 0.7, 0.8, 0.04, DG, 0, 0.75, -2.95); var mot = c.cyl(0.2, 0.6, BL, -0.25, 1.4, -2.95, 14); mot.rotation.z = Math.PI / 2; c.cyl(0.22, 0.05, MAT.black, -0.58, 1.4, -2.95, 14).rotation.z = Math.PI / 2; rbx(0.4, 0.4, 0.5, 0.04, LG, 0.3, 1.3, -2.95); c.cyl(0.05, 0.03, MAT.white, 0.3, 1.5, -2.69, 10).rotation.x = Math.PI / 2; c.cyl(0.04, 0.3, MAT.black, 0.3, 1.1, -2.69, 8);
+    [[0.3, 1.2, -2.4, 0.7], [-0.3, 1.0, -2.3, -0.6]].forEach(function (h) { var hs = c.cyl(0.03, 1.2, MAT.black, h[0], h[1], h[2], 6); hs.rotation.x = h[3]; });
+    c.box(0.3, 0.2, 0.12, BL, -0.9, 0.95, 0.3); for (var hh = 0; hh < 4; hh++) { var wh = c.cyl(0.012, 1.0, hh % 2 ? MAT.red : MAT.blue, -0.85 + hh * 0.04, 1.0 + hh * 0.05, 0.75, 6); wh.rotation.x = Math.PI / 2 - 0.3; }
+    var chute = c.box(0.62, 0.03, 1.3, MAT_MACH.roller, 0, 0.62, 1.75); chute.rotation.x = 0.16; c.box(0.03, 0.12, 1.3, MAT_MACH.guard, -0.31, 0.68, 1.75).rotation.x = 0.16; c.box(0.03, 0.12, 1.3, MAT_MACH.guard, 0.31, 0.68, 1.75).rotation.x = 0.16;
     conveyorBuild(c, 0, 2.4, 4.4, {});
-    cabinet(c, 1.6, 1.0, 0.2, 0.6, 1.8, 0.4); c.box(0.6, 0.1, 0.4, MAT_MACH.frame, 1.6, 0.15, 0.2); var scr = touchScreen({ w: 400, h: 260, pw: 0.44, ph: 0.29, x: 1.6, y: 1.45, z: 0.41, ry: 0, parent: c.group, title: 'Moulding line', draw: moulderScreenDraw }); scr.mesh.userData.propId = 'moulder';
-    eStop(c, 1.6, 0.95, 0.41); MACH.moulder.lamps = lampStack(c, 1.6, 1.9, 0.2); var spin = cyl(0.08, 0.1, glowMat(0xf5b53d, 1.0), -1.1, 2.1, -1.6, dyn, 10); box(0.03, 0.12, 0.03, MAT.black, 0.05, 0, 0, spin); c.cyl(0.02, 0.6, MAT_MACH.frame, -1.1, 1.75, -1.6, 6);
-    c.sign(['MOULDING LINE 1', 'HOT SURFACES · AUTOMATIC START'], 1.2, 0.24, 0, 1.8, -2.45, Math.PI, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' });
-    MACH.moulder.anim = { ram: ram, wheel: wheel, spin: spin };
-    c.hit(2.6, 2.4, 4.6, 0, 1.2, 0.1, { prompt: function () { return moulderPrompt(); }, use: function () { moulderUse(); } });
-    c.solid(-1.3, 1.3, -2.8, 2.4, 0, 2.4); c.solid(1.3, 1.95, -0.05, 0.45, 0, 2.0);
+    c.sign(['DC-IMM 180', 'MOULDING LINE 1'], 0.9, 0.3, -0.84, 1.75, -1.7, -Math.PI / 2, { w: 512, h: 170, bg: '#1b232c', fg: '#eef1f5' }); c.sign(['⚠ HOT SURFACE'], 0.5, 0.14, 0.61, 1.2, -1.2, Math.PI / 2, { w: 256, h: 72, bg: '#f5b53d', fg: '#1a1205' });
+    MACH.moulder.anim = { ram: ram, wheel: mot, spin: spin };
+    c.hit(2.6, 2.6, 6.0, 0.2, 1.3, -0.2, { prompt: function () { return moulderPrompt(); }, use: function () { moulderUse(); } });
+    c.solid(-0.9, 0.9, -3.4, 2.4, 0, 2.6); c.solid(0.9, 1.5, -0.6, 0.0, 0, 2.0);
   }
   // ── The hopper prop: a cone on legs with a ladder and cage, a vibrating feeder into the pipe that runs to the moulder, a level gauge
   function hopperBuild(c) {
@@ -1644,7 +1663,7 @@
     var cone = c.cyl(1.05, 1.3, MAT_MACH.panel, 0, 2.95, 0, 20, 0.22); var drum = c.cyl(1.05, 1.4, MAT_MACH.panel, 0, 4.3, 0, 20); var rim = new THREE.Mesh(new THREE.TorusGeometry(1.06, 0.04, 8, 28), MAT_MACH.frame); rim.position.y = 5.0; rim.rotation.x = Math.PI / 2; c.group.add(rim); c.cyl(0.9, 0.04, MAT_MACH.frame, 0, 5.02, 0, 20); c.box(1.6, 0.03, 0.3, MAT_MACH.frame, 0, 5.05, 0);
     for (var bb = 0; bb < 2; bb++) { var hb = new THREE.Mesh(new THREE.TorusGeometry(1.07, 0.03, 6, 28), MAT_MACH.frame); hb.position.y = 3.8 + bb * 0.8; hb.rotation.x = Math.PI / 2; c.group.add(hb); }
     c.cyl(0.2, 0.3, MAT_MACH.frame, 0, 2.2, 0, 12); var hdyn = new THREE.Group(); hdyn.userData.dynamic = true; c.group.add(hdyn); var feeder = box(0.7, 0.12, 0.4, MAT_MACH.blue, 0.45, 1.9, 0, hdyn); feeder.rotation.z = -0.15; c.box(0.3, 0.3, 0.3, MAT.black, 0.3, 1.6, 0.0);
-    var pipe = c.cyl(0.14, 4.4, MAT.steel, 2.6, 1.3, 0, 12); pipe.rotation.z = Math.PI / 2; c.cyl(0.14, 0.8, MAT.steel, 0.65, 1.5, 0, 12).rotation.z = 0.6; var elbow = c.cyl(0.14, 0.6, MAT.steel, 4.8, 1.55, 0, 12); elbow.rotation.z = -0.5;
+    var pipe = c.cyl(0.12, 5.0, MAT.steel, 3.0, 2.5, -1.9, 12); pipe.rotation.z = Math.PI / 2; var riser = c.cyl(0.12, 0.9, MAT.steel, 0.55, 2.1, -1.0, 12); riser.rotation.set(0.9, 0, 0.5); c.cyl(0.13, 0.3, MAT.steel, 0.5, 2.5, -1.9, 12).rotation.z = Math.PI / 2; var drop = c.cyl(0.12, 0.9, MAT.steel, 5.5, 3.0, -1.9, 12); c.cyl(0.14, 0.1, MAT.steel, 5.5, 2.5, -1.9, 12);
     // the ladder with its cage, on the +z side
     [-0.2, 0.2].forEach(function (x) { c.box(0.04, 4.6, 0.04, MAT_MACH.frame, x, 2.35, 1.15); }); for (var r = 0.3; r < 4.6; r += 0.3) c.box(0.44, 0.03, 0.03, MAT_MACH.frame, 0, r, 1.15); for (var cg = 2.4; cg < 4.8; cg += 0.6) { var hoop = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.02, 6, 16, Math.PI), MAT_MACH.guard); hoop.position.set(0, cg, 1.15); hoop.rotation.x = Math.PI / 2; hoop.rotation.z = 0; c.group.add(hoop); }
     cabinet(c, -1.1, 1.2, 0.95, 0.4, 0.6, 0.2); var scr = touchScreen({ w: 240, h: 170, pw: 0.3, ph: 0.21, x: -1.1, y: 1.3, z: 1.06, ry: 0, parent: c.group, title: 'Hopper', draw: hopperScreenDraw }); scr.mesh.userData.propId = 'hopper';
@@ -3072,7 +3091,7 @@
       if (F.t >= FACTORY_RATE) { if (beltPush('moulderOut', { kind: 'box', sku: F.product })) { F.t = 0; F.raw--; F.made++; S.stats.made = (S.stats.made || 0) + 1; if (S.seenSkus.indexOf(F.product) < 0) S.seenSkus.push(F.product); if (Math.random() < 0.02) { F.jam = true; toast('The moulding line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); } } }
       if (F.raw <= 0) { F.on = false; toast('The hopper is empty: the moulding line stopped.', 'bad'); screenDirtyAll(); }
     }
-    if (MACH.moulder.anim) { var a = MACH.moulder.anim, run = factoryStatus() === 'run'; a.ram.position.z = -0.2 + Math.sin(F.t / FACTORY_RATE * Math.PI * 2) * 0.22 * (run ? 1 : 0); a.wheel.rotation.z += (run ? 2.5 : 0) * dt; a.spin.rotation.y += (run ? 6 : 0) * dt; }
+    if (MACH.moulder.anim) { var a = MACH.moulder.anim, run = factoryStatus() === 'run'; var open = run ? 0.5 + 0.5 * Math.cos(F.t / FACTORY_RATE * Math.PI * 2) : 1; a.ram.position.z = 1.0 + 0.45 * open; a.wheel.rotation.x += (run ? 9 : 0) * dt; a.spin.rotation.y += (run ? 6 : 0) * dt; }
     lampSet(MACH.moulder, factoryStatus());
   }
   function moulderPrompt() { var F = S.factory; if (F.jam) return 'Clear the jam on the moulding line'; return 'Moulding line · ' + (F.on ? 'running' : 'stopped') + ' · ' + skuName(F.product) + ' · hopper ' + F.raw + ' · made ' + F.made; }

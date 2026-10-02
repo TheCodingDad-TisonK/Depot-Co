@@ -114,7 +114,7 @@
       if (F.t >= FACTORY_RATE) { if (beltPush('moulderOut', { kind: 'box', sku: F.product })) { F.t = 0; F.raw--; F.made++; S.stats.made = (S.stats.made || 0) + 1; if (S.seenSkus.indexOf(F.product) < 0) S.seenSkus.push(F.product); if (Math.random() < 0.02) { F.jam = true; toast('The moulding line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); } } }
       if (F.raw <= 0) { F.on = false; toast('The hopper is empty: the moulding line stopped.', 'bad'); screenDirtyAll(); }
     }
-    if (MACH.moulder.anim) { var a = MACH.moulder.anim, run = factoryStatus() === 'run'; a.ram.position.z = -0.2 + Math.sin(F.t / FACTORY_RATE * Math.PI * 2) * 0.22 * (run ? 1 : 0); a.wheel.rotation.z += (run ? 2.5 : 0) * dt; a.spin.rotation.y += (run ? 6 : 0) * dt; }
+    if (MACH.moulder.anim) { var a = MACH.moulder.anim, run = factoryStatus() === 'run'; var open = run ? 0.5 + 0.5 * Math.cos(F.t / FACTORY_RATE * Math.PI * 2) : 1; a.ram.position.z = 1.0 + 0.45 * open; a.wheel.rotation.x += (run ? 9 : 0) * dt; a.spin.rotation.y += (run ? 6 : 0) * dt; }
     lampSet(MACH.moulder, factoryStatus());
   }
   function moulderPrompt() { var F = S.factory; if (F.jam) return 'Clear the jam on the moulding line'; return 'Moulding line · ' + (F.on ? 'running' : 'stopped') + ' · ' + skuName(F.product) + ' · hopper ' + F.raw + ' · made ' + F.made; }
