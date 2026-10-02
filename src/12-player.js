@@ -31,7 +31,7 @@
     if (pc.on) { pcCamera(); return; }
     if (driving) {
       updateFork(dt);
-      camera.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.35, floorY(S.fork.x, S.fork.z) + 1.75, S.fork.z - Math.cos(S.fork.yaw) * 0.35);
+      camera.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.45, floorY(S.fork.x, S.fork.z) + 1.78, S.fork.z - Math.cos(S.fork.yaw) * 0.45);
       camera.rotation.set(forkLook.pitch, S.fork.yaw + Math.PI + forkLook.yaw, 0, 'YXZ');
       player.x = S.fork.x; player.z = S.fork.z; player.y = floorY(S.fork.x, S.fork.z);
       return;

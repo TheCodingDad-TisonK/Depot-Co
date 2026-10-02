@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.1 (2026-10-02)
+
+- The forklift cab, done properly: a contoured seat on a suspension with bolsters, headrest and belt, armrests, a bank of three hydraulic levers with a label plate, the column with a shroud, a wheel with spokes and a spinner knob that turns with the steering, a direction lever, a moulded dash with the cluster, key switch, horn and a rocker, pedals and a parking brake. The driving camera sits at the operator's eyes with the wheel and dash in frame.
+- Props redone: low-poly trees with jittered canopies in three greens and real limbs, parked cars with rounded bodies, tinted glass, wheel arches, rims, lights and plates, potted plants with leaves on stems in a thrown pot, a bean-to-cup coffee machine with a group head, portafilter, steam wand and drip tray.
+- People: rounder torsos with shoulders and chest, vests with reflective bands, boots.
+- The lobby, break room and office have painted plasterboard linings with skirting and a dado rail instead of bare cladding inside.
+- The light shafts are narrow faded beams under the skylights, not two walls of haze across the hall.
+- The empty pallet stack has a floor box and a post sign; the hazard bar in the air is gone.
+- The smoking shelter is a real shelter: steel frame, solid roof, glazed back and side, slatted bench, column ashtray. The coffee counter has doors, a worktop, a sink and tap; the fridge and water cooler are remodelled.
+
 ## 1.7.0 (2026-10-02)
 
 The look.

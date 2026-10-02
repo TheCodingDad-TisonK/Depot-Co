@@ -40,9 +40,32 @@
     rb(1.12, 0.5, 1.95, 0.05, FY, 0, 0.5, -0.25); rb(1.1, 0.9, 0.62, 0.1, FD, 0, 0.62, -1.18); rb(0.9, 0.28, 0.5, 0.05, FY, 0, 1.2, -1.15);
     rb(0.96, 0.52, 0.96, 0.04, FS, 0, 0.96, -0.35); rb(0.98, 0.04, 0.98, 0.01, MAT.plastic, 0, 1.22, -0.35); box(1.12, 0.03, 0.6, MAT.chequer, 0, 0.76, 0.3);
     rb(0.3, 0.03, 0.18, 0.01, FD, -0.2, 0.78, 0.25).rotation.x = -0.3; rb(0.3, 0.03, 0.18, 0.01, FD, 0.2, 0.78, 0.25).rotation.x = -0.3;
-    rb(0.52, 0.14, 0.5, 0.05, MAT.fabric, 0, 1.3, -0.5); var bk = rb(0.52, 0.56, 0.12, 0.05, MAT.fabric, 0, 1.62, -0.78); bk.rotation.x = -0.15; rb(0.1, 0.05, 0.3, 0.02, FD, -0.32, 1.45, -0.55); rb(0.1, 0.05, 0.3, 0.02, FD, 0.32, 1.45, -0.55); rb(0.5, 0.06, 0.5, 0.02, FS, 0, 1.21, -0.5);
-    var col = cyl(0.03, 0.6, FS, 0, 1.28, 0.02, f, 10); col.rotation.x = -0.6; var sw = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.022, 10, 24), MAT.rubber); sw.position.set(0, 1.55, 0.2); sw.rotation.x = -0.6 + Math.PI / 2; f.add(sw); cyl(0.045, 0.03, FD, 0, 1.55, 0.2, f, 8).rotation.x = -0.6 + Math.PI / 2; [0, 1, 2].forEach(function (s) { var sp = box(0.3, 0.012, 0.02, FD, 0, 1.55, 0.2); sp.rotation.set(-0.6 + Math.PI / 2, 0, s * 1.05); });
-    rb(0.56, 0.28, 0.2, 0.03, FS, 0, 1.08, 0.28); var dash = plane(0.44, 0.18, new THREE.MeshBasicMaterial({ map: textTex(['▮▮▮▮▮▯▯  24V   ⏱ 0 km/h   ⚠'], { w: 512, h: 128, bg: '#0d1216', fg: '#5fd38d', size: 40 }) }), 0, 1.14, 0.385, -0.4, 0); dash.userData.noBake = true; box(0.04, 0.12, 0.04, MAT.red, 0.2, 1.2, 0.33); box(0.04, 0.12, 0.04, MAT.green, -0.2, 1.2, 0.33); box(0.03, 0.03, 0.08, FD, 0.12, 1.2, 0.36);
+    // the operator's compartment: a contoured seat on a suspension with a belt, armrest and lever bank, the column with its
+    // shroud and a wheel with spokes and a spinner knob, a moulded dash with the cluster, key switch, horn and direction lever,
+    // pedals and a parking brake on the floor plate
+    var SEAT = std({ color: 0x1f2630, roughness: 0.9 }), SEAT2 = std({ color: 0x2b3542, roughness: 0.9 });
+    rb(0.5, 0.08, 0.5, 0.03, FS, 0, 1.22, -0.5); rb(0.3, 0.12, 0.3, 0.02, FD, 0, 1.15, -0.5);
+    rb(0.5, 0.12, 0.5, 0.05, SEAT, 0, 1.32, -0.5); rb(0.1, 0.16, 0.5, 0.04, SEAT2, -0.22, 1.35, -0.5); rb(0.1, 0.16, 0.5, 0.04, SEAT2, 0.22, 1.35, -0.5);
+    var bk = rb(0.5, 0.6, 0.12, 0.05, SEAT, 0, 1.66, -0.78); bk.rotation.x = -0.15; var bk2 = rb(0.12, 0.5, 0.14, 0.04, SEAT2, -0.2, 1.66, -0.77); bk2.rotation.x = -0.15; var bk3 = rb(0.12, 0.5, 0.14, 0.04, SEAT2, 0.2, 1.66, -0.77); bk3.rotation.x = -0.15; rb(0.3, 0.16, 0.12, 0.04, SEAT, 0, 2.02, -0.84);
+    var belt = box(0.05, 0.7, 0.01, MAT.hivisOrange, 0.1, 1.6, -0.7); belt.rotation.z = 0.45; box(0.06, 0.04, 0.03, MAT.chrome, -0.16, 1.36, -0.45);
+    rb(0.08, 0.05, 0.36, 0.02, FD, -0.34, 1.46, -0.5); rb(0.08, 0.05, 0.36, 0.02, FD, 0.34, 1.46, -0.5);
+    // the lever bank on the right: lift, tilt and sideshift, with a label plate
+    rb(0.16, 0.1, 0.32, 0.02, FS, -0.47, 1.26, -0.05); [-0.1, 0, 0.1].forEach(function (lz, i) { var lv = cyl(0.01, 0.2, MAT.chrome, -0.47, 1.4, lz, f, 6); lv.rotation.x = -0.25 + i * 0.1; sphere(0.02, i === 0 ? MAT.red : FD, -0.47, 1.49, lz - 0.05 + i * 0.02, f); });
+    sign(['LIFT · TILT · SHIFT'], 0.26, 0.04, -0.47, 1.32, 0.12, 0, { w: 256, h: 40, bg: '#1b232c', fg: '#eef1f5' }, f);
+    // the column: a shroud from the dash to the wheel, the wheel ahead of and below the eyes, tilted back to the driver
+    var colGrp = new THREE.Group(); colGrp.position.set(0, 1.08, 0.2); colGrp.rotation.x = -0.62; f.add(colGrp);
+    cyl(0.045, 0.42, FS, 0, 0.21, 0, colGrp, 12, 0.06); cyl(0.07, 0.1, FD, 0, 0.1, 0, colGrp, 12, 0.09);
+    var wheel = new THREE.Group(); wheel.position.set(0, 0.44, 0); colGrp.add(wheel);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.02, 10, 28), MAT.rubber); rim.rotation.x = Math.PI / 2; wheel.add(rim);
+    [0, 1, 2].forEach(function (s) { var sp = box(0.26, 0.012, 0.03, FD, 0, 0, 0, wheel); sp.rotation.y = s * 1.05; }); cyl(0.045, 0.03, FD, 0, 0, 0, wheel, 10); cyl(0.012, 0.05, MAT.chrome, 0.11, 0.03, 0.08, wheel, 6); sphere(0.02, FD, 0.11, 0.06, 0.08, wheel);
+    var dirLever = cyl(0.008, 0.14, FD, 0.08, 0.28, 0.0, colGrp, 6); dirLever.rotation.z = -1.2; sphere(0.014, FD, 0.17, 0.3, 0, colGrp);
+    // the dash: a moulded cowl ahead of the column, the cluster, a key switch, the horn, a rocker, the hour meter
+    rb(0.6, 0.2, 0.26, 0.05, FS, 0, 1.12, 0.42); var cowl = rb(0.56, 0.12, 0.22, 0.04, FD, 0, 1.25, 0.4); cowl.rotation.x = 0.3;
+    var cl = plane(0.3, 0.1, new THREE.MeshBasicMaterial({ map: textTex(['24V ▮▮▮▮▮▮▯▯   0.0 km/h', '⏱ 0412.6 h   ⚠ ✓'], { w: 512, h: 160, bg: '#0d1216', fg: '#5fd38d', size: 30 }) }), 0, 1.27, 0.3, -1.2, 0); cl.userData.noBake = true;
+    cyl(0.018, 0.02, MAT.chrome, -0.2, 1.24, 0.29, f, 10).rotation.x = -1.2; box(0.012, 0.03, 0.004, MAT.black, -0.2, 1.255, 0.285); cyl(0.022, 0.012, MAT.red, 0.2, 1.24, 0.29, f, 12).rotation.x = -1.2; box(0.03, 0.02, 0.01, FD, -0.12, 1.22, 0.3); box(0.03, 0.02, 0.01, MAT.green, -0.12, 1.2, 0.3);
+    sign(['HORN'], 0.06, 0.016, 0.2, 1.21, 0.31, 0, { w: 128, h: 32, bg: '#1b232c', fg: '#eef1f5' }, f);
+    // the floor: pedals and the parking brake
+    box(0.12, 0.012, 0.08, MAT.rubber, 0.12, 0.78, 0.3).rotation.x = -0.35; box(0.12, 0.012, 0.08, MAT.rubber, -0.08, 0.78, 0.3).rotation.x = -0.35; var pb = cyl(0.01, 0.22, FD, -0.3, 0.88, 0.1, f, 6); pb.rotation.x = -0.5; box(0.05, 0.03, 0.06, MAT.red, -0.3, 0.98, 0.15);
     var guardPts = [[-0.52, 0.9, 0.5], [-0.52, 2.2, 0.5], [-0.52, 2.4, 0.3], [-0.52, 2.4, -0.85], [-0.52, 2.2, -1.05], [-0.52, 0.9, -1.05]];
     [-1, 1].forEach(function (s) { var pts = guardPts.map(function (p) { return new THREE.Vector3(p[0] * s, p[1], p[2]); }); var tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.2), 40, 0.035, 8, false), FD); tube.castShadow = true; f.add(tube); });
     for (var cb = -0.95; cb <= 0.4; cb += 0.27) cyl(0.025, 1.04, FD, 0, 2.4, cb, f, 8).rotation.z = Math.PI / 2; box(0.22, 0.03, 0.22, FD, 0, 2.43, -0.3);
@@ -65,7 +88,7 @@
     cyl(0.04, 0.3, MAT.red, 0.5, 1.4, -1.15, f, 10); box(0.03, 0.12, 0.1, MAT.chrome, -0.6, 1.9, 0.1); cyl(0.01, 0.3, FS, -0.6, 1.95, 0.05, f, 4).rotation.z = 0.3;
     groundBlob(2.0, 2.9, 0, -0.2, f, 0);
     hitBox(1.1, 1.4, 1.4, 0, 1.2, -0.3, { prompt: function () { if (!S.up.fork) return null; if (player.tool === 'cable') return 'Plug the forklift in'; if (S.fork.plugged) return 'Forklift on charge · unplug at the charger · E drives off anyway'; return S.hand || player.tool ? 'Hands full' : 'Drive the forklift'; }, use: function () { if (player.tool === 'cable') { cablePlugInto('fork'); return; } startDrive(); } }, f);
-    forkM = { g: f, car: car, beacon: beaconLens };
+    forkM = { g: f, car: car, beacon: beaconLens, wheel: wheel };
     placeTools();
   }
   function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (tool === 'jack' && player.tool === 'jcable') return 'Plug the jack in'; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return tool === 'jack' ? 'Grab the pallet jack' : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
@@ -74,7 +97,7 @@
   function placeTools() {
     var jw = toolWorld('jack'); jackMesh.position.set(jw.x, floorY(jw.x, jw.z), jw.z); jackMesh.rotation.y = jw.ry;
     var cw = toolWorld('cart'); cartMesh.position.set(cw.x, floorY(cw.x, cw.z), cw.z); cartMesh.rotation.y = cw.ry; cartMesh.visible = !!S.up.cart;
-    forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving; forkM.beacon.rotation.y = worldTime * 6; }
+    forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving; forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, 0.2); }
   }
 
   // ── The forklift ──────────────────────────────────────────────────
@@ -82,7 +105,7 @@
   function startDrive() {
     if (!S.up.fork || S.hand || player.tool || driving) return;
     if (S.fork.plugged) cableUnplugFork('You drove off with the charger plugged in. The plug came out.');
-    driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = 0; sfx('forklift'); introStep('fork'); hudDirty = true;
+    driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = -0.14; sfx('forklift'); introStep('fork'); hudDirty = true;
     $('h-drive').hidden = false;
   }
   function stopDrive() {

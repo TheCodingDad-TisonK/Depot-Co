@@ -681,6 +681,15 @@
       [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + RACK.bays * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'row ' + 'ABCD'[r]], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
     };
   }
+  // a painted lining on a room's outer walls: a plane just inside the cladding, skirting along the floor, a dado rail, with openings left for doors
+  function lineWall(axis, at, a0, a1, h, mat, openings, inward) {
+    var segs = [[a0, a1]]; (openings || []).forEach(function (o) { var out = []; segs.forEach(function (s) { if (o[1] <= s[0] || o[0] >= s[1]) { out.push(s); return; } if (o[0] > s[0]) out.push([s[0], o[0]]); if (o[1] < s[1]) out.push([o[1], s[1]]); }); segs = out; });
+    var off = at + inward * 0.17, ry = axis === 'x' ? (inward > 0 ? Math.PI / 2 : -Math.PI / 2) : (inward > 0 ? 0 : Math.PI);
+    function strip(w, hh, y, mid, m) { if (axis === 'x') { plane(w, hh, m, off, y, mid, 0, ry); } else { plane(w, hh, m, mid, y, off, 0, ry); } }
+    segs.forEach(function (s) { var w = s[1] - s[0], mid = (s[0] + s[1]) / 2; strip(w, h, h / 2, mid, mat); var sk = axis === 'x' ? box(0.03, 0.12, w, MAT.trim, off + inward * 0.012, 0.06, mid) : box(w, 0.12, 0.03, MAT.trim, mid, 0.06, off + inward * 0.012); sk.receiveShadow = true; if (axis === 'x') box(0.025, 0.05, w, MAT.trim, off + inward * 0.01, 0.95, mid); else box(w, 0.05, 0.025, MAT.trim, mid, 0.95, off + inward * 0.01); });
+    (openings || []).forEach(function (o) { if (o[2] && o[2] < h) { var w = o[1] - o[0], mid = (o[0] + o[1]) / 2; strip(w, h - o[2], o[2] + (h - o[2]) / 2, mid, mat); } });
+  }
+  var LINING = { lobby: std({ map: TEX.plaster, color: 0xd9e3ea, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), brk: std({ map: TEX.plaster, color: 0xf0e6cf, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), office: std({ map: TEX.plaster, color: 0xe6e8e4, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }) };
   function buildOffice() {
     var x0 = 12.5, z0 = 8.5, X = HALL.x, Z = HALL.z, h = 3.2;
     // the wall along x = x0 with a doorway, the wall along z = z0 with a window, and a ceiling
@@ -691,6 +700,7 @@
     box(X - 1.5 - x0, 1.2, 0.04, MAT.glass, (x0 + 1.5 + X - 2) / 2, 1.7, z0);
     solid(x0, X, z0 - 0.08, z0 + 0.08);
     box(X - x0, 0.12, Z - z0, MAT.plaster, (x0 + X) / 2, h + 0.06, (z0 + Z) / 2);
+    lineWall('x', X, z0 + 0.1, Z - 0.1, h, LINING.office, [], -1); lineWall('z', Z, x0 + 0.1, X - 0.1, h, LINING.office, [], -1);
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
     var lamp = box(1.2, 0.08, 0.3, MAT.lamp, 16.5, h - 0.05, 11); world.officeLamp = lamp;
     sign(['OFFICE'], 1.4, 0.45, x0 - 0.09, 2.6, 9.95, -Math.PI / 2, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' });
@@ -710,7 +720,8 @@
     box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 10.9); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 12.5); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 12.5); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 12.5); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
     solid(x0 - 0.08, x0 + 0.08, z0, 9.3); solid(x0 - 0.08, x0 + 0.08, 10.6, Z);
     box(X + x0, h, 0.15, MAT.plaster, (-X + x0) / 2, h / 2, z0); solid(-X, x0, z0 - 0.08, z0 + 0.08);
-    box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
+    box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2);
+    lineWall('x', -X, z0 + 0.1, Z - 0.1, h, LINING.lobby, [[SPOT.staffDoor.z - 0.65, SPOT.staffDoor.z + 0.65, 2.25]], 1); lineWall('z', Z, -X + 0.1, x0 - 0.1, h, LINING.lobby, [], -1); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
     box(1.2, 0.08, 0.3, MAT.lamp, -17.7, h - 0.05, 11.2);
     for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 12.5);
     sign(['LOBBY'], 1.2, 0.45, x0 + 0.09, 2.6, 9.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
@@ -721,7 +732,8 @@
     box(1.0, h, 0.15, MAT.plaster, -X + 0.5, h / 2, bz); box(1.2, h, 0.15, MAT.plaster, bx - 0.6, h / 2, bz);
     box(X + bx - 2.2, 1.1, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 0.55, bz); box(X + bx - 2.2, h - 2.3, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 2.3 + (h - 2.3) / 2, bz); box(X + bx - 2.2, 1.2, 0.04, MAT.glass, (-X + 1 + bx - 1.2) / 2, 1.7, bz);
     solid(-X, bx, bz - 0.08, bz + 0.08);
-    box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
+    box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2);
+    lineWall('x', -X, -Z + 0.1, bz - 0.1, h, LINING.brk, [], 1); lineWall('z', -Z, -X + 0.1, bx - 0.1, h, LINING.brk, [], 1); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
     box(1.2, 0.08, 0.3, MAT.lamp, -16.5, h - 0.05, -12.1);
     for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -16.4, 2.26 - bl2 * 0.08, bz - 0.09);
     sign(['BREAK ROOM'], 1.6, 0.45, bx + 0.09, 2.6, -12.45, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
@@ -909,8 +921,9 @@
     var oilMat = new THREE.MeshBasicMaterial({ map: oilTex, transparent: true, depthWrite: false }); oilMat.userData.noBake = true;
     [[SPOT.fork.x, SPOT.fork.z], [SPOT.jack.x, SPOT.jack.z], [-16, -4], [16, -4]].forEach(function (p) { var m = plane(2.2, 2.2, oilMat, p[0] + randf(-0.4, 0.4), 0.0046, p[1] + randf(-0.4, 0.4), -Math.PI / 2, randf(0, 3)); m.renderOrder = 1; m.userData.noBake = true; });
     // light shafts under the skylights, with dust drifting in them
-    var shaftMat = new THREE.MeshBasicMaterial({ color: 0xfff1d0, transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); shaftMat.userData.noBake = true; dress.shaftMat = shaftMat;
-    [-7, 0, 7].forEach(function (z) { for (var k = 0; k < 2; k++) { var sh = new THREE.Mesh(new THREE.PlaneGeometry(2 * X - 4, H - 0.2), shaftMat); sh.position.set(0, H / 2 - 0.1, z + (k ? 0.5 : -0.5)); sh.rotation.y = k ? 0.06 : -0.06; sh.userData.noBake = true; sh.renderOrder = 2; scene.add(sh); } });
+    var shaftMat = new THREE.MeshBasicMaterial({ color: 0xfff1d0, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); shaftMat.userData.noBake = true; dress.shaftMat = shaftMat;
+    var shaftTex = tex(32, 256, function (c, w, h) { var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); var g2 = c.createLinearGradient(0, 0, w, 0); g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(0.3, 'rgba(0,0,0,0)'); g2.addColorStop(0.7, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,1)'); c.globalCompositeOperation = 'destination-out'; c.fillStyle = g2; c.fillRect(0, 0, w, h); }); shaftMat.alphaMap = shaftTex; shaftMat.map = shaftTex;
+    [-7, 0, 7].forEach(function (z) { for (var sx = -15; sx <= 15; sx += 6) { for (var k = 0; k < 2; k++) { var sh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, H - 0.2), shaftMat); sh.position.set(sx + (k ? 0.3 : -0.3), H / 2 - 0.1, z); sh.rotation.y = k ? Math.PI / 2 + 0.25 : 0.25; sh.rotation.z = 0.08; sh.userData.noBake = true; sh.renderOrder = 2; scene.add(sh); } } });
     var dustGeo = new THREE.BufferGeometry(), dustPos = new Float32Array(600 * 3); for (var dp = 0; dp < 600; dp++) { dustPos[dp * 3] = randf(-18, 18); dustPos[dp * 3 + 1] = randf(0.5, 6.8); dustPos[dp * 3 + 2] = pick([-7, 0, 7]) + randf(-0.8, 0.8); } dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
     dress.dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xfff6e0, size: 0.03, transparent: true, opacity: 0.5, depthWrite: false })); dress.dust.frustumCulled = false; dress.dust.userData.noBake = true; scene.add(dress.dust);
     buildPigeons();
@@ -1156,8 +1169,14 @@
     c.solid(-0.95, 0.95, -0.45, 0.45, 0, 0.7); c.hit(1.9, 0.6, 0.9, 0, 0.5, 0, { prompt: function () { return cotPrompt(); }, use: function () { sleepNow(); } });
   }
   function coffeeBuild(c) {
-    c.box(1.4, 0.9, 0.6, MAT.grey, 0, 0.45, 0); c.box(1.44, 0.04, 0.64, MAT.white, 0, 0.92, 0); c.solid(-0.7, 0.7, -0.3, 0.3, 0, 1);
-    c.box(0.35, 0.5, 0.35, MAT.black, -0.35, 1.19, -0.05); c.box(0.3, 0.08, 0.1, MAT.red, -0.35, 1.34, 0.15); c.plane(0.12, 0.08, MAT.screen, -0.35, 1.24, 0.13, 0, 0); c.box(0.3, 0.02, 0.2, MAT.chrome, -0.35, 0.95, 0.15); c.box(0.06, 0.08, 0.06, MAT.black, -0.35, 1.04, 0.13); c.cyl(0.035, 0.09, MAT.white, -0.35, 0.995, 0.15, 10); c.cyl(0.09, 0.14, MAT.glass, -0.35, 1.49, -0.1, 12); c.cyl(0.07, 0.1, std({ color: 0x4a2c1a, roughness: 1 }), -0.35, 1.46, -0.1, 10);
+    var CAB = std({ color: 0xcfd5d2, roughness: 0.6 }), DOOR = std({ color: 0xbfc6c3, roughness: 0.55 }); c.box(1.36, 0.1, 0.52, MAT.black, 0, 0.05, -0.03); c.box(1.4, 0.8, 0.6, CAB, 0, 0.5, 0); [-0.47, 0, 0.47].forEach(function (dx) { var d = new THREE.Mesh(bevelGeo(0.42, 0.66, 0.02, 0.01), DOOR); d.position.set(dx, 0.5, 0.31); c.group.add(d); c.box(0.02, 0.12, 0.03, MAT.chrome, dx + 0.15, 0.7, 0.33); }); var top = new THREE.Mesh(bevelGeo(1.46, 0.04, 0.66, 0.012), std({ color: 0x3a3e45, roughness: 0.35 })); top.position.set(0, 0.92, 0); c.group.add(top); c.box(1.46, 0.08, 0.03, CAB, 0, 0.98, -0.31);
+    c.box(0.34, 0.03, 0.3, MAT.chrome, 0.42, 0.935, -0.02); c.box(0.3, 0.12, 0.26, MAT.steel, 0.42, 0.88, -0.02); var tap = c.cyl(0.012, 0.22, MAT.chrome, 0.42, 1.02, -0.18, 8); var tap2 = c.cyl(0.01, 0.16, MAT.chrome, 0.42, 1.12, -0.11, 8); tap2.rotation.x = Math.PI / 2; c.box(0.05, 0.015, 0.03, MAT.chrome, 0.48, 1.0, -0.18); c.box(0.1, 0.06, 0.02, MAT.plastic, 0.42, 1.02, -0.3); c.cyl(0.03, 0.12, std({ color: 0x4caf50, roughness: 0.5 }), 0.62, 1.0, -0.2, 10);
+    c.solid(-0.7, 0.7, -0.3, 0.3, 0, 1);
+    var CM = new THREE.MeshPhysicalMaterial({ color: 0x1c1e22, roughness: 0.3, metalness: 0.4, clearcoat: 0.8 });
+    var cm = new THREE.Mesh(bevelGeo(0.42, 0.42, 0.36, 0.03), CM); cm.position.set(-0.35, 1.15, -0.06); cm.castShadow = true; c.group.add(cm); c.box(0.44, 0.03, 0.38, MAT.chrome, -0.35, 1.37, -0.06); c.cyl(0.09, 0.16, MAT.glass, -0.35, 1.47, -0.12, 14); c.cyl(0.07, 0.12, std({ color: 0x4a2c1a, roughness: 1 }), -0.35, 1.45, -0.12, 12);
+    c.box(0.3, 0.025, 0.16, MAT.chrome, -0.35, 0.955, 0.16); for (var dr = 0; dr < 6; dr++) c.box(0.26, 0.005, 0.01, MAT.black, -0.35, 0.97, 0.1 + dr * 0.024); c.cyl(0.03, 0.06, MAT.chrome, -0.35, 1.0, 0.1, 12); c.cyl(0.02, 0.12, MAT.chrome, -0.35, 0.97, 0.16, 8).rotation.x = Math.PI / 2; c.cyl(0.012, 0.07, MAT.black, -0.35, 0.97, 0.23, 8).rotation.x = Math.PI / 2;
+    c.cyl(0.035, 0.09, MAT.white, -0.35, 0.995, 0.16, 12); c.cyl(0.015, 0.2, MAT.chrome, -0.14, 1.0, 0.1, 8).rotation.x = 0.6; c.plane(0.14, 0.08, MAT.screen, -0.35, 1.26, 0.125, 0, 0); c.box(0.03, 0.03, 0.01, MAT.green, -0.42, 1.18, 0.125); c.box(0.03, 0.03, 0.01, MAT.red, -0.28, 1.18, 0.125); c.box(0.06, 0.012, 0.012, MAT.chrome, -0.35, 1.08, 0.125);
+    c.cyl(0.035, 0.08, MAT.white, -0.55, 1.41, -0.1, 10); c.cyl(0.035, 0.08, MAT.white, -0.47, 1.41, -0.14, 10); c.cyl(0.035, 0.08, MAT.white, -0.22, 1.41, -0.14, 10);
     c.hit(0.5, 0.6, 0.5, -0.35, 1.19, -0.05, { prompt: function () { return S.events.power ? 'The coffee machine is off' : (buff.coffeeUntil > S.time && buff.coffeeDay === S.day ? 'Coffee is still working' : 'Have a coffee (walk faster for an hour)'); }, use: function () { drinkCoffee(); } });
     c.cyl(0.08, 0.2, MAT.chrome, 0.1, 1.04, -0.1, 12); c.cyl(0.02, 0.1, MAT.chrome, 0.17, 1.07, -0.04, 6).rotation.z = -0.8; c.cyl(0.045, 0.1, MAT.white, 0.25, 0.99, 0.12, 10); c.cyl(0.045, 0.1, MAT.red, 0.35, 0.99, 0.02, 10);
     c.box(0.5, 0.3, 0.38, MAT.black, 0.42, 1.09, -0.08); c.plane(0.3, 0.16, MAT.glass, 0.42, 1.11, 0.115, 0, 0); c.box(0.06, 0.1, 0.02, MAT.black, 0.62, 1.09, 0.12);
@@ -1171,8 +1190,19 @@
     c.sign(['SNACKS'], 0.7, 0.2, -0.1, 1.8, 0.42, 0, { w: 256, h: 64, bg: '#f5b53d', fg: '#1a1205' }); c.solid(-0.5, 0.5, -0.4, 0.4, 0, 2);
     dress.vending = c.hit(1.0, 1.9, 0.9, 0, 0.95, 0, { prompt: function () { return S.events.power ? 'The vending machine is dark' : 'Buy a snack ($3): walk faster for half an hour'; }, use: function () { buySnack(); } });
   }
-  function fridgeBuild(c) { c.box(0.7, 1.75, 0.7, MAT.white, 0, 0.875, 0); c.box(0.03, 0.4, 0.03, MAT.chrome, -0.3, 1.2, 0.37); c.box(0.03, 0.3, 0.03, MAT.chrome, -0.3, 0.5, 0.37); c.box(0.7, 0.1, 0.02, MAT.black, 0, 0.05, 0.36); c.box(0.12, 0.14, 0.004, MAT.paper, 0.15, 1.5, 0.36); c.box(0.02, 0.02, 0.01, MAT.red, 0.15, 1.58, 0.365); c.solid(-0.37, 0.37, -0.37, 0.37, 0, 2); }
-  function coolerBuild(c) { c.box(0.4, 1.0, 0.4, MAT.white, 0, 0.5, 0); c.cyl(0.12, 0.3, MAT.glass, 0, 1.15, 0, 12); c.cyl(0.1, 0.06, MAT.blue, 0, 1.33, 0, 12); c.box(0.03, 0.05, 0.04, MAT.blue, -0.06, 0.95, 0.21); c.box(0.03, 0.05, 0.04, MAT.red, 0.06, 0.95, 0.21); c.box(0.06, 0.2, 0.06, MAT.white, 0.26, 1.05, 0); c.solid(-0.22, 0.22, -0.22, 0.22, 0, 1.4); }
+  function fridgeBuild(c) {
+    var FW = new THREE.MeshPhysicalMaterial({ color: 0xf2f3f0, roughness: 0.3, metalness: 0.05, clearcoat: 0.6, clearcoatRoughness: 0.2 }); var body = new THREE.Mesh(bevelGeo(0.7, 1.72, 0.68, 0.03), FW); body.position.set(0, 0.96, -0.02); body.castShadow = true; c.group.add(body);
+    var dl = new THREE.Mesh(bevelGeo(0.66, 0.52, 0.03, 0.012), FW); dl.position.set(0, 1.56, 0.335); c.group.add(dl); var dl2 = new THREE.Mesh(bevelGeo(0.66, 1.1, 0.03, 0.012), FW); dl2.position.set(0, 0.72, 0.335); c.group.add(dl2); c.box(0.66, 0.01, 0.02, MAT.black, 0, 1.29, 0.345);
+    c.box(0.025, 0.4, 0.03, MAT.chrome, -0.28, 1.56, 0.37); c.box(0.025, 0.8, 0.03, MAT.chrome, -0.28, 0.75, 0.37); c.box(0.7, 0.1, 0.02, MAT.black, 0, 0.05, 0.34); for (var gv = 0; gv < 6; gv++) c.box(0.08, 0.06, 0.01, MAT.plastic, -0.25 + gv * 0.1, 0.05, 0.345);
+    c.box(0.12, 0.14, 0.004, MAT.paper, 0.15, 1.0, 0.355); c.cyl(0.015, 0.008, MAT.red, 0.15, 1.085, 0.357, 10).rotation.x = Math.PI / 2; c.box(0.1, 0.1, 0.004, std({ color: 0x3b7dd8, roughness: 0.6 }), -0.1, 0.9, 0.355); c.box(0.3, 0.05, 0.004, std({ color: 0x9aa4ad, roughness: 0.5, metalness: 0.5 }), 0, 1.75, 0.355);
+    c.solid(-0.37, 0.37, -0.37, 0.37, 0, 2);
+  }
+  function coolerBuild(c) {
+    var CW = std({ color: 0xe9ecef, roughness: 0.45 }); var cab = new THREE.Mesh(bevelGeo(0.38, 0.98, 0.38, 0.02), CW); cab.position.set(0, 0.49, 0); cab.castShadow = true; c.group.add(cab); c.box(0.4, 0.06, 0.4, std({ color: 0x5b6672, roughness: 0.6 }), 0, 1.01, 0); c.box(0.3, 0.02, 0.02, MAT.black, 0, 0.78, 0.19); c.box(0.26, 0.03, 0.12, MAT.plastic, 0, 0.72, 0.14); for (var dr = 0; dr < 5; dr++) c.box(0.24, 0.004, 0.012, MAT.black, 0, 0.74, 0.09 + dr * 0.022);
+    c.box(0.03, 0.04, 0.03, MAT.blue, -0.06, 0.84, 0.2); c.box(0.03, 0.04, 0.03, MAT.red, 0.06, 0.84, 0.2); c.cyl(0.006, 0.03, MAT.black, -0.06, 0.835, 0.22, 6); c.cyl(0.006, 0.03, MAT.black, 0.06, 0.835, 0.22, 6);
+    var WB = std({ color: 0xbfe3f2, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.45 }), WT = std({ color: 0x7fc4e8, roughness: 0.1, transparent: true, opacity: 0.6 }); c.cyl(0.13, 0.44, WB, 0, 1.28, 0, 16); c.cyl(0.124, 0.26, WT, 0, 1.19, 0, 16); c.cyl(0.08, 0.06, WB, 0, 1.53, 0, 14, 0.13); c.cyl(0.05, 0.04, MAT.blue, 0, 1.58, 0, 12); c.sphere(0.02, std({ color: 0xffffff, roughness: 0.1, transparent: true, opacity: 0.6 }), 0.04, 1.26, 0.03);
+    c.box(0.08, 0.24, 0.08, CW, 0.23, 0.9, 0); c.cyl(0.03, 0.08, MAT.white, 0.23, 1.06, 0, 10); c.solid(-0.22, 0.22, -0.22, 0.22, 0, 1.6);
+  }
   function hooksBuild(c) { c.box(1.9, 0.04, 0.12, MAT.wood, 0, 1.82, 0); for (var hk = 0; hk < 4; hk++) { var hx = -0.68 + hk * 0.45; c.cyl(0.015, 0.1, MAT.chrome, hx, 1.75, 0.05, 6).rotation.x = Math.PI / 2; if (hk !== 2) { c.box(0.36, 0.5, 0.06, hk === 1 ? MAT.hivisOrange : MAT.hivis, hx, 1.45, 0.06); c.box(0.1, 0.06, 0.07, MAT.hivis, hx, 1.72, 0.06); } } }
   function noticeBuild(c) { c.box(1.6, 1.0, 0.04, MAT.wood, 0, 1.9, 0); c.plane(1.5, 0.9, MAT.cork, 0, 1.9, 0.025, 0, 0); c.sign(['TRUCKS', 'IN 07:30 · 13:30', 'OUT 10:30-12 · 16-18'], 0.9, 0.5, -0.25, 2.05, 0.03, 0, { w: 512, h: 320, bg: '#f5f1e6', fg: '#1b232c', size: 56 }); [[0.45, 1.75, -0.1], [-0.1, 1.6, 0.15], [0.55, 1.65, 0.05]].forEach(function (n) { var nb = c.box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], 0.03); nb.rotation.z = n[2]; c.cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, 0.035, 8).rotation.x = Math.PI / 2; }); }
   function calendarBuild(c) { c.box(0.4, 0.5, 0.02, MAT.paper, 0, 2.6, 0); c.sign(['OCTOBER', '', '1  2  3  4  5  6  7', '8  9 10 11 12 13 14'], 0.36, 0.44, 0, 2.6, 0.012, 0, { w: 256, h: 320, bg: '#f3efe4', fg: '#1b232c', size: 34 }); }
@@ -1187,7 +1217,12 @@
   function wetFloorBuild(c) { var face = new THREE.MeshBasicMaterial({ map: textTex(['CAUTION', 'WET FLOOR'], { w: 192, h: 256, bg: '#f5b53d', fg: '#111', size: 34 }) }); [-1, 1].forEach(function (s) { var pg = new THREE.Group(); pg.position.set(0, 0.72, 0); pg.rotation.x = s * 0.32; c.add(pg); box(0.34, 0.72, 0.012, MAT.yellow, 0, -0.36, s * 0.006, pg); var f = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.6), face); f.position.set(0, -0.38, s * 0.014); f.rotation.y = s > 0 ? 0 : Math.PI; pg.add(f); box(0.02, 0.72, 0.02, MAT.black, -0.17, -0.36, s * 0.01, pg); box(0.02, 0.72, 0.02, MAT.black, 0.17, -0.36, s * 0.01, pg); box(0.34, 0.03, 0.02, MAT.black, 0, -0.72, s * 0.012, pg); }); c.cyl(0.012, 0.36, MAT.black, 0, 0.72, 0, 8).rotation.z = Math.PI / 2; c.box(0.1, 0.03, 0.02, MAT.black, 0, 0.75, 0); }
   // a real wooden pallet: three bearers, seven top boards with gaps, three bottom boards
   function palletModel(c, x, y, z, ry) { var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry || 0; c.add(g); [-0.5, 0, 0.5].forEach(function (bz) { box(1.2, 0.08, 0.1, MAT.wood, 0, 0.065, bz, g); box(1.2, 0.022, 0.1, MAT.wood, 0, 0.011, bz, g); }); for (var i = 0; i < 7; i++) box(i === 0 || i === 6 ? 0.14 : 0.1, 0.022, 1.0, MAT.wood, -0.53 + i * 0.1766, 0.116, 0, g); return g; }
-  function emptiesBuild(c) { for (var i = 0; i < 8; i++) palletModel(c, randf(-0.02, 0.02), i * 0.128, randf(-0.02, 0.02), randf(-0.03, 0.03)); c.box(0.08, 0.02, 1.1, MAT.hazard, -0.58, 1.04, 0); c.sign(['EMPTIES'], 1.2, 0.3, 0, 1.6, 0.6, 0, { w: 256, h: 64, bg: '#2a2f36', fg: '#a0acb8' }); c.solid(-0.62, 0.62, -0.52, 0.52, 0, 1.2); }
+  function emptiesBuild(c) {
+    for (var i = 0; i < 9; i++) palletModel(c, randf(-0.015, 0.015), i * 0.128, randf(-0.015, 0.015), randf(-0.02, 0.02));
+    var mk = std({ color: 0xf0b400, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }); c.plane(1.5, 0.05, mk, 0, 0.004, 0.7, -Math.PI / 2, 0); c.plane(1.5, 0.05, mk, 0, 0.004, -0.7, -Math.PI / 2, 0); c.plane(0.05, 1.45, mk, 0.75, 0.004, 0, -Math.PI / 2, 0); c.plane(0.05, 1.45, mk, -0.75, 0.004, 0, -Math.PI / 2, 0);
+    c.cyl(0.02, 1.5, MAT.steel, 1.05, 0.75, 0.75, 8); c.cyl(0.14, 0.04, MAT.steel, 1.05, 0.02, 0.75, 14); c.sign(['EMPTY', 'PALLETS'], 0.5, 0.3, 1.05, 1.5, 0.75, 0, { w: 256, h: 150, bg: '#1b232c', fg: '#f0b400' }); c.sign(['EMPTY', 'PALLETS'], 0.5, 0.3, 1.05, 1.5, 0.75, Math.PI, { w: 256, h: 150, bg: '#1b232c', fg: '#f0b400' });
+    c.solid(-0.62, 0.62, -0.52, 0.52, 0, 1.2); c.solid(0.9, 1.2, 0.6, 0.9, 0, 1.7);
+  }
   // a vertical baler: a tall steel cabinet, the loading door with its window at chest height, the bale door below with a
   // handle and hinges, the ram cylinder on top, a control box on the side, hazard stripes, and a strapped bale beside it
   function balerBuild(c) {
@@ -1213,7 +1248,14 @@
     c.hit(1.0, 2.4, 0.8, 0, 1.2, -1.05, { prompt: function () { return wrapperPrompt(); }, use: function () { wrapperUse(); } });
   }
   function hoseBuild(c) { var reel = c.cyl(0.32, 0.12, MAT.red, 0, 1.5, 0.08, 24); reel.rotation.x = Math.PI / 2; c.cyl(0.05, 0.3, MAT.steelDark, 0, 1.5, 0.0, 8).rotation.x = Math.PI / 2; for (var hr = 0; hr < 5; hr++) { var ring = new THREE.Mesh(new THREE.TorusGeometry(0.12 + hr * 0.035, 0.012, 6, 24), MAT.red); ring.position.set(0, 1.5, 0.16); c.add(ring); } c.cyl(0.015, 0.25, MAT.red, 0.3, 1.25, 0.08, 6).rotation.z = 0.4; c.cyl(0.03, 0.08, MAT.chrome, 0.38, 1.12, 0.08, 8, 0.018); c.sign(['HOSE REEL'], 0.7, 0.16, 0, 2.0, 0.01, 0, { w: 256, h: 64, bg: '#c8342a', fg: '#fff' }); }
-  function plantBuild(c) { c.cyl(0.16, 0.3, MAT.plastic, 0, 0.15, 0, 12, 0.13); [[0, 0.5, 0, 0.22], [0.12, 0.62, 0.08, 0.16], [-0.1, 0.66, -0.06, 0.14], [0.02, 0.78, 0.05, 0.12]].forEach(function (s) { c.sphere(s[3], MAT.green, s[0], s[1], s[2]); }); c.solid(-0.18, 0.18, -0.18, 0.18, 0, 0.5); }
+  var leafTex = tex(64, 128, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, '#2f6a2a'); g.addColorStop(1, '#8ad474'); c.fillStyle = g; c.beginPath(); c.moveTo(32, 128); c.quadraticCurveTo(0, 70, 32, 4); c.quadraticCurveTo(64, 70, 32, 128); c.fill(); c.strokeStyle = 'rgba(220,255,200,0.6)'; c.lineWidth = 2; c.beginPath(); c.moveTo(32, 124); c.lineTo(32, 10); c.stroke(); });
+  var leafMat = std({ map: leafTex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9 });
+  function plantBuild(c) {
+    var pot = new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(0.11, 0), new THREE.Vector2(0.14, 0.02), new THREE.Vector2(0.17, 0.28), new THREE.Vector2(0.19, 0.3), new THREE.Vector2(0.17, 0.32), new THREE.Vector2(0.15, 0.3)], 16), std({ color: 0xa65e3a, roughness: 0.9 })); pot.castShadow = true; c.group.add(pot);
+    c.cyl(0.15, 0.02, std({ color: 0x3a2a1c, roughness: 1 }), 0, 0.29, 0, 14);
+    for (var i = 0; i < 11; i++) { var a = i / 11 * 6.283, lg = new THREE.Group(); lg.position.set(0, 0.3, 0); lg.rotation.y = a; c.group.add(lg); var st = cyl(0.006, 0.35 + (i % 3) * 0.12, MAT.green, 0, 0.17 + (i % 3) * 0.06, 0.03, lg, 5); st.rotation.x = 0.5 + (i % 2) * 0.2; var lf = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.34), leafMat); lf.position.set(0, 0.42 + (i % 3) * 0.12, 0.2 + (i % 2) * 0.08); lf.rotation.x = -0.9 + (i % 3) * 0.2; lg.add(lf); }
+    c.solid(-0.18, 0.18, -0.18, 0.18, 0, 0.5);
+  }
   function deskBuild(c) {
     c.box(2.2, 0.06, 0.8, MAT.wood, 0, 0.75, 0); [[-1, -0.3], [1, -0.3], [-1, 0.3], [1, 0.3]].forEach(function (o) { c.box(0.05, 0.75, 0.05, MAT.steelDark, o[0] * 1.05, 0.375, o[1]); }); c.solid(-1.1, 1.1, -0.4, 0.4, 0, 0.8);
     c.box(0.45, 0.6, 0.6, MAT.grey, -0.75, 0.3, 0); for (var dw = 0; dw < 3; dw++) c.box(0.03, 0.03, 0.2, MAT.chrome, -0.52, 0.12 + dw * 0.18, 0);
@@ -1256,11 +1298,31 @@
     scText(c, 16, 290, 'E on the bench with empty hands opens the full list', '#6b7784', 10);
   }
   // yard props (the shelter, dumpster, flag and parking sign)
-  function shelterBuild(c) { [[-1.5, -2], [-1.5, 2], [1.5, -2], [1.5, 2]].forEach(function (p) { c.cyl(0.05, 2.4, MAT.steelDark, p[0], 1.2, p[1], 6); }); c.box(3.6, 0.06, 4.6, MAT.glass, 0, 2.45, 0); for (var sl = 0; sl < 4; sl++) c.box(1.8, 0.04, 0.07, MAT.wood, 0, 0.45, 1.46 + sl * 0.09); c.box(1.8, 0.04, 0.3, MAT.wood, 0, 0.85, 1.76).rotation.x = -0.2; [[-0.7], [0.7]].forEach(function (p) { c.box(0.06, 0.45, 0.4, MAT.steelDark, p[0], 0.22, 1.6); }); c.cyl(0.12, 0.9, MAT.steelDark, -1.8, 0.45, -1.6, 10); c.cyl(0.1, 0.5, MAT.steelDark, 1.5, 0.25, -0.8, 10); c.cyl(0.11, 0.03, std({ color: 0x8a8a8a, roughness: 0.5 }), 1.5, 0.52, -0.8, 10); c.sign(['SMOKING', 'AREA'], 0.8, 0.5, 0, 2.2, -2.2, 0, { w: 256, h: 160, bg: '#1b232c', fg: '#a0acb8' }); c.solid(-1.6, 1.6, -2.1, 2.1, -2, 0.3); }
+  function shelterBuild(c) {
+    var FR = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), GL = std({ color: 0x9fc4d6, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+    [[-1.7, -2.2], [-1.7, 2.2], [1.7, -2.2], [1.7, 2.2]].forEach(function (p) { c.box(0.08, 2.5, 0.08, FR, p[0], 1.25, p[1]); c.box(0.2, 0.02, 0.2, FR, p[0], 0.01, p[1]); });
+    c.box(3.6, 0.06, 4.6, FR, 0, 2.5, 0); c.box(3.8, 0.04, 4.8, std({ color: 0x2a2f35, roughness: 0.7 }), 0, 2.56, 0); c.box(3.8, 0.1, 0.06, FR, 0, 2.5, 2.4); c.box(3.8, 0.1, 0.06, FR, 0, 2.5, -2.4); c.box(0.06, 0.1, 4.8, FR, -1.9, 2.5, 0); c.box(0.06, 0.1, 4.8, FR, 1.9, 2.5, 0);
+    c.plane(4.4, 2.3, GL, -1.7, 1.3, 0, 0, Math.PI / 2); c.plane(1.6, 2.3, GL, -0.9, 1.3, -2.2, 0, 0); c.plane(1.6, 2.3, GL, 0.9, 1.3, -2.2, 0, 0); c.box(0.08, 2.5, 0.08, FR, -1.7, 1.25, 0); c.box(0.06, 0.06, 4.4, FR, -1.7, 0.95, 0); c.box(3.4, 0.06, 0.06, FR, 0, 0.95, -2.2);
+    for (var sl = 0; sl < 5; sl++) c.box(2.4, 0.04, 0.08, MAT.wood, 0, 0.46, -1.9 + sl * 0.095); for (var sb = 0; sb < 3; sb++) { var bb = c.box(2.4, 0.04, 0.09, MAT.wood, 0, 0.7 + sb * 0.12, -2.04 - sb * 0.04); bb.rotation.x = -0.2; } [-1.0, 1.0].forEach(function (bx) { c.box(0.05, 0.44, 0.44, FR, bx, 0.22, -1.72); c.box(0.05, 0.5, 0.06, FR, bx, 0.75, -2.08).rotation.x = -0.2; });
+    c.cyl(0.11, 1.0, FR, 1.3, 0.5, 1.6, 12); c.cyl(0.13, 0.08, FR, 1.3, 1.02, 1.6, 12); c.cyl(0.1, 0.02, std({ color: 0x8a8a8a, roughness: 0.5 }), 1.3, 1.065, 1.6, 12); c.cyl(0.14, 0.02, FR, 1.3, 0.01, 1.6, 12);
+    c.sign(['SMOKING AREA', 'please use the ashtray'], 0.9, 0.3, 0, 2.05, -2.17, 0, { w: 384, h: 128, bg: '#1b232c', fg: '#a0acb8' }); c.sign(['NO SMOKING', 'beyond this shelter'], 0.9, 0.3, -1.67, 2.05, 0, Math.PI / 2, { w: 384, h: 128, bg: '#1b232c', fg: '#a0acb8' });
+    c.solid(-1.8, -1.6, -2.3, 2.3, 0, 2.6); c.solid(-1.8, 1.8, -2.3, -2.1, 0, 2.6); c.solid(-1.3, 1.3, -2.1, -1.5, 0, 1.0); c.solid(1.1, 1.5, 1.4, 1.8, 0, 1.1);
+  }
   function dumpsterBuild(c) { c.box(1.8, 1.3, 1.2, std({ color: 0x2f5a3a, roughness: 0.7, metalness: 0.3 }), 0, 0.65, 0); var dl = c.box(1.9, 0.08, 1.3, MAT.black, 0, 1.52, -0.2); dl.rotation.x = -0.35; [[-0.8, -0.5], [0.8, -0.5], [-0.8, 0.5], [0.8, 0.5]].forEach(function (w) { c.cyl(0.08, 0.06, MAT.black, w[0], 0.08, w[1], 10).rotation.z = Math.PI / 2; }); c.box(0.1, 0.1, 0.4, MAT.steelDark, -0.95, 0.9, 0); c.box(0.1, 0.1, 0.4, MAT.steelDark, 0.95, 0.9, 0); c.sign(['CARDBOARD', 'ONLY'], 1.2, 0.5, 0, 0.9, -0.62, Math.PI, { w: 256, h: 128, bg: '#2f5a3a', fg: '#fff' }); c.solid(-0.95, 0.95, -0.65, 0.65, -2, 2); }
   function flagBuild(c) { c.cyl(0.05, 9, MAT.chrome, 0, 4.5, 0, 8, 0.07); c.sphere(0.1, MAT.yellow, 0, 9.05, 0); var fg = new THREE.Group(); fg.position.set(0, 8.3, 0); fg.userData.dynamic = true; c.add(fg); yard.flag = fg; var flag = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0, 8, 2), new THREE.MeshStandardMaterial({ map: textTex(['DEPOT CO.'], { w: 256, h: 160, bg: '#f5b53d', fg: '#1b232c' }), side: THREE.DoubleSide, roughness: 0.9 })); flag.position.set(0.82, 0, 0); fg.add(flag); yard.flagMesh = flag; }
   function parkingSignBuild(c) { c.cyl(0.04, 2.4, MAT.steelDark, 0, 1.2, 0, 6); c.sign(['STAFF', 'PARKING'], 0.9, 0.6, 0, 2.5, 0, 0, { w: 256, h: 160, bg: '#2c5f9e', fg: '#fff' }); }
-  function treeBuild(c) { var s = 1; c.cyl(0.12 * s, 2.6 * s, std({ color: 0x5b4634, roughness: 1 }), 0, 1.3 * s, 0, 8, 0.18 * s); [[0, 3.2, 0, 1.3], [0.7, 2.7, 0.4, 0.9], [-0.6, 2.9, -0.5, 1.0], [0.1, 4.0, 0.2, 0.8]].forEach(function (b, i) { c.sphere(b[3] * s, std({ color: [0x3f6f2e, 0x5c8f44, 0x45752f, 0x6f9a4a][i], roughness: 1 }), b[0] * s, b[1] * s, b[2] * s); }); c.solid(-0.2, 0.2, -0.2, 0.2, -2, 2); }
+  function treeBuildOld(c) { var s = 1; c.cyl(0.12 * s, 2.6 * s, std({ color: 0x5b4634, roughness: 1 }), 0, 1.3 * s, 0, 8, 0.18 * s); [[0, 3.2, 0, 1.3], [0.7, 2.7, 0.4, 0.9], [-0.6, 2.9, -0.5, 1.0], [0.1, 4.0, 0.2, 0.8]].forEach(function (b, i) { c.sphere(b[3] * s, std({ color: [0x3f6f2e, 0x5c8f44, 0x45752f, 0x6f9a4a][i], roughness: 1 }), b[0] * s, b[1] * s, b[2] * s); }); c.solid(-0.2, 0.2, -0.2, 0.2, -2, 2); }
+  // a low-poly tree: a tapered trunk with bark, two limbs, and a canopy of jittered icosahedra in three greens, flat shaded
+  var BARK = std({ color: 0x5a4634, roughness: 1, normalMap: NRM.wood, normalScale: new THREE.Vector2(0.8, 0.8) });
+  var LEAF = [std({ color: 0x3f6f2e, roughness: 1, flatShading: true }), std({ color: 0x5c8f44, roughness: 1, flatShading: true }), std({ color: 0x4a7d33, roughness: 1, flatShading: true })];
+  function canopy(c, r, x, y, z, mat) { var g = new THREE.IcosahedronGeometry(r, 1), p = g.attributes.position; for (var i = 0; i < p.count; i++) { var k = 1 + (Math.random() - 0.5) * 0.35; p.setXYZ(i, p.getX(i) * k, p.getY(i) * (0.8 + Math.random() * 0.3), p.getZ(i) * k); } g.computeVertexNormals(); var m = new THREE.Mesh(g, mat); m.position.set(x, y, z); m.castShadow = true; c.group.add(m); return m; }
+  function treeBuild(c) {
+    var s = randf(0.85, 1.25), lean = randf(-0.06, 0.06);
+    var trunk = c.cyl(0.11 * s, 2.8 * s, BARK, 0, 1.4 * s, 0, 9, 0.2 * s); trunk.rotation.z = lean;
+    var l1 = c.cyl(0.05 * s, 1.1 * s, BARK, 0.35 * s, 2.5 * s, 0.1 * s, 6, 0.09 * s); l1.rotation.z = -0.7; var l2 = c.cyl(0.05 * s, 0.9 * s, BARK, -0.3 * s, 2.7 * s, -0.2 * s, 6, 0.08 * s); l2.rotation.z = 0.8; l2.rotation.x = 0.4;
+    canopy(c, 1.35 * s, 0, 3.4 * s, 0, LEAF[0]); canopy(c, 1.0 * s, 0.8 * s, 3.0 * s, 0.4 * s, LEAF[1]); canopy(c, 0.95 * s, -0.75 * s, 3.2 * s, -0.5 * s, LEAF[2]); canopy(c, 0.8 * s, 0.1 * s, 4.3 * s, 0.1 * s, LEAF[1]); canopy(c, 0.7 * s, -0.2 * s, 2.6 * s, 0.8 * s, LEAF[0]);
+    c.solid(-0.2, 0.2, -0.2, 0.2, -2, 2);
+  }
   function bollardBuild(c) { c.cyl(0.11, 1.0, MAT.yellow, 0, 0.5, 0, 10); c.cyl(0.14, 0.05, MAT.black, 0, 0.025, 0, 10); c.solid(-0.12, 0.12, -0.12, 0.12, -2, 1); }
   function benchSeatBuild(c) { for (var sl = 0; sl < 4; sl++) c.box(1.6, 0.04, 0.07, MAT.wood, 0, 0.45, -0.14 + sl * 0.09); c.box(1.6, 0.04, 0.3, MAT.wood, 0, 0.85, 0.16).rotation.x = -0.2; [[-0.65], [0.65]].forEach(function (p) { c.box(0.06, 0.45, 0.4, MAT.steelDark, p[0], 0.22, 0); c.box(0.06, 0.5, 0.06, MAT.steelDark, p[0], 0.65, 0.18); }); c.solid(-0.8, 0.8, -0.25, 0.25, -2, 1); }
 
@@ -1440,13 +1502,16 @@
   var yard = { gates: [], guards: [], traffic: [], clouds: [], sunDisc: null, moon: null, puddles: [], rain: null, snow: null, flag: null, lampLenses: [], windT: 0 };
   var CAR_COLS = [0xb8322a, 0x2c5f9e, 0xd8dbdf, 0x2a2d33, 0x7a8691, 0xe0a02a, 0x4f6a3a];
   function carMesh(col) {
-    var g = new THREE.Group(), paint = std({ color: col, roughness: 0.35, metalness: 0.5 });
-    box(4.2, 0.55, 1.8, paint, 0, 0.55, 0, g); box(2.3, 0.6, 1.65, paint, -0.2, 1.1, 0, g);
-    box(0.05, 0.5, 1.5, MAT.glass, 0.98, 1.1, 0, g).rotation.z = -0.5; box(0.05, 0.5, 1.5, MAT.glass, -1.38, 1.1, 0, g).rotation.z = 0.5; box(2.0, 0.45, 0.04, MAT.glass, -0.2, 1.1, 0.83, g); box(2.0, 0.45, 0.04, MAT.glass, -0.2, 1.1, -0.83, g);
-    [[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]].forEach(function (p) { var w = cyl(0.33, 0.22, MAT.rubber, p[0], 0.33, p[1], g, 14); w.rotation.x = Math.PI / 2; cyl(0.18, 0.23, MAT.chrome, p[0], 0.33, p[1], g, 10).rotation.x = Math.PI / 2; });
-    box(0.06, 0.14, 0.3, MAT.lamp, 2.1, 0.6, 0.6, g); box(0.06, 0.14, 0.3, MAT.lamp, 2.1, 0.6, -0.6, g); box(0.06, 0.12, 0.3, MAT.red, -2.1, 0.6, 0.6, g); box(0.06, 0.12, 0.3, MAT.red, -2.1, 0.6, -0.6, g);
-    box(0.1, 0.16, 1.9, MAT.plastic, 2.12, 0.4, 0, g); box(0.1, 0.16, 1.9, MAT.plastic, -2.12, 0.4, 0, g); box(0.02, 0.1, 0.4, MAT.white, 2.18, 0.42, 0, g); box(0.02, 0.1, 0.4, MAT.white, -2.18, 0.42, 0, g); box(0.08, 0.06, 0.16, MAT.black, 0.7, 1.15, 0.9, g); box(0.08, 0.06, 0.16, MAT.black, 0.7, 1.15, -0.9, g); box(0.1, 0.05, 1.2, MAT.chrome, -0.2, 1.42, 0, g);
-    box(0.4, 0.08, 1.2, MAT.black, -1.0, 0.28, 0, g); cyl(0.02, 0.4, MAT.black, -0.9, 1.5, 0.3, g, 4);
+    var g = new THREE.Group(), paint = new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.35, metalness: 0.4, clearcoat: 0.9, clearcoatRoughness: 0.15 }), glass = std({ color: 0x2a3340, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0.85 });
+    var rbx = function (w, h, d, r, mat, x, yy, z) { var m = new THREE.Mesh(bevelGeo(w, h, d, r), mat); m.position.set(x, yy, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+    rbx(4.3, 0.52, 1.82, 0.08, paint, 0, 0.6, 0); rbx(2.4, 0.56, 1.66, 0.1, paint, -0.25, 1.12, 0); rbx(1.0, 0.3, 1.6, 0.05, paint, 1.6, 0.9, 0).rotation.z = 0.0;
+    var ws = rbx(0.06, 0.5, 1.5, 0.02, glass, 0.98, 1.1, 0); ws.rotation.z = -0.55; var rw = rbx(0.06, 0.5, 1.5, 0.02, glass, -1.45, 1.1, 0); rw.rotation.z = 0.5; rbx(2.1, 0.44, 0.04, 0.01, glass, -0.25, 1.12, 0.84); rbx(2.1, 0.44, 0.04, 0.01, glass, -0.25, 1.12, -0.84);
+    [-1, 1].forEach(function (s) { box(0.02, 0.4, 0.02, MAT.black, -0.25, 1.12, s * 0.86, g); box(0.02, 0.4, 0.02, MAT.black, 0.5, 1.1, s * 0.86, g); box(0.14, 0.02, 0.03, MAT.chrome, -0.6, 0.78, s * 0.92, g); box(0.14, 0.02, 0.03, MAT.chrome, 0.3, 0.78, s * 0.92, g); box(0.12, 0.1, 0.16, paint, 0.6, 1.2, s * 1.0, g); });
+    [[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]].forEach(function (p) { var w = cyl(0.33, 0.22, MAT.rubber, p[0], 0.33, p[1], g, 20); w.rotation.x = Math.PI / 2; cyl(0.2, 0.23, MAT.chrome, p[0], 0.33, p[1], g, 14).rotation.x = Math.PI / 2; for (var sp = 0; sp < 5; sp++) { var spk = box(0.04, 0.26, 0.24, MAT.black, p[0], 0.33, p[1], g); spk.rotation.x = sp * 1.257; } var arch = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 6, 14, Math.PI), paint); arch.position.set(p[0], 0.35, p[1] * 0.96); arch.rotation.y = Math.PI / 2; g.add(arch); });
+    rbx(0.12, 0.2, 1.9, 0.03, MAT.plastic, 2.14, 0.42, 0); rbx(0.12, 0.2, 1.9, 0.03, MAT.plastic, -2.14, 0.42, 0);
+    box(0.06, 0.16, 0.34, glowMat(0xfff2c0, 0.4), 2.16, 0.68, 0.62, g); box(0.06, 0.16, 0.34, glowMat(0xfff2c0, 0.4), 2.16, 0.68, -0.62, g); box(0.06, 0.14, 0.34, glowMat(0xff2a1a, 0.5), -2.16, 0.68, 0.62, g); box(0.06, 0.14, 0.34, glowMat(0xff2a1a, 0.5), -2.16, 0.68, -0.62, g);
+    sign(['DC ' + randi(10, 99) + ' ' + pick(['AB', 'KH', 'NL', 'XY']) + randi(100, 999)], 0.44, 0.11, 2.2, 0.46, 0, Math.PI / 2, { w: 256, h: 64, bg: '#f5f1e6', fg: '#1b232c' }, g); sign(['DC ' + randi(10, 99)], 0.44, 0.11, -2.2, 0.46, 0, -Math.PI / 2, { w: 256, h: 64, bg: '#f5f1e6', fg: '#1b232c' }, g);
+    box(0.5, 0.06, 1.0, MAT.black, -0.2, 1.42, 0, g); cyl(0.015, 0.3, MAT.black, -0.9, 1.5, 0.4, g, 4); box(0.3, 0.015, 0.02, MAT.black, 1.0, 1.0, -0.3, g).rotation.z = -0.55;
     return g;
   }
   function tree(x, z, s) {
@@ -2053,9 +2118,32 @@
     rb(1.12, 0.5, 1.95, 0.05, FY, 0, 0.5, -0.25); rb(1.1, 0.9, 0.62, 0.1, FD, 0, 0.62, -1.18); rb(0.9, 0.28, 0.5, 0.05, FY, 0, 1.2, -1.15);
     rb(0.96, 0.52, 0.96, 0.04, FS, 0, 0.96, -0.35); rb(0.98, 0.04, 0.98, 0.01, MAT.plastic, 0, 1.22, -0.35); box(1.12, 0.03, 0.6, MAT.chequer, 0, 0.76, 0.3);
     rb(0.3, 0.03, 0.18, 0.01, FD, -0.2, 0.78, 0.25).rotation.x = -0.3; rb(0.3, 0.03, 0.18, 0.01, FD, 0.2, 0.78, 0.25).rotation.x = -0.3;
-    rb(0.52, 0.14, 0.5, 0.05, MAT.fabric, 0, 1.3, -0.5); var bk = rb(0.52, 0.56, 0.12, 0.05, MAT.fabric, 0, 1.62, -0.78); bk.rotation.x = -0.15; rb(0.1, 0.05, 0.3, 0.02, FD, -0.32, 1.45, -0.55); rb(0.1, 0.05, 0.3, 0.02, FD, 0.32, 1.45, -0.55); rb(0.5, 0.06, 0.5, 0.02, FS, 0, 1.21, -0.5);
-    var col = cyl(0.03, 0.6, FS, 0, 1.28, 0.02, f, 10); col.rotation.x = -0.6; var sw = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.022, 10, 24), MAT.rubber); sw.position.set(0, 1.55, 0.2); sw.rotation.x = -0.6 + Math.PI / 2; f.add(sw); cyl(0.045, 0.03, FD, 0, 1.55, 0.2, f, 8).rotation.x = -0.6 + Math.PI / 2; [0, 1, 2].forEach(function (s) { var sp = box(0.3, 0.012, 0.02, FD, 0, 1.55, 0.2); sp.rotation.set(-0.6 + Math.PI / 2, 0, s * 1.05); });
-    rb(0.56, 0.28, 0.2, 0.03, FS, 0, 1.08, 0.28); var dash = plane(0.44, 0.18, new THREE.MeshBasicMaterial({ map: textTex(['▮▮▮▮▮▯▯  24V   ⏱ 0 km/h   ⚠'], { w: 512, h: 128, bg: '#0d1216', fg: '#5fd38d', size: 40 }) }), 0, 1.14, 0.385, -0.4, 0); dash.userData.noBake = true; box(0.04, 0.12, 0.04, MAT.red, 0.2, 1.2, 0.33); box(0.04, 0.12, 0.04, MAT.green, -0.2, 1.2, 0.33); box(0.03, 0.03, 0.08, FD, 0.12, 1.2, 0.36);
+    // the operator's compartment: a contoured seat on a suspension with a belt, armrest and lever bank, the column with its
+    // shroud and a wheel with spokes and a spinner knob, a moulded dash with the cluster, key switch, horn and direction lever,
+    // pedals and a parking brake on the floor plate
+    var SEAT = std({ color: 0x1f2630, roughness: 0.9 }), SEAT2 = std({ color: 0x2b3542, roughness: 0.9 });
+    rb(0.5, 0.08, 0.5, 0.03, FS, 0, 1.22, -0.5); rb(0.3, 0.12, 0.3, 0.02, FD, 0, 1.15, -0.5);
+    rb(0.5, 0.12, 0.5, 0.05, SEAT, 0, 1.32, -0.5); rb(0.1, 0.16, 0.5, 0.04, SEAT2, -0.22, 1.35, -0.5); rb(0.1, 0.16, 0.5, 0.04, SEAT2, 0.22, 1.35, -0.5);
+    var bk = rb(0.5, 0.6, 0.12, 0.05, SEAT, 0, 1.66, -0.78); bk.rotation.x = -0.15; var bk2 = rb(0.12, 0.5, 0.14, 0.04, SEAT2, -0.2, 1.66, -0.77); bk2.rotation.x = -0.15; var bk3 = rb(0.12, 0.5, 0.14, 0.04, SEAT2, 0.2, 1.66, -0.77); bk3.rotation.x = -0.15; rb(0.3, 0.16, 0.12, 0.04, SEAT, 0, 2.02, -0.84);
+    var belt = box(0.05, 0.7, 0.01, MAT.hivisOrange, 0.1, 1.6, -0.7); belt.rotation.z = 0.45; box(0.06, 0.04, 0.03, MAT.chrome, -0.16, 1.36, -0.45);
+    rb(0.08, 0.05, 0.36, 0.02, FD, -0.34, 1.46, -0.5); rb(0.08, 0.05, 0.36, 0.02, FD, 0.34, 1.46, -0.5);
+    // the lever bank on the right: lift, tilt and sideshift, with a label plate
+    rb(0.16, 0.1, 0.32, 0.02, FS, -0.47, 1.26, -0.05); [-0.1, 0, 0.1].forEach(function (lz, i) { var lv = cyl(0.01, 0.2, MAT.chrome, -0.47, 1.4, lz, f, 6); lv.rotation.x = -0.25 + i * 0.1; sphere(0.02, i === 0 ? MAT.red : FD, -0.47, 1.49, lz - 0.05 + i * 0.02, f); });
+    sign(['LIFT · TILT · SHIFT'], 0.26, 0.04, -0.47, 1.32, 0.12, 0, { w: 256, h: 40, bg: '#1b232c', fg: '#eef1f5' }, f);
+    // the column: a shroud from the dash to the wheel, the wheel ahead of and below the eyes, tilted back to the driver
+    var colGrp = new THREE.Group(); colGrp.position.set(0, 1.08, 0.2); colGrp.rotation.x = -0.62; f.add(colGrp);
+    cyl(0.045, 0.42, FS, 0, 0.21, 0, colGrp, 12, 0.06); cyl(0.07, 0.1, FD, 0, 0.1, 0, colGrp, 12, 0.09);
+    var wheel = new THREE.Group(); wheel.position.set(0, 0.44, 0); colGrp.add(wheel);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.02, 10, 28), MAT.rubber); rim.rotation.x = Math.PI / 2; wheel.add(rim);
+    [0, 1, 2].forEach(function (s) { var sp = box(0.26, 0.012, 0.03, FD, 0, 0, 0, wheel); sp.rotation.y = s * 1.05; }); cyl(0.045, 0.03, FD, 0, 0, 0, wheel, 10); cyl(0.012, 0.05, MAT.chrome, 0.11, 0.03, 0.08, wheel, 6); sphere(0.02, FD, 0.11, 0.06, 0.08, wheel);
+    var dirLever = cyl(0.008, 0.14, FD, 0.08, 0.28, 0.0, colGrp, 6); dirLever.rotation.z = -1.2; sphere(0.014, FD, 0.17, 0.3, 0, colGrp);
+    // the dash: a moulded cowl ahead of the column, the cluster, a key switch, the horn, a rocker, the hour meter
+    rb(0.6, 0.2, 0.26, 0.05, FS, 0, 1.12, 0.42); var cowl = rb(0.56, 0.12, 0.22, 0.04, FD, 0, 1.25, 0.4); cowl.rotation.x = 0.3;
+    var cl = plane(0.3, 0.1, new THREE.MeshBasicMaterial({ map: textTex(['24V ▮▮▮▮▮▮▯▯   0.0 km/h', '⏱ 0412.6 h   ⚠ ✓'], { w: 512, h: 160, bg: '#0d1216', fg: '#5fd38d', size: 30 }) }), 0, 1.27, 0.3, -1.2, 0); cl.userData.noBake = true;
+    cyl(0.018, 0.02, MAT.chrome, -0.2, 1.24, 0.29, f, 10).rotation.x = -1.2; box(0.012, 0.03, 0.004, MAT.black, -0.2, 1.255, 0.285); cyl(0.022, 0.012, MAT.red, 0.2, 1.24, 0.29, f, 12).rotation.x = -1.2; box(0.03, 0.02, 0.01, FD, -0.12, 1.22, 0.3); box(0.03, 0.02, 0.01, MAT.green, -0.12, 1.2, 0.3);
+    sign(['HORN'], 0.06, 0.016, 0.2, 1.21, 0.31, 0, { w: 128, h: 32, bg: '#1b232c', fg: '#eef1f5' }, f);
+    // the floor: pedals and the parking brake
+    box(0.12, 0.012, 0.08, MAT.rubber, 0.12, 0.78, 0.3).rotation.x = -0.35; box(0.12, 0.012, 0.08, MAT.rubber, -0.08, 0.78, 0.3).rotation.x = -0.35; var pb = cyl(0.01, 0.22, FD, -0.3, 0.88, 0.1, f, 6); pb.rotation.x = -0.5; box(0.05, 0.03, 0.06, MAT.red, -0.3, 0.98, 0.15);
     var guardPts = [[-0.52, 0.9, 0.5], [-0.52, 2.2, 0.5], [-0.52, 2.4, 0.3], [-0.52, 2.4, -0.85], [-0.52, 2.2, -1.05], [-0.52, 0.9, -1.05]];
     [-1, 1].forEach(function (s) { var pts = guardPts.map(function (p) { return new THREE.Vector3(p[0] * s, p[1], p[2]); }); var tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.2), 40, 0.035, 8, false), FD); tube.castShadow = true; f.add(tube); });
     for (var cb = -0.95; cb <= 0.4; cb += 0.27) cyl(0.025, 1.04, FD, 0, 2.4, cb, f, 8).rotation.z = Math.PI / 2; box(0.22, 0.03, 0.22, FD, 0, 2.43, -0.3);
@@ -2078,7 +2166,7 @@
     cyl(0.04, 0.3, MAT.red, 0.5, 1.4, -1.15, f, 10); box(0.03, 0.12, 0.1, MAT.chrome, -0.6, 1.9, 0.1); cyl(0.01, 0.3, FS, -0.6, 1.95, 0.05, f, 4).rotation.z = 0.3;
     groundBlob(2.0, 2.9, 0, -0.2, f, 0);
     hitBox(1.1, 1.4, 1.4, 0, 1.2, -0.3, { prompt: function () { if (!S.up.fork) return null; if (player.tool === 'cable') return 'Plug the forklift in'; if (S.fork.plugged) return 'Forklift on charge · unplug at the charger · E drives off anyway'; return S.hand || player.tool ? 'Hands full' : 'Drive the forklift'; }, use: function () { if (player.tool === 'cable') { cablePlugInto('fork'); return; } startDrive(); } }, f);
-    forkM = { g: f, car: car, beacon: beaconLens };
+    forkM = { g: f, car: car, beacon: beaconLens, wheel: wheel };
     placeTools();
   }
   function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (tool === 'jack' && player.tool === 'jcable') return 'Plug the jack in'; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return tool === 'jack' ? 'Grab the pallet jack' : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
@@ -2087,7 +2175,7 @@
   function placeTools() {
     var jw = toolWorld('jack'); jackMesh.position.set(jw.x, floorY(jw.x, jw.z), jw.z); jackMesh.rotation.y = jw.ry;
     var cw = toolWorld('cart'); cartMesh.position.set(cw.x, floorY(cw.x, cw.z), cw.z); cartMesh.rotation.y = cw.ry; cartMesh.visible = !!S.up.cart;
-    forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving; forkM.beacon.rotation.y = worldTime * 6; }
+    forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving; forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, 0.2); }
   }
 
   // ── The forklift ──────────────────────────────────────────────────
@@ -2095,7 +2183,7 @@
   function startDrive() {
     if (!S.up.fork || S.hand || player.tool || driving) return;
     if (S.fork.plugged) cableUnplugFork('You drove off with the charger plugged in. The plug came out.');
-    driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = 0; sfx('forklift'); introStep('fork'); hudDirty = true;
+    driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = -0.14; sfx('forklift'); introStep('fork'); hudDirty = true;
     $('h-drive').hidden = false;
   }
   function stopDrive() {
@@ -2188,11 +2276,11 @@
     var skin = std({ color: skinCol, roughness: 0.85 }), shirt = opt.shirt || std({ color: pick(SHIRTS), roughness: 0.95 }), pants = std({ color: pick(PANTS), roughness: 0.95 }), hair = std({ color: hairCol, roughness: 0.95 });
     var g = new THREE.Group(), u = g.userData; u.dynamic = true;
     u.key = 'f' + Math.floor(Math.random() * 1000); u.mood = opt.mood || 'neutral'; u.blink = 0; u.blinkIn = randf(2, 6); u.walk = 0; u.idleT = Math.random() * 10; u.lookYaw = 0; u.lookPitch = 0;
-    function leg(x) { var hip = new THREE.Group(); hip.position.set(x, 0.86, 0); cyl(0.075, 0.42, pants, 0, -0.21, 0, hip, 10); var knee = new THREE.Group(); knee.position.set(0, -0.42, 0); cyl(0.065, 0.4, pants, 0, -0.2, 0, knee, 10); box(0.16, 0.08, 0.27, MAT.black, 0, -0.42, 0.04, knee); hip.add(knee); hip.userData.knee = knee; g.add(hip); return hip; }
+    function leg(x) { var hip = new THREE.Group(); hip.position.set(x, 0.86, 0); cyl(0.075, 0.42, pants, 0, -0.21, 0, hip, 10); var knee = new THREE.Group(); knee.position.set(0, -0.42, 0); cyl(0.065, 0.4, pants, 0, -0.2, 0, knee, 10); var boot = new THREE.Mesh(bevelGeo(0.15, 0.1, 0.28, 0.03), MAT.black); boot.position.set(0, -0.41, 0.05); boot.castShadow = true; knee.add(boot); box(0.16, 0.03, 0.3, std({ color: 0x8a6a3a, roughness: 1 }), 0, -0.455, 0.05, knee); hip.add(knee); hip.userData.knee = knee; g.add(hip); return hip; }
     function arm(x) { var sh = new THREE.Group(); sh.position.set(x, 1.38, 0); sphere(0.065, shirt, 0, 0, 0, sh); cyl(0.052, 0.3, shirt, 0, -0.15, 0, sh, 8); var el = new THREE.Group(); el.position.set(0, -0.3, 0); sphere(0.05, shirt, 0, 0, 0, el); cyl(0.045, 0.26, skin, 0, -0.14, 0, el, 8); var hd = sphere(0.055, skin, 0, -0.3, 0.01, el); hd.scale.set(0.8, 1.1, 0.6); sh.add(el); sh.userData.elbow = el; g.add(sh); return sh; }
     u.legs = [leg(-0.12), leg(0.12)]; u.arms = [arm(-0.245), arm(0.245)];
-    box(0.4, 0.58, 0.23, shirt, 0, 1.14, 0, g); box(0.44, 0.1, 0.26, shirt, 0, 1.4, 0, g);
-    if (opt.vest) { box(0.46, 0.46, 0.28, opt.vest, 0, 1.16, 0, g); box(0.48, 0.04, 0.3, MAT.chrome, 0, 1.08, 0, g); box(0.48, 0.04, 0.3, MAT.chrome, 0, 1.24, 0, g); }
+    var torso = new THREE.Mesh(bevelGeo(0.4, 0.56, 0.24, 0.06), shirt); torso.position.set(0, 1.14, 0); torso.castShadow = true; g.add(torso); sphere(0.085, shirt, -0.17, 1.4, 0, g); sphere(0.085, shirt, 0.17, 1.4, 0, g); var chest = new THREE.Mesh(bevelGeo(0.42, 0.14, 0.26, 0.05), shirt); chest.position.set(0, 1.36, 0); g.add(chest);
+    if (opt.vest) { var vest = new THREE.Mesh(bevelGeo(0.46, 0.46, 0.29, 0.05), opt.vest); vest.position.set(0, 1.15, 0); vest.castShadow = true; g.add(vest); var band = std({ color: 0xc9ced3, roughness: 0.3, metalness: 0.4 }); box(0.48, 0.035, 0.31, band, 0, 1.06, 0, g); box(0.48, 0.035, 0.31, band, 0, 1.22, 0, g); box(0.05, 0.3, 0.31, band, -0.15, 1.3, 0, g); box(0.05, 0.3, 0.31, band, 0.15, 1.3, 0, g); }
     if (opt.name) { var tag = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.05), new THREE.MeshBasicMaterial({ map: textTex([opt.name], { w: 128, h: 48, bg: '#fff', fg: '#1b232c' }) })); tag.position.set(0.1, 1.3, 0.145); g.add(tag); }
     cyl(0.05, 0.08, skin, 0, 1.47, 0, g, 8);
     var head = sphere(0.135, skin, 0, 1.6, 0, g); u.head = head; u.skinKey = skinCol.toString(16);
@@ -2591,7 +2679,7 @@
     if (pc.on) { pcCamera(); return; }
     if (driving) {
       updateFork(dt);
-      camera.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.35, floorY(S.fork.x, S.fork.z) + 1.75, S.fork.z - Math.cos(S.fork.yaw) * 0.35);
+      camera.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.45, floorY(S.fork.x, S.fork.z) + 1.78, S.fork.z - Math.cos(S.fork.yaw) * 0.45);
       camera.rotation.set(forkLook.pitch, S.fork.yaw + Math.PI + forkLook.yaw, 0, 'YXZ');
       player.x = S.fork.x; player.z = S.fork.z; player.y = floorY(S.fork.x, S.fork.z);
       return;
@@ -3219,7 +3307,7 @@
     if (overcast) skyTmp.lerp(new THREE.Color(0x6b7482), overcast * day * 0.8); if (weatherFlash > 0.05) skyTmp.lerp(new THREE.Color(0xffffff), weatherFlash * 0.7);
     scene.background.copy(skyTmp); scene.fog.color.copy(skyTmp); scene.fog.near = 70 - overcast * 30; scene.fog.far = 190 - overcast * 90;
     hemi.intensity = 0.12 + day * 0.35 * (1 - overcast * 0.5) + weatherFlash;
-    if (dress.shaftMat) { dress.shaftMat.opacity = 0.06 * day * (1 - overcast * 0.9); if (dress.dust) dress.dust.material.opacity = 0.15 + 0.4 * day * (1 - overcast * 0.6); }
+    if (dress.shaftMat) { dress.shaftMat.opacity = 0.16 * day * (1 - overcast * 0.9); if (dress.dust) dress.dust.material.opacity = 0.15 + 0.4 * day * (1 - overcast * 0.6); }
     yard.lampLenses.forEach(function (l) { l.material.emissiveIntensity = day < 0.5 && !S.events.power && !S.flags.yardOff ? 1.6 : 0.15; });
     var power = !S.events.power, lamps = power && !S.flags.lightsOff ? (S.up.lights ? 0.8 : 0.55) : 0;
     hallLights.forEach(function (l) { l.intensity = lamps; });

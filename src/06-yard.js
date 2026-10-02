@@ -3,13 +3,16 @@
   var yard = { gates: [], guards: [], traffic: [], clouds: [], sunDisc: null, moon: null, puddles: [], rain: null, snow: null, flag: null, lampLenses: [], windT: 0 };
   var CAR_COLS = [0xb8322a, 0x2c5f9e, 0xd8dbdf, 0x2a2d33, 0x7a8691, 0xe0a02a, 0x4f6a3a];
   function carMesh(col) {
-    var g = new THREE.Group(), paint = std({ color: col, roughness: 0.35, metalness: 0.5 });
-    box(4.2, 0.55, 1.8, paint, 0, 0.55, 0, g); box(2.3, 0.6, 1.65, paint, -0.2, 1.1, 0, g);
-    box(0.05, 0.5, 1.5, MAT.glass, 0.98, 1.1, 0, g).rotation.z = -0.5; box(0.05, 0.5, 1.5, MAT.glass, -1.38, 1.1, 0, g).rotation.z = 0.5; box(2.0, 0.45, 0.04, MAT.glass, -0.2, 1.1, 0.83, g); box(2.0, 0.45, 0.04, MAT.glass, -0.2, 1.1, -0.83, g);
-    [[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]].forEach(function (p) { var w = cyl(0.33, 0.22, MAT.rubber, p[0], 0.33, p[1], g, 14); w.rotation.x = Math.PI / 2; cyl(0.18, 0.23, MAT.chrome, p[0], 0.33, p[1], g, 10).rotation.x = Math.PI / 2; });
-    box(0.06, 0.14, 0.3, MAT.lamp, 2.1, 0.6, 0.6, g); box(0.06, 0.14, 0.3, MAT.lamp, 2.1, 0.6, -0.6, g); box(0.06, 0.12, 0.3, MAT.red, -2.1, 0.6, 0.6, g); box(0.06, 0.12, 0.3, MAT.red, -2.1, 0.6, -0.6, g);
-    box(0.1, 0.16, 1.9, MAT.plastic, 2.12, 0.4, 0, g); box(0.1, 0.16, 1.9, MAT.plastic, -2.12, 0.4, 0, g); box(0.02, 0.1, 0.4, MAT.white, 2.18, 0.42, 0, g); box(0.02, 0.1, 0.4, MAT.white, -2.18, 0.42, 0, g); box(0.08, 0.06, 0.16, MAT.black, 0.7, 1.15, 0.9, g); box(0.08, 0.06, 0.16, MAT.black, 0.7, 1.15, -0.9, g); box(0.1, 0.05, 1.2, MAT.chrome, -0.2, 1.42, 0, g);
-    box(0.4, 0.08, 1.2, MAT.black, -1.0, 0.28, 0, g); cyl(0.02, 0.4, MAT.black, -0.9, 1.5, 0.3, g, 4);
+    var g = new THREE.Group(), paint = new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.35, metalness: 0.4, clearcoat: 0.9, clearcoatRoughness: 0.15 }), glass = std({ color: 0x2a3340, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0.85 });
+    var rbx = function (w, h, d, r, mat, x, yy, z) { var m = new THREE.Mesh(bevelGeo(w, h, d, r), mat); m.position.set(x, yy, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+    rbx(4.3, 0.52, 1.82, 0.08, paint, 0, 0.6, 0); rbx(2.4, 0.56, 1.66, 0.1, paint, -0.25, 1.12, 0); rbx(1.0, 0.3, 1.6, 0.05, paint, 1.6, 0.9, 0).rotation.z = 0.0;
+    var ws = rbx(0.06, 0.5, 1.5, 0.02, glass, 0.98, 1.1, 0); ws.rotation.z = -0.55; var rw = rbx(0.06, 0.5, 1.5, 0.02, glass, -1.45, 1.1, 0); rw.rotation.z = 0.5; rbx(2.1, 0.44, 0.04, 0.01, glass, -0.25, 1.12, 0.84); rbx(2.1, 0.44, 0.04, 0.01, glass, -0.25, 1.12, -0.84);
+    [-1, 1].forEach(function (s) { box(0.02, 0.4, 0.02, MAT.black, -0.25, 1.12, s * 0.86, g); box(0.02, 0.4, 0.02, MAT.black, 0.5, 1.1, s * 0.86, g); box(0.14, 0.02, 0.03, MAT.chrome, -0.6, 0.78, s * 0.92, g); box(0.14, 0.02, 0.03, MAT.chrome, 0.3, 0.78, s * 0.92, g); box(0.12, 0.1, 0.16, paint, 0.6, 1.2, s * 1.0, g); });
+    [[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]].forEach(function (p) { var w = cyl(0.33, 0.22, MAT.rubber, p[0], 0.33, p[1], g, 20); w.rotation.x = Math.PI / 2; cyl(0.2, 0.23, MAT.chrome, p[0], 0.33, p[1], g, 14).rotation.x = Math.PI / 2; for (var sp = 0; sp < 5; sp++) { var spk = box(0.04, 0.26, 0.24, MAT.black, p[0], 0.33, p[1], g); spk.rotation.x = sp * 1.257; } var arch = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 6, 14, Math.PI), paint); arch.position.set(p[0], 0.35, p[1] * 0.96); arch.rotation.y = Math.PI / 2; g.add(arch); });
+    rbx(0.12, 0.2, 1.9, 0.03, MAT.plastic, 2.14, 0.42, 0); rbx(0.12, 0.2, 1.9, 0.03, MAT.plastic, -2.14, 0.42, 0);
+    box(0.06, 0.16, 0.34, glowMat(0xfff2c0, 0.4), 2.16, 0.68, 0.62, g); box(0.06, 0.16, 0.34, glowMat(0xfff2c0, 0.4), 2.16, 0.68, -0.62, g); box(0.06, 0.14, 0.34, glowMat(0xff2a1a, 0.5), -2.16, 0.68, 0.62, g); box(0.06, 0.14, 0.34, glowMat(0xff2a1a, 0.5), -2.16, 0.68, -0.62, g);
+    sign(['DC ' + randi(10, 99) + ' ' + pick(['AB', 'KH', 'NL', 'XY']) + randi(100, 999)], 0.44, 0.11, 2.2, 0.46, 0, Math.PI / 2, { w: 256, h: 64, bg: '#f5f1e6', fg: '#1b232c' }, g); sign(['DC ' + randi(10, 99)], 0.44, 0.11, -2.2, 0.46, 0, -Math.PI / 2, { w: 256, h: 64, bg: '#f5f1e6', fg: '#1b232c' }, g);
+    box(0.5, 0.06, 1.0, MAT.black, -0.2, 1.42, 0, g); cyl(0.015, 0.3, MAT.black, -0.9, 1.5, 0.4, g, 4); box(0.3, 0.015, 0.02, MAT.black, 1.0, 1.0, -0.3, g).rotation.z = -0.55;
     return g;
   }
   function tree(x, z, s) {
