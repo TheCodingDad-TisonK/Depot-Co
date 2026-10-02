@@ -24,7 +24,7 @@ const SCENARIO = `(async () => {
   const tin = T.truckAtDoor(0);
   ok(!!tin, 'inbound truck docked at IN 1');
   ok(tin && tin.pallets.length >= 2, 'truck carries pallets: ' + (tin && tin.pallets.length));
-  T.setDoor(0, true); T.run(3);
+  T.setDoor(0, true); T.run(0.5); ok(!T.doorPassable(0), 'door panel still rising after half a second'); T.run(2.5); ok(T.doorPassable(0), 'door panel up after three seconds');
   ok(S.doors[0] === true, 'door IN 1 open');
   ok(/Sign the delivery note/.test(T.palletPrompt({ kind: 'pallet', id: tin.pallets[0] })), 'pallets wait for the signature: ' + T.palletPrompt({ kind: 'pallet', id: tin.pallets[0] }));
   T.signTruck(tin); ok(tin.signed === true, 'delivery note signed');

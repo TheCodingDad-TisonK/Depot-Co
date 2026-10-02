@@ -24,7 +24,7 @@ The office, the break room, the staff entrance and the fire exit have doors. `E`
 
 ## Drivers and the delivery note
 
-When a truck docks the driver climbs down and walks to the dock with the paperwork. Nothing comes off an inbound truck until you press `E` on the driver and sign. Talk to them afterwards if you like. They get impatient after two hours.
+When a truck docks the driver climbs down, walks along the trailer, climbs the dock steps and, once the dock door is up, comes inside and waits beside it with the paperwork. Nothing comes off an inbound truck until you press `E` on the driver and sign. Talk to them afterwards if you like. They get impatient after two hours.
 
 ## The forklift battery and the wrapper
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.4 (2026-10-02)
+
+- The driver waits on the landing until the dock door panel is actually up, not merely switched on, so he no longer walks through a rising door.
+- The intro, the in-game guide, the player guide and the README no longer send you outside to sign: the driver comes to you.
+- The jack, cart and steering wheel easing run on real time, so they feel the same at any frame rate.
+- Dead builders removed; the smoke test checks that the door panel rises.
+
 ## 1.7.3 (2026-10-02)
 
 - The pallet jack is a hand pallet truck again. It never had a battery, so the jack charger, its cable and the plug prompt were decoration with nothing behind them; they are gone.

@@ -104,7 +104,7 @@
   var INTRO = [
     ['clockin', 'You start in the entrance lobby. Press <b>E</b> on the <b>time clock</b> on the wall beside the staff door and clock in: it keeps your hours.'],
     ['door', 'Go through the lobby door into the hall and walk to dock <b>IN 1</b> on the west wall. Press E on the roll door, or use the console beside it. The first truck docks at 07:30.'],
-    ['sign', 'When the truck is in, go outside through the door and press <b>E</b> on the driver by the dock to sign the delivery note. Nothing comes off until you do.'],
+    ['sign', 'When the truck is in and the dock door is up, the driver walks in and waits beside the door. Press <b>E</b> on him to sign the delivery note. Nothing comes off until you do.'],
     ['unload', 'Walk into the trailer. Take a box off a pallet with <b>E</b>, or grab the pallet jack from its bay by the receiving square and lift a whole pallet.'],
     ['putaway', 'Put it on a rack: look at a slot and press <b>E</b>. Row A, floor level, is nearest. A slot holds 12 boxes of one line.'],
     ['scanner', 'Press <b>Tab</b>. The scanner in your hand lists the orders, what is still on the truck, and where every line is stored.'],
