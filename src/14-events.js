@@ -49,7 +49,7 @@
     sun.color.setHSL(0.09, dawn * 0.6 * (1 - overcast), 0.95 - dawn * 0.15);
     skyTmp.copy(skyNight).lerp(skyDay, day); if (dawn > 0) skyTmp.lerp(skyDawn, dawn * 0.5 * (1 - day * 0.3));
     if (overcast) skyTmp.lerp(new THREE.Color(0x6b7482), overcast * day * 0.8); if (weatherFlash > 0.05) skyTmp.lerp(new THREE.Color(0xffffff), weatherFlash * 0.7);
-    scene.background.copy(skyTmp); scene.fog.color.copy(skyTmp); scene.fog.near = 70 - overcast * 30; scene.fog.far = 190 - overcast * 90;
+    scene.background.copy(skyTmp); scene.fog.color.copy(skyTmp); if (yard.sky) { yard.sky.uniforms.top.value.copy(skyTmp).multiplyScalar(0.62 + overcast * 0.25); yard.sky.uniforms.mid.value.copy(skyTmp); yard.sky.uniforms.bot.value.copy(skyTmp).lerp(new THREE.Color(0xffffff), 0.4 * (1 - overcast * 0.5)); } scene.fog.near = 70 - overcast * 30; scene.fog.far = 190 - overcast * 90;
     hemi.intensity = 0.12 + day * 0.35 * (1 - overcast * 0.5) + weatherFlash;
     if (dress.shaftMat) { dress.shaftMat.opacity = 0.16 * day * (1 - overcast * 0.9); if (dress.dust) dress.dust.material.opacity = 0.15 + 0.4 * day * (1 - overcast * 0.6); }
     yard.lampLenses.forEach(function (l) { l.material.emissiveIntensity = day < 0.5 && !S.events.power && !S.flags.yardOff ? 1.6 : 0.15; });

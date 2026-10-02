@@ -324,7 +324,7 @@
       c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, h / 2); c.lineTo(w, h / 2); c.moveTo(w / 2, 0); c.lineTo(w / 2, h); c.stroke();   // the slab joints
       for (var i = 0; i < 6; i++) { c.strokeStyle = 'rgba(30,30,30,0.18)'; c.lineWidth = randf(6, 14); c.beginPath(); var x = Math.random() * w, y = Math.random() * h; c.moveTo(x, y); c.quadraticCurveTo(x + randf(-120, 120), y + randf(-120, 120), x + randf(-260, 260), y + randf(-260, 260)); c.stroke(); }   // tyre scuffs
     }, 5, 3.5),
-    asphalt: tex(512, 512, function (c, w, h) { c.fillStyle = '#3b3d40'; c.fillRect(0, 0, w, h); grain(c, w, h, 14000, 0.14); grain(c, w, h, 3000, 0.1, true); blotches(c, w, h, 3, 30, 110, true, 0.12); cracks(c, w, h, 5, 0.22); }, 40, 40),
+    asphalt: tex(1024, 1024, function (c, w, h) { c.fillStyle = '#3d3f42'; c.fillRect(0, 0, w, h); grain(c, w, h, 50000, 0.16); grain(c, w, h, 12000, 0.12, true); for (var i = 0; i < 9000; i++) { c.fillStyle = Math.random() < 0.5 ? 'rgba(120,118,112,0.35)' : 'rgba(86,84,80,0.4)'; c.fillRect(Math.random() * w, Math.random() * h, 2, 2); } blotches(c, w, h, 10, 60, 260, true, 0.14); blotches(c, w, h, 6, 40, 160, false, 0.05); cracks(c, w, h, 16, 0.25); for (var s = 0; s < 4; s++) { c.strokeStyle = 'rgba(14,14,16,0.5)'; c.lineWidth = randf(3, 6); c.beginPath(); var x = Math.random() * w, y = Math.random() * h; c.moveTo(x, y); for (var k = 0; k < 8; k++) { x += randf(-60, 60); y += randf(-60, 60); c.lineTo(x, y); } c.stroke(); } }, 22, 22),
     corrugated: tex(512, 256, function (c, w, h) {
       c.fillStyle = '#9aa3ad'; c.fillRect(0, 0, w, h);
       for (var x = 0; x < w; x += 16) { var g = c.createLinearGradient(x, 0, x + 16, 0); g.addColorStop(0, '#7e8792'); g.addColorStop(0.5, '#b7bfc8'); g.addColorStop(1, '#7e8792'); c.fillStyle = g; c.fillRect(x, 0, 16, h); }
@@ -347,6 +347,7 @@
     skylight: tex(64, 64, function (c, w, h) { c.fillStyle = '#eef6ff'; c.fillRect(0, 0, w, h); }, 1, 1),
     hazard: tex(128, 32, function (c, w, h) { c.fillStyle = '#f5b53d'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; for (var x = -32; x < w; x += 32) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 16, 0); c.lineTo(x + 32, h); c.lineTo(x + 16, h); c.closePath(); c.fill(); } grain(c, w, h, 300, 0.1, true); }, 4, 1),
     noiseMetal: tex(128, 128, function (c, w, h) { c.fillStyle = '#9ea4aa'; c.fillRect(0, 0, w, h); grain(c, w, h, 3000, 0.1); }, 1, 1),
+    vmesh: tex(128, 256, function (c, w, h) { c.clearRect(0, 0, w, h); c.strokeStyle = 'rgba(60,96,70,1)'; c.lineWidth = 2.2; for (var vx = 4; vx < w; vx += 10) { c.beginPath(); c.moveTo(vx, 0); c.lineTo(vx, h); c.stroke(); } for (var hy = 4; hy < h; hy += 28) { c.beginPath(); c.moveTo(0, hy); c.lineTo(w, hy); c.stroke(); } }, 2, 1),
     mesh: tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); c.strokeStyle = 'rgba(70,75,80,0.95)'; c.lineWidth = 2; for (var i = 0; i <= w; i += 16) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i + 16, h); c.stroke(); c.beginPath(); c.moveTo(i + 16, 0); c.lineTo(i, h); c.stroke(); } }, 8, 2),
     brick: tex(256, 256, function (c, w, h) { c.fillStyle = '#c9c2b4'; c.fillRect(0, 0, w, h); var cols = ['#8a4a3a', '#95553f', '#7c4335', '#9a5c45', '#874836', '#a0634c']; var bw = w / 8, bh = h / 8; for (var r = 0; r < 8; r++) for (var k = -1; k < 9; k++) { var x = k * bw + (r % 2 ? bw / 2 : 0); c.fillStyle = pick(cols); c.fillRect(x + 2, r * bh + 2, bw - 4, bh - 4); } grain(c, w, h, 6000, 0.2); }, 2, 0.6),
     paper: tex(128, 128, function (c, w, h) { c.fillStyle = '#f3efe4'; c.fillRect(0, 0, w, h); grain(c, w, h, 800, 0.05); }, 1, 1),
@@ -414,7 +415,7 @@
     concrete: normalTex(512, 512, function (c, w, h) { heightNoise(c, w, h, '#808080', 14000, 90); for (var i = 0; i < 20; i++) { var r = randf(20, 90), x = Math.random() * w, y = Math.random() * h, g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(60,60,60,0.5)'); g.addColorStop(1, 'rgba(128,128,128,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } c.strokeStyle = '#303030'; c.lineWidth = 4; c.beginPath(); c.moveTo(0, h / 2); c.lineTo(w, h / 2); c.moveTo(w / 2, 0); c.lineTo(w / 2, h); c.stroke(); }, 1.6, 5, 3.5),
     corrugated: normalTex(256, 128, function (c, w, h) { for (var x = 0; x < w; x++) { var v = Math.floor(128 + Math.sin(x / 16 * Math.PI * 2) * 90); c.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; c.fillRect(x, 0, 1, h); } for (var y = 12; y < h; y += 52) for (var rx = 8; rx < w; rx += 16) { c.fillStyle = '#404040'; c.beginPath(); c.arc(rx, y, 2.2, 0, 6.3); c.fill(); } }, 2.2, 8, 2),
     ribs: normalTex(128, 256, function (c, w, h) { for (var y = 0; y < h; y++) { var v = Math.floor(128 + Math.sin(y / 20 * Math.PI * 2) * 100); c.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; c.fillRect(0, y, w, 1); } }, 2.0, 2, 4),
-    asphalt: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 9000, 120); }, 1.4, 40, 40),
+    asphalt: normalTex(512, 512, function (c, w, h) { heightNoise(c, w, h, '#808080', 40000, 120); }, 1.2, 22, 22),
     plaster: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 3000, 40); }, 0.8, 4, 2),
     brick: normalTex(256, 256, function (c, w, h) { c.fillStyle = '#a0a0a0'; c.fillRect(0, 0, w, h); var bw = w / 8, bh = h / 8; for (var r = 0; r < 8; r++) for (var k = -1; k < 9; k++) { var x = k * bw + (r % 2 ? bw / 2 : 0); c.fillStyle = '#404040'; c.fillRect(x, r * bh, bw, bh); c.fillStyle = '#a8a8a8'; c.fillRect(x + 2, r * bh + 2, bw - 4, bh - 4); } heightNoise(c, w, h, 'rgba(0,0,0,0)', 2000, 30); }, 1.8, 2, 0.6),
     wood: normalTex(256, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var i = 0; i < 70; i++) { var y = Math.random() * h; c.strokeStyle = 'rgba(40,40,40,' + randf(0.2, 0.6) + ')'; c.lineWidth = randf(1, 2); c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(w * 0.3, y + randf(-4, 4), w * 0.7, y + randf(-4, 4), w, y); c.stroke(); } c.fillStyle = '#202020'; [0.2, 0.5, 0.8].forEach(function (f) { c.fillRect(0, h * f, w, 3); }); }, 1.2, 1, 1),
@@ -1518,6 +1519,7 @@
     s = s || 1; cyl(0.12 * s, 2.6 * s, std({ color: 0x5b4634, roughness: 1 }), x, YARD_Y + 1.3 * s, z, null, 8, 0.18 * s);
     [[0, 3.2, 0, 1.3], [0.7, 2.7, 0.4, 0.9], [-0.6, 2.9, -0.5, 1.0], [0.1, 4.0, 0.2, 0.8]].forEach(function (b, i) { sphere(b[3] * s, std({ color: [0x3f6f2e, 0x5c8f44, 0x45752f, 0x6f9a4a][i], roughness: 1 }), x + b[0] * s, YARD_Y + b[1] * s, z + b[2] * s); });
   }
+  function side_(s) { return s < 0 ? -1 : 1; }
   function cloudTex() { return tex(256, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 14; i++) { var r = randf(18, 42), x = randf(r, w - r), y = randf(r * 0.6, h - r * 0.6); var g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.6, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } }); }
   function discTex(col) { return tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, col); g.addColorStop(0.45, col); g.addColorStop(0.6, 'rgba(255,240,200,0.35)'); g.addColorStop(1, 'rgba(255,240,200,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); }); }
 
@@ -1527,8 +1529,25 @@
     plane(600, 600, MAT.grass, 0, YARD_Y - 0.03, 0, -Math.PI / 2);
     plane(170, 124, MAT.yard, 0, YARD_Y, 0, -Math.PI / 2);
     box(2 * X + 0.6, 1.2, 2 * Z + 0.6, MAT.grey, 0, YARD_Y + 0.6, 0);
+    // street furniture in the slab: manhole covers, gully grates against the plinth, a kerb round the car park, wheel stops in the bays, weeds along the fence
+    var IRON = std({ color: 0x2c2e31, roughness: 0.6, metalness: 0.5 });
+    [[-30, -22], [8, 30], [34, 10], [-40, 26], [22, -30], [-10, 36]].forEach(function (p) { cyl(0.42, 0.02, IRON, p[0], YARD_Y + 0.012, p[1], null, 20); var ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.02, 6, 24), MAT.grey); ring.rotation.x = Math.PI / 2; ring.position.set(p[0], YARD_Y + 0.012, p[1]); scene.add(ring); for (var mb = 0; mb < 2; mb++) box(0.06, 0.012, 0.3, MAT.black, p[0] + (mb ? 0.18 : -0.18), YARD_Y + 0.03, p[1]); });
+    [[-X - 1.0, -11], [-X - 1.0, 11], [X + 1.0, -11], [X + 1.0, 11], [0, Z + 1.0], [-10, Z + 1.0], [10, -Z - 1.0]].forEach(function (p) { box(0.5, 0.02, 0.35, IRON, p[0], YARD_Y + 0.012, p[1]); for (var gb = 0; gb < 6; gb++) box(0.5, 0.012, 0.025, MAT.black, p[0], YARD_Y + 0.03, p[1] - 0.14 + gb * 0.056); plane(1.2, 0.8, std({ color: 0x1e2024, roughness: 0.9, transparent: true, opacity: 0.35 }), p[0], YARD_Y + 0.011, p[1], -Math.PI / 2); });
+    box(13.6, 0.12, 0.25, MAT.grey, -13.6, YARD_Y + 0.06, 24.6); box(0.25, 0.12, 6.2, MAT.grey, -20.5, YARD_Y + 0.06, 21.5); [0, 1, 2, 3, 4].forEach(function (k) { box(1.6, 0.1, 0.18, MAT.yellow, -17.65 + k * 2.7, YARD_Y + 0.05, 23.4); });
+    var WEED = std({ color: 0x5d7a3a, roughness: 1, flatShading: true }); for (var wd = -70; wd <= 70; wd += randf(2.5, 5)) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(wd, YARD_Y + 0.08, 56.6 + randf(-0.3, 0.3)); wg.scale.y = 0.6; scene.add(wg); }
+    // the sky: a dome with a zenith-to-horizon gradient and a haze band at the horizon, driven by the time of day
+    var skyMat = new THREE.ShaderMaterial({ uniforms: { top: { value: new THREE.Color(0x4f7fb8) }, mid: { value: new THREE.Color(0x8fb0d4) }, bot: { value: new THREE.Color(0xd6e2ec) } }, side: THREE.BackSide, depthWrite: false, fog: false,
+      vertexShader: 'varying vec3 vW; void main() { vW = normalize((modelMatrix * vec4(position, 1.0)).xyz); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 top, mid, bot; varying vec3 vW; void main() { float h = clamp(vW.y, -0.05, 1.0); vec3 c = h < 0.12 ? mix(bot, mid, smoothstep(-0.05, 0.12, h)) : mix(mid, top, pow(smoothstep(0.12, 1.0, h), 0.6)); gl_FragColor = vec4(c, 1.0); }' });
+    var dome = new THREE.Mesh(new THREE.SphereGeometry(230, 32, 16), skyMat); dome.position.y = YARD_Y; yard.dome = dome; dome.renderOrder = -10; dome.userData.noBake = true; dome.frustumCulled = false; scene.add(dome); yard.sky = skyMat;
     // truck lanes to every dock: edge lines, a centre dash, and a hatched keep-clear apron
     doors.forEach(function (d) {
+      // the steps: 6 risers from the yard to the landing at hall level, outside the dock door on its +z side, with a tube handrail
+      var sx = side_(d.side), ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });
+      for (var st = 0; st < 6; st++) { box(1.1, 0.2, (6 - st) * 0.3, ST, sx * (X + 0.85), YARD_Y + 0.1 + st * 0.2, d.z + 4.4 + (6 - st) * 0.15); }
+      box(1.1, 1.2, 1.6, ST, sx * (X + 0.85), YARD_Y + 0.6, d.z + 3.6);
+      [-0.5, 0.5].forEach(function (hx) { var px = sx * (X + 0.85 + hx); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + 3.0, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + 4.3, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 0.5, d.z + 6.1, null, 8); var rail = cyl(0.025, 1.5, HR, px, YARD_Y + 2.2, d.z + 3.65, null, 8); rail.rotation.x = Math.PI / 2; var rail2 = cyl(0.025, 2.2, HR, px, YARD_Y + 1.6, d.z + 5.2, null, 8); rail2.rotation.x = Math.PI / 2 + 0.58; });
+      solid(sx * (X + 0.3), sx * (X + 1.4), d.z + 2.8, d.z + 6.3, YARD_Y, YARD_Y + 1.3);
       var side = d.side, x0 = side * (X + 1), x1 = side * 76, cx = (x0 + x1) / 2, len = Math.abs(x1 - x0);
       plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z - 2.2, -Math.PI / 2); plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z + 2.2, -Math.PI / 2);
       for (var x = side * (X + 8); Math.abs(x) < 74; x += side * 4) plane(2, 0.12, MAT.whiteLine, x, YARD_Y + 0.012, d.z, -Math.PI / 2);
@@ -1540,7 +1559,22 @@
       box(0.08, 0.08, 0.6, MAT.steelDark, side * (X + 0.6), DOCKS.h + 1.0, d.z + DOCKS.w / 2 + 1.0); var lens = box(0.3, 0.2, 0.3, glowMat(0xfff2c0, 0.2), side * (X + 0.9), DOCKS.h + 0.95, d.z + DOCKS.w / 2 + 1.0); yard.lampLenses.push(lens);
     });
     // the fence: mesh panels between posts, with a sliding gate on each truck side and the gatehouse beside it
-    function fenceRun(x0, z0, x1, z1) { var dx = x1 - x0, dz = z1 - z0, len = Math.sqrt(dx * dx + dz * dz), n = Math.round(len / 4), ang = Math.atan2(dx, dz); for (var i = 0; i <= n; i++) { var t = i / n, px = x0 + dx * t, pz = z0 + dz * t; cyl(0.05, 2.3, MAT.steelDark, px, YARD_Y + 1.15, pz, null, 6); box(0.24, 0.12, 0.24, MAT.grey, px, YARD_Y + 0.06, pz); cyl(0.06, 0.02, MAT.black, px, YARD_Y + 2.31, pz, null, 6); if (i < n) { var mp = plane(len / n, 2.1, MAT.mesh, x0 + dx * (t + 0.5 / n), YARD_Y + 1.1, z0 + dz * (t + 0.5 / n), 0, ang); mp.receiveShadow = false; } } box(Math.abs(dx) || 0.05, 0.05, Math.abs(dz) || 0.05, MAT.steelDark, (x0 + x1) / 2, YARD_Y + 2.25, (z0 + z1) / 2); }
+    var FPOST = std({ color: 0x2f5d3a, roughness: 0.5, metalness: 0.5 }), FMESH = std({ map: TEX.vmesh, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6, color: 0x3d6b48 }), FCONC = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), FWIRE = std({ color: 0x8e949a, roughness: 0.4, metalness: 0.8 });
+    function fenceRun(x0, z0, x1, z1) {
+      var dx = x1 - x0, dz = z1 - z0, len = Math.sqrt(dx * dx + dz * dz), n = Math.round(len / 3), ang = Math.atan2(dx, dz), ux = dx / len, uz = dz / len, nx = uz, nz = -ux;
+      for (var i = 0; i <= n; i++) {
+        var t = i / n, px = x0 + dx * t, pz = z0 + dz * t;
+        box(0.08, 2.5, 0.08, FPOST, px, YARD_Y + 1.25, pz); box(0.3, 0.25, 0.3, FCONC, px, YARD_Y + 0.12, pz); box(0.12, 0.03, 0.12, FPOST, px, YARD_Y + 2.52, pz);
+        var arm = box(0.04, 0.6, 0.04, FPOST, px + nx * 0.2, YARD_Y + 2.72, pz + nz * 0.2); arm.rotation.set(0, ang, -0.7, 'YXZ'); arm.position.y += 0.1;
+        if (i < n) {
+          var mx = x0 + dx * (t + 0.5 / n), mz = z0 + dz * (t + 0.5 / n), seg = len / n;
+          var mp = plane(seg - 0.1, 2.2, FMESH, mx, YARD_Y + 1.35, mz, 0, ang); mp.receiveShadow = false;
+          [0.75, 1.65].forEach(function (vy) { var fold = box(seg - 0.1, 0.06, 0.03, FPOST, mx, YARD_Y + vy, mz); fold.rotation.y = ang; });
+          var gb = box(seg, 0.3, 0.05, FCONC, mx, YARD_Y + 0.15, mz); gb.rotation.y = ang; var tr = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 2.46, mz); tr.rotation.y = ang; var br = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 0.32, mz); br.rotation.y = ang;
+        }
+      }
+      [0, 1, 2].forEach(function (k) { var wy = YARD_Y + 2.62 + k * 0.17, wo = 0.22 + k * 0.14; var wire = cyl(0.006, len, FWIRE, (x0 + x1) / 2 + nx * wo, wy, (z0 + z1) / 2 + nz * wo, null, 4); wire.rotation.x = Math.PI / 2; wire.rotation.z = 0; wire.rotation.order = 'YXZ'; wire.rotation.y = ang; });
+    }
     fenceRun(-84, -60, 84, -60); fenceRun(-84, 60, 84, 60);
     [-1, 1].forEach(function (side) {
       var gx = side * 84; fenceRun(gx, -60, gx, -11.5); fenceRun(gx, 3.5, gx, 60);
@@ -1573,12 +1607,13 @@
     plane(16.2, 0.12, MAT.whiteLine, -10.9, YARD_Y + 0.012, 18.25, -Math.PI / 2);
     // the neighbours across the fence, each with its own dock doors and a name
     [[-130, -30, 40, 9, 32, 'NORTHGATE LOGISTICS', 0], [128, -24, 44, 8, 30, 'VOLT & CO. DISTRIBUTION', 0], [-118, 70, 34, 7, 26, 'FAIRLANE FREIGHT', 1], [0, 150, 90, 12, 40, 'KESSLER WHOLESALE', 1], [136, 82, 40, 10, 30, 'PINECREST STORAGE', 1], [-44, -124, 50, 9, 28, 'LITTLE WONDERS DC', 0]].forEach(function (b) {
-      box(b[2], b[3], b[4], MAT.wall, b[0], YARD_Y + b[3] / 2, b[1]);
+      var NB = std({ map: TEX.corrugated, color: pick([0xd8dcdf, 0xc9d3dc, 0xe2e0d8, 0xcfd6c9]), roughness: 0.5, metalness: 0.3, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }); box(b[2], b[3], b[4], NB, b[0], YARD_Y + b[3] / 2, b[1]); box(b[2] + 0.1, 1.4, b[4] + 0.1, MAT.brick, b[0], YARD_Y + 0.7, b[1]); box(b[2] + 0.12, 0.8, b[4] + 0.12, std({ color: pick([0x1f4e8c, 0xb3261e, 0x2f6b3a, 0xe0862a]), roughness: 0.5 }), b[0], YARD_Y + b[3] - 2.6, b[1]);
+      for (var rib = -b[2] / 2; rib <= b[2] / 2; rib += 4) box(0.3, b[3] - 1.4, b[4] + 0.2, MAT.steelDark, b[0] + rib, YARD_Y + 1.4 + (b[3] - 1.4) / 2, b[1]);
       var face = b[6] ? -1 : 1, fz = b[1] - face * (b[4] / 2 + 0.05), fry = b[6] ? Math.PI : 0;
-      for (var d = -b[2] / 2 + 6; d < b[2] / 2 - 4; d += 8) { var dr = plane(3.6, 4.2, MAT.door, b[0] + d, YARD_Y + 2.1, fz, 0, fry); dr.receiveShadow = false; }
+      for (var d = -b[2] / 2 + 6; d < b[2] / 2 - 4; d += 8) { var dr = plane(3.6, 4.2, MAT.door, b[0] + d, YARD_Y + 2.1, fz, 0, fry); dr.receiveShadow = false; box(4.4, 0.15, 1.6, MAT.steelDark, b[0] + d, YARD_Y + 4.6, fz - face * 0.8); box(4.4, 0.9, 0.2, MAT.hazard, b[0] + d, YARD_Y + 4.8, fz - face * 0.1); if (Math.random() < 0.45) { var tr = box(2.5, 2.7, 9, std({ color: pick([0xe9ecef, 0xc9ced3, 0xdfe3e6]), roughness: 0.5, metalness: 0.2 }), b[0] + d, YARD_Y + 2.1, fz - face * 5.2); box(2.5, 0.4, 9, MAT.steelDark, b[0] + d, YARD_Y + 0.6, fz - face * 5.2); [-0.9, 0.9].forEach(function (wx) { for (var tw = 0; tw < 2; tw++) { var tyreM = cyl(0.5, 0.3, MAT.rubber, b[0] + d + wx, YARD_Y + 0.5, fz - face * (8.2 + tw * 1.2), null, 16); tyreM.rotation.z = Math.PI / 2; } }); cyl(0.06, 1.0, MAT.steelDark, b[0] + d - 0.9, YARD_Y + 0.5, fz - face * 1.8, null, 6); cyl(0.06, 1.0, MAT.steelDark, b[0] + d + 0.9, YARD_Y + 0.5, fz - face * 1.8, null, 6); } }
       sign([b[5]], b[2] * 0.7, b[2] * 0.09, b[0], YARD_Y + b[3] - 1.2, fz, fry, { w: 1024, h: 128, bg: '#2a2f36', fg: '#d8dbdf' });
       for (var u = 0; u < 3; u++) box(2.5, 1.2, 2.5, MAT.grey, b[0] - b[2] / 3 + u * b[2] / 3, YARD_Y + b[3] + 0.6, b[1] + randf(-3, 3));
-      box(b[2] + 0.4, 0.5, b[4] + 0.4, MAT.steelDark, b[0], YARD_Y + b[3] + 0.2, b[1]); box(b[2] * 0.3, 3.2, 0.3, MAT.brick, b[0] + b[2] * 0.3, YARD_Y + 1.6, fz - face * 0.1);
+      box(b[2] + 0.4, 0.5, b[4] + 0.4, MAT.steelDark, b[0], YARD_Y + b[3] + 0.2, b[1]); for (var rv = -b[2] / 2 + 5; rv < b[2] / 2; rv += 10) { cyl(0.5, 1.0, MAT.steel, b[0] + rv, YARD_Y + b[3] + 0.9, b[1] - 4, null, 12); cyl(0.65, 0.2, MAT.steelDark, b[0] + rv, YARD_Y + b[3] + 1.45, b[1] - 4, null, 12); } box(b[2] * 0.3, 3.2, 0.3, MAT.brick, b[0] + b[2] * 0.3, YARD_Y + 1.6, fz - face * 0.1);
       for (var wn = -b[2] / 2 + 2; wn < b[2] / 2 - 2; wn += 3) { var wp = plane(1.6, 1.0, MAT.glass, b[0] + wn, YARD_Y + b[3] - 2.2, fz - face * 0.02, 0, fry); wp.userData.noBake = true; }
       var dr2 = plane(1.0, 2.1, MAT.door, b[0] + b[2] * 0.3, YARD_Y + 1.05, fz - face * 0.12, 0, fry); dr2.receiveShadow = false; box(0.3, 0.1, 0.3, MAT.steelDark, b[0] + b[2] * 0.3, YARD_Y + 2.5, fz - face * 0.3); var nl = box(0.3, 0.08, 0.2, glowMat(0xfff2c0, 0.2), b[0] + b[2] * 0.3, YARD_Y + 2.42, fz - face * 0.4); yard.lampLenses.push(nl);
       for (var bo = -b[2] / 2 + 3; bo < b[2] / 2; bo += 6) cyl(0.12, 1.0, MAT.yellow, b[0] + bo, YARD_Y + 0.5, fz - face * 1.2, null, 8);
@@ -1607,6 +1642,7 @@
     yard.guards.forEach(function (gd) { var near = dist2(player.x, player.z, gd.g.position.x, gd.g.position.z) < 64; animateHuman(gd.g, dt, 'idle', 0, near ? { x: player.x, y: player.y + 1.6, z: player.z } : null, false); });
     yard.traffic.forEach(function (c) { c.g.position.x += c.dir * c.v * dt; if (c.g.position.x > 130) c.g.position.x = -130; if (c.g.position.x < -130) c.g.position.x = 130; });
     if (yard.flagMesh) { var w = S.weather ? S.weather.wind : 0.4; yard.flag.rotation.y = Math.sin(yard.windT * 0.7) * 0.3 * w; var pos = yard.flagMesh.geometry.attributes.position; for (var i = 0; i < pos.count; i++) { var x = pos.getX(i); pos.setZ(i, Math.sin(yard.windT * 4 + x * 3) * 0.08 * (0.3 + w) * x); } pos.needsUpdate = true; }
+    if (yard.dome) { yard.dome.position.x = camera.position.x; yard.dome.position.z = camera.position.z; }
     yard.clouds.forEach(function (c) { c.sp.position.x += c.v * dt * (S.weather ? 0.5 + S.weather.wind : 1); if (c.sp.position.x > 240) c.sp.position.x = -240; });
     // the sun and the moon ride opposite each other
     if (yard.sunDisc) { _v.copy(sun.position).normalize(); yard.sunDisc.position.copy(_v).multiplyScalar(200).add(camera.position); yard.sunDisc.material.opacity = clamp(_v.y * 4, 0, 1); yard.moon.position.copy(_v).multiplyScalar(-200).add(camera.position); yard.moon.position.y = Math.abs(yard.moon.position.y - camera.position.y) + camera.position.y + 20; yard.moon.material.opacity = clamp(-_v.y * 3 + 0.4, 0, 0.9); }
@@ -1836,7 +1872,8 @@
     box(0.22, 0.3, 0.02, MAT.wood, 0.16, 1.05, 0.2, drv); box(0.2, 0.26, 0.01, MAT.paper, 0.16, 1.05, 0.215, drv);
     hitBox(0.7, 1.9, 0.7, 0, 0.95, 0, { prompt: function () { return driverPrompt(t.id); }, use: function () { driverUse(t.id); } }, drv);
     g.position.set(t.x, 0, t.z); scene.add(g);
-    truckMeshes[t.id] = { g: g, driver: drv, drvT: 0, cab: { x: L(len + 1.4), z: -2.1 }, spot: { x: L(1.3), z: -2.6 } };
+    var route = [[L(len + 1.4), YARD_Y, 2.1], [L(2.4), YARD_Y, 4.6], [L(0.9), YARD_Y, 6.1], [L(0.9), 0, 4.4], [L(0.9), 0, 3.0], [L(-0.2), 0, 1.55], [L(-2.0), 0, 2.0], [L(-2.6), 0, 3.4]];
+    truckMeshes[t.id] = { g: g, driver: drv, drvD: 0, route: route, cab: { x: L(len + 1.4), z: -2.1 }, spot: { x: L(-2.6), z: 3.4 } };
     shadowDirty = true;
   }
   function removeTruckMesh(id) { var m = truckMeshes[id]; if (!m) return; scene.remove(m.g); m.g.traverse(function (o) { var k = inter.indexOf(o); if (k >= 0) inter.splice(k, 1); }); delete truckMeshes[id]; shadowDirty = true; }
@@ -1889,10 +1926,15 @@
       m.g.position.x = t.x;
       if (m.driver) {
         var docked = t.state === 'docked', want = docked ? 1 : 0;
-        if (docked && m.drvT < 1) m.drvT = Math.min(1, m.drvT + dt / 7); else if (!docked) m.drvT = 0;
-        m.driver.visible = docked;
-        var p = m.drvT, px = lerp(m.cab.x, m.spot.x, p), pz = lerp(m.cab.z, m.spot.z, p); m.driver.position.set(px, YARD_Y, pz);
-        var moving = docked && p < 1; if (moving) m.driver.rotation.y = Math.atan2(m.spot.x - m.cab.x, m.spot.z - m.cab.z); else m.driver.rotation.y = t.side < 0 ? Math.PI / 2 : -Math.PI / 2;
+        m.driver.visible = docked; if (!docked) m.drvD = 0;
+        // walk the route by distance; segment 4 (the landing) to 5 (the door) only once the dock door is open
+        var R = m.route, doorOpen = !!S.doors[(t.dir === 'in' ? 0 : 2) + t.dock], segLen = function (k) { var a = R[k], b = R[k + 1]; return Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2])); };
+        var total = 0, landing = 0; for (var sk = 0; sk < R.length - 1; sk++) { if (sk === 4) landing = total; total += segLen(sk); }
+        var cap = doorOpen ? total : landing; if (docked && m.drvD < cap) m.drvD = Math.min(cap, m.drvD + dt * 1.3);
+        var rem = m.drvD, si = 0; while (si < R.length - 2 && rem > segLen(si)) { rem -= segLen(si); si++; } var A = R[si], B = R[si + 1], sl = segLen(si), fr = sl > 0 ? Math.min(1, rem / sl) : 1;
+        m.driver.position.set(lerp(A[0], B[0], fr), lerp(A[1], B[1], fr), lerp(A[2], B[2], fr)); m.driver.userData.baseY = lerp(A[1], B[1], fr);
+        var moving = docked && m.drvD < cap; if (moving) m.driver.rotation.y = Math.atan2(B[0] - A[0], B[2] - A[2]); else m.driver.rotation.y = t.side < 0 ? Math.PI / 2 : -Math.PI / 2;
+        if (docked && !moving && !doorOpen && m.drvD < total - 0.01 && Math.random() < dt / 20) say(m.driver, pick(['Door is shut, mate.', 'Can someone open this door?', 'Standing out here like a lemon.', 'Any chance of the door?']), '#f5b53d');
         var lookWorld = { x: player.x - t.x, y: player.y + 1.6, z: player.z - t.z };
         animateHuman(m.driver, dt, moving ? 'walk' : (S.time > t.arrived + 2 && t.dir === 'in' && !t.doneAt ? 'wait' : 'idle'), 1.4, moving ? null : lookWorld, false);
         if (docked && !moving && t.dir === 'in' && !t.signed && Math.random() < dt / 25) say(m.driver, pick(DRIVER_LINES.sign), '#f5b53d');
@@ -2114,7 +2156,16 @@
     var f = new THREE.Group(); f.userData.dynamic = true; scene.add(f);
     var FY = MAT.forkYellow, FD = MAT.black, FS = MAT.steelDark;
     var rb = function (w, h, d, r, mat, x, y, z, parent) { var m = new THREE.Mesh(bevelGeo(w, h, d, r), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || f).add(m); return m; };
-    var tyre = function (r, w, x, y, z, parent) { var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.z = Math.PI / 2; (parent || f).add(g); cyl(r, w, MAT.rubber, 0, 0, 0, g, 24); for (var t = 0; t < 14; t++) { var bl = box(0.08, w + 0.01, 0.06, MAT.rubber, 0, 0, 0, g); bl.position.set(Math.cos(t / 14 * 6.283) * r, 0, Math.sin(t / 14 * 6.283) * r); bl.rotation.y = -t / 14 * 6.283; } cyl(r * 0.62, w + 0.02, MAT.chrome, 0, 0, 0, g, 18); cyl(r * 0.2, w + 0.05, FD, 0, 0, 0, g, 10); for (var n = 0; n < 6; n++) cyl(0.012, w + 0.07, FD, Math.cos(n / 6 * 6.283) * r * 0.4, 0, Math.sin(n / 6 * 6.283) * r * 0.4, g, 6); return g; };
+    var tyre = function (r, w, x, y, z, parent) {
+      var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.z = Math.PI / 2; (parent || f).add(g);
+      var RUB = std({ color: 0x1a1b1d, roughness: 0.95 }), RIM = std({ color: 0x8d9298, roughness: 0.35, metalness: 0.7 }), GROOVE = std({ color: 0x0c0d0e, roughness: 1 });
+      cyl(r, w, RUB, 0, 0, 0, g, 36); var sw1 = new THREE.Mesh(new THREE.TorusGeometry(r - 0.025, 0.012, 6, 36), RUB); sw1.position.y = w / 2 + 0.004; sw1.rotation.x = Math.PI / 2; g.add(sw1); var sw2 = sw1.clone(); sw2.position.y = -w / 2 - 0.004; g.add(sw2);
+      for (var t = 0; t < 24; t++) { var a = t / 24 * 6.283, gr = box(0.014, w * 0.8, 0.02, GROOVE, 0, 0, 0, g); gr.position.set(Math.cos(a) * (r + 0.002), 0, Math.sin(a) * (r + 0.002)); gr.rotation.y = -a; gr.rotation.z = (t % 2 ? 0.35 : -0.35); }
+      var cg = new THREE.Mesh(new THREE.TorusGeometry(r, 0.006, 5, 36), GROOVE); cg.rotation.x = Math.PI / 2; g.add(cg);
+      cyl(r * 0.62, w + 0.02, RIM, 0, 0, 0, g, 24); cyl(r * 0.5, w + 0.06, std({ color: 0x5f656b, roughness: 0.4, metalness: 0.7 }), 0, 0, 0, g, 24); cyl(r * 0.18, w + 0.09, FD, 0, 0, 0, g, 12);
+      for (var n = 0; n < 6; n++) { var bx = Math.cos(n / 6 * 6.283) * r * 0.36, bz = Math.sin(n / 6 * 6.283) * r * 0.36; var bolt = cyl(0.014, w + 0.1, MAT.chrome, bx, 0, bz, g, 6); var bh = cyl(0.028, 0.012, std({ color: 0x3a3e44, roughness: 0.5, metalness: 0.6 }), bx, 0, bz, g, 8); bh.position.y = 0; }
+      return g;
+    };
     rb(1.12, 0.5, 1.95, 0.05, FY, 0, 0.5, -0.25); rb(1.1, 0.9, 0.62, 0.1, FD, 0, 0.62, -1.18); rb(0.9, 0.28, 0.5, 0.05, FY, 0, 1.2, -1.15);
     rb(0.96, 0.52, 0.96, 0.04, FS, 0, 0.96, -0.35); rb(0.98, 0.04, 0.98, 0.01, MAT.plastic, 0, 1.22, -0.35); box(1.12, 0.03, 0.6, MAT.chequer, 0, 0.76, 0.3);
     rb(0.3, 0.03, 0.18, 0.01, FD, -0.2, 0.78, 0.25).rotation.x = -0.3; rb(0.3, 0.03, 0.18, 0.01, FD, 0.2, 0.78, 0.25).rotation.x = -0.3;
@@ -2171,10 +2222,11 @@
   }
   function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (tool === 'jack' && player.tool === 'jcable') return 'Plug the jack in'; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return tool === 'jack' ? 'Grab the pallet jack' : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
   function grabTool(tool) { if (tool === 'jack' && player.tool === 'jcable') { cablePlugInto('jack'); return; } if (tool === 'jack' && S.jack.plugged) { S.jack.plugged = false; toast('Jack unplugged', ''); } if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
-  function releaseTool() { if (!player.tool) return; if (player.tool === 'cable' || player.tool === 'jcable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool); var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
+  function releaseTool() { if (!player.tool) return; if (player.tool === 'cable' || player.tool === 'jcable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool), tm = player.tool === 'jack' ? jackMesh : cartMesh; if (tm && tm.userData.towRy !== undefined) { w.ry = tm.userData.towRy; w.x = tm.position.x; w.z = tm.position.z; } var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
   function placeTools() {
-    var jw = toolWorld('jack'); jackMesh.position.set(jw.x, floorY(jw.x, jw.z), jw.z); jackMesh.rotation.y = jw.ry;
-    var cw = toolWorld('cart'); cartMesh.position.set(cw.x, floorY(cw.x, cw.z), cw.z); cartMesh.rotation.y = cw.ry; cartMesh.visible = !!S.up.cart;
+    // a towed tool trails the player: its heading eases toward the player's, so a look round does not whip it about
+    var towed = function (tool, mesh) { var w = toolWorld(tool); if (player.tool === tool) { var cur = mesh.userData.towRy === undefined ? w.ry : mesh.userData.towRy, d = Math.atan2(Math.sin(w.ry - cur), Math.cos(w.ry - cur)); cur += d * 0.1; mesh.userData.towRy = cur; w.ry = cur; w.x = player.x + Math.sin(cur) * 1.15; w.z = player.z + Math.cos(cur) * 1.15; } else mesh.userData.towRy = undefined; mesh.position.set(w.x, floorY(w.x, w.z), w.z); mesh.rotation.y = w.ry; };
+    towed('jack', jackMesh); towed('cart', cartMesh); cartMesh.visible = !!S.up.cart;
     forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving; forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, 0.2); }
   }
 
@@ -3305,7 +3357,7 @@
     sun.color.setHSL(0.09, dawn * 0.6 * (1 - overcast), 0.95 - dawn * 0.15);
     skyTmp.copy(skyNight).lerp(skyDay, day); if (dawn > 0) skyTmp.lerp(skyDawn, dawn * 0.5 * (1 - day * 0.3));
     if (overcast) skyTmp.lerp(new THREE.Color(0x6b7482), overcast * day * 0.8); if (weatherFlash > 0.05) skyTmp.lerp(new THREE.Color(0xffffff), weatherFlash * 0.7);
-    scene.background.copy(skyTmp); scene.fog.color.copy(skyTmp); scene.fog.near = 70 - overcast * 30; scene.fog.far = 190 - overcast * 90;
+    scene.background.copy(skyTmp); scene.fog.color.copy(skyTmp); if (yard.sky) { yard.sky.uniforms.top.value.copy(skyTmp).multiplyScalar(0.62 + overcast * 0.25); yard.sky.uniforms.mid.value.copy(skyTmp); yard.sky.uniforms.bot.value.copy(skyTmp).lerp(new THREE.Color(0xffffff), 0.4 * (1 - overcast * 0.5)); } scene.fog.near = 70 - overcast * 30; scene.fog.far = 190 - overcast * 90;
     hemi.intensity = 0.12 + day * 0.35 * (1 - overcast * 0.5) + weatherFlash;
     if (dress.shaftMat) { dress.shaftMat.opacity = 0.16 * day * (1 - overcast * 0.9); if (dress.dust) dress.dust.material.opacity = 0.15 + 0.4 * day * (1 - overcast * 0.6); }
     yard.lampLenses.forEach(function (l) { l.material.emissiveIntensity = day < 0.5 && !S.events.power && !S.flags.yardOff ? 1.6 : 0.15; });
@@ -3590,7 +3642,7 @@
       get S() { return S; }, player: player, ui: ui, save: save,
       run: function (sec) { var n = Math.round(sec / 0.05); for (var i = 0; i < n; i++) { tickWorld(0.05); tickLife(0.05); doorAnim(0.05); placeTools(); } syncInstances(); },
       setTime: function (h) { S.time = h; hudDirty = true; },
-      spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckLeave: truckLeave, setDoor: setDoor,
+      spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckMeshes: truckMeshes, truckLeave: truckLeave, setDoor: setDoor,
       palletById: palletById, palletUse: palletUse, palletPrompt: palletPrompt, storePallet: storePallet, findSlotFor: findSlotFor, newPallet: newPallet,
       slotKey: slotKey, slotUse: slotUse, slotPrompt: slotPrompt, stockCount: stockCount, totalStock: totalStock,
       grabTool: grabTool, releaseTool: releaseTool, toolWorld: toolWorld,

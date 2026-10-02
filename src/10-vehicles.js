@@ -36,7 +36,16 @@
     var f = new THREE.Group(); f.userData.dynamic = true; scene.add(f);
     var FY = MAT.forkYellow, FD = MAT.black, FS = MAT.steelDark;
     var rb = function (w, h, d, r, mat, x, y, z, parent) { var m = new THREE.Mesh(bevelGeo(w, h, d, r), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || f).add(m); return m; };
-    var tyre = function (r, w, x, y, z, parent) { var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.z = Math.PI / 2; (parent || f).add(g); cyl(r, w, MAT.rubber, 0, 0, 0, g, 24); for (var t = 0; t < 14; t++) { var bl = box(0.08, w + 0.01, 0.06, MAT.rubber, 0, 0, 0, g); bl.position.set(Math.cos(t / 14 * 6.283) * r, 0, Math.sin(t / 14 * 6.283) * r); bl.rotation.y = -t / 14 * 6.283; } cyl(r * 0.62, w + 0.02, MAT.chrome, 0, 0, 0, g, 18); cyl(r * 0.2, w + 0.05, FD, 0, 0, 0, g, 10); for (var n = 0; n < 6; n++) cyl(0.012, w + 0.07, FD, Math.cos(n / 6 * 6.283) * r * 0.4, 0, Math.sin(n / 6 * 6.283) * r * 0.4, g, 6); return g; };
+    var tyre = function (r, w, x, y, z, parent) {
+      var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.z = Math.PI / 2; (parent || f).add(g);
+      var RUB = std({ color: 0x1a1b1d, roughness: 0.95 }), RIM = std({ color: 0x8d9298, roughness: 0.35, metalness: 0.7 }), GROOVE = std({ color: 0x0c0d0e, roughness: 1 });
+      cyl(r, w, RUB, 0, 0, 0, g, 36); var sw1 = new THREE.Mesh(new THREE.TorusGeometry(r - 0.025, 0.012, 6, 36), RUB); sw1.position.y = w / 2 + 0.004; sw1.rotation.x = Math.PI / 2; g.add(sw1); var sw2 = sw1.clone(); sw2.position.y = -w / 2 - 0.004; g.add(sw2);
+      for (var t = 0; t < 24; t++) { var a = t / 24 * 6.283, gr = box(0.014, w * 0.8, 0.02, GROOVE, 0, 0, 0, g); gr.position.set(Math.cos(a) * (r + 0.002), 0, Math.sin(a) * (r + 0.002)); gr.rotation.y = -a; gr.rotation.z = (t % 2 ? 0.35 : -0.35); }
+      var cg = new THREE.Mesh(new THREE.TorusGeometry(r, 0.006, 5, 36), GROOVE); cg.rotation.x = Math.PI / 2; g.add(cg);
+      cyl(r * 0.62, w + 0.02, RIM, 0, 0, 0, g, 24); cyl(r * 0.5, w + 0.06, std({ color: 0x5f656b, roughness: 0.4, metalness: 0.7 }), 0, 0, 0, g, 24); cyl(r * 0.18, w + 0.09, FD, 0, 0, 0, g, 12);
+      for (var n = 0; n < 6; n++) { var bx = Math.cos(n / 6 * 6.283) * r * 0.36, bz = Math.sin(n / 6 * 6.283) * r * 0.36; var bolt = cyl(0.014, w + 0.1, MAT.chrome, bx, 0, bz, g, 6); var bh = cyl(0.028, 0.012, std({ color: 0x3a3e44, roughness: 0.5, metalness: 0.6 }), bx, 0, bz, g, 8); bh.position.y = 0; }
+      return g;
+    };
     rb(1.12, 0.5, 1.95, 0.05, FY, 0, 0.5, -0.25); rb(1.1, 0.9, 0.62, 0.1, FD, 0, 0.62, -1.18); rb(0.9, 0.28, 0.5, 0.05, FY, 0, 1.2, -1.15);
     rb(0.96, 0.52, 0.96, 0.04, FS, 0, 0.96, -0.35); rb(0.98, 0.04, 0.98, 0.01, MAT.plastic, 0, 1.22, -0.35); box(1.12, 0.03, 0.6, MAT.chequer, 0, 0.76, 0.3);
     rb(0.3, 0.03, 0.18, 0.01, FD, -0.2, 0.78, 0.25).rotation.x = -0.3; rb(0.3, 0.03, 0.18, 0.01, FD, 0.2, 0.78, 0.25).rotation.x = -0.3;
@@ -93,10 +102,11 @@
   }
   function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (tool === 'jack' && player.tool === 'jcable') return 'Plug the jack in'; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return tool === 'jack' ? 'Grab the pallet jack' : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
   function grabTool(tool) { if (tool === 'jack' && player.tool === 'jcable') { cablePlugInto('jack'); return; } if (tool === 'jack' && S.jack.plugged) { S.jack.plugged = false; toast('Jack unplugged', ''); } if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
-  function releaseTool() { if (!player.tool) return; if (player.tool === 'cable' || player.tool === 'jcable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool); var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
+  function releaseTool() { if (!player.tool) return; if (player.tool === 'cable' || player.tool === 'jcable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool), tm = player.tool === 'jack' ? jackMesh : cartMesh; if (tm && tm.userData.towRy !== undefined) { w.ry = tm.userData.towRy; w.x = tm.position.x; w.z = tm.position.z; } var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
   function placeTools() {
-    var jw = toolWorld('jack'); jackMesh.position.set(jw.x, floorY(jw.x, jw.z), jw.z); jackMesh.rotation.y = jw.ry;
-    var cw = toolWorld('cart'); cartMesh.position.set(cw.x, floorY(cw.x, cw.z), cw.z); cartMesh.rotation.y = cw.ry; cartMesh.visible = !!S.up.cart;
+    // a towed tool trails the player: its heading eases toward the player's, so a look round does not whip it about
+    var towed = function (tool, mesh) { var w = toolWorld(tool); if (player.tool === tool) { var cur = mesh.userData.towRy === undefined ? w.ry : mesh.userData.towRy, d = Math.atan2(Math.sin(w.ry - cur), Math.cos(w.ry - cur)); cur += d * 0.1; mesh.userData.towRy = cur; w.ry = cur; w.x = player.x + Math.sin(cur) * 1.15; w.z = player.z + Math.cos(cur) * 1.15; } else mesh.userData.towRy = undefined; mesh.position.set(w.x, floorY(w.x, w.z), w.z); mesh.rotation.y = w.ry; };
+    towed('jack', jackMesh); towed('cart', cartMesh); cartMesh.visible = !!S.up.cart;
     forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving; forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, 0.2); }
   }
 

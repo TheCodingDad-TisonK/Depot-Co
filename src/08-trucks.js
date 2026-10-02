@@ -63,7 +63,8 @@
     box(0.22, 0.3, 0.02, MAT.wood, 0.16, 1.05, 0.2, drv); box(0.2, 0.26, 0.01, MAT.paper, 0.16, 1.05, 0.215, drv);
     hitBox(0.7, 1.9, 0.7, 0, 0.95, 0, { prompt: function () { return driverPrompt(t.id); }, use: function () { driverUse(t.id); } }, drv);
     g.position.set(t.x, 0, t.z); scene.add(g);
-    truckMeshes[t.id] = { g: g, driver: drv, drvT: 0, cab: { x: L(len + 1.4), z: -2.1 }, spot: { x: L(1.3), z: -2.6 } };
+    var route = [[L(len + 1.4), YARD_Y, 2.1], [L(2.4), YARD_Y, 4.6], [L(0.9), YARD_Y, 6.1], [L(0.9), 0, 4.4], [L(0.9), 0, 3.0], [L(-0.2), 0, 1.55], [L(-2.0), 0, 2.0], [L(-2.6), 0, 3.4]];
+    truckMeshes[t.id] = { g: g, driver: drv, drvD: 0, route: route, cab: { x: L(len + 1.4), z: -2.1 }, spot: { x: L(-2.6), z: 3.4 } };
     shadowDirty = true;
   }
   function removeTruckMesh(id) { var m = truckMeshes[id]; if (!m) return; scene.remove(m.g); m.g.traverse(function (o) { var k = inter.indexOf(o); if (k >= 0) inter.splice(k, 1); }); delete truckMeshes[id]; shadowDirty = true; }
@@ -116,10 +117,15 @@
       m.g.position.x = t.x;
       if (m.driver) {
         var docked = t.state === 'docked', want = docked ? 1 : 0;
-        if (docked && m.drvT < 1) m.drvT = Math.min(1, m.drvT + dt / 7); else if (!docked) m.drvT = 0;
-        m.driver.visible = docked;
-        var p = m.drvT, px = lerp(m.cab.x, m.spot.x, p), pz = lerp(m.cab.z, m.spot.z, p); m.driver.position.set(px, YARD_Y, pz);
-        var moving = docked && p < 1; if (moving) m.driver.rotation.y = Math.atan2(m.spot.x - m.cab.x, m.spot.z - m.cab.z); else m.driver.rotation.y = t.side < 0 ? Math.PI / 2 : -Math.PI / 2;
+        m.driver.visible = docked; if (!docked) m.drvD = 0;
+        // walk the route by distance; segment 4 (the landing) to 5 (the door) only once the dock door is open
+        var R = m.route, doorOpen = !!S.doors[(t.dir === 'in' ? 0 : 2) + t.dock], segLen = function (k) { var a = R[k], b = R[k + 1]; return Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2])); };
+        var total = 0, landing = 0; for (var sk = 0; sk < R.length - 1; sk++) { if (sk === 4) landing = total; total += segLen(sk); }
+        var cap = doorOpen ? total : landing; if (docked && m.drvD < cap) m.drvD = Math.min(cap, m.drvD + dt * 1.3);
+        var rem = m.drvD, si = 0; while (si < R.length - 2 && rem > segLen(si)) { rem -= segLen(si); si++; } var A = R[si], B = R[si + 1], sl = segLen(si), fr = sl > 0 ? Math.min(1, rem / sl) : 1;
+        m.driver.position.set(lerp(A[0], B[0], fr), lerp(A[1], B[1], fr), lerp(A[2], B[2], fr)); m.driver.userData.baseY = lerp(A[1], B[1], fr);
+        var moving = docked && m.drvD < cap; if (moving) m.driver.rotation.y = Math.atan2(B[0] - A[0], B[2] - A[2]); else m.driver.rotation.y = t.side < 0 ? Math.PI / 2 : -Math.PI / 2;
+        if (docked && !moving && !doorOpen && m.drvD < total - 0.01 && Math.random() < dt / 20) say(m.driver, pick(['Door is shut, mate.', 'Can someone open this door?', 'Standing out here like a lemon.', 'Any chance of the door?']), '#f5b53d');
         var lookWorld = { x: player.x - t.x, y: player.y + 1.6, z: player.z - t.z };
         animateHuman(m.driver, dt, moving ? 'walk' : (S.time > t.arrived + 2 && t.dir === 'in' && !t.doneAt ? 'wait' : 'idle'), 1.4, moving ? null : lookWorld, false);
         if (docked && !moving && t.dir === 'in' && !t.signed && Math.random() < dt / 25) say(m.driver, pick(DRIVER_LINES.sign), '#f5b53d');

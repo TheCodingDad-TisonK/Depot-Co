@@ -46,7 +46,7 @@
       get S() { return S; }, player: player, ui: ui, save: save,
       run: function (sec) { var n = Math.round(sec / 0.05); for (var i = 0; i < n; i++) { tickWorld(0.05); tickLife(0.05); doorAnim(0.05); placeTools(); } syncInstances(); },
       setTime: function (h) { S.time = h; hudDirty = true; },
-      spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckLeave: truckLeave, setDoor: setDoor,
+      spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckMeshes: truckMeshes, truckLeave: truckLeave, setDoor: setDoor,
       palletById: palletById, palletUse: palletUse, palletPrompt: palletPrompt, storePallet: storePallet, findSlotFor: findSlotFor, newPallet: newPallet,
       slotKey: slotKey, slotUse: slotUse, slotPrompt: slotPrompt, stockCount: stockCount, totalStock: totalStock,
       grabTool: grabTool, releaseTool: releaseTool, toolWorld: toolWorld,

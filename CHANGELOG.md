@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.2 (2026-10-02)
+
+- Forklift tyres are solid cushion tyres with fine tread, sidewall rings and a dished rim with a bolt circle, not gears.
+- The yard asphalt has two-tone aggregate, wear blotches, cracks and tar repair lines at walking scale, with manhole covers, gully grates along the plinth, a kerb and wheel stops in the car park, and weeds along the fence.
+- The sky is a dome with a zenith-to-horizon gradient and a haze band, following the time of day and the weather.
+- The truck driver comes inside: he walks along the trailer, climbs the new dock steps, comes through the dock door and stands inside beside it with the paperwork. If the door is shut he waits on the landing and says so.
+- The perimeter is a V-mesh security fence: square posts on concrete footings, a concrete gravel board, rigid mesh panels with the V-folds pressed in, top and bottom rails, and cranked arms with three strands of barbed wire.
+- The held jack and cart trail behind you with an eased heading, so looking round no longer whips them about.
+- The neighbours have a brick base, cladding ribs, dock canopies with hazard fascias, roof vents, and trailers backed onto some doors.
+
 ## 1.7.1 (2026-10-02)
 
 - The forklift cab, done properly: a contoured seat on a suspension with bolsters, headrest and belt, armrests, a bank of three hydraulic levers with a label plate, the column with a shroud, a wheel with spokes and a spinner knob that turns with the steering, a direction lever, a moulded dash with the cluster, key switch, horn and a rocker, pedals and a parking brake. The driving camera sits at the operator's eyes with the wheel and dash in frame.
