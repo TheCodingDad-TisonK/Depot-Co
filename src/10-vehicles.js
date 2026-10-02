@@ -70,7 +70,7 @@
     var dirLever = cyl(0.008, 0.14, FD, 0.08, 0.28, 0.0, colGrp, 6); dirLever.rotation.z = -1.2; sphere(0.014, FD, 0.17, 0.3, 0, colGrp);
     // the dash: a moulded cowl ahead of the column, the cluster, a key switch, the horn, a rocker, the hour meter
     rb(0.6, 0.2, 0.26, 0.05, FS, 0, 1.12, 0.42); var cowl = rb(0.56, 0.12, 0.22, 0.04, FD, 0, 1.25, 0.4); cowl.rotation.x = 0.3;
-    var cl = plane(0.3, 0.1, new THREE.MeshBasicMaterial({ map: textTex(['24V ▮▮▮▮▮▮▯▯   0.0 km/h', '⏱ 0412.6 h   ⚠ ✓'], { w: 512, h: 160, bg: '#0d1216', fg: '#5fd38d', size: 30 }) }), 0, 1.27, 0.3, -1.2, 0, f); cl.userData.noBake = true;
+    rb(0.1, 0.16, 0.06, 0.01, FD, 0, 1.36, 0.5); var clg = new THREE.Group(); clg.position.set(0, 1.46, 0.52); clg.rotation.order = 'YXZ'; clg.rotation.y = Math.PI; clg.rotation.x = 0.3; f.add(clg); rb(0.36, 0.16, 0.05, 0.015, FD, 0, 0, -0.03, clg); var clMat = new THREE.MeshBasicMaterial({ map: textTex(['24V ▮▮▮▮▮▮▯▯   0.0 km/h', '⏱ 0412.6 h   ⚠ ✓'], { w: 512, h: 160, bg: '#0d1216', fg: '#5fd38d', size: 30 }), side: THREE.DoubleSide }); var cl = plane(0.3, 0.1, clMat, 0, 0, 0.001, 0, 0, clg); cl.userData.noBake = true;
     cyl(0.018, 0.02, MAT.chrome, -0.2, 1.24, 0.29, f, 10).rotation.x = -1.2; box(0.012, 0.03, 0.004, MAT.black, -0.2, 1.255, 0.285, f); cyl(0.022, 0.012, MAT.red, 0.2, 1.24, 0.29, f, 12).rotation.x = -1.2; box(0.03, 0.02, 0.01, FD, -0.12, 1.22, 0.3, f); box(0.03, 0.02, 0.01, MAT.green, -0.12, 1.2, 0.3, f);
     sign(['HORN'], 0.06, 0.016, 0.2, 1.21, 0.31, 0, { w: 128, h: 32, bg: '#1b232c', fg: '#eef1f5' }, f);
     // the floor: pedals and the parking brake

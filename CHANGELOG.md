@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.4 (2026-10-02)
+
+- The forklift dash display sits on a stalk on top of the cowl, in a bezel, facing the seat; it was tucked under the cowl behind the wheel and facing away.
+
 ## 1.10.3 (2026-10-02)
 
 - The forklift battery cover under the seat was a metre cube; it is a 0.9 by 0.7 deck now, with a latch, and the seat sits at the same height.
