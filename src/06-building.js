@@ -9,8 +9,8 @@
   function slotKey(r, b, l) { return r + ',' + b + ',' + l; }
   function slotParse(key) { var p = key.split(',').map(Number); return { r: p[0], b: p[1], l: p[2] }; }
   function rackSlotPos(r, b, l) { var P = PROPS['rack' + r] ? propPlacement('rack' + r) : { x: 0, z: RACK.rows[r], rot: 0 }, a = P.rot * Math.PI / 2, lx = RACK.x0 + RACK.bayW * (b + 0.5); return { x: P.x + lx * Math.cos(a), y: RACK.levels[l], z: P.z - lx * Math.sin(a), ry: a }; }
-  function slotName(key) { var p = slotParse(key); return 'Row ' + 'ABCD'[p.r] + ', bay ' + (p.b + 1) + (p.l === 0 ? ', floor' : p.l === 1 ? ', shelf' : ', top'); }
-  function rowName(r) { return 'Row ' + 'ABCD'[r]; }
+  function slotName(key) { var p = slotParse(key); return 'Row ' + 'ABCDEF'[p.r] + ', bay ' + (p.b + 1) + (p.l === 0 ? ', floor' : p.l === 1 ? ', shelf' : ', top'); }
+  function rowName(r) { return 'Row ' + 'ABCDEF'[r]; }
 
   function buildWorld() {
     var X = HALL.x, Z = HALL.z, H = HALL.h;
@@ -31,15 +31,15 @@
       if (z < Z) { box(0.3, H, Z - z, MAT.wall, x, H / 2, (z + Z) / 2); solid(x - 0.15, x + 0.15, z, Z); }
     }
     wallX(-X, -1); wallX(X, 1);
-    // the north wall has the fire exit cut out of it at x 13.4 to 14.6
-    box(X + 13.4 + 0.15, H, 0.3, MAT.wall, (-X - 0.15 + 13.4) / 2, H / 2, -Z); solid(-X - 0.15, 13.4, -Z - 0.15, -Z + 0.15);
-    box(X - 14.6 + 0.15, H, 0.3, MAT.wall, (14.6 + X + 0.15) / 2, H / 2, -Z); solid(14.6, X + 0.15, -Z - 0.15, -Z + 0.15);
-    box(1.2, H - 2.3, 0.3, MAT.wall, 14, 2.3 + (H - 2.3) / 2, -Z); solid(13.4, 14.6, -Z - 0.15, -Z + 0.15, 2.3, 9);
+    // the north wall has the fire exit cut out of it at x 23.4 to 24.6
+    box(X + 23.4 + 0.15, H, 0.3, MAT.wall, (-X - 0.15 + 23.4) / 2, H / 2, -Z); solid(-X - 0.15, 23.4, -Z - 0.15, -Z + 0.15);
+    box(X - 24.6 + 0.15, H, 0.3, MAT.wall, (24.6 + X + 0.15) / 2, H / 2, -Z); solid(24.6, X + 0.15, -Z - 0.15, -Z + 0.15);
+    box(1.2, H - 2.3, 0.3, MAT.wall, 24, 2.3 + (H - 2.3) / 2, -Z); solid(23.4, 24.6, -Z - 0.15, -Z + 0.15, 2.3, 9);
     box(2 * X + 0.3, H, 0.3, MAT.wall, 0, H / 2, Z); solid(-X - 0.15, X + 0.15, Z - 0.15, Z + 0.15);
     // roof with skylight strips, and the trusses under it
     box(2 * X + 0.6, 0.3, 2 * Z + 0.6, MAT.roof, 0, H + 0.15, 0);
     plane(2 * X, 2 * Z, MAT.roofIn, 0, H - 0.01, 0, Math.PI / 2);
-    [-7, 0, 7].forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
+    SKYLIGHT_Z.forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
     for (var tx = -16; tx <= 16; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }
     // high-bay lamps under the trusses
     hallLights.forEach(function (l) { var m = box(0.9, 0.12, 0.5, MAT.lamp, l.position.x, l.position.y + 0.3, l.position.z); world.lampMeshes.push(m); cyl(0.03, 0.4, MAT.steelDark, l.position.x, l.position.y + 0.55, l.position.z); });
@@ -49,7 +49,7 @@
     function square(cx, cz, s) { lineX(cx - s / 2, cx + s / 2, cz - s / 2); lineX(cx - s / 2, cx + s / 2, cz + s / 2); lineZ(cz - s / 2, cz + s / 2, cx - s / 2); lineZ(cz - s / 2, cz + s / 2, cx + s / 2); }
     square(SPOT.stageIn.x, SPOT.stageIn.z, 3.4); square(SPOT.stageOut.x, SPOT.stageOut.z, 3.4);
     lineX(-X + 0.3, 12.2, 8.2); lineX(-X + 0.3, 12.2, 9.4);                       // the pedestrian walkway along the south strip
-    lineZ(-Z + 0.3, Z - 0.3, -12.9); lineZ(-Z + 0.3, Z - 0.3, 12.9);              // the rack block edges
+    lineZ(-Z + 0.3, Z - 0.3, RACK.x0 - 0.4); lineZ(-Z + 0.3, Z - 0.3, -RACK.x0 + 0.4);              // the rack block edges
     plane(2.6, 0.9, new THREE.MeshBasicMaterial({ map: textTex(['RECEIVING'], { w: 512, h: 128, bg: '#2a2f36', fg: '#f5b53d' }) }), SPOT.stageIn.x, 0.007, SPOT.stageIn.z + 2.2, -Math.PI / 2);
     plane(2.6, 0.9, new THREE.MeshBasicMaterial({ map: textTex(['SHIPPING'], { w: 512, h: 128, bg: '#2a2f36', fg: '#5fd38d' }) }), SPOT.stageOut.x, 0.007, SPOT.stageOut.z + 2.2, -Math.PI / 2);
     // dock doors
@@ -66,11 +66,11 @@
     // the yard lamp posts (the lights themselves live in 05-three)
     // the pallet racks the player owns
     buildOffice(); buildBench(); buildBreakRoom();
-    hingedDoor('office', 12.5, 9.45, false, 'the office door', { window: true, swing: 1 });
-    hingedDoor('lobby', -15.5, 9.45, false, 'the lobby door', { window: true, swing: -1 });
-    hingedDoor('break', -13, -12.95, false, 'the break room door', { window: true, swing: -1 });
+    hingedDoor('office', 22.5, 19.45, false, 'the office door', { window: true, swing: 1 });
+    hingedDoor('lobby', -25.5, 19.45, false, 'the lobby door', { window: true, swing: -1 });
+    hingedDoor('break', -23, -22.95, false, 'the break room door', { window: true, swing: -1 });
     hingedDoor('staff', -X, SPOT.staffDoor.z - 0.5, false, 'the staff door', { mat: MAT.steelDark, swing: 1 });
-    hingedDoor('exit', 13.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
+    hingedDoor('exit', 23.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
@@ -114,7 +114,7 @@
         for (var bb2 = 0; bb2 < RACK.bays; bb2++) { var dk = c.plane(bw - 0.2, RACK.depth - 0.2, MAT.mesh, x0 + (bb2 + 0.5) * bw, y - 0.005, 0, -Math.PI / 2, 0); dk.receiveShadow = false; c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, -0.3); c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, 0.3); }
       }
       for (var bb = 0; bb < RACK.bays; bb++) {
-        var cx = x0 + (bb + 0.5) * bw, lbl = 'ABCD'[r] + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
+        var cx = x0 + (bb + 0.5) * bw, lbl = 'ABCDEF'[r] + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
         var lm = new THREE.MeshBasicMaterial({ map: bayLabelTex[lbl] });
         [-1, 1].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lm); p.position.set(cx, 4.75, s * (dz + 0.06)); p.rotation.y = s > 0 ? 0 : Math.PI; c.add(p); });
         for (var ll = 0; ll < RACK.levels.length; ll++) (function (rr, b2, l2) {
@@ -123,7 +123,7 @@
         })(r, bb, ll);
       }
       c.solid(x0 - 0.1, x0 + RACK.bays * bw + 0.1, -RACK.depth / 2, RACK.depth / 2, 0, 5);
-      [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + RACK.bays * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'row ' + 'ABCD'[r]], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
+      [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + RACK.bays * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'row ' + 'ABCDEF'[r]], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
     };
   }
   // a painted lining on a room's outer walls: a plane just inside the cladding, skirting along the floor, a dado rail, with openings left for doors
@@ -136,10 +136,10 @@
   }
   var LINING = { lobby: std({ map: TEX.plaster, color: 0xd9e3ea, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), brk: std({ map: TEX.plaster, color: 0xf0e6cf, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), office: std({ map: TEX.plaster, color: 0xe6e8e4, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }) };
   function buildOffice() {
-    var x0 = 12.5, z0 = 8.5, X = HALL.x, Z = HALL.z, h = 3.2;
+    var x0 = 22.5, z0 = 18.5, X = HALL.x, Z = HALL.z, h = 3.2;
     // the wall along x = x0 with a doorway, the wall along z = z0 with a window, and a ceiling
-    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h, Z - 10.6, MAT.plaster, x0, h / 2, 10.6 + (Z - 10.6) / 2); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 9.95);
-    solid(x0 - 0.08, x0 + 0.08, z0, 9.3); solid(x0 - 0.08, x0 + 0.08, 10.6, Z);
+    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h, Z - 20.6, MAT.plaster, x0, h / 2, 20.6 + (Z - 20.6) / 2); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95);
+    solid(x0 - 0.08, x0 + 0.08, z0, 19.3); solid(x0 - 0.08, x0 + 0.08, 20.6, Z);
     box(1.5, h, 0.15, MAT.plaster, x0 + 0.75, h / 2, z0); box(2, h, 0.15, MAT.plaster, X - 1, h / 2, z0);
     box(X - 1.5 - x0, 1.1, 0.15, MAT.plaster, (x0 + 1.5 + X - 2) / 2, 0.55, z0); box(X - 1.5 - x0, h - 2.3, 0.15, MAT.plaster, (x0 + 1.5 + X - 2) / 2, 2.3 + (h - 2.3) / 2, z0);
     box(X - 1.5 - x0, 1.2, 0.04, MAT.glass, (x0 + 1.5 + X - 2) / 2, 1.7, z0);
@@ -147,7 +147,7 @@
     box(X - x0, 0.12, Z - z0, MAT.plaster, (x0 + X) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', X, z0 + 0.1, Z - 0.1, h, LINING.office, [], -1); lineWall('z', Z, x0 + 0.1, X - 0.1, h, LINING.office, [], -1);
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    var lamp = box(1.2, 0.08, 0.3, MAT.lamp, 16.5, h - 0.05, 11); world.officeLamp = lamp;
+    var lamp = box(1.2, 0.08, 0.3, MAT.lamp, 26.5, h - 0.05, 21); world.officeLamp = lamp;
     sign(['OFFICE'], 1.4, 0.45, x0 - 0.09, 2.6, 9.95, -Math.PI / 2, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' });
   }
 
@@ -159,29 +159,29 @@
   // the entrance lobby (south-west corner) and the break room (north-west corner, above IN 1), both walled like the office
   function buildBreakRoom() {
     var X = HALL.x, Z = HALL.z, h = 3.2;
-    // the lobby: x -20..-15.5, z 8.5..14; its door onto the hall at z 9.45..10.45 in the east wall, a window south of it
-    var x0 = -15.5, z0 = 8.5;
-    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 9.95);
-    box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 10.9); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 12.5); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 12.5); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 12.5); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
-    solid(x0 - 0.08, x0 + 0.08, z0, 9.3); solid(x0 - 0.08, x0 + 0.08, 10.6, Z);
+    // the lobby: x -30..-25.5, z 18.5..24; its door onto the hall at z 19.45..20.45 in the east wall, a window south of it
+    var x0 = -25.5, z0 = 18.5;
+    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95);
+    box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 20.9); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 22.5); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 22.5); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 22.5); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
+    solid(x0 - 0.08, x0 + 0.08, z0, 19.3); solid(x0 - 0.08, x0 + 0.08, 20.6, Z);
     box(X + x0, h, 0.15, MAT.plaster, (-X + x0) / 2, h / 2, z0); solid(-X, x0, z0 - 0.08, z0 + 0.08);
     box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', -X, z0 + 0.1, Z - 0.1, h, LINING.lobby, [[SPOT.staffDoor.z - 0.65, SPOT.staffDoor.z + 0.65, 2.25]], 1); lineWall('z', Z, -X + 0.1, x0 - 0.1, h, LINING.lobby, [], -1); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -17.7, h - 0.05, 11.2);
-    for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 12.5);
-    sign(['LOBBY'], 1.2, 0.45, x0 + 0.09, 2.6, 9.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
-    // the break room: x -20..-13, z -14..-10.2; its door in the east wall at z -12.95..-11.95, a window in the south wall onto the hall
-    var bx = -13, bz = -10.2;
-    box(0.15, h, 1.05, MAT.plaster, bx, h / 2, -Z + 0.525); box(0.15, h - 2.2, 1.3, MAT.plaster, bx, 2.2 + (h - 2.2) / 2, -12.45); box(0.15, h, 1.6, MAT.plaster, bx, h / 2, bz - 0.8);
-    solid(bx - 0.08, bx + 0.08, -Z, -12.95); solid(bx - 0.08, bx + 0.08, -11.95, bz);
+    box(1.2, 0.08, 0.3, MAT.lamp, -27.7, h - 0.05, 21.2);
+    for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 22.5);
+    sign(['LOBBY'], 1.2, 0.45, x0 + 0.09, 2.6, 19.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
+    // the break room: x -30..-23, z -24..-20.2; its door in the east wall at z -22.95..-21.95, a window in the south wall onto the hall
+    var bx = -23, bz = -20.2;
+    box(0.15, h, 1.05, MAT.plaster, bx, h / 2, -Z + 0.525); box(0.15, h - 2.2, 1.3, MAT.plaster, bx, 2.2 + (h - 2.2) / 2, -22.45); box(0.15, h, 1.6, MAT.plaster, bx, h / 2, bz - 0.8);
+    solid(bx - 0.08, bx + 0.08, -Z, -22.95); solid(bx - 0.08, bx + 0.08, -21.95, bz);
     box(1.0, h, 0.15, MAT.plaster, -X + 0.5, h / 2, bz); box(1.2, h, 0.15, MAT.plaster, bx - 0.6, h / 2, bz);
     box(X + bx - 2.2, 1.1, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 0.55, bz); box(X + bx - 2.2, h - 2.3, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 2.3 + (h - 2.3) / 2, bz); box(X + bx - 2.2, 1.2, 0.04, MAT.glass, (-X + 1 + bx - 1.2) / 2, 1.7, bz);
     solid(-X, bx, bz - 0.08, bz + 0.08);
     box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2);
     lineWall('x', -X, -Z + 0.1, bz - 0.1, h, LINING.brk, [], 1); lineWall('z', -Z, -X + 0.1, bx - 0.1, h, LINING.brk, [], 1); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -16.5, h - 0.05, -12.1);
-    for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -16.4, 2.26 - bl2 * 0.08, bz - 0.09);
-    sign(['BREAK ROOM'], 1.6, 0.45, bx + 0.09, 2.6, -12.45, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
+    box(1.2, 0.08, 0.3, MAT.lamp, -26.5, h - 0.05, -22.1);
+    for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -26.4, 2.26 - bl2 * 0.08, bz - 0.09);
+    sign(['BREAK ROOM'], 1.6, 0.45, bx + 0.09, 2.6, -22.45, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
   }
   // the order board on the office wall: redrawn when orders change
   function drawBoard() {

@@ -3,7 +3,7 @@
   // Nobody is paid a flat wage. The crew clock in at the reader by the staff door when they arrive and clock out when
   // they leave; the day's pay at 06:00 is their clocked hours at the hourly rate, with anything past ten hours at
   // time and a half. Punctuality is a trait: some are early, some drift in late, and a word puts them right for a while.
-  var CLOCK_SPOT = { x: -19.0, z: 10.2 }, RAMP_BOTTOM = { x: -27.3, z: 12 }, SHIFT_START = 8;
+  var CLOCK_SPOT = { x: -29.0, z: 20.2 }, RAMP_BOTTOM = { x: -37.3, z: 22 }, SHIFT_START = 8;
   function hourly(st) { return STAFF_ROLES[st.role].wage / 10; }
   function shiftEnd(st) { return st.overtime ? 20 : 18; }
   function staffArrival(st) { return SHIFT_START + (st.arriveOff || 0) / 60; }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.0 (2026-10-02)
+
+- The hall is 60 by 48 metres, up from 40 by 28, with an 8 m roof. A rack row holds fifteen bays, there are six rows to buy (A to F), the docks sit further apart, and the forklift has room to turn. The office, lobby and break room moved to the new corners with everything in them.
+- Saves from the smaller hall load: their build-mode overrides are cleared so nothing is stranded mid-floor, the tools park at the new spots, any docked truck is sent away and the crew is pulled inside the new walls.
+
 ## 1.7.4 (2026-10-02)
 
 - The driver waits on the landing until the dock door panel is actually up, not merely switched on, so he no longer walks through a rising door.

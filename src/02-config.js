@@ -48,7 +48,9 @@
     { id: 'cart',   name: 'Picking cart',        price: ECON.cartPrice,  lvl: 1, desc: 'A trolley that holds six boxes. Grab it, pick straight onto it from the racks, and empty it onto the bench in one go.' },
     { id: 'row3',   name: 'Third rack row',      price: ECON.rowPrice,   lvl: 2, desc: 'Sixteen more hand-reachable slots and a top level for the forklift.' },
     { id: 'fork',   name: 'Forklift',            price: ECON.forkPrice,  lvl: 2, desc: 'Drive it, lift whole pallets, and reach the top level of every rack. Parks at the south wall.' },
-    { id: 'row4',   name: 'Fourth rack row',     price: ECON.rowPrice,   lvl: 3, desc: 'The last rack row. The hall is full after this one.' },
+    { id: 'row4',   name: 'Fourth rack row',     price: ECON.rowPrice,   lvl: 3, desc: 'Another fifteen bays across three levels.' },
+    { id: 'row5',   name: 'Fifth rack row',      price: ECON.rowPrice,   lvl: 4, desc: 'Another fifteen bays across three levels.' },
+    { id: 'row6',   name: 'Sixth rack row',      price: ECON.rowPrice,   lvl: 5, desc: 'The last rack row. The hall is full after this one.' },
     { id: 'lights', name: 'LED high bays',       price: ECON.lightsPrice, lvl: 2, desc: 'Brighter hall, and the inspector likes a well-lit floor: fines are halved.' },
     { id: 'dock2',  name: 'Second inbound bay',  price: 1400,            lvl: 3, desc: 'Two inbound trucks a day can dock at once, and clients send bigger loads.' },
     { id: 'sign',   name: 'Roadside sign',       price: 500,             lvl: 2, desc: 'New clients find you sooner. Reputation grows a little faster.' }
@@ -62,16 +64,17 @@
   var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
-  var HALL = { x: 20, z: 14, h: 7 };
-  var RACK = { rows: [-6, -2, 2, 6], bays: 8, bayW: 3, x0: -12, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
-  var DOCKS = { in: [{ z: -8 }, { z: 0 }], out: [{ z: -8 }, { z: 0 }], w: 3.6, h: 4.2 };
+  var HALL = { x: 30, z: 24, h: 8 };   // grew from 40 x 28 on 2026-10-02 so a row holds 15 bays and the forklift has room
+  var RACK = { rows: [-10, -6, -2, 2, 6, 10], bays: 15, bayW: 3, x0: -22.5, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
+  var DOCKS = { in: [{ z: -14 }, { z: -6 }], out: [{ z: -14 }, { z: -6 }], w: 3.6, h: 4.2 };
   var YARD_Y = -1.2;
+  var SKYLIGHT_Z = [-14, -7, 0, 7, 14];   // the roof lights and the shafts under them
   var TRAILER = { len: 12, w: 2.5, h: 2.7 };
   var SPOT = {
-    bench: { x: 16.6, z: 5.2 }, benchOut: { x: 16.6, z: 7.2 },
-    stageIn: { x: -16, z: -4 }, stageOut: { x: 16, z: -4 },
-    pc: { x: 17.5, z: 11.8 }, breaker: { x: 19.7, z: 9.6 },
-    cot: { x: -17.2, z: 12.2 }, coffee: { x: -19.4, z: 9.3 },
-    jack: { x: -15, z: 4 }, cart: { x: -15, z: 6.5 }, fork: { x: 0, z: 10.5 },
-    spawn: { x: -18.6, z: 11.2 }, staffDoor: { x: -20, z: 12 }, console0: { x: 19.7, z: -5.5 }, console1: { x: 19.7, z: 2.5 }
+    bench: { x: 26.6, z: 5.2 }, benchOut: { x: 26.6, z: 7.2 },
+    stageIn: { x: -26, z: -10 }, stageOut: { x: 26, z: -10 },
+    pc: { x: 27.5, z: 21.8 }, breaker: { x: 29.7, z: 19.6 },
+    cot: { x: -27.2, z: 22.2 }, coffee: { x: -29.4, z: 19.3 },
+    jack: { x: -25, z: 4 }, cart: { x: -25, z: 6.5 }, fork: { x: 0, z: 20.5 },
+    spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -3.5 }
   };

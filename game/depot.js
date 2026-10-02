@@ -79,7 +79,9 @@
     { id: 'cart',   name: 'Picking cart',        price: ECON.cartPrice,  lvl: 1, desc: 'A trolley that holds six boxes. Grab it, pick straight onto it from the racks, and empty it onto the bench in one go.' },
     { id: 'row3',   name: 'Third rack row',      price: ECON.rowPrice,   lvl: 2, desc: 'Sixteen more hand-reachable slots and a top level for the forklift.' },
     { id: 'fork',   name: 'Forklift',            price: ECON.forkPrice,  lvl: 2, desc: 'Drive it, lift whole pallets, and reach the top level of every rack. Parks at the south wall.' },
-    { id: 'row4',   name: 'Fourth rack row',     price: ECON.rowPrice,   lvl: 3, desc: 'The last rack row. The hall is full after this one.' },
+    { id: 'row4',   name: 'Fourth rack row',     price: ECON.rowPrice,   lvl: 3, desc: 'Another fifteen bays across three levels.' },
+    { id: 'row5',   name: 'Fifth rack row',      price: ECON.rowPrice,   lvl: 4, desc: 'Another fifteen bays across three levels.' },
+    { id: 'row6',   name: 'Sixth rack row',      price: ECON.rowPrice,   lvl: 5, desc: 'The last rack row. The hall is full after this one.' },
     { id: 'lights', name: 'LED high bays',       price: ECON.lightsPrice, lvl: 2, desc: 'Brighter hall, and the inspector likes a well-lit floor: fines are halved.' },
     { id: 'dock2',  name: 'Second inbound bay',  price: 1400,            lvl: 3, desc: 'Two inbound trucks a day can dock at once, and clients send bigger loads.' },
     { id: 'sign',   name: 'Roadside sign',       price: 500,             lvl: 2, desc: 'New clients find you sooner. Reputation grows a little faster.' }
@@ -93,23 +95,25 @@
   var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
-  var HALL = { x: 20, z: 14, h: 7 };
-  var RACK = { rows: [-6, -2, 2, 6], bays: 8, bayW: 3, x0: -12, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
-  var DOCKS = { in: [{ z: -8 }, { z: 0 }], out: [{ z: -8 }, { z: 0 }], w: 3.6, h: 4.2 };
+  var HALL = { x: 30, z: 24, h: 8 };   // grew from 40 x 28 on 2026-10-02 so a row holds 15 bays and the forklift has room
+  var RACK = { rows: [-10, -6, -2, 2, 6, 10], bays: 15, bayW: 3, x0: -22.5, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
+  var DOCKS = { in: [{ z: -14 }, { z: -6 }], out: [{ z: -14 }, { z: -6 }], w: 3.6, h: 4.2 };
   var YARD_Y = -1.2;
+  var SKYLIGHT_Z = [-14, -7, 0, 7, 14];   // the roof lights and the shafts under them
   var TRAILER = { len: 12, w: 2.5, h: 2.7 };
   var SPOT = {
-    bench: { x: 16.6, z: 5.2 }, benchOut: { x: 16.6, z: 7.2 },
-    stageIn: { x: -16, z: -4 }, stageOut: { x: 16, z: -4 },
-    pc: { x: 17.5, z: 11.8 }, breaker: { x: 19.7, z: 9.6 },
-    cot: { x: -17.2, z: 12.2 }, coffee: { x: -19.4, z: 9.3 },
-    jack: { x: -15, z: 4 }, cart: { x: -15, z: 6.5 }, fork: { x: 0, z: 10.5 },
-    spawn: { x: -18.6, z: 11.2 }, staffDoor: { x: -20, z: 12 }, console0: { x: 19.7, z: -5.5 }, console1: { x: 19.7, z: 2.5 }
+    bench: { x: 26.6, z: 5.2 }, benchOut: { x: 26.6, z: 7.2 },
+    stageIn: { x: -26, z: -10 }, stageOut: { x: 26, z: -10 },
+    pc: { x: 27.5, z: 21.8 }, breaker: { x: 29.7, z: 19.6 },
+    cot: { x: -27.2, z: 22.2 }, coffee: { x: -29.4, z: 19.3 },
+    jack: { x: -25, z: 4 }, cart: { x: -25, z: 6.5 }, fork: { x: 0, z: 20.5 },
+    spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -3.5 }
   };
   // ── State ─────────────────────────────────────────────────────────
   function freshState() {
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
+      hall: 2,                   // the hall layout generation; 1 was the 40 x 28 hall
       up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false },
       slots: {},                 // "row,bay,level" -> { sku, n }
       pallets: [],               // { id, sku, n, place: 'truck'|'floor'|'jack'|'fork'|'staff', truck, idx, x, z, y, rot }
@@ -137,9 +141,10 @@
     try {
       var raw = localStorage.getItem(SAVE); if (!raw) return false;
       var s = JSON.parse(raw); if (!s || typeof s !== 'object') return false;
-      var f = freshState();
+      var f = freshState(), oldHall = !('hall' in s) || s.hall < 2;
       for (var k in f) if (!(k in s)) s[k] = f[k];
       for (var k2 in f.stats) if (!(k2 in s.stats)) s.stats[k2] = f.stats[k2];
+      if (oldHall) { s.hall = 2; s.layout = {}; s.custom = []; s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); (s.staff || []).forEach(function (st) { if (st.x !== undefined) { st.x = clamp(st.x, -HALL.x + 2, HALL.x - 2); st.z = clamp(st.z, -HALL.z + 2, HALL.z - 2); } }); s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; s.fork.x = SPOT.fork.x; s.fork.z = SPOT.fork.z; s.fork.plugged = false; (s.pallets || []).forEach(function (p) { if (p.place === 'floor') { p.x = clamp(p.x, -HALL.x + 2, HALL.x - 2); p.z = clamp(p.z, -HALL.z + 2, HALL.z - 2); } }); }
       for (var k3 in f.up) if (!(k3 in s.up)) s.up[k3] = f.up[k3];
       for (var k4 in f.events) if (!(k4 in s.events)) s.events[k4] = f.events[k4];
       S = s; return true;
@@ -565,8 +570,8 @@
   function slotKey(r, b, l) { return r + ',' + b + ',' + l; }
   function slotParse(key) { var p = key.split(',').map(Number); return { r: p[0], b: p[1], l: p[2] }; }
   function rackSlotPos(r, b, l) { var P = PROPS['rack' + r] ? propPlacement('rack' + r) : { x: 0, z: RACK.rows[r], rot: 0 }, a = P.rot * Math.PI / 2, lx = RACK.x0 + RACK.bayW * (b + 0.5); return { x: P.x + lx * Math.cos(a), y: RACK.levels[l], z: P.z - lx * Math.sin(a), ry: a }; }
-  function slotName(key) { var p = slotParse(key); return 'Row ' + 'ABCD'[p.r] + ', bay ' + (p.b + 1) + (p.l === 0 ? ', floor' : p.l === 1 ? ', shelf' : ', top'); }
-  function rowName(r) { return 'Row ' + 'ABCD'[r]; }
+  function slotName(key) { var p = slotParse(key); return 'Row ' + 'ABCDEF'[p.r] + ', bay ' + (p.b + 1) + (p.l === 0 ? ', floor' : p.l === 1 ? ', shelf' : ', top'); }
+  function rowName(r) { return 'Row ' + 'ABCDEF'[r]; }
 
   function buildWorld() {
     var X = HALL.x, Z = HALL.z, H = HALL.h;
@@ -587,15 +592,15 @@
       if (z < Z) { box(0.3, H, Z - z, MAT.wall, x, H / 2, (z + Z) / 2); solid(x - 0.15, x + 0.15, z, Z); }
     }
     wallX(-X, -1); wallX(X, 1);
-    // the north wall has the fire exit cut out of it at x 13.4 to 14.6
-    box(X + 13.4 + 0.15, H, 0.3, MAT.wall, (-X - 0.15 + 13.4) / 2, H / 2, -Z); solid(-X - 0.15, 13.4, -Z - 0.15, -Z + 0.15);
-    box(X - 14.6 + 0.15, H, 0.3, MAT.wall, (14.6 + X + 0.15) / 2, H / 2, -Z); solid(14.6, X + 0.15, -Z - 0.15, -Z + 0.15);
-    box(1.2, H - 2.3, 0.3, MAT.wall, 14, 2.3 + (H - 2.3) / 2, -Z); solid(13.4, 14.6, -Z - 0.15, -Z + 0.15, 2.3, 9);
+    // the north wall has the fire exit cut out of it at x 23.4 to 24.6
+    box(X + 23.4 + 0.15, H, 0.3, MAT.wall, (-X - 0.15 + 23.4) / 2, H / 2, -Z); solid(-X - 0.15, 23.4, -Z - 0.15, -Z + 0.15);
+    box(X - 24.6 + 0.15, H, 0.3, MAT.wall, (24.6 + X + 0.15) / 2, H / 2, -Z); solid(24.6, X + 0.15, -Z - 0.15, -Z + 0.15);
+    box(1.2, H - 2.3, 0.3, MAT.wall, 24, 2.3 + (H - 2.3) / 2, -Z); solid(23.4, 24.6, -Z - 0.15, -Z + 0.15, 2.3, 9);
     box(2 * X + 0.3, H, 0.3, MAT.wall, 0, H / 2, Z); solid(-X - 0.15, X + 0.15, Z - 0.15, Z + 0.15);
     // roof with skylight strips, and the trusses under it
     box(2 * X + 0.6, 0.3, 2 * Z + 0.6, MAT.roof, 0, H + 0.15, 0);
     plane(2 * X, 2 * Z, MAT.roofIn, 0, H - 0.01, 0, Math.PI / 2);
-    [-7, 0, 7].forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
+    SKYLIGHT_Z.forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
     for (var tx = -16; tx <= 16; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }
     // high-bay lamps under the trusses
     hallLights.forEach(function (l) { var m = box(0.9, 0.12, 0.5, MAT.lamp, l.position.x, l.position.y + 0.3, l.position.z); world.lampMeshes.push(m); cyl(0.03, 0.4, MAT.steelDark, l.position.x, l.position.y + 0.55, l.position.z); });
@@ -605,7 +610,7 @@
     function square(cx, cz, s) { lineX(cx - s / 2, cx + s / 2, cz - s / 2); lineX(cx - s / 2, cx + s / 2, cz + s / 2); lineZ(cz - s / 2, cz + s / 2, cx - s / 2); lineZ(cz - s / 2, cz + s / 2, cx + s / 2); }
     square(SPOT.stageIn.x, SPOT.stageIn.z, 3.4); square(SPOT.stageOut.x, SPOT.stageOut.z, 3.4);
     lineX(-X + 0.3, 12.2, 8.2); lineX(-X + 0.3, 12.2, 9.4);                       // the pedestrian walkway along the south strip
-    lineZ(-Z + 0.3, Z - 0.3, -12.9); lineZ(-Z + 0.3, Z - 0.3, 12.9);              // the rack block edges
+    lineZ(-Z + 0.3, Z - 0.3, RACK.x0 - 0.4); lineZ(-Z + 0.3, Z - 0.3, -RACK.x0 + 0.4);              // the rack block edges
     plane(2.6, 0.9, new THREE.MeshBasicMaterial({ map: textTex(['RECEIVING'], { w: 512, h: 128, bg: '#2a2f36', fg: '#f5b53d' }) }), SPOT.stageIn.x, 0.007, SPOT.stageIn.z + 2.2, -Math.PI / 2);
     plane(2.6, 0.9, new THREE.MeshBasicMaterial({ map: textTex(['SHIPPING'], { w: 512, h: 128, bg: '#2a2f36', fg: '#5fd38d' }) }), SPOT.stageOut.x, 0.007, SPOT.stageOut.z + 2.2, -Math.PI / 2);
     // dock doors
@@ -622,11 +627,11 @@
     // the yard lamp posts (the lights themselves live in 05-three)
     // the pallet racks the player owns
     buildOffice(); buildBench(); buildBreakRoom();
-    hingedDoor('office', 12.5, 9.45, false, 'the office door', { window: true, swing: 1 });
-    hingedDoor('lobby', -15.5, 9.45, false, 'the lobby door', { window: true, swing: -1 });
-    hingedDoor('break', -13, -12.95, false, 'the break room door', { window: true, swing: -1 });
+    hingedDoor('office', 22.5, 19.45, false, 'the office door', { window: true, swing: 1 });
+    hingedDoor('lobby', -25.5, 19.45, false, 'the lobby door', { window: true, swing: -1 });
+    hingedDoor('break', -23, -22.95, false, 'the break room door', { window: true, swing: -1 });
     hingedDoor('staff', -X, SPOT.staffDoor.z - 0.5, false, 'the staff door', { mat: MAT.steelDark, swing: 1 });
-    hingedDoor('exit', 13.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
+    hingedDoor('exit', 23.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
@@ -670,7 +675,7 @@
         for (var bb2 = 0; bb2 < RACK.bays; bb2++) { var dk = c.plane(bw - 0.2, RACK.depth - 0.2, MAT.mesh, x0 + (bb2 + 0.5) * bw, y - 0.005, 0, -Math.PI / 2, 0); dk.receiveShadow = false; c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, -0.3); c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, 0.3); }
       }
       for (var bb = 0; bb < RACK.bays; bb++) {
-        var cx = x0 + (bb + 0.5) * bw, lbl = 'ABCD'[r] + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
+        var cx = x0 + (bb + 0.5) * bw, lbl = 'ABCDEF'[r] + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
         var lm = new THREE.MeshBasicMaterial({ map: bayLabelTex[lbl] });
         [-1, 1].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lm); p.position.set(cx, 4.75, s * (dz + 0.06)); p.rotation.y = s > 0 ? 0 : Math.PI; c.add(p); });
         for (var ll = 0; ll < RACK.levels.length; ll++) (function (rr, b2, l2) {
@@ -679,7 +684,7 @@
         })(r, bb, ll);
       }
       c.solid(x0 - 0.1, x0 + RACK.bays * bw + 0.1, -RACK.depth / 2, RACK.depth / 2, 0, 5);
-      [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + RACK.bays * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'row ' + 'ABCD'[r]], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
+      [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + RACK.bays * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'row ' + 'ABCDEF'[r]], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
     };
   }
   // a painted lining on a room's outer walls: a plane just inside the cladding, skirting along the floor, a dado rail, with openings left for doors
@@ -692,10 +697,10 @@
   }
   var LINING = { lobby: std({ map: TEX.plaster, color: 0xd9e3ea, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), brk: std({ map: TEX.plaster, color: 0xf0e6cf, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), office: std({ map: TEX.plaster, color: 0xe6e8e4, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }) };
   function buildOffice() {
-    var x0 = 12.5, z0 = 8.5, X = HALL.x, Z = HALL.z, h = 3.2;
+    var x0 = 22.5, z0 = 18.5, X = HALL.x, Z = HALL.z, h = 3.2;
     // the wall along x = x0 with a doorway, the wall along z = z0 with a window, and a ceiling
-    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h, Z - 10.6, MAT.plaster, x0, h / 2, 10.6 + (Z - 10.6) / 2); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 9.95);
-    solid(x0 - 0.08, x0 + 0.08, z0, 9.3); solid(x0 - 0.08, x0 + 0.08, 10.6, Z);
+    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h, Z - 20.6, MAT.plaster, x0, h / 2, 20.6 + (Z - 20.6) / 2); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95);
+    solid(x0 - 0.08, x0 + 0.08, z0, 19.3); solid(x0 - 0.08, x0 + 0.08, 20.6, Z);
     box(1.5, h, 0.15, MAT.plaster, x0 + 0.75, h / 2, z0); box(2, h, 0.15, MAT.plaster, X - 1, h / 2, z0);
     box(X - 1.5 - x0, 1.1, 0.15, MAT.plaster, (x0 + 1.5 + X - 2) / 2, 0.55, z0); box(X - 1.5 - x0, h - 2.3, 0.15, MAT.plaster, (x0 + 1.5 + X - 2) / 2, 2.3 + (h - 2.3) / 2, z0);
     box(X - 1.5 - x0, 1.2, 0.04, MAT.glass, (x0 + 1.5 + X - 2) / 2, 1.7, z0);
@@ -703,7 +708,7 @@
     box(X - x0, 0.12, Z - z0, MAT.plaster, (x0 + X) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', X, z0 + 0.1, Z - 0.1, h, LINING.office, [], -1); lineWall('z', Z, x0 + 0.1, X - 0.1, h, LINING.office, [], -1);
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    var lamp = box(1.2, 0.08, 0.3, MAT.lamp, 16.5, h - 0.05, 11); world.officeLamp = lamp;
+    var lamp = box(1.2, 0.08, 0.3, MAT.lamp, 26.5, h - 0.05, 21); world.officeLamp = lamp;
     sign(['OFFICE'], 1.4, 0.45, x0 - 0.09, 2.6, 9.95, -Math.PI / 2, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' });
   }
 
@@ -715,29 +720,29 @@
   // the entrance lobby (south-west corner) and the break room (north-west corner, above IN 1), both walled like the office
   function buildBreakRoom() {
     var X = HALL.x, Z = HALL.z, h = 3.2;
-    // the lobby: x -20..-15.5, z 8.5..14; its door onto the hall at z 9.45..10.45 in the east wall, a window south of it
-    var x0 = -15.5, z0 = 8.5;
-    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 9.95);
-    box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 10.9); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 12.5); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 12.5); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 12.5); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
-    solid(x0 - 0.08, x0 + 0.08, z0, 9.3); solid(x0 - 0.08, x0 + 0.08, 10.6, Z);
+    // the lobby: x -30..-25.5, z 18.5..24; its door onto the hall at z 19.45..20.45 in the east wall, a window south of it
+    var x0 = -25.5, z0 = 18.5;
+    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95);
+    box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 20.9); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 22.5); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 22.5); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 22.5); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
+    solid(x0 - 0.08, x0 + 0.08, z0, 19.3); solid(x0 - 0.08, x0 + 0.08, 20.6, Z);
     box(X + x0, h, 0.15, MAT.plaster, (-X + x0) / 2, h / 2, z0); solid(-X, x0, z0 - 0.08, z0 + 0.08);
     box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', -X, z0 + 0.1, Z - 0.1, h, LINING.lobby, [[SPOT.staffDoor.z - 0.65, SPOT.staffDoor.z + 0.65, 2.25]], 1); lineWall('z', Z, -X + 0.1, x0 - 0.1, h, LINING.lobby, [], -1); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -17.7, h - 0.05, 11.2);
-    for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 12.5);
-    sign(['LOBBY'], 1.2, 0.45, x0 + 0.09, 2.6, 9.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
-    // the break room: x -20..-13, z -14..-10.2; its door in the east wall at z -12.95..-11.95, a window in the south wall onto the hall
-    var bx = -13, bz = -10.2;
-    box(0.15, h, 1.05, MAT.plaster, bx, h / 2, -Z + 0.525); box(0.15, h - 2.2, 1.3, MAT.plaster, bx, 2.2 + (h - 2.2) / 2, -12.45); box(0.15, h, 1.6, MAT.plaster, bx, h / 2, bz - 0.8);
-    solid(bx - 0.08, bx + 0.08, -Z, -12.95); solid(bx - 0.08, bx + 0.08, -11.95, bz);
+    box(1.2, 0.08, 0.3, MAT.lamp, -27.7, h - 0.05, 21.2);
+    for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 22.5);
+    sign(['LOBBY'], 1.2, 0.45, x0 + 0.09, 2.6, 19.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
+    // the break room: x -30..-23, z -24..-20.2; its door in the east wall at z -22.95..-21.95, a window in the south wall onto the hall
+    var bx = -23, bz = -20.2;
+    box(0.15, h, 1.05, MAT.plaster, bx, h / 2, -Z + 0.525); box(0.15, h - 2.2, 1.3, MAT.plaster, bx, 2.2 + (h - 2.2) / 2, -22.45); box(0.15, h, 1.6, MAT.plaster, bx, h / 2, bz - 0.8);
+    solid(bx - 0.08, bx + 0.08, -Z, -22.95); solid(bx - 0.08, bx + 0.08, -21.95, bz);
     box(1.0, h, 0.15, MAT.plaster, -X + 0.5, h / 2, bz); box(1.2, h, 0.15, MAT.plaster, bx - 0.6, h / 2, bz);
     box(X + bx - 2.2, 1.1, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 0.55, bz); box(X + bx - 2.2, h - 2.3, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 2.3 + (h - 2.3) / 2, bz); box(X + bx - 2.2, 1.2, 0.04, MAT.glass, (-X + 1 + bx - 1.2) / 2, 1.7, bz);
     solid(-X, bx, bz - 0.08, bz + 0.08);
     box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2);
     lineWall('x', -X, -Z + 0.1, bz - 0.1, h, LINING.brk, [], 1); lineWall('z', -Z, -X + 0.1, bx - 0.1, h, LINING.brk, [], 1); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -16.5, h - 0.05, -12.1);
-    for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -16.4, 2.26 - bl2 * 0.08, bz - 0.09);
-    sign(['BREAK ROOM'], 1.6, 0.45, bx + 0.09, 2.6, -12.45, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
+    box(1.2, 0.08, 0.3, MAT.lamp, -26.5, h - 0.05, -22.1);
+    for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -26.4, 2.26 - bl2 * 0.08, bz - 0.09);
+    sign(['BREAK ROOM'], 1.6, 0.45, bx + 0.09, 2.6, -22.45, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
   }
   // the order board on the office wall: redrawn when orders change
   function drawBoard() {
@@ -893,7 +898,7 @@
     });
     var exitSign = function (x, y, z, ry) { var m = sign(['EXIT'], 0.5, 0.2, x, y, z, ry, { w: 256, h: 96, bg: '#1f7a3a', fg: '#dfffe8' }); var b = box(0.54, 0.24, 0.04, MAT.exit, x, y, z + (ry ? 0 : 0.03), null); b.rotation.y = ry || 0; if (ry) b.position.x += ry > 0 ? -0.03 : 0.03; m.renderOrder = 1; };
     exitSign(14, 2.6, -Z + 0.2, 0); exitSign(-X + 0.2, 2.6, SPOT.staffDoor.z, Math.PI / 2);
-    [-13.6, 13.6].forEach(function (x) { for (var z = -7; z <= 7; z += 0.7) plane(1.2, 0.35, MAT.whiteLine, x, 0.0065, z, -Math.PI / 2); });
+    [RACK.x0 - 1.1, -RACK.x0 + 1.1].forEach(function (x) { for (var z = RACK.rows[0] - 1; z <= RACK.rows[RACK.rows.length - 1] + 1; z += 0.7) plane(1.2, 0.35, MAT.whiteLine, x, 0.0065, z, -Math.PI / 2); });
     // dock lights beside every door, wheel chocks inside, guide rails and a chain hoist
     doors.forEach(function (d) {
       var x = d.side * (X - 0.3), z = d.z - DOCKS.w / 2 - 0.5;
@@ -904,10 +909,10 @@
     // the forklift bay, the tool bays and the charger on the south wall
     var bay = function (cx, cz, w, d, label) { plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz - d / 2, -Math.PI / 2); plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz + d / 2, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx - w / 2, 0.0062, cz, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx + w / 2, 0.0062, cz, -Math.PI / 2); plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex([label], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), cx, 0.0066, cz + d / 2 - 0.3, -Math.PI / 2); };
     bay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK'); bay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
-    plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2); plane(1.0, 1.0, MAT.rubberMat, -14.9, 0.004, 9.95, -Math.PI / 2);
+    plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2); plane(1.0, 1.0, MAT.rubberMat, -24.9, 0.004, 19.95, -Math.PI / 2);
     // the office blinds and the crossing into it
-    for (var bl2 = 0; bl2 < 14; bl2++) box(5.4, 0.05, 0.02, MAT.trim, 16.1, 2.26 - bl2 * 0.08, 8.58);
-    plane(1.4, 0.08, MAT.yellowLine, -15.5, 0.0062, 9.95, -Math.PI / 2);
+    for (var bl2 = 0; bl2 < 14; bl2++) box(5.4, 0.05, 0.02, MAT.trim, 26.1, 2.26 - bl2 * 0.08, 18.58);
+    plane(1.4, 0.08, MAT.yellowLine, -25.5, 0.0062, 19.95, -Math.PI / 2);
     plane(1.4, 0.08, MAT.yellowLine, 12.5, 0.0062, 9.95, -Math.PI / 2);
     // grime: a dark gradient along the foot of every wall, tyre scuffs at the dock aprons and in the aisles, oil where machines stand
     var grimeTex = tex(64, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(20,18,16,0.5)'); g.addColorStop(0.5, 'rgba(20,18,16,0.18)'); g.addColorStop(1, 'rgba(20,18,16,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); for (var i = 0; i < 60; i++) { c.fillStyle = 'rgba(10,10,10,' + randf(0.05, 0.2) + ')'; c.fillRect(Math.random() * w, h - Math.random() * 20, randf(1, 4), randf(1, 3)); } });
@@ -917,15 +922,15 @@
     var markTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.35)'); g.addColorStop(0.7, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
     var markMat = new THREE.MeshBasicMaterial({ map: markTex, transparent: true, depthWrite: false, opacity: 0.8 }); markMat.userData.noBake = true;
     doors.forEach(function (dk) { var m = plane(6, 1.3, markMat, dk.side * (X - 4.5), 0.0045, dk.z + randf(-0.3, 0.3), -Math.PI / 2, 0); m.rotation.z = randf(-0.08, 0.08); m.renderOrder = 1; m.userData.noBake = true; });
-    [-4, 0, 4].forEach(function (z) { for (var mx = -10; mx <= 10; mx += 7) { var m = plane(5, 1.1, markMat, mx + randf(-1, 1), 0.0045, z + randf(-0.4, 0.4), -Math.PI / 2, 0); m.rotation.z = randf(-0.1, 0.1); m.renderOrder = 1; m.userData.noBake = true; } });
+    [-8, -4, 0, 4, 8].forEach(function (z) { for (var mx = -20; mx <= 20; mx += 7) { var m = plane(5, 1.1, markMat, mx + randf(-1, 1), 0.0045, z + randf(-0.4, 0.4), -Math.PI / 2, 0); m.rotation.z = randf(-0.1, 0.1); m.renderOrder = 1; m.userData.noBake = true; } });
     var oilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(10,10,14,0.55)'); g.addColorStop(0.7, 'rgba(10,10,14,0.25)'); g.addColorStop(1, 'rgba(10,10,14,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
     var oilMat = new THREE.MeshBasicMaterial({ map: oilTex, transparent: true, depthWrite: false }); oilMat.userData.noBake = true;
     [[SPOT.fork.x, SPOT.fork.z], [SPOT.jack.x, SPOT.jack.z], [-16, -4], [16, -4]].forEach(function (p) { var m = plane(2.2, 2.2, oilMat, p[0] + randf(-0.4, 0.4), 0.0046, p[1] + randf(-0.4, 0.4), -Math.PI / 2, randf(0, 3)); m.renderOrder = 1; m.userData.noBake = true; });
     // light shafts under the skylights, with dust drifting in them
     var shaftMat = new THREE.MeshBasicMaterial({ color: 0xfff1d0, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); shaftMat.userData.noBake = true; dress.shaftMat = shaftMat;
     var shaftTex = tex(32, 256, function (c, w, h) { var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); var g2 = c.createLinearGradient(0, 0, w, 0); g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(0.3, 'rgba(0,0,0,0)'); g2.addColorStop(0.7, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,1)'); c.globalCompositeOperation = 'destination-out'; c.fillStyle = g2; c.fillRect(0, 0, w, h); }); shaftMat.alphaMap = shaftTex; shaftMat.map = shaftTex;
-    [-7, 0, 7].forEach(function (z) { for (var sx = -15; sx <= 15; sx += 6) { for (var k = 0; k < 2; k++) { var sh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, H - 0.2), shaftMat); sh.position.set(sx + (k ? 0.3 : -0.3), H / 2 - 0.1, z); sh.rotation.y = k ? Math.PI / 2 + 0.25 : 0.25; sh.rotation.z = 0.08; sh.userData.noBake = true; sh.renderOrder = 2; scene.add(sh); } } });
-    var dustGeo = new THREE.BufferGeometry(), dustPos = new Float32Array(600 * 3); for (var dp = 0; dp < 600; dp++) { dustPos[dp * 3] = randf(-18, 18); dustPos[dp * 3 + 1] = randf(0.5, 6.8); dustPos[dp * 3 + 2] = pick([-7, 0, 7]) + randf(-0.8, 0.8); } dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    SKYLIGHT_Z.forEach(function (z) { for (var sx = -X + 5; sx <= X - 5; sx += 6) { for (var k = 0; k < 2; k++) { var sh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, H - 0.2), shaftMat); sh.position.set(sx + (k ? 0.3 : -0.3), H / 2 - 0.1, z); sh.rotation.y = k ? Math.PI / 2 + 0.25 : 0.25; sh.rotation.z = 0.08; sh.userData.noBake = true; sh.renderOrder = 2; scene.add(sh); } } });
+    var dustGeo = new THREE.BufferGeometry(), dustPos = new Float32Array(600 * 3); for (var dp = 0; dp < 600; dp++) { dustPos[dp * 3] = randf(-X + 2, X - 2); dustPos[dp * 3 + 1] = randf(0.5, H - 0.2); dustPos[dp * 3 + 2] = pick(SKYLIGHT_Z) + randf(-0.8, 0.8); } dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
     dress.dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xfff6e0, size: 0.03, transparent: true, opacity: 0.5, depthWrite: false })); dress.dust.frustumCulled = false; dress.dust.userData.noBake = true; scene.add(dress.dust);
     buildPigeons();
   }
@@ -970,14 +975,18 @@
     dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return (t.dir === 'in' ? t.dock : 2 + t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); l.m.material.emissiveIntensity = coming ? (Math.sin(worldTime * 8) > 0 ? 2.2 : 0.2) : (S.doors[d.i] ? 1.2 : 0.2); });
     if (dress.charger && dress.charger.material) dress.charger.material.emissiveIntensity = power ? (forkCharging() ? (Math.sin(worldTime * 3) > 0 ? 1.5 : 0.4) : 1) : 0;
     tickClocks();
-    if (dress.dust) { var dpa = dress.dust.geometry.attributes.position.array; for (var di = 0; di < dpa.length; di += 3) { dpa[di] += Math.sin(worldTime * 0.3 + di) * 0.004; dpa[di + 1] -= 0.02 * dt; if (dpa[di + 1] < 0.4) dpa[di + 1] = 6.8; } dress.dust.geometry.attributes.position.needsUpdate = true; }
+    if (dress.dust) { var dpa = dress.dust.geometry.attributes.position.array; for (var di = 0; di < dpa.length; di += 3) { dpa[di] += Math.sin(worldTime * 0.3 + di) * 0.004; dpa[di + 1] -= 0.02 * dt; if (dpa[di + 1] < 0.4) dpa[di + 1] = HALL.h - 0.2; } dress.dust.geometry.attributes.position.needsUpdate = true; }
   }
   // ── The prop system ───────────────────────────────────────────────
   // A prop is built by defProp(id, { label, x, z, rot, cat, wall, price, build(ctx, P) }). Its placement is the default from the
   // definition unless S.layout[id] overrides it. Bought extras live in S.custom as { id, type, x, z, rot }. Rotation is in quarter
   // turns. Each prop builds into its own group, so moving it is: remove the instance, build it again at the new spot.
   var PROPS = {}, PROP_ORDER = [], propInst = {};
-  function defProp(id, def) { def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
+  // defaults were authored for the 40 x 28 hall; the hall grew by 10 m on every side, so anything near a wall follows its wall
+  function grown(v) { return Math.abs(v) >= 8 ? v + (v < 0 ? -HALL_GROW : HALL_GROW) : v; }
+  var HALL_GROW = HALL.x - 20;
+  function defProp(id, def) {
+    if (!def.abs && typeof def.x === 'number') { def.x = grown(def.x); def.z = grown(def.z); } def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
   function propDef(id) { if (PROPS[id]) return PROPS[id]; var c = customById(id); return c ? PROPS[c.type] : null; }
   function customById(id) { return (S.custom || []).filter(function (c) { return c.id === id; })[0] || null; }
   function propPlacement(id) {
@@ -1059,9 +1068,9 @@
     if (WALLS.length) return WALLS;
     var X = HALL.x, Z = HALL.z;
     WALLS.push({ a: 'x', v: -X + 0.17, n: 1, z0: -Z, z1: Z }, { a: 'x', v: X - 0.17, n: -1, z0: -Z, z1: Z }, { a: 'z', v: -Z + 0.17, n: 1, x0: -X, x1: X }, { a: 'z', v: Z - 0.17, n: -1, x0: -X, x1: X });
-    WALLS.push({ a: 'x', v: 12.42, n: -1, z0: 8.5, z1: Z }, { a: 'x', v: 12.58, n: 1, z0: 8.5, z1: Z }, { a: 'z', v: 8.42, n: -1, x0: 12.5, x1: X }, { a: 'z', v: 8.58, n: 1, x0: 12.5, x1: X });
-    WALLS.push({ a: 'x', v: -15.58, n: 1, z0: 8.5, z1: Z }, { a: 'x', v: -15.42, n: -1, z0: 8.5, z1: Z }, { a: 'z', v: 8.42, n: -1, x0: -X, x1: -15.5 }, { a: 'z', v: 8.58, n: 1, x0: -X, x1: -15.5 });
-    WALLS.push({ a: 'x', v: -13.08, n: 1, z0: -Z, z1: -10.2 }, { a: 'x', v: -12.92, n: -1, z0: -Z, z1: -10.2 }, { a: 'z', v: -10.28, n: -1, x0: -X, x1: -13 }, { a: 'z', v: -10.12, n: 1, x0: -X, x1: -13 });
+    WALLS.push({ a: 'x', v: 22.42, n: -1, z0: 18.5, z1: Z }, { a: 'x', v: 22.58, n: 1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: 22.5, x1: X }, { a: 'z', v: 18.58, n: 1, x0: 22.5, x1: X });
+    WALLS.push({ a: 'x', v: -25.58, n: 1, z0: 18.5, z1: Z }, { a: 'x', v: -25.42, n: -1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: -X, x1: -25.5 }, { a: 'z', v: 18.58, n: 1, x0: -X, x1: -25.5 });
+    WALLS.push({ a: 'x', v: -23.08, n: 1, z0: -Z, z1: -20.2 }, { a: 'x', v: -22.92, n: -1, z0: -Z, z1: -20.2 }, { a: 'z', v: -20.28, n: -1, x0: -X, x1: -23 }, { a: 'z', v: -20.12, n: 1, x0: -X, x1: -23 });
     return WALLS;
   }
   function editAim(def) {
@@ -1383,28 +1392,28 @@
   function aisleSignBuild(text) { return function (c) { c.sign([text], 2.2, 0.5, 0, 5.4, 0, 0, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.sign([text], 2.2, 0.5, 0, 5.4, 0, Math.PI, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.cyl(0.006, 1.3, MAT.steelDark, -0.9, 6.3, 0, 4); c.cyl(0.006, 1.3, MAT.steelDark, 0.9, 6.3, 0, 4); }; }
 
   // ── Default layout ────────────────────────────────────────────────
-  for (var rr = 0; rr < 4; rr++) (function (r) { defProp('rack' + r, { label: 'rack row ' + 'ABCD'[r], cat: 'hall', x: 0, z: RACK.rows[r], rot: 0, build: rackBuild(r), when: function () { return r < S.up.rows; } }); })(rr);
+  for (var rr = 0; rr < RACK.rows.length; rr++) (function (r) { defProp('rack' + r, { label: 'rack row ' + 'ABCDEF'[r], cat: 'hall', abs: true, x: 0, z: RACK.rows[r], rot: 0, build: rackBuild(r), when: function () { return r < S.up.rows; } }); })(rr);
   defProp('timeclock', { label: 'time clock', cat: 'wall', wall: true, x: -19.74, z: 10.2, rot: 1, build: timeclockBuild });
   defProp('cabinet', { label: 'control cabinet', cat: 'wall', wall: true, x: 12.42, z: 12.6, rot: 3, build: cabinetBuild });
-  defProp('consoleIn0', { label: 'dock console IN 1', cat: 'wall', wall: true, x: -19.7, z: -5.5, rot: 1, build: consoleBuild(0) });
-  defProp('consoleIn1', { label: 'dock console IN 2', cat: 'wall', wall: true, x: -19.7, z: 2.5, rot: 1, build: consoleBuild(1) });
-  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, x: 19.7, z: -5.5, rot: 3, build: consoleBuild(2) });
-  defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, x: 19.7, z: 2.5, rot: 3, build: consoleBuild(3) });
+  defProp('consoleIn0', { label: 'dock console IN 1', cat: 'wall', wall: true, abs: true, x: -29.7, z: -11.5, rot: 1, build: consoleBuild(0) });
+  defProp('consoleIn1', { label: 'dock console IN 2', cat: 'wall', wall: true, abs: true, x: -29.7, z: -3.5, rot: 1, build: consoleBuild(1) });
+  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, abs: true, x: 29.7, z: -11.5, rot: 3, build: consoleBuild(2) });
+  defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, abs: true, x: 29.7, z: -3.5, rot: 3, build: consoleBuild(3) });
   defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
   defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, build: boardBuild });
   defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, x: 0, z: 13.83, rot: 2, build: chargerBuild });
   defProp('painted', { label: 'painted name', cat: 'wall', wall: true, x: 0, z: -13.83, rot: 0, build: paintedBuild });
-  [['aisleAB', -4, 'AISLE  A · B'], ['aisleBC', 0, 'AISLE  B · C'], ['aisleCD', 4, 'AISLE  C · D']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
+  [['aisleAB', -8, 'AISLE  A · B'], ['aisleBC', -4, 'AISLE  B · C'], ['aisleCD', 0, 'AISLE  C · D'], ['aisleDE', 4, 'AISLE  D · E'], ['aisleEF', 8, 'AISLE  E · F']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', abs: true, x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
   [[-30, -12], [-30, 10], [30, -12], [30, 10]].forEach(function (p, i) { defProp('lamp' + i, { label: 'lamp post', cat: 'yard', yard: true, x: p[0], z: p[1], rot: 0, build: lampPostBuild }); });
-  [0, 1, 3, 4].forEach(function (k, i) { defProp('car' + i, { label: 'parked car', cat: 'yard', yard: true, x: -17.65 + k * 2.7, z: 21.5, rot: 1, build: carBuild(k) }); });
+  [0, 1, 3, 4].forEach(function (k, i) { defProp('car' + i, { label: 'parked car', cat: 'yard', yard: true, abs: true, x: -27.65 + k * 2.7, z: 31.5, rot: 1, build: carBuild(k) }); });
   var treeN = 0; for (var tx = -56; tx <= 56; tx += 14) { defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: tx, z: -56, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: tx + 7, z: 56, rot: 0, build: treeBuild }); }
   defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: -30, z: 24, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: 30, z: 26, rot: 0, build: treeBuild });
   defProp('xLampPost', { extra: true, label: 'lamp post', ico: '💡', cat: 'yard', yard: true, price: 350, desc: 'Lights the yard at night.', build: lampPostBuild });
   defProp('xCar', { extra: true, label: 'parked car', ico: '🚗', cat: 'yard', yard: true, price: 0, desc: 'Somebody is in.', build: function (c) { carBuild(pick(CAR_COLS))(c); } });
   defProp('xAisleSign', { extra: true, label: 'aisle sign', ico: '🪧', cat: 'hall', price: 40, desc: 'Hangs from the roof.', build: aisleSignBuild('AISLE') });
 
-  // The entrance lobby (x -20 to -15.5, z 8.5 to 14): the staff door on the west wall at z 12, the lobby door east at z 10.
-  // The time clock, lockers and hooks live here. The break room is the north-west corner (x -20 to -13, z -14 to -10.2), above IN 1.
+  // The entrance lobby (x -30 to -25.5, z 18.5 to 24): the staff door on the west wall at z 22, the lobby door east at z 20.
+  // The time clock, lockers and hooks live here. The break room is the north-west corner (x -30 to -23, z -24 to -20.2), above IN 1.
   defProp('lockers', { label: 'lockers', cat: 'room', x: -18.4, z: 13.55, rot: 0, build: lockerBuild });
   defProp('hooks', { label: 'coat hooks', cat: 'room', wall: true, x: -16.6, z: 13.83, rot: 2, build: hooksBuild });
   defProp('notice', { label: 'notice board', cat: 'wall', wall: true, x: -17.5, z: 8.59, rot: 0, build: noticeBuild });
@@ -1446,9 +1455,9 @@
   defProp('hose', { label: 'hose reel', cat: 'wall', wall: true, x: 0, z: -13.83, rot: 0, build: hoseBuild });
   defProp('extNW', { label: 'fire extinguisher', cat: 'wall', wall: true, x: -19.83, z: -12, rot: 1, build: extinguisherBuild });
   defProp('extNE', { label: 'fire extinguisher', cat: 'wall', wall: true, x: 19.83, z: -12, rot: 3, build: extinguisherBuild });
-  defProp('extBench', { label: 'fire extinguisher', cat: 'wall', wall: true, x: 12.42, z: 6.5, rot: 3, build: extinguisherBuild });
+  defProp('extBench', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 29.83, z: 6.5, rot: 3, build: extinguisherBuild });
   defProp('clockHall', { label: 'hall clock', cat: 'wall', wall: true, x: 0, z: -13.7, rot: 0, build: function (c) { var f = clockBuild(0.5); f(c); c.group.children[c.group.children.length - 1].position.y = 5.8 - 2.7 + 2.7; } });
-  defProp('posterLift', { label: 'lifting poster', cat: 'wall', wall: true, x: -19.83, z: -4, rot: 1, build: posterBuild('lifting', 0.7, 1.05) });
+  defProp('posterLift', { label: 'lifting poster', cat: 'wall', wall: true, abs: true, x: -29.83, z: 2, rot: 1, build: posterBuild('lifting', 0.7, 1.05) });
   defProp('posterFork', { label: 'forklift poster', cat: 'wall', wall: true, x: 2.2, z: 13.83, rot: 2, build: posterBuild('forklift', 0.7, 1.05) });
   defProp('posterStack', { label: 'pallet-rules poster', cat: 'wall', wall: true, x: -6, z: 13.83, rot: 2, build: posterBuild('stacking', 0.7, 1.05) });
   defProp('posterOffice', { label: 'safety poster', cat: 'wall', wall: true, x: 12.42, z: 11.5, rot: 3, build: posterBuild('safety', 0.7, 1.05) });
@@ -1515,7 +1524,7 @@
     var IRON = std({ color: 0x2c2e31, roughness: 0.6, metalness: 0.5 });
     [[-30, -22], [8, 30], [34, 10], [-40, 26], [22, -30], [-10, 36]].forEach(function (p) { cyl(0.42, 0.02, IRON, p[0], YARD_Y + 0.012, p[1], null, 20); var ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.02, 6, 24), MAT.grey); ring.rotation.x = Math.PI / 2; ring.position.set(p[0], YARD_Y + 0.012, p[1]); scene.add(ring); for (var mb = 0; mb < 2; mb++) box(0.06, 0.012, 0.3, MAT.black, p[0] + (mb ? 0.18 : -0.18), YARD_Y + 0.03, p[1]); });
     [[-X - 1.0, -11], [-X - 1.0, 11], [X + 1.0, -11], [X + 1.0, 11], [0, Z + 1.0], [-10, Z + 1.0], [10, -Z - 1.0]].forEach(function (p) { box(0.5, 0.02, 0.35, IRON, p[0], YARD_Y + 0.012, p[1]); for (var gb = 0; gb < 6; gb++) box(0.5, 0.012, 0.025, MAT.black, p[0], YARD_Y + 0.03, p[1] - 0.14 + gb * 0.056); plane(1.2, 0.8, std({ color: 0x1e2024, roughness: 0.9, transparent: true, opacity: 0.35 }), p[0], YARD_Y + 0.011, p[1], -Math.PI / 2); });
-    box(13.6, 0.12, 0.25, MAT.grey, -13.6, YARD_Y + 0.06, 24.6); box(0.25, 0.12, 6.2, MAT.grey, -20.5, YARD_Y + 0.06, 21.5); [0, 1, 2, 3, 4].forEach(function (k) { box(1.6, 0.1, 0.18, MAT.yellow, -17.65 + k * 2.7, YARD_Y + 0.05, 23.4); });
+    box(13.6, 0.12, 0.25, MAT.grey, -23.6, YARD_Y + 0.06, 34.6); box(0.25, 0.12, 6.2, MAT.grey, -30.5, YARD_Y + 0.06, 31.5); [0, 1, 2, 3, 4].forEach(function (k) { box(1.6, 0.1, 0.18, MAT.yellow, -27.65 + k * 2.7, YARD_Y + 0.05, 33.4); });
     var WEED = std({ color: 0x5d7a3a, roughness: 1, flatShading: true }); for (var wd = -70; wd <= 70; wd += randf(2.5, 5)) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(wd, YARD_Y + 0.08, 56.6 + randf(-0.3, 0.3)); wg.scale.y = 0.6; scene.add(wg); }
     // the sky: a dome with a zenith-to-horizon gradient and a haze band at the horizon, driven by the time of day
     var skyMat = new THREE.ShaderMaterial({ uniforms: { top: { value: new THREE.Color(0x4f7fb8) }, mid: { value: new THREE.Color(0x8fb0d4) }, bot: { value: new THREE.Color(0xd6e2ec) } }, side: THREE.BackSide, depthWrite: false, fog: false,
@@ -1585,8 +1594,8 @@
       var guard = makeHuman({ vest: MAT.hivis, cap: true, capMat: MAT.black, shirt: MAT.jeans }); guard.position.set(hx, YARD_Y + 0.2, hz - 0.2); guard.rotation.y = Math.PI; scene.add(guard); yard.guards.push({ g: guard, side: side });
     });
     // the staff car park, the smoking shelter, the dumpster, the flag
-    for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -19 + b * 2.7, YARD_Y + 0.012, 21, -Math.PI / 2);
-    plane(16.2, 0.12, MAT.whiteLine, -10.9, YARD_Y + 0.012, 18.25, -Math.PI / 2);
+    for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -29 + b * 2.7, YARD_Y + 0.012, 31, -Math.PI / 2);
+    plane(16.2, 0.12, MAT.whiteLine, -20.9, YARD_Y + 0.012, 28.25, -Math.PI / 2);
     // the neighbours across the fence, each with its own dock doors and a name
     [[-130, -30, 40, 9, 32, 'NORTHGATE LOGISTICS', 0], [128, -24, 44, 8, 30, 'VOLT & CO. DISTRIBUTION', 0], [-118, 70, 34, 7, 26, 'FAIRLANE FREIGHT', 1], [0, 150, 90, 12, 40, 'KESSLER WHOLESALE', 1], [136, 82, 40, 10, 30, 'PINECREST STORAGE', 1], [-44, -124, 50, 9, 28, 'LITTLE WONDERS DC', 0]].forEach(function (b) {
       var NB = std({ map: TEX.corrugated, color: pick([0xd8dcdf, 0xc9d3dc, 0xe2e0d8, 0xcfd6c9]), roughness: 0.5, metalness: 0.3, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }); box(b[2], b[3], b[4], NB, b[0], YARD_Y + b[3] / 2, b[1]); box(b[2] + 0.1, 1.4, b[4] + 0.1, MAT.brick, b[0], YARD_Y + 0.7, b[1]); box(b[2] + 0.12, 0.8, b[4] + 0.12, std({ color: pick([0x1f4e8c, 0xb3261e, 0x2f6b3a, 0xe0862a]), roughness: 0.5 }), b[0], YARD_Y + b[3] - 2.6, b[1]);
@@ -2376,7 +2385,7 @@
   // A 0.4 m grid over the hall and the dock aprons. A cell is blocked by any static solid (walls, racks, furniture) or,
   // outside the hall, unless it lies inside a docked trailer. Staff carry keys, so hinged doors never block them.
   // A* finds the path, then string-pulling drops every waypoint that a straight line can skip.
-  var NAV = { cell: 0.4, x0: -34, z0: -16, w: 170, h: 80, grid: null, dirty: true };
+  var NAV = { cell: 0.4, x0: -HALL.x - 14, z0: -HALL.z - 2, w: Math.round((2 * HALL.x + 28) / 0.4), h: Math.round((2 * HALL.z + 4) / 0.4), grid: null, dirty: true };
   function navBuild() {
     var g = new Uint8Array(NAV.w * NAV.h), c = NAV.cell, pad = 0.3;
     for (var j = 0; j < NAV.h; j++) for (var i = 0; i < NAV.w; i++) {
@@ -2500,7 +2509,7 @@
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && !st.leaving;
-      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -16.3 + randf(-1, 1), z: -11.2 + randf(-0.4, 0.4) }, 'break'); }
+      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -26.3 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
       if (!brk && st.state === 'break') st.state = 'idle';
       var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
@@ -2544,7 +2553,7 @@
     var want = null;
     var orders = openOrders().slice().sort(function (a, b) { return (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due; });
     for (var i = 0; i < orders.length && !want; i++) orders[i].lines.forEach(function (l) { if (want) return; if (skuDemand(l.sku) > 0) { var keys = slotsWith(l.sku).filter(function (k) { return slotParse(k).l < RACK.top; }); if (keys.length) want = { sku: l.sku, key: keys[0] }; } });
-    if (!want) { idleAt(st, { x: 14.6, z: 2.6 }); return; }
+    if (!want) { idleAt(st, { x: 24.6, z: 2.6 }); return; }
     st.task = { kind: 'pick', sku: want.sku, key: want.key };
     staffGo(st, slotStand(want.key), 'wait'); st.timer = 1.0; st.working = true;
     st.after = function () { var s = S.slots[want.key]; if (s && s.sku === want.sku && s.n > 0) { slotTake(want.key, 1); st.carry = { kind: 'box', sku: want.sku }; S.stats.picked++; sfx('pickup'); } st.task = null; };
@@ -2569,13 +2578,13 @@
       st.after = function () { var oid = S.bench.parcels.shift(); if (oid) { st.carry = { kind: 'parcel', order: oid }; sfx('pickup'); } };
       return;
     }
-    idleAt(st, { x: 14.8, z: 7.4 });
+    idleAt(st, { x: 24.8, z: 7.4 });
   }
   // ── The time clock ────────────────────────────────────────────────
   // Nobody is paid a flat wage. The crew clock in at the reader by the staff door when they arrive and clock out when
   // they leave; the day's pay at 06:00 is their clocked hours at the hourly rate, with anything past ten hours at
   // time and a half. Punctuality is a trait: some are early, some drift in late, and a word puts them right for a while.
-  var CLOCK_SPOT = { x: -19.0, z: 10.2 }, RAMP_BOTTOM = { x: -27.3, z: 12 }, SHIFT_START = 8;
+  var CLOCK_SPOT = { x: -29.0, z: 20.2 }, RAMP_BOTTOM = { x: -37.3, z: 22 }, SHIFT_START = 8;
   function hourly(st) { return STAFF_ROLES[st.role].wage / 10; }
   function shiftEnd(st) { return st.overtime ? 20 : 18; }
   function staffArrival(st) { return SHIFT_START + (st.arriveOff || 0) / 60; }
@@ -3089,8 +3098,8 @@
     } else if (tab === 'shop') {
       h += '<p>Bank: <b style="color:var(--cash)">' + money(S.bank) + '</b> · level ' + S.level + '. Everything is delivered and fitted at once.</p><div class="dc-grid">';
       UPGRADES.forEach(function (u) {
-        var owned = u.id === 'row3' ? S.up.rows >= 3 : u.id === 'row4' ? S.up.rows >= 4 : !!S.up[u.id];
-        var needs = u.id === 'row4' && S.up.rows < 3 ? 'Needs the third row first' : S.level < u.lvl ? 'Level ' + u.lvl : S.bank < u.price ? 'Not enough money' : '';
+        var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[u.id];
+        var needs = rowN && S.up.rows < rowN - 1 ? 'Needs the previous row first' : S.level < u.lvl ? 'Level ' + u.lvl : S.bank < u.price ? 'Not enough money' : '';
         h += '<div class="dc-card"><div class="body"><b>' + esc(u.name) + '</b><small>' + esc(u.desc) + '</small></div><div style="text-align:right"><div class="price">' + money(u.price) + '</div>' + (owned ? '<span class="dc-tag good">Owned</span>' : btn('buy', u.id, 'Buy', 'primary', !!needs) + (needs ? '<small style="display:block;color:var(--muted)">' + needs + '</small>' : '')) + '</div></div>';
       });
       h += '</div>';
@@ -3135,7 +3144,7 @@
   function devAct(a) {
     var tp = function (x, z) { closePanel(); player.x = x; player.z = z; player.y = floorY(x, z); player.vy = 0; };
     if (a === 'cash') pay(1000, 'Dev'); else if (a === 'cash10') pay(10000, 'Dev'); else if (a === 'level') addXp(XP_FOR(S.level) - S.xp); else if (a === 'rep') addRep(20);
-    else if (a === 'unlock') { S.up.cart = S.up.fork = S.up.lights = S.up.dock2 = S.up.sign = true; while (S.up.rows < 4) { S.up.rows++; buildRack(S.up.rows - 1); } placeTools(); }
+    else if (a === 'unlock') { S.up.cart = S.up.fork = S.up.lights = S.up.dock2 = S.up.sign = true; while (S.up.rows < RACK.rows.length) { S.up.rows++; buildRack(S.up.rows - 1); } placeTools(); }
     else if (a === 'intro') { S.intro.done = true; }
     else if (a === 't6') S.time = 6; else if (a === 't7') S.time = 7.33; else if (a === 't10') S.time = 10.33; else if (a === 't13') S.time = 13.33; else if (a === 't17') S.time = 17; else if (a === 't22') S.time = 22;
     else if (a === 'day') { S.time = 6; newDay(); }
@@ -3149,7 +3158,7 @@
     else if (a === 'hire') { S.level = Math.max(S.level, 4); ['receiver', 'picker', 'packer'].forEach(function (r) { if (!S.staff.some(function (s) { return s.role === r; })) hireStaff(r); }); }
     else if (a === 'fire') { S.staff.slice().forEach(function (s) { fireStaff(s.id); }); }
     else if (a === 'fork') { S.up.fork = true; S.fork.x = player.x - Math.sin(player.yaw) * 2.5; S.fork.z = player.z - Math.cos(player.yaw) * 2.5; S.fork.batt = 1; placeTools(); }
-    else if (a === 'tpIn') tp(-16.5, -8); else if (a === 'tpOut') tp(16.5, -8); else if (a === 'tpBench') tp(15.2, 5.2); else if (a === 'tpOffice') tp(15, 10.5); else if (a === 'tpBreak') tp(-16.5, -11.5); else if (a === 'tpYard') { tp(-30, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
+    else if (a === 'tpIn') tp(-26.5, -14); else if (a === 'tpOut') tp(26.5, -14); else if (a === 'tpBench') tp(25.2, 5.2); else if (a === 'tpOffice') tp(25, 20.5); else if (a === 'tpBreak') tp(-26.5, -21.5); else if (a === 'tpYard') { tp(-30, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
     sfx('click'); hudDirty = true; rebuildBoardSoon(); screenDirtyAll(); if (ui.panelOpen) renderPanel();
   }
   function panelAct(act, arg) {
@@ -3170,10 +3179,10 @@
   }
   function buyUpgrade(id) {
     var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; if (!u) return;
-    var owned = id === 'row3' ? S.up.rows >= 3 : id === 'row4' ? S.up.rows >= 4 : !!S.up[id];
-    if (owned || S.level < u.lvl || S.bank < u.price || (id === 'row4' && S.up.rows < 3)) { sfx('bad'); return; }
+    var rowN = /^row(\d)$/.test(id) ? +id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[id];
+    if (owned || S.level < u.lvl || S.bank < u.price || (rowN && S.up.rows < rowN - 1)) { sfx('bad'); return; }
     pay(-u.price, 'Bought ' + u.name);
-    if (id === 'row3') { S.up.rows = 3; buildRack(2); } else if (id === 'row4') { S.up.rows = 4; buildRack(3); } else S.up[id] = true;
+    if (rowN) { S.up.rows = rowN; buildRack(rowN - 1); } else S.up[id] = true;
     if (id === 'row3' || id === 'row4') { if (edit.on) {} else { unbakeStatic(); bakeStatic(); } }
     if (id === 'lights') hallLights.forEach(function (l) { l.distance = 30; });
     toast(u.name + ' bought', 'good'); logEvent('Bought ' + u.name + ' for ' + money(u.price), 'good'); sfx('cash'); save();

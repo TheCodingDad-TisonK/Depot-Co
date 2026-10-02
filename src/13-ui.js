@@ -107,8 +107,8 @@
     } else if (tab === 'shop') {
       h += '<p>Bank: <b style="color:var(--cash)">' + money(S.bank) + '</b> · level ' + S.level + '. Everything is delivered and fitted at once.</p><div class="dc-grid">';
       UPGRADES.forEach(function (u) {
-        var owned = u.id === 'row3' ? S.up.rows >= 3 : u.id === 'row4' ? S.up.rows >= 4 : !!S.up[u.id];
-        var needs = u.id === 'row4' && S.up.rows < 3 ? 'Needs the third row first' : S.level < u.lvl ? 'Level ' + u.lvl : S.bank < u.price ? 'Not enough money' : '';
+        var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[u.id];
+        var needs = rowN && S.up.rows < rowN - 1 ? 'Needs the previous row first' : S.level < u.lvl ? 'Level ' + u.lvl : S.bank < u.price ? 'Not enough money' : '';
         h += '<div class="dc-card"><div class="body"><b>' + esc(u.name) + '</b><small>' + esc(u.desc) + '</small></div><div style="text-align:right"><div class="price">' + money(u.price) + '</div>' + (owned ? '<span class="dc-tag good">Owned</span>' : btn('buy', u.id, 'Buy', 'primary', !!needs) + (needs ? '<small style="display:block;color:var(--muted)">' + needs + '</small>' : '')) + '</div></div>';
       });
       h += '</div>';
@@ -153,7 +153,7 @@
   function devAct(a) {
     var tp = function (x, z) { closePanel(); player.x = x; player.z = z; player.y = floorY(x, z); player.vy = 0; };
     if (a === 'cash') pay(1000, 'Dev'); else if (a === 'cash10') pay(10000, 'Dev'); else if (a === 'level') addXp(XP_FOR(S.level) - S.xp); else if (a === 'rep') addRep(20);
-    else if (a === 'unlock') { S.up.cart = S.up.fork = S.up.lights = S.up.dock2 = S.up.sign = true; while (S.up.rows < 4) { S.up.rows++; buildRack(S.up.rows - 1); } placeTools(); }
+    else if (a === 'unlock') { S.up.cart = S.up.fork = S.up.lights = S.up.dock2 = S.up.sign = true; while (S.up.rows < RACK.rows.length) { S.up.rows++; buildRack(S.up.rows - 1); } placeTools(); }
     else if (a === 'intro') { S.intro.done = true; }
     else if (a === 't6') S.time = 6; else if (a === 't7') S.time = 7.33; else if (a === 't10') S.time = 10.33; else if (a === 't13') S.time = 13.33; else if (a === 't17') S.time = 17; else if (a === 't22') S.time = 22;
     else if (a === 'day') { S.time = 6; newDay(); }
@@ -167,7 +167,7 @@
     else if (a === 'hire') { S.level = Math.max(S.level, 4); ['receiver', 'picker', 'packer'].forEach(function (r) { if (!S.staff.some(function (s) { return s.role === r; })) hireStaff(r); }); }
     else if (a === 'fire') { S.staff.slice().forEach(function (s) { fireStaff(s.id); }); }
     else if (a === 'fork') { S.up.fork = true; S.fork.x = player.x - Math.sin(player.yaw) * 2.5; S.fork.z = player.z - Math.cos(player.yaw) * 2.5; S.fork.batt = 1; placeTools(); }
-    else if (a === 'tpIn') tp(-16.5, -8); else if (a === 'tpOut') tp(16.5, -8); else if (a === 'tpBench') tp(15.2, 5.2); else if (a === 'tpOffice') tp(15, 10.5); else if (a === 'tpBreak') tp(-16.5, -11.5); else if (a === 'tpYard') { tp(-30, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
+    else if (a === 'tpIn') tp(-26.5, -14); else if (a === 'tpOut') tp(26.5, -14); else if (a === 'tpBench') tp(25.2, 5.2); else if (a === 'tpOffice') tp(25, 20.5); else if (a === 'tpBreak') tp(-26.5, -21.5); else if (a === 'tpYard') { tp(-30, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
     sfx('click'); hudDirty = true; rebuildBoardSoon(); screenDirtyAll(); if (ui.panelOpen) renderPanel();
   }
   function panelAct(act, arg) {
@@ -188,10 +188,10 @@
   }
   function buyUpgrade(id) {
     var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; if (!u) return;
-    var owned = id === 'row3' ? S.up.rows >= 3 : id === 'row4' ? S.up.rows >= 4 : !!S.up[id];
-    if (owned || S.level < u.lvl || S.bank < u.price || (id === 'row4' && S.up.rows < 3)) { sfx('bad'); return; }
+    var rowN = /^row(\d)$/.test(id) ? +id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[id];
+    if (owned || S.level < u.lvl || S.bank < u.price || (rowN && S.up.rows < rowN - 1)) { sfx('bad'); return; }
     pay(-u.price, 'Bought ' + u.name);
-    if (id === 'row3') { S.up.rows = 3; buildRack(2); } else if (id === 'row4') { S.up.rows = 4; buildRack(3); } else S.up[id] = true;
+    if (rowN) { S.up.rows = rowN; buildRack(rowN - 1); } else S.up[id] = true;
     if (id === 'row3' || id === 'row4') { if (edit.on) {} else { unbakeStatic(); bakeStatic(); } }
     if (id === 'lights') hallLights.forEach(function (l) { l.distance = 30; });
     toast(u.name + ' bought', 'good'); logEvent('Bought ' + u.name + ' for ' + money(u.price), 'good'); sfx('cash'); save();

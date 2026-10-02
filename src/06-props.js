@@ -4,7 +4,11 @@
   // definition unless S.layout[id] overrides it. Bought extras live in S.custom as { id, type, x, z, rot }. Rotation is in quarter
   // turns. Each prop builds into its own group, so moving it is: remove the instance, build it again at the new spot.
   var PROPS = {}, PROP_ORDER = [], propInst = {};
-  function defProp(id, def) { def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
+  // defaults were authored for the 40 x 28 hall; the hall grew by 10 m on every side, so anything near a wall follows its wall
+  function grown(v) { return Math.abs(v) >= 8 ? v + (v < 0 ? -HALL_GROW : HALL_GROW) : v; }
+  var HALL_GROW = HALL.x - 20;
+  function defProp(id, def) {
+    if (!def.abs && typeof def.x === 'number') { def.x = grown(def.x); def.z = grown(def.z); } def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
   function propDef(id) { if (PROPS[id]) return PROPS[id]; var c = customById(id); return c ? PROPS[c.type] : null; }
   function customById(id) { return (S.custom || []).filter(function (c) { return c.id === id; })[0] || null; }
   function propPlacement(id) {
@@ -86,9 +90,9 @@
     if (WALLS.length) return WALLS;
     var X = HALL.x, Z = HALL.z;
     WALLS.push({ a: 'x', v: -X + 0.17, n: 1, z0: -Z, z1: Z }, { a: 'x', v: X - 0.17, n: -1, z0: -Z, z1: Z }, { a: 'z', v: -Z + 0.17, n: 1, x0: -X, x1: X }, { a: 'z', v: Z - 0.17, n: -1, x0: -X, x1: X });
-    WALLS.push({ a: 'x', v: 12.42, n: -1, z0: 8.5, z1: Z }, { a: 'x', v: 12.58, n: 1, z0: 8.5, z1: Z }, { a: 'z', v: 8.42, n: -1, x0: 12.5, x1: X }, { a: 'z', v: 8.58, n: 1, x0: 12.5, x1: X });
-    WALLS.push({ a: 'x', v: -15.58, n: 1, z0: 8.5, z1: Z }, { a: 'x', v: -15.42, n: -1, z0: 8.5, z1: Z }, { a: 'z', v: 8.42, n: -1, x0: -X, x1: -15.5 }, { a: 'z', v: 8.58, n: 1, x0: -X, x1: -15.5 });
-    WALLS.push({ a: 'x', v: -13.08, n: 1, z0: -Z, z1: -10.2 }, { a: 'x', v: -12.92, n: -1, z0: -Z, z1: -10.2 }, { a: 'z', v: -10.28, n: -1, x0: -X, x1: -13 }, { a: 'z', v: -10.12, n: 1, x0: -X, x1: -13 });
+    WALLS.push({ a: 'x', v: 22.42, n: -1, z0: 18.5, z1: Z }, { a: 'x', v: 22.58, n: 1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: 22.5, x1: X }, { a: 'z', v: 18.58, n: 1, x0: 22.5, x1: X });
+    WALLS.push({ a: 'x', v: -25.58, n: 1, z0: 18.5, z1: Z }, { a: 'x', v: -25.42, n: -1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: -X, x1: -25.5 }, { a: 'z', v: 18.58, n: 1, x0: -X, x1: -25.5 });
+    WALLS.push({ a: 'x', v: -23.08, n: 1, z0: -Z, z1: -20.2 }, { a: 'x', v: -22.92, n: -1, z0: -Z, z1: -20.2 }, { a: 'z', v: -20.28, n: -1, x0: -X, x1: -23 }, { a: 'z', v: -20.12, n: 1, x0: -X, x1: -23 });
     return WALLS;
   }
   function editAim(def) {
@@ -410,28 +414,28 @@
   function aisleSignBuild(text) { return function (c) { c.sign([text], 2.2, 0.5, 0, 5.4, 0, 0, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.sign([text], 2.2, 0.5, 0, 5.4, 0, Math.PI, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.cyl(0.006, 1.3, MAT.steelDark, -0.9, 6.3, 0, 4); c.cyl(0.006, 1.3, MAT.steelDark, 0.9, 6.3, 0, 4); }; }
 
   // ── Default layout ────────────────────────────────────────────────
-  for (var rr = 0; rr < 4; rr++) (function (r) { defProp('rack' + r, { label: 'rack row ' + 'ABCD'[r], cat: 'hall', x: 0, z: RACK.rows[r], rot: 0, build: rackBuild(r), when: function () { return r < S.up.rows; } }); })(rr);
+  for (var rr = 0; rr < RACK.rows.length; rr++) (function (r) { defProp('rack' + r, { label: 'rack row ' + 'ABCDEF'[r], cat: 'hall', abs: true, x: 0, z: RACK.rows[r], rot: 0, build: rackBuild(r), when: function () { return r < S.up.rows; } }); })(rr);
   defProp('timeclock', { label: 'time clock', cat: 'wall', wall: true, x: -19.74, z: 10.2, rot: 1, build: timeclockBuild });
   defProp('cabinet', { label: 'control cabinet', cat: 'wall', wall: true, x: 12.42, z: 12.6, rot: 3, build: cabinetBuild });
-  defProp('consoleIn0', { label: 'dock console IN 1', cat: 'wall', wall: true, x: -19.7, z: -5.5, rot: 1, build: consoleBuild(0) });
-  defProp('consoleIn1', { label: 'dock console IN 2', cat: 'wall', wall: true, x: -19.7, z: 2.5, rot: 1, build: consoleBuild(1) });
-  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, x: 19.7, z: -5.5, rot: 3, build: consoleBuild(2) });
-  defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, x: 19.7, z: 2.5, rot: 3, build: consoleBuild(3) });
+  defProp('consoleIn0', { label: 'dock console IN 1', cat: 'wall', wall: true, abs: true, x: -29.7, z: -11.5, rot: 1, build: consoleBuild(0) });
+  defProp('consoleIn1', { label: 'dock console IN 2', cat: 'wall', wall: true, abs: true, x: -29.7, z: -3.5, rot: 1, build: consoleBuild(1) });
+  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, abs: true, x: 29.7, z: -11.5, rot: 3, build: consoleBuild(2) });
+  defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, abs: true, x: 29.7, z: -3.5, rot: 3, build: consoleBuild(3) });
   defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
   defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, build: boardBuild });
   defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, x: 0, z: 13.83, rot: 2, build: chargerBuild });
   defProp('painted', { label: 'painted name', cat: 'wall', wall: true, x: 0, z: -13.83, rot: 0, build: paintedBuild });
-  [['aisleAB', -4, 'AISLE  A · B'], ['aisleBC', 0, 'AISLE  B · C'], ['aisleCD', 4, 'AISLE  C · D']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
+  [['aisleAB', -8, 'AISLE  A · B'], ['aisleBC', -4, 'AISLE  B · C'], ['aisleCD', 0, 'AISLE  C · D'], ['aisleDE', 4, 'AISLE  D · E'], ['aisleEF', 8, 'AISLE  E · F']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', abs: true, x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
   [[-30, -12], [-30, 10], [30, -12], [30, 10]].forEach(function (p, i) { defProp('lamp' + i, { label: 'lamp post', cat: 'yard', yard: true, x: p[0], z: p[1], rot: 0, build: lampPostBuild }); });
-  [0, 1, 3, 4].forEach(function (k, i) { defProp('car' + i, { label: 'parked car', cat: 'yard', yard: true, x: -17.65 + k * 2.7, z: 21.5, rot: 1, build: carBuild(k) }); });
+  [0, 1, 3, 4].forEach(function (k, i) { defProp('car' + i, { label: 'parked car', cat: 'yard', yard: true, abs: true, x: -27.65 + k * 2.7, z: 31.5, rot: 1, build: carBuild(k) }); });
   var treeN = 0; for (var tx = -56; tx <= 56; tx += 14) { defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: tx, z: -56, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: tx + 7, z: 56, rot: 0, build: treeBuild }); }
   defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: -30, z: 24, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: 30, z: 26, rot: 0, build: treeBuild });
   defProp('xLampPost', { extra: true, label: 'lamp post', ico: '💡', cat: 'yard', yard: true, price: 350, desc: 'Lights the yard at night.', build: lampPostBuild });
   defProp('xCar', { extra: true, label: 'parked car', ico: '🚗', cat: 'yard', yard: true, price: 0, desc: 'Somebody is in.', build: function (c) { carBuild(pick(CAR_COLS))(c); } });
   defProp('xAisleSign', { extra: true, label: 'aisle sign', ico: '🪧', cat: 'hall', price: 40, desc: 'Hangs from the roof.', build: aisleSignBuild('AISLE') });
 
-  // The entrance lobby (x -20 to -15.5, z 8.5 to 14): the staff door on the west wall at z 12, the lobby door east at z 10.
-  // The time clock, lockers and hooks live here. The break room is the north-west corner (x -20 to -13, z -14 to -10.2), above IN 1.
+  // The entrance lobby (x -30 to -25.5, z 18.5 to 24): the staff door on the west wall at z 22, the lobby door east at z 20.
+  // The time clock, lockers and hooks live here. The break room is the north-west corner (x -30 to -23, z -24 to -20.2), above IN 1.
   defProp('lockers', { label: 'lockers', cat: 'room', x: -18.4, z: 13.55, rot: 0, build: lockerBuild });
   defProp('hooks', { label: 'coat hooks', cat: 'room', wall: true, x: -16.6, z: 13.83, rot: 2, build: hooksBuild });
   defProp('notice', { label: 'notice board', cat: 'wall', wall: true, x: -17.5, z: 8.59, rot: 0, build: noticeBuild });
@@ -473,9 +477,9 @@
   defProp('hose', { label: 'hose reel', cat: 'wall', wall: true, x: 0, z: -13.83, rot: 0, build: hoseBuild });
   defProp('extNW', { label: 'fire extinguisher', cat: 'wall', wall: true, x: -19.83, z: -12, rot: 1, build: extinguisherBuild });
   defProp('extNE', { label: 'fire extinguisher', cat: 'wall', wall: true, x: 19.83, z: -12, rot: 3, build: extinguisherBuild });
-  defProp('extBench', { label: 'fire extinguisher', cat: 'wall', wall: true, x: 12.42, z: 6.5, rot: 3, build: extinguisherBuild });
+  defProp('extBench', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 29.83, z: 6.5, rot: 3, build: extinguisherBuild });
   defProp('clockHall', { label: 'hall clock', cat: 'wall', wall: true, x: 0, z: -13.7, rot: 0, build: function (c) { var f = clockBuild(0.5); f(c); c.group.children[c.group.children.length - 1].position.y = 5.8 - 2.7 + 2.7; } });
-  defProp('posterLift', { label: 'lifting poster', cat: 'wall', wall: true, x: -19.83, z: -4, rot: 1, build: posterBuild('lifting', 0.7, 1.05) });
+  defProp('posterLift', { label: 'lifting poster', cat: 'wall', wall: true, abs: true, x: -29.83, z: 2, rot: 1, build: posterBuild('lifting', 0.7, 1.05) });
   defProp('posterFork', { label: 'forklift poster', cat: 'wall', wall: true, x: 2.2, z: 13.83, rot: 2, build: posterBuild('forklift', 0.7, 1.05) });
   defProp('posterStack', { label: 'pallet-rules poster', cat: 'wall', wall: true, x: -6, z: 13.83, rot: 2, build: posterBuild('stacking', 0.7, 1.05) });
   defProp('posterOffice', { label: 'safety poster', cat: 'wall', wall: true, x: 12.42, z: 11.5, rot: 3, build: posterBuild('safety', 0.7, 1.05) });

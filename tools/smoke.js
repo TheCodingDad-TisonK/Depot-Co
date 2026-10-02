@@ -52,7 +52,7 @@ const SCENARIO = `(async () => {
   T.setTime(9); const o = T.genOrder(false); ok(!!o, 'order generated #' + (o && o.num));
   o.lines.forEach((l) => { while (T.stockCount(l.sku) < l.qty) { const k = T.findSlotFor(l.sku, 1, 1); S.slots[k] = S.slots[k] && S.slots[k].n ? S.slots[k] : { sku: l.sku, n: 0 }; S.slots[k].n += 1; } });
   const firstLine = o.lines[0]; const srcKey = Object.keys(S.slots).find((k) => S.slots[k].sku === firstLine.sku && S.slots[k].n > 0);
-  T.player.x = 15.5; T.player.z = 5.2;
+  T.player.x = 25.5; T.player.z = 5.2;
   T.slotUse(srcKey); ok(S.hand && S.hand.sku === firstLine.sku, 'picked one box for the order');
   T.benchUse(); ok(!S.hand && S.bench.boxes[firstLine.sku] === 1, 'box on the bench');
   o.lines.forEach((l, i) => { const need = l.qty - (i === 0 ? 1 : 0); for (let q = 0; q < need; q++) { const k = Object.keys(S.slots).find((kk) => S.slots[kk].sku === l.sku && S.slots[kk].n > 0); S.slots[k].n--; if (!S.slots[k].n) delete S.slots[k]; T.benchAdd(l.sku, 1); } });
@@ -88,15 +88,15 @@ const SCENARIO = `(async () => {
   o2.lines.forEach((l) => { while (T.stockCount(l.sku) < l.qty) { const k = T.findSlotFor(l.sku, 1, 1); S.slots[k] = S.slots[k] && S.slots[k].n ? S.slots[k] : { sku: l.sku, n: 0 }; S.slots[k].n += 1; } });
   T.run(120); ok(Object.keys(S.bench.boxes).length > 0, 'picker brought boxes to the bench: ' + JSON.stringify(S.bench.boxes));
   // the forklift: lift a floor pallet and store it on the shelf level
-  const fp = T.newPallet('paint', 8, { place: 'floor', x: 3.5, y: 0, z: 9.5, rot: 0 });
-  S.fork.x = 2; S.fork.z = 9.5; S.fork.yaw = Math.PI / 2; S.fork.lift = 0.1;
+  const fp = T.newPallet('paint', 8, { place: 'floor', x: 3.5, y: 0, z: 19.5, rot: 0 });
+  S.fork.x = 2; S.fork.z = 19.5; S.fork.yaw = Math.PI / 2; S.fork.lift = 0.1;
   T.startDrive(); ok(T.ui && window.DEPOT.T.player, 'driving the forklift');
   T.forkUse(); ok(S.fork.pallet === fp.id, 'forks lifted the pallet');
-  S.fork.x = -10.5; S.fork.z = -3.6; S.fork.yaw = 0; S.fork.lift = 1.55;
+  S.fork.x = -21; S.fork.z = -7.6; S.fork.yaw = 0; S.fork.lift = 1.55;
   const k10 = T.slotKey(1, 0, 1); delete S.slots[k10];
   T.forkUse(); ok(!S.fork.pallet && S.slots[k10] && S.slots[k10].n === 8, 'pallet stored on B1 shelf by forklift');
   T.stopDrive(); ok(!S.fork.pallet, 'got off the forklift');
-  S.fork.x = 0; S.fork.z = 10.5; S.fork.batt = 0.4; T.player.x = 0; T.player.z = 12; T.cableUse('fork'); ok(T.player.tool === 'cable', 'took the charging cable'); T.cablePlugInto('fork'); ok(S.fork.plugged === true && T.player.tool === null, 'forklift plugged in'); const bt0 = S.fork.batt; T.run(20); ok(S.fork.batt > bt0, 'charging while plugged: ' + S.fork.batt.toFixed(2)); T.startDrive(); ok(S.fork.plugged === false, 'driving off pulled the plug'); T.stopDrive();
+  S.fork.x = 0; S.fork.z = 20.5; S.fork.batt = 0.4; T.player.x = 0; T.player.z = 22; T.cableUse('fork'); ok(T.player.tool === 'cable', 'took the charging cable'); T.cablePlugInto('fork'); ok(S.fork.plugged === true && T.player.tool === null, 'forklift plugged in'); const bt0 = S.fork.batt; T.run(20); ok(S.fork.batt > bt0, 'charging while plugged: ' + S.fork.batt.toFixed(2)); T.startDrive(); ok(S.fork.plugged === false, 'driving off pulled the plug'); T.stopDrive();
   // contracts, the bank, damaged goods
   S.level = 3; S.contract = null; S.nextOffer = S.day; T.setTime(9.05); T.run(2); ok(!!S.contract && !S.contract.accepted, 'contract offered');
   S.contract.accepted = true; S.contract.need = 1; const co = T.genOrder(false); co.client = S.contract.client; co.lines = [{ sku: 'bolts', qty: 1 }]; T.benchAdd('bolts', 1); T.packOrder(co);
@@ -105,11 +105,11 @@ const SCENARIO = `(async () => {
   S.staff.forEach((st) => { st.hoursToday = 8; }); S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
   ok(S.staff[0].sheet && S.staff[0].sheet[0] && S.staff[0].sheet[0].h === 8 && S.staff[0].sheet[0].pay === Math.round(T.hourly(S.staff[0]) * 8), 'wages paid from the timesheet: ' + JSON.stringify(S.staff[0].sheet[0]));
   S.level = 3; T.editToggle(); const rackP = T.propInst.rack0; ok(!!rackP, 'rack row A is a prop'); T.editGrab('rack0'); rackP.g.position.set(0.5, 0, -6); T.editDrop(false); const sp = T.slotKey(0, 0, 0); ok(Math.abs(T.propInst.rack0.P.x - 0.5) < 0.01 && S.slots[sp] && S.slots[sp].n > 0, 'rack moved with its stock'); T.editReset('rack0'); T.editToggle();
-  S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 15; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(14.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
+  S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 25; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(24.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
   // the office PC: sit down, the screen draws, stand up
   T.openPc(); ok(T.pc.on === true, 'sat down at the PC'); T.run(1); ok(T.pc.screen && T.pc.screen.zones.length > 5, 'the PC screen has ' + (T.pc.screen ? T.pc.screen.zones.length : 0) + ' buttons'); T.closePc(); ok(T.pc.on === false, 'stood up from the PC');
   // build mode: grab the cot, move it, turn it, put it back, remove and restore, buy a chair
-  T.player.x = -16; T.player.z = -11.5; T.player.y = 0; T.editToggle(); ok(T.edit.on === true, 'build mode on');
+  T.player.x = -26; T.player.z = -21.5; T.player.y = 0; T.editToggle(); ok(T.edit.on === true, 'build mode on');
   const cot0 = { x: T.propInst.cot.P.x, z: T.propInst.cot.P.z };
   T.editGrab('cot'); ok(T.edit.grabbed === 'cot', 'grabbed the cot');
   T.propInst.cot.g.position.set(-16, 0, -11); T.editDrop(false); ok(S.layout.cot && Math.abs(S.layout.cot.x + 16) < 0.01, 'cot placed and saved: ' + JSON.stringify(S.layout.cot));
