@@ -38,7 +38,7 @@ The dock consoles and the bench terminal are touch screens: look at a button and
 
 ## Build mode
 
- is build mode. Aim at any piece of furniture, a machine, a poster, a clock or a sign and  grabs it; it follows your aim along the floor (wall pieces slide along the nearest wall),  turns it a quarter,  puts it down,  drops it back where it was.  puts a piece back where it started,  removes it.  opens the catalogue: anything you removed can come back, and there are extras to buy, which sell back for half. The layout saves when you leave build mode.
+`F2` is build mode. Aim at any piece of furniture, a machine, a poster, a clock or a sign and `E` grabs it; it follows your aim along the floor (wall pieces slide along the nearest wall), `R` turns it a quarter, `E` puts it down, `Esc` drops it back where it was. `Backspace` puts a piece back where it started, `Del` removes it. `C` opens the catalogue: anything you removed can come back, and there are extras to buy, which sell back for half. The layout saves when you leave build mode.
 
 ## Money
 
