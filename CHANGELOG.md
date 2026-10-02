@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.5 (2026-10-02)
+
+- A 0.6 m slot between the hall floor edge and a docked trailer bed dropped to yard level, so you fell in with the jack and the forklift refused the trailer. Every dock has a leveller plate now, with a hinged lip and a hazard edge, and the floor treats a docked trailer as reaching the wall.
+
 ## 1.10.4 (2026-10-02)
 
 - The forklift dash display sits on a stalk on top of the cowl, in a bezel, facing the seat; it was tucked under the cowl behind the wheel and facing away.

@@ -79,6 +79,8 @@
     var x = side * HALL.x;
     var panel = new THREE.Mesh(boxGeo(0.12, DOCKS.h, DOCKS.w), MAT.door); panel.castShadow = true; panel.receiveShadow = true;
     panel.position.set(x - side * 0.22, DOCKS.h / 2, z); scene.add(panel);
+    // the dock leveller: a plate from the hall edge out over the slot to the trailer bed, with a hinged lip and a hazard edge
+    var lev = box(0.72, 0.05, 2.3, MAT.chequer, side * (HALL.x + 0.1), 0.0, z); lev.receiveShadow = true; box(0.2, 0.03, 2.3, MAT.hazard, side * (HALL.x + 0.5), 0.02, z).rotation.z = side * 0.12; box(0.06, 0.08, 2.3, MAT.steelDark, side * (HALL.x - 0.22), -0.02, z);
     var d = { i: i, side: side, z: z, panel: panel, anim: S.doors[i] ? 1 : 0 };
     addInter(panel, { prompt: function () { return S.doors[i] ? null : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + ' · the cabinet and the consoles close it'); }, use: function () { if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });
     // a pull cord inside, to bring a door down without walking to the cabinet
@@ -207,7 +209,7 @@
   // where the player stands: the hall floor, a docked trailer's floor, the ramp, or the yard
   function floorY(x, z) {
     if ((Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z)) return 0;
-    for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state !== 'docked') continue; var b = trailerBounds(t); if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return 0; }
+    for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state !== 'docked') continue; var b = trailerBounds(t); if (x > b.x0 - 0.7 && x < b.x1 + 0.7 && z > b.z0 && z < b.z1) return 0; }
     if (x <= -HALL.x && x > -HALL.x - 7.2 && Math.abs(z - SPOT.staffDoor.z) < 1) return lerp(0, YARD_Y, (-HALL.x - x) / 7);
     return YARD_Y;
   }
