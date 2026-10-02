@@ -62,7 +62,7 @@
       S.staff.slice(0, 3).forEach(function (st2) { if (y < h - 40) y = scanRow(c, y, null, st2.name + ' · ' + staffStatus(st2), (Math.round((st2.hoursToday || 0) * 10) / 10) + ' h today', undefined, !!st2.clocked); });
       if (S.clockedIn && y < h - 40) y = scanRow(c, y, null, 'You: on the clock', 'since ' + fmtTime(S.clockInAt), (Math.round(myHours() * 10) / 10) + ' h', true);
       if (S.contract && S.contract.accepted && y < h - 40) y = scanRow(c, y, null, 'Contract: ' + clientName(S.contract.client).slice(0, 16), S.contract.done + ' of ' + S.contract.need + ' by ' + fmtTime(S.contract.until % 24) + ' · ' + money(S.contract.bonus), undefined, true);
-      if (S.up.fork) y = scanRow(c, y, null, 'Forklift battery', forkCharging() ? 'charging' : 'in the bay to charge', Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100) + '%', (S.fork.batt || 1) > 0.3);
+      if (S.up.fork) y = scanRow(c, y, null, 'Forklift battery', forkCharging() ? 'charging' : S.fork.plugged ? 'plugged in, full' : 'not plugged in', Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100) + '%', (S.fork.batt || 1) > 0.3);
     }
     // the slot under the crosshair, if any
     if (focus && focus.slot && y < h - 30) { var sl = S.slots[focus.slot]; c.fillStyle = 'rgba(95,211,141,0.15)'; c.fillRect(0, h - 30, w, 30); c.fillStyle = '#5fd38d'; c.font = 'bold 10px Bahnschrift, Arial'; c.fillText('▶ ' + slotName(focus.slot), 10, h - 17); c.fillStyle = '#eef1f5'; c.font = '10px Bahnschrift, Arial'; c.fillText(sl && sl.n ? sl.n + ' × ' + skuName(sl.sku) : 'empty', 10, h - 5); }

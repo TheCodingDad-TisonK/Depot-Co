@@ -51,13 +51,13 @@
     box(0.14, 0.1, 0.06, MAT.lamp, -0.45, 1.0, 0.72, f); box(0.14, 0.1, 0.06, MAT.lamp, 0.45, 1.0, 0.72, f); box(0.12, 0.08, 0.05, MAT.red, -0.4, 0.75, -1.43, f); box(0.12, 0.08, 0.05, MAT.red, 0.4, 0.75, -1.43, f);
     sign(['DC-01'], 0.3, 0.09, 0, 0.55, -1.44, Math.PI, { w: 256, h: 80, bg: '#f5f1e6', fg: '#1b232c' }, f); sign(['2.5 t'], 0.3, 0.12, -0.56, 0.5, -0.4, -Math.PI / 2, { w: 256, h: 96, bg: '#1b232c', fg: '#f5b53d' }, f);
     cyl(0.04, 0.3, MAT.red, 0.5, 1.4, -1.1, f, 10); box(0.03, 0.12, 0.1, MAT.chrome, -0.6, 1.9, 0.1, f);
-    hitBox(1.1, 1.4, 1.4, 0, 1.2, -0.3, { prompt: function () { return S.up.fork ? (S.hand || player.tool ? 'Hands full' : 'Drive the forklift') : null; }, use: function () { startDrive(); } }, f);
+    hitBox(1.1, 1.4, 1.4, 0, 1.2, -0.3, { prompt: function () { if (!S.up.fork) return null; if (player.tool === 'cable') return 'Plug the forklift in'; if (S.fork.plugged) return 'Forklift on charge · unplug at the charger · E drives off anyway'; return S.hand || player.tool ? 'Hands full' : 'Drive the forklift'; }, use: function () { if (player.tool === 'cable') { cablePlugInto('fork'); return; } startDrive(); } }, f);
     forkM = { g: f, car: car, beacon: beaconLens };
     placeTools();
   }
-  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return tool === 'jack' ? 'Grab the pallet jack' : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
-  function grabTool(tool) { if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
-  function releaseTool() { if (!player.tool) return; var w = toolWorld(player.tool); var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
+  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (tool === 'jack' && player.tool === 'jcable') return 'Plug the jack in'; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return tool === 'jack' ? 'Grab the pallet jack' : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
+  function grabTool(tool) { if (tool === 'jack' && player.tool === 'jcable') { cablePlugInto('jack'); return; } if (tool === 'jack' && S.jack.plugged) { S.jack.plugged = false; toast('Jack unplugged', ''); } if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
+  function releaseTool() { if (!player.tool) return; if (player.tool === 'cable' || player.tool === 'jcable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool); var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
   function placeTools() {
     var jw = toolWorld('jack'); jackMesh.position.set(jw.x, floorY(jw.x, jw.z), jw.z); jackMesh.rotation.y = jw.ry;
     var cw = toolWorld('cart'); cartMesh.position.set(cw.x, floorY(cw.x, cw.z), cw.z); cartMesh.rotation.y = cw.ry; cartMesh.visible = !!S.up.cart;
@@ -68,6 +68,7 @@
   function forkTip() { return { x: S.fork.x + Math.sin(S.fork.yaw) * 1.5, y: S.fork.lift, z: S.fork.z + Math.cos(S.fork.yaw) * 1.5 }; }
   function startDrive() {
     if (!S.up.fork || S.hand || player.tool || driving) return;
+    if (S.fork.plugged) cableUnplugFork('You drove off with the charger plugged in. The plug came out.');
     driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = 0; sfx('forklift'); introStep('fork'); hudDirty = true;
     $('h-drive').hidden = false;
   }

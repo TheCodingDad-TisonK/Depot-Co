@@ -229,6 +229,7 @@
       animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, carrying);
     });
   }
+  function benchSide(lz) { var P = PROPS.bench ? propPlacement('bench') : { x: SPOT.bench.x, z: SPOT.bench.z, rot: 0 }, a = P.rot * Math.PI / 2, lx = -1.0; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a) }; }
   function clockStand() { var P = propPlacement('timeclock'), a = P.rot * Math.PI / 2; return { x: P.x + Math.sin(a) * 1.0, z: P.z + Math.cos(a) * 1.0 }; }
   function clockFaceYaw() { var P = propPlacement('timeclock'); return P.rot * Math.PI / 2 + Math.PI; }
   function staffWait(st, sec, after, working) { st.state = 'wait'; st.timer = sec; st.after = after; st.working = !!working; }
@@ -252,7 +253,7 @@
   }
   function pickerThink(st) {
     if (st.carry) {
-      staffGo(st, { x: SPOT.bench.x - 1.0, z: SPOT.bench.z }, 'wait'); st.timer = 0.8; st.working = true;
+      staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true;
       st.after = function () { if (!st.carry) return; if (benchCount() < ECON.benchCap) { benchAdd(st.carry.sku, 1); st.carry = null; sfx('putdown'); addXp(XP.box); } else { staffSay(st, voice(st).full, '#ff6b5e'); staffWait(st, 3); } st.task = null; };
       return;
     }
@@ -274,13 +275,13 @@
     }
     var packable = openOrders().filter(canPack).sort(function (a, b) { return a.due - b.due; })[0];
     if (packable) {
-      staffGo(st, { x: SPOT.bench.x - 1.0, z: SPOT.bench.z + 0.8 }, 'wait'); st.timer = 2.8; st.working = true;
+      staffGo(st, benchSide(0.8), 'wait'); st.timer = 2.8; st.working = true;
       st.after = function () { if (canPack(packable)) { packOrder(packable); } };
       return;
     }
     var truck = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[2 + x.dock]; })[0];
     if (truck && S.bench.parcels.length) {
-      staffGo(st, { x: SPOT.benchOut.x - 1.0, z: SPOT.benchOut.z + 0.3 }, 'wait'); st.timer = 0.7; st.working = true;
+      staffGo(st, benchSide(2.3), 'wait'); st.timer = 0.7; st.working = true;
       st.after = function () { var oid = S.bench.parcels.shift(); if (oid) { st.carry = { kind: 'parcel', order: oid }; sfx('pickup'); } };
       return;
     }

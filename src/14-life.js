@@ -75,8 +75,51 @@
     radio.gain.gain.setTargetAtTime(g, AC.currentTime, 0.2);
   }
 
+  // ── Charging cables ───────────────────────────────────────────────
+  // Each charger has a cable on a reel. E takes the plug; walk it to the forklift (or the jack) and E plugs it in. A tube hangs
+  // between the reel and wherever the plug is. Charging happens only while plugged in; driving off pulls the plug.
+  var cables = { fork: { tool: 'cable', prop: 'charger', mesh: null, plugged: function () { return !!S.fork.plugged; } }, jack: { tool: 'jcable', prop: 'jackCharger', mesh: null, plugged: function () { return !!S.jack.plugged; } } };
+  var CABLE_REACH = 8;
+  function cableReel(prop) { var P = PROPS[prop] ? propPlacement(prop) : null; if (!P) return null; var a = P.rot * Math.PI / 2, lx = prop === 'charger' ? -0.28 : 0, ly = prop === 'charger' ? 0.75 : 0.8, lz = -0.05; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), y: propGroundY(P.x, P.z) + ly, z: P.z - lx * Math.sin(a) + lz * Math.cos(a) }; }
+  function cablePlugEnd(k) {
+    var cb = cables[k];
+    if (player.tool === cb.tool) return { x: player.x - Math.sin(player.yaw) * 0.35 + Math.cos(player.yaw) * 0.25, y: player.y + 1.0, z: player.z - Math.cos(player.yaw) * 0.35 - Math.sin(player.yaw) * 0.25 };
+    if (cb.plugged()) { if (k === 'fork') return { x: S.fork.x - Math.sin(S.fork.yaw) * 1.0, y: floorY(S.fork.x, S.fork.z) + 0.95, z: S.fork.z - Math.cos(S.fork.yaw) * 1.0 }; var jw = toolWorld('jack'); return { x: jw.x - Math.sin(jw.ry) * 0.7, y: floorY(jw.x, jw.z) + 0.35, z: jw.z - Math.cos(jw.ry) * 0.7 }; }
+    return null;
+  }
+  function cablePrompt(k) { var cb = cables[k], name = k === 'fork' ? 'forklift' : 'jack'; if (player.tool === cb.tool) return 'Hang the ' + name + ' cable back on the reel'; if (cb.plugged()) return 'Unplug the ' + name + ' (E)'; if (player.tool || S.hand) return 'Hands full'; return 'Take the ' + name + ' charging cable'; }
+  function cableUse(k) {
+    var cb = cables[k], name = k === 'fork' ? 'forklift' : 'jack';
+    if (player.tool === cb.tool) { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; }
+    if (cb.plugged()) { if (k === 'fork') S.fork.plugged = false; else S.jack.plugged = false; sfx('click'); toast(name.charAt(0).toUpperCase() + name.slice(1) + ' unplugged', ''); screenDirtyAll(); hudDirty = true; return; }
+    if (player.tool || S.hand || driving) { toast('Hands full.', 'bad'); return; }
+    player.tool = cb.tool; sfx('pickup'); toast('Carrying the cable · E on the ' + name + ' plugs it in · it reaches ' + CABLE_REACH + ' m', ''); hudDirty = true;
+  }
+  function cablePlugInto(k) {
+    var cb = cables[k], reel = cableReel(cb.prop), name = k === 'fork' ? 'forklift' : 'jack'; if (player.tool !== cb.tool) return false;
+    var tgt = k === 'fork' ? { x: S.fork.x, z: S.fork.z } : toolWorld('jack');
+    if (reel && Math.sqrt(dist2(reel.x, reel.z, tgt.x, tgt.z)) > CABLE_REACH) { toast('The cable does not reach. Bring the ' + name + ' nearer the charger.', 'bad'); return true; }
+    if (k === 'fork') S.fork.plugged = true; else S.jack.plugged = true;
+    player.tool = null; sfx('click'); toast(name.charAt(0).toUpperCase() + name.slice(1) + ' plugged in' + (k === 'fork' ? ': charging' : ''), 'good'); addXp(2); screenDirtyAll(); hudDirty = true; return true;
+  }
+  function cableUnplugFork(why) { if (S.fork.plugged) { S.fork.plugged = false; toast(why || 'The charger plug came out', 'bad'); sfx('bad'); screenDirtyAll(); } }
+  var cableMat = std({ color: 0x1a1c20, roughness: 0.9 });
+  function tickCables(dt) {
+    Object.keys(cables).forEach(function (k) {
+      var cb = cables[k], reel = cableReel(cb.prop), end = reel ? cablePlugEnd(k) : null;
+      if (player.tool === cb.tool && reel && Math.sqrt(dist2(reel.x, reel.z, player.x, player.z)) > CABLE_REACH + 0.5) { player.tool = null; toast('The cable only reaches ' + CABLE_REACH + ' m. It snapped back onto the reel.', 'bad'); sfx('bad'); hudDirty = true; end = null; }
+      if (!end) { if (cb.mesh) { cb.mesh.visible = false; } return; }
+      var mid = new THREE.Vector3((reel.x + end.x) / 2, Math.min(reel.y, end.y) - 0.35 - Math.sqrt(dist2(reel.x, reel.z, end.x, end.z)) * 0.06, (reel.z + end.z) / 2);
+      var curve = new THREE.CatmullRomCurve3([new THREE.Vector3(reel.x, reel.y, reel.z), new THREE.Vector3(reel.x, reel.y - 0.3, reel.z), mid, new THREE.Vector3(end.x, end.y - 0.15, end.z), new THREE.Vector3(end.x, end.y, end.z)]);
+      var geo = new THREE.TubeGeometry(curve, 24, 0.018, 6, false);
+      if (!cb.mesh) { cb.mesh = new THREE.Mesh(geo, cableMat); cb.mesh.castShadow = true; cb.mesh.userData.dynamic = true; scene.add(cb.mesh); } else { cb.mesh.geometry.dispose(); cb.mesh.geometry = geo; }
+      cb.mesh.visible = true;
+    });
+    handPlug.visible = player.tool === 'cable' || player.tool === 'jcable';
+  }
+
   // ── The forklift battery ──────────────────────────────────────────
-  function forkCharging() { if (!S.up.fork || driving || S.fork.batt >= 1) return false; var P = PROPS.charger ? propPlacement('charger') : { x: SPOT.fork.x, z: SPOT.fork.z - 3 }; return dist2(S.fork.x, S.fork.z, P.x, P.z) < 3.2 * 3.2; }
+  function forkCharging() { return !!S.up.fork && !driving && !!S.fork.plugged && S.fork.batt < 1; }
   function tickBattery(dt) {
     if (!S.up.fork) return;
     if (S.fork.batt === undefined) S.fork.batt = 1;
@@ -110,5 +153,5 @@
 
   function tickLife(dt) {
     if (!ui.started || ui.blocked()) return;
-    tickWeatherState(dt); tickRadio(); tickBattery(dt); tickWrapper(dt);
+    tickWeatherState(dt); tickRadio(); tickBattery(dt); tickWrapper(dt); tickCables(dt);
   }

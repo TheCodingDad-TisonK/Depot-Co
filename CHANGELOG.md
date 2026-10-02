@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1 (2026-10-02)
+
+- Charging is a thing you do: take the cable off the charging point, walk it to the forklift and press E to plug in. It charges only while plugged, driving off pulls the plug, and the cable hangs between the reel and the plug. The jack has its own small charger at its bay on the west wall. The charger display shows the state.
+- Boxes on the packing bench no longer sit inside the terminal: the grid starts past it. Boxes, parcels and the crew follow the bench when it is turned in build mode.
+
 ## 1.6.0 (2026-10-02)
 
 From Tyson's issues list.
