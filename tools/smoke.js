@@ -92,6 +92,13 @@ const SCENARIO = `(async () => {
   const k10 = T.slotKey(1, 0, 1); delete S.slots[k10];
   T.forkUse(); ok(!S.fork.pallet && S.slots[k10] && S.slots[k10].n === 8, 'pallet stored on B1 shelf by forklift');
   T.stopDrive(); ok(!S.fork.pallet, 'got off the forklift');
+  // contracts, the bank, damaged goods
+  S.level = 3; S.contract = null; S.nextOffer = S.day; T.setTime(9.05); T.run(2); ok(!!S.contract && !S.contract.accepted, 'contract offered');
+  S.contract.accepted = true; S.contract.need = 1; const co = T.genOrder(false); co.client = S.contract.client; co.lines = [{ sku: 'bolts', qty: 1 }]; T.benchAdd('bolts', 1); T.packOrder(co);
+  delete S.flags['out' + S.day + '-0']; S.trucks.filter((t) => t.dir === 'out').forEach((t) => { T.truckLeave(t, 'test'); }); T.run(20); T.setTime(10.4); T.run(30); const tc = T.truckAtDoor(2); ok(!!tc, 'outbound truck for the contract test'); T.setDoor(2, true); T.shelfUse({ kind: 'shelf', order: co.id }); T.loadUse(tc.id); T.consoleUse(2); ok(S.contract.done === 1, 'contract counts the on-time ship');
+  const bank2 = S.bank; S.contract.until = T.S.day * 24 + T.S.time - 1; T.run(1); ok(S.contract === null && S.bank > bank2, 'contract paid out');
+  S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
+  S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 15; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(14.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
   // events
   T.flipBreaker(); S.events.power = true; T.flipBreaker(); ok(S.events.power === false, 'breaker resets a power cut');
   T.setDoor(1, true); S.events.prowled = false; const stock0 = T.totalStock(); T.setTime(22.9); T.run(10); ok(T.totalStock() < stock0, 'prowler took stock through the open door');
@@ -115,6 +122,7 @@ app.whenReady().then(async () => {
   try { result = await Promise.race([win.webContents.executeJavaScript(SCENARIO, true), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 180000))]); }
   catch (e) { result = { out: [], errs: ['scenario threw: ' + (e && e.message || e)] }; }
   result.out.forEach((l) => console.log('  ' + l));
+  result.errs.filter((e) => /^scenario threw/.test(e)).forEach((l) => console.log('  ' + l));
   pageErrors.forEach((l) => console.log('  PAGE ' + l));
   const failed = result.errs.length + pageErrors.length;
   console.log(failed ? 'smoke: FAILED (' + failed + ')' : 'smoke: all ' + result.out.filter((l) => /^ok/.test(l)).length + ' checks passed');

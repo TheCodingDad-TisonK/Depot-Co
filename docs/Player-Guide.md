@@ -30,6 +30,12 @@ The forklift runs down while it drives and charges in its own bay by the charger
 
 Four seasons of seven days each. Rain and storms soak the yard, snow settles in winter, and lightning is only noise. Sunday is closed: no trucks, no orders, a good day to sleep through. The radio in the break room has three stations; the vending machine sells a snack that makes you faster.
 
+## Contracts, the bank and damaged goods
+
+From level 3 a client offers a **contract** on the office PC now and then: ship a number of their orders on time inside three days for a bonus, or pay a penalty. The **bank** lends $5,000 at 1.5% a day from level 2; **theft insurance** costs $40 a day and pays 80% of anything that walks off at night. A box dropped mid-air or shed off the forklift can be **damaged**: it will not go on a rack or the bench. Carry it to the red bin by the packing bench, and the client charges half its value.
+
+The dock consoles and the bench terminal are touch screens: look at a button and press `E`.
+
 ## Money
 
 | | |

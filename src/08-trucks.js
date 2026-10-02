@@ -85,9 +85,9 @@
   }
   function tickTrucks(dt) {
     // the schedule
-    var inDocks = S.up.dock2 ? [0, 1] : [0];
+    var inDocks = isSunday() ? [] : (S.up.dock2 ? [0, 1] : [0]);
     TRUCK_IN.forEach(function (h, k) { inDocks.forEach(function (dock) { var f = 'in' + S.day + '-' + k + '-' + dock; if (!S.flags[f] && S.time >= h - 0.25 && S.time < h + 1.5) { S.flags[f] = 1; if (!truckAtDoor(dock) && !S.trucks.some(function (t) { return t.dir === 'in' && t.dock === dock && t.state !== 'leaving'; })) spawnTruck('in', dock, h + TRUCK_WAIT); } }); });
-    TRUCK_OUT.forEach(function (w, k) { var f = 'out' + S.day + '-' + k; if (!S.flags[f] && S.time >= w.arrive - 0.25 && S.time < w.leave - 0.3) { S.flags[f] = 1; if (!S.trucks.some(function (t) { return t.dir === 'out' && t.dock === k && t.state !== 'leaving'; })) spawnTruck('out', k, w.leave); } });
+    TRUCK_OUT.forEach(function (w, k) { var f = 'out' + S.day + '-' + k; if (isSunday()) return; if (!S.flags[f] && S.time >= w.arrive - 0.25 && S.time < w.leave - 0.3) { S.flags[f] = 1; if (!S.trucks.some(function (t) { return t.dir === 'out' && t.dock === k && t.state !== 'leaving'; })) spawnTruck('out', k, w.leave); } });
     // movement and waiting
     for (var i = S.trucks.length - 1; i >= 0; i--) {
       var t = S.trucks[i], m = truckMeshes[t.id]; if (!m) { buildTruckMesh(t); m = truckMeshes[t.id]; }

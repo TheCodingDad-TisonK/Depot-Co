@@ -119,6 +119,7 @@
       jack: { pallet: null, x: SPOT.jack.x, z: SPOT.jack.z, rot: Math.PI / 2 },
       fork: { x: SPOT.fork.x, z: SPOT.fork.z, yaw: Math.PI, lift: 0.1, pallet: null, batt: 1 },
       weather: null, radio: { on: false, station: 0 },
+      loan: 0, insured: false, contract: null, nextOffer: 3, binned: 0,
       hand: null,                // { kind: 'box', sku } | { kind: 'parcel', order }
       orders: [], shipped: [],   // shipped keeps the last 40 for the ledger
       trucks: [], doors: [false, false, false, false],
@@ -668,10 +669,28 @@
     solid(ox - 0.5, ox + 0.5, oz - 0.5, oz + 1.1);
     // the two dock consoles by the outbound doors: dispatch a loaded truck early
     [SPOT.console0, SPOT.console1].forEach(function (p, i) {
-      box(0.1, 0.5, 0.4, MAT.steelDark, p.x, 1.4, p.z); var scr = plane(0.3, 0.2, MAT.screen, p.x - 0.06, 1.5, p.z, 0, -Math.PI / 2);
-      hitBox(0.3, 0.6, 0.5, p.x - 0.05, 1.4, p.z, { prompt: function () { return consolePrompt(2 + i); }, use: function () { consoleUse(2 + i); } });
-      sign(['DOCK ' + dockLabel(2 + i)], 0.7, 0.18, p.x - 0.12, 1.85, p.z, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
+      var di = 2 + i;
+      box(0.12, 0.6, 0.5, MAT.steelDark, p.x, 1.45, p.z); box(0.14, 0.04, 0.54, MAT.yellow, p.x, 1.77, p.z); cyl(0.012, 1.0, MAT.black, p.x + 0.03, 0.65, p.z, null, 6);
+      touchScreen({ w: 320, h: 240, pw: 0.4, ph: 0.3, x: p.x - 0.065, y: 1.47, z: p.z, ry: -Math.PI / 2, title: 'Dock console ' + dockLabel(di), draw: function (c, sc) {
+        scBg(c, sc.w, sc.h, 'rgba(95,211,141,0.16)'); scHead(c, sc.w, 'DOCK ' + dockLabel(di));
+        var t = truckAtDoor(di), nxt = TRUCK_OUT[i];
+        if (t) { scText(c, 16, 66, 'Truck docked · ' + t.driver, '#5fd38d', 15); scText(c, 16, 86, t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scButton(sc, 16, 104, 288, 44, t.parcels.length ? 'DISPATCH NOW' : 'nothing loaded', t.parcels.length > 0, function () { consoleUse(di); }, '#5fd38d'); }
+        else { scText(c, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(c, 16, 86, 'Next: ' + fmtTime(nxt.arrive) + ' to ' + fmtTime(nxt.leave), '#eef1f5', 13); }
+        scButton(sc, 16, 160, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
+        var packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length; scButton(sc, 164, 160, 140, 40, packed + ' packed waiting', false, function () { scanToggle(true); scanPage(0); });
+        scText(c, 16, 226, S.events.power ? 'NO POWER' : 'mains ok', S.events.power ? '#ff6b5e' : '#5fd38d', 11);
+      } });
+      sign(['DOCK ' + dockLabel(di)], 0.7, 0.18, p.x - 0.12, 1.95, p.z, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     });
+    // the bench terminal: a monitor on an arm at the north end of the bench, with the orders to pack
+    box(0.05, 0.5, 0.05, MAT.steelDark, bx + 0.4, 1.2, bz - 1.7); box(0.3, 0.04, 0.2, MAT.steelDark, bx + 0.4, 0.95, bz - 1.7); var arm = box(0.4, 0.04, 0.04, MAT.steelDark, bx + 0.2, 1.45, bz - 1.7); box(0.04, 0.4, 0.56, MAT.black, bx - 0.02, 1.45, bz - 1.7);
+    touchScreen({ w: 400, h: 300, pw: 0.5, ph: 0.36, x: bx - 0.045, y: 1.45, z: bz - 1.7, ry: -Math.PI / 2, title: 'Bench terminal', draw: function (c, sc) {
+      scBg(c, sc.w, sc.h); scHead(c, sc.w, 'PACKING', benchCount() + ' / ' + ECON.benchCap + ' on the bench');
+      var os = openOrders().sort(function (a, b2) { return (b2.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b2.due; }).slice(0, 4), y = 56;
+      if (!os.length) scText(c, 16, 76, 'No open orders.', '#a0acb8', 14);
+      os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
+      scText(c, 16, 290, 'E on the bench with empty hands opens the full list', '#6b7784', 10);
+    } });
   }
 
   // the break room: the south-west corner, walled off like the office, with a window onto the floor and a door
@@ -688,6 +707,8 @@
     sign(['BREAK ROOM'], 1.6, 0.45, x0 + 0.09, 2.6, 9.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
     box(0.7, 1.75, 0.7, MAT.white, -16, 0.875, 9.0); box(0.03, 0.4, 0.03, MAT.chrome, -16.3, 1.2, 9.37); box(0.03, 0.3, 0.03, MAT.chrome, -16.3, 0.5, 9.37); solid(-16.4, -15.6, 8.6, 9.4);
   }
+  function binPrompt() { if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Bin the damaged box'; if (S.hand && S.hand.kind === 'box') return 'That box is fine: it belongs on a rack'; return 'The bin · ' + (S.binned || 0) + ' damaged boxes written off'; }
+  function binUse() { if (!(S.hand && S.hand.kind === 'box' && S.hand.damaged)) { sfx('click'); return; } var sku = S.hand.sku; handSet(null); S.binned = (S.binned || 0) + 1; var cost = Math.round(SKU[sku].val * 0.5); pay(-cost, 'Written off: a damaged box of ' + skuName(sku)); addRep(-0.5); sfx('crate'); toast('Binned. The client charges ' + money(cost) + ' for it.', 'bad'); logEvent('A damaged box of ' + skuName(sku) + ' went in the bin (' + money(cost) + ')', 'bad'); }
   function buildBreakCorner() {
     // a cot, a coffee machine on a counter, a locker, a water cooler, a fire extinguisher by the door
     var c = SPOT.cot;
@@ -918,9 +939,10 @@
     box(0.32, 0.45, 0.15, MAT.grey, 0, 2.0, -0.86, wg); plane(0.2, 0.12, MAT.screen, 0, 2.1, -0.78, 0, 0, wg); box(0.05, 0.05, 0.03, MAT.green, -0.08, 1.88, -0.78, wg); box(0.05, 0.05, 0.03, MAT.red, 0.08, 1.88, -0.78, wg); sign(['START'], 0.12, 0.05, -0.08, 1.82, -0.78, 0, { w: 128, h: 48, bg: '#1b232c', fg: '#5fd38d' }, wg);
     sign(['STRETCH WRAP'], 1.2, 0.25, 0, 2.5, -0.9, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#78bdf5' }, wg); solid(7, 9, -13.7, -11.3);
     hitBox(1.0, 2.4, 0.8, 0, 1.2, -1.05, { prompt: function () { return wrapperPrompt(); }, use: function () { wrapperUse(); } }, wg);
-    cyl(0.3, 0.8, MAT.grey, 14.3, 0.4, 2.6, null, 16); cyl(0.32, 0.05, MAT.black, 14.3, 0.82, 2.6, null, 16); solid(14, 14.6, 2.3, 2.9);
-    var broom = cyl(0.015, 1.3, MAT.wood, 14.6, 0.7, 2.95, null, 6); broom.rotation.z = 0.25; box(0.25, 0.08, 0.05, MAT.plastic, 14.75, 0.08, 2.95);
-    [[-1, 0.3], [1, 0.3]].forEach(function (o) { var p = plane(0.4, 0.7, new THREE.MeshBasicMaterial({ map: textTex(['WET', 'FLOOR'], { w: 128, h: 192, bg: '#f5b53d', fg: '#111', size: 44 }), side: THREE.DoubleSide }), 12.0 + o[0] * 0.12, 0.35, 10.6, 0, o[0] * 0.3); p.rotation.x = o[0] * -0.25; });
+    // the damaged-goods bin: a red wheelie bin with a lid, a handle bar and two wheels
+    var bin = cyl(0.3, 0.85, MAT.red, 14.3, 0.47, 2.6, null, 4, 0.25); bin.rotation.y = Math.PI / 4; var lid = box(0.56, 0.05, 0.56, std({ color: 0x8e2420, roughness: 0.7 }), 14.3, 0.92, 2.6); lid.rotation.y = Math.PI / 4; box(0.08, 0.03, 0.5, MAT.black, 14.52, 0.95, 2.6); cyl(0.09, 0.05, MAT.black, 14.1, 0.09, 2.38, null, 12).rotation.x = Math.PI / 2; cyl(0.09, 0.05, MAT.black, 14.1, 0.09, 2.82, null, 12).rotation.x = Math.PI / 2; cyl(0.015, 0.5, MAT.steelDark, 14.1, 0.09, 2.6, null, 6).rotation.x = Math.PI / 2; solid(14, 14.6, 2.3, 2.9); hitBox(0.7, 0.9, 0.7, 14.3, 0.45, 2.6, { prompt: function () { return binPrompt(); }, use: function () { binUse(); } }); sign(['DAMAGED', 'GOODS'], 0.5, 0.3, 14.3, 1.1, 2.6, -Math.PI / 2, { w: 256, h: 128, bg: '#c8342a', fg: '#fff' });
+    var broom = cyl(0.014, 1.3, MAT.wood, 14.62, 0.72, 3.15, null, 6); broom.rotation.z = 0.22; box(0.3, 0.06, 0.06, MAT.plastic, 14.78, 0.1, 3.15); var bristles = box(0.3, 0.06, 0.05, std({ color: 0x8a7a55, roughness: 1 }), 14.78, 0.04, 3.15); cyl(0.02, 0.04, MAT.red, 14.47, 1.36, 3.15, null, 8);
+    wetFloorSign(12.0, 10.6, 0.4);
     // the forklift bay, the tool bays and the charger on the south wall
     var bay = function (cx, cz, w, d, label) { plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz - d / 2, -Math.PI / 2); plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz + d / 2, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx - w / 2, 0.0062, cz, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx + w / 2, 0.0062, cz, -Math.PI / 2); plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex([label], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), cx, 0.0066, cz + d / 2 - 0.3, -Math.PI / 2); };
     bay(SPOT.fork.x, SPOT.fork.z, 2.6, 3.6, 'FORKLIFT'); bay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK'); bay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
@@ -955,6 +977,7 @@
     poster('safety', 0.6, 0.9, 16.5, 2.1, Z - 0.17, Math.PI);
     // the crossing where the walkway meets the dock aprons, and the pedestrian route into the office
     plane(1.4, 0.08, MAT.yellowLine, 12.5, 0.0062, 9.95, -Math.PI / 2);
+    buildPigeons(); buildPropsSweep();
   }
   function rackEnds(r) {
     var z = RACK.rows[r];
@@ -969,7 +992,90 @@
     if (S.bank < 3) { toast('No change on you.', 'bad'); return; }
     pay(-3, 'Snack from the machine'); buff.snackDay = S.day; buff.snackUntil = S.time + 0.5; sfx('vend'); toast('Crisps. Faster for half an hour.', 'good'); burst(dress.vending.parent.position.x, 0.5, dress.vending.parent.position.z - 0.5, 0xf5b53d, 8, 'down');
   }
+  // pigeons: three on a truss, off in a flap when you walk under them, back on another truss a while later
+  var pigeons = [];
+  function buildPigeons() {
+    for (var i = 0; i < 3; i++) {
+      var g = new THREE.Group(); g.userData.dynamic = true; scene.add(g);
+      var body = sphere(0.09, MAT.grey, 0, 0, 0, g); body.scale.set(1, 0.8, 1.4); sphere(0.055, std({ color: 0x4a5560, roughness: 0.9 }), 0, 0.07, 0.1, g); box(0.02, 0.02, 0.05, MAT.yellow, 0, 0.06, 0.16, g);
+      var wl = box(0.16, 0.01, 0.12, MAT.grey, -0.12, 0.03, 0, g), wr2 = box(0.16, 0.01, 0.12, MAT.grey, 0.12, 0.03, 0, g);
+      var perch = { x: -16 + i * 8 + randf(-2, 2), z: pick([-9.5, 9.5]) };
+      pigeons.push({ g: g, wl: wl, wr: wr2, x: perch.x, z: perch.z, y: HALL.h - 0.7, state: 'perch', t: 0, from: null, to: null, flap: Math.random() * 6 });
+      g.position.set(perch.x, HALL.h - 0.7, perch.z); g.rotation.y = Math.random() * 6.28;
+    }
+  }
+  function tickPigeons(dt) {
+    pigeons.forEach(function (p) {
+      if (p.state === 'perch') {
+        p.t += dt; p.g.rotation.y += Math.sin(p.t * 0.7) * 0.004; p.wl.rotation.z = 0; p.wr.rotation.z = 0;
+        if (dist2(player.x, player.z, p.x, p.z) < 30 && insideHall(player.x, player.z) && Math.random() < dt * 2) { p.state = 'fly'; p.t = 0; p.from = { x: p.x, z: p.z }; p.to = { x: clamp(p.x + randf(-14, 14), -17, 17), z: p.z > 0 ? -9.5 : 9.5 }; sfx('flap'); p.g.rotation.y = Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z); }
+      } else {
+        p.t += dt / 3.5; var k = Math.min(1, p.t);
+        p.x = lerp(p.from.x, p.to.x, k); p.z = lerp(p.from.z, p.to.z, k); p.y = HALL.h - 0.7 - Math.sin(k * Math.PI) * 1.6;
+        p.flap += dt * 24; p.wl.rotation.z = Math.sin(p.flap) * 0.9; p.wr.rotation.z = -Math.sin(p.flap) * 0.9;
+        if (k >= 1) { p.state = 'perch'; p.t = 0; }
+      }
+      p.g.position.set(p.x, p.y, p.z);
+    });
+  }
+  // a proper A-frame wet-floor sign: two tapered yellow panels hinged at the top, the warning on both faces, feet that splay
+  function wetFloorSign(x, z, ry) {
+    var g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry || 0; scene.add(g);
+    var face = new THREE.MeshBasicMaterial({ map: textTex(['CAUTION', 'WET FLOOR'], { w: 192, h: 256, bg: '#f5b53d', fg: '#111', size: 34 }) });
+    [-1, 1].forEach(function (s) {
+      var pg = new THREE.Group(); pg.position.set(0, 0.72, 0); pg.rotation.x = s * 0.32; g.add(pg);
+      box(0.34, 0.72, 0.012, MAT.yellow, 0, -0.36, s * 0.006, pg); var f = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.6), face); f.position.set(0, -0.38, s * 0.014); f.rotation.y = s > 0 ? 0 : Math.PI; pg.add(f);
+      box(0.02, 0.72, 0.02, MAT.black, -0.17, -0.36, s * 0.01, pg); box(0.02, 0.72, 0.02, MAT.black, 0.17, -0.36, s * 0.01, pg); box(0.34, 0.03, 0.02, MAT.black, 0, -0.72, s * 0.012, pg);
+    });
+    cyl(0.012, 0.36, MAT.black, 0, 0.72, 0, g, 8).rotation.z = Math.PI / 2; box(0.1, 0.03, 0.02, MAT.black, 0, 0.75, 0, g);
+  }
+  // the props sweep: detail laid over the plainer pieces that were built first
+  function buildPropsSweep() {
+    var Z = HALL.z, X = HALL.x, k = SPOT.coffee;
+    // break room: the cot gets a frame, pillow and a folded blanket; the table gets chrome legs and real chairs
+    var c = SPOT.cot; box(1.95, 0.05, 0.05, MAT.steelDark, c.x, 0.5, c.z - 0.47); box(1.95, 0.05, 0.05, MAT.steelDark, c.x, 0.5, c.z + 0.47); box(0.05, 0.4, 0.95, MAT.steelDark, c.x - 0.97, 0.45, c.z); box(0.05, 0.6, 0.95, MAT.steelDark, c.x + 0.97, 0.55, c.z);
+    box(0.5, 0.12, 0.42, MAT.white, c.x - 0.62, 0.6, c.z).rotation.z = 0.08; var bl = box(0.6, 0.1, 0.8, std({ color: 0x6b2b2b, roughness: 1 }), c.x + 0.55, 0.58, c.z); box(0.6, 0.04, 0.8, std({ color: 0x5a2424, roughness: 1 }), c.x + 0.55, 0.65, c.z);
+    [[-0.42, -0.42], [0.42, -0.42], [-0.42, 0.42], [0.42, 0.42]].forEach(function (o) { cyl(0.025, 0.75, MAT.chrome, -14.5 + o[0], 0.375, 12.5 + o[1], null, 8); });
+    [[-0.75, 0, 1], [0.75, 0, -1], [0, 0.75, 0]].forEach(function (o) { var cg = new THREE.Group(); cg.position.set(-14.5 + o[0], 0, 12.5 + o[1]); cg.rotation.y = Math.atan2(-o[0], -o[1]); scene.add(cg); box(0.42, 0.04, 0.42, MAT.red, 0, 0.46, 0, cg); box(0.42, 0.38, 0.03, MAT.red, 0, 0.72, -0.2, cg); [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]].forEach(function (l) { cyl(0.014, 0.46, MAT.chrome, l[0], 0.23, l[1], cg, 6); }); cyl(0.014, 0.3, MAT.chrome, -0.18, 0.62, -0.2, cg, 6); cyl(0.014, 0.3, MAT.chrome, 0.18, 0.62, -0.2, cg, 6); });
+    cyl(0.05, 0.1, MAT.white, -14.3, 0.83, 12.4, null, 10); box(0.14, 0.02, 0.2, MAT.paper, -14.7, 0.79, 12.7); cyl(0.04, 0.12, std({ color: 0xb8322a, roughness: 0.3, metalness: 0.4 }), -14.2, 0.84, 12.75, null, 10);
+    // the coffee counter: a bean-to-cup machine gets a drip tray, a spout, a cup and a bean hopper; the kettle a lid and spout; a microwave door window
+    box(0.3, 0.02, 0.2, MAT.chrome, k.x, 0.91, k.z + 0.2); box(0.06, 0.08, 0.06, MAT.black, k.x, 1.0, k.z + 0.18); cyl(0.035, 0.09, MAT.white, k.x, 0.955, k.z + 0.2, null, 10); cyl(0.09, 0.14, MAT.glass, k.x, 1.45, k.z - 0.05, null, 12); cyl(0.07, 0.1, std({ color: 0x4a2c1a, roughness: 1 }), k.x, 1.42, k.z - 0.05, null, 10);
+    box(0.03, 0.06, 0.03, MAT.black, k.x - 0.1, 1.2, k.z + 0.2); box(0.03, 0.06, 0.03, MAT.black, k.x + 0.1, 1.2, k.z + 0.2);
+    plane(0.3, 0.16, MAT.glass, k.x + 0.9, 1.07, k.z + 0.146); box(0.06, 0.1, 0.02, MAT.black, k.x + 1.1, 1.05, k.z + 0.15); cyl(0.025, 0.07, MAT.chrome, k.x - 0.5, 1.12, k.z, null, 8); cyl(0.02, 0.1, MAT.chrome, k.x - 0.43, 1.03, k.z + 0.06, null, 6).rotation.z = -0.8;
+    // the vending machine: glass front, a lit shelf strip, the coin panel, the pickup flap
+    var vgp = dress.vending && dress.vending.parent; if (vgp) { var gf = box(0.62, 1.14, 0.01, MAT.glass, -0.1, 1.15, -0.425, vgp); gf.userData.noBake = true; box(0.6, 0.02, 0.6, glowMat(0xdfe9ff, 0.5), -0.1, 1.72, -0.1, vgp); box(0.22, 0.4, 0.02, MAT.steelDark, 0.3, 1.25, -0.42, vgp); box(0.03, 0.06, 0.01, MAT.black, 0.3, 1.38, -0.432, vgp); for (var kp = 0; kp < 6; kp++) box(0.03, 0.03, 0.01, MAT.white, 0.24 + (kp % 3) * 0.05, 1.2 - Math.floor(kp / 3) * 0.05, -0.432, vgp); box(0.5, 0.2, 0.02, MAT.black, -0.1, 0.33, -0.425, vgp); box(0.44, 0.03, 0.02, MAT.chrome, -0.1, 0.42, -0.432, vgp); }
+    // fire extinguishers get a hose, a nozzle and a gauge
+    [[-X + 0.35, -12, Math.PI / 2], [X - 0.35, -12, -Math.PI / 2], [13.2, 6.5, -Math.PI / 2], [-X + 0.35, 13.2, Math.PI / 2]].forEach(function (p) { var eg = new THREE.Group(); eg.position.set(p[0], 0, p[1]); eg.rotation.y = p[2]; scene.add(eg); cyl(0.012, 0.42, MAT.black, 0.08, 1.0, 0.03, eg, 6).rotation.z = 0.15; cyl(0.02, 0.07, MAT.black, 0.11, 0.79, 0.05, eg, 8, 0.03); cyl(0.025, 0.02, MAT.white, 0.0, 1.3, 0.09, eg, 10).rotation.x = Math.PI / 2; box(0.1, 0.1, 0.002, MAT.paper, 0, 1.0, 0.082, eg); });
+    // lockers: vents, handles, numbers
+    [-18.4, -17.7].forEach(function (lx, i) { for (var vv = 0; vv < 3; vv++) box(0.3, 0.01, 0.02, MAT.black, lx, 1.55 - vv * 0.05, 13.34); box(0.03, 0.08, 0.02, MAT.chrome, lx + 0.2, 1.0, 13.34); sign([String(i + 1)], 0.1, 0.1, lx, 1.72, 13.33, Math.PI, { w: 64, h: 64, bg: '#1b232c', fg: '#eef1f5' }); box(0.6, 0.02, 0.5, MAT.steelDark, lx, 0.02, 13.6); });
+    // the fridge: a handle, a kick plate, a note on the door
+    box(0.03, 0.5, 0.03, MAT.chrome, -16.1, 1.2, 9.37); box(0.7, 0.1, 0.02, MAT.black, -16, 0.05, 9.36); box(0.12, 0.14, 0.004, MAT.paper, -15.85, 1.5, 9.36); box(0.02, 0.02, 0.01, MAT.red, -15.85, 1.58, 9.365);
+    // the water cooler: a bottle, two taps, a cup holder
+    cyl(0.1, 0.06, MAT.blue, k.x + 0.5, 1.68, k.z, null, 12); box(0.03, 0.05, 0.04, MAT.blue, k.x + 0.44, 1.3, k.z + 0.26); box(0.03, 0.05, 0.04, MAT.red, k.x + 0.56, 1.3, k.z + 0.26); box(0.06, 0.2, 0.06, MAT.white, k.x + 0.78, 1.4, k.z, null);
+    // the office: a drawer pedestal, a desk pad, keyboard keys, a mouse, a phone, a pen pot; the chair gets a star base and arms; the cabinets get handles and labels
+    var pc = SPOT.pc; box(0.45, 0.6, 0.6, MAT.grey, pc.x - 0.75, 0.3, pc.z + 0.6); for (var dw = 0; dw < 3; dw++) box(0.03, 0.03, 0.2, MAT.chrome, pc.x - 0.52, 0.12 + dw * 0.18, pc.z + 0.6);
+    box(0.6, 0.004, 0.4, std({ color: 0x1f2a36, roughness: 1 }), pc.x - 0.1, 0.783, pc.z + 0.45); for (var kr = 0; kr < 3; kr++) for (var kc = 0; kc < 10; kc++) box(0.03, 0.012, 0.03, std({ color: 0x4a515b, roughness: 0.6 }), pc.x - 0.3 + kc * 0.042, 0.822, pc.z + 0.38 + kr * 0.04);
+    box(0.06, 0.03, 0.1, MAT.black, pc.x + 0.5, 0.8, pc.z + 0.42); box(0.2, 0.06, 0.16, MAT.black, pc.x - 0.75, 0.81, pc.z + 0.86); cyl(0.012, 0.18, MAT.black, pc.x - 0.75, 0.9, pc.z + 0.86, null, 6).rotation.z = Math.PI / 2; cyl(0.03, 0.09, MAT.black, pc.x + 0.9, 0.82, pc.z + 0.55, null, 8); cyl(0.004, 0.14, MAT.blue, pc.x + 0.9, 0.9, pc.z + 0.55, null, 4).rotation.z = 0.2;
+    for (var sp = 0; sp < 5; sp++) { var leg = box(0.04, 0.03, 0.28, MAT.black, pc.x + Math.sin(sp / 5 * 6.283) * 0.14, 0.04, pc.z - 0.2 + Math.cos(sp / 5 * 6.283) * 0.14); leg.rotation.y = sp / 5 * 6.283; cyl(0.03, 0.02, MAT.black, pc.x + Math.sin(sp / 5 * 6.283) * 0.27, 0.03, pc.z - 0.2 + Math.cos(sp / 5 * 6.283) * 0.27, null, 8).rotation.x = Math.PI / 2; }
+    box(0.04, 0.3, 0.3, MAT.black, pc.x - 0.26, 0.68, pc.z - 0.2); box(0.04, 0.3, 0.3, MAT.black, pc.x + 0.26, 0.68, pc.z - 0.2); box(0.5, 0.06, 0.5, MAT.fabric, pc.x, 0.53, pc.z - 0.2); box(0.5, 0.5, 0.06, MAT.fabric, pc.x, 0.78, pc.z - 0.45);
+    [19.0, 19.6].forEach(function (cx2) { for (var cd = 0; cd < 3; cd++) { box(0.5, 0.36, 0.02, MAT.steelDark, cx2, 0.25 + cd * 0.4, 13.19); box(0.14, 0.03, 0.02, MAT.chrome, cx2, 0.33 + cd * 0.4, 13.18); box(0.16, 0.06, 0.003, MAT.paper, cx2, 0.2 + cd * 0.4, 13.18); } });
+    box(0.9, 0.06, 0.9, MAT.wood, 13.2, 0.03, 13.4);
+    // posters get frames
+    [[-X + 0.17, 2.0, -4, Math.PI / 2, 0.7, 1.05], [2.2, 2.0, Z - 0.17, Math.PI, 0.7, 1.05], [-6, 2.0, Z - 0.17, Math.PI, 0.7, 1.05], [12.42, 1.9, 11.5, -Math.PI / 2, 0.7, 1.05], [-X + 0.17, 2.0, 9.2, Math.PI / 2, 0.6, 0.9], [15.2, 1.9, -Z + 0.17, 0, 0.6, 0.9], [-12.6, 2.0, 11.0, -Math.PI / 2, 0.6, 0.9], [-18.6, 2.6, Z - 0.17, Math.PI, 0.5, 0.75], [16.5, 2.1, Z - 0.17, Math.PI, 0.6, 0.9]].forEach(function (f) { var fg = new THREE.Group(); fg.position.set(f[0], f[1], f[2]); fg.rotation.y = f[3]; scene.add(fg); var fw = f[4] + 0.06, fh = f[5] + 0.06; box(fw, 0.03, 0.03, MAT.black, 0, fh / 2, -0.01, fg); box(fw, 0.03, 0.03, MAT.black, 0, -fh / 2, -0.01, fg); box(0.03, fh, 0.03, MAT.black, -fw / 2, 0, -0.01, fg); box(0.03, fh, 0.03, MAT.black, fw / 2, 0, -0.01, fg); });
+    // the hose reel: the hose coiled on the drum, a nozzle on a hook
+    for (var hr = 0; hr < 5; hr++) { var ring = new THREE.Mesh(new THREE.TorusGeometry(0.12 + hr * 0.035, 0.012, 6, 24), MAT.red); ring.position.set(0, 1.5, -Z + 0.38); scene.add(ring); } cyl(0.015, 0.25, MAT.red, 0.3, 1.25, -Z + 0.3, null, 6).rotation.z = 0.4; cyl(0.03, 0.08, MAT.chrome, 0.38, 1.12, -Z + 0.3, null, 8, 0.018);
+    // the charger: a display, a cable to the bay, a plug on a hook
+    plane(0.3, 0.12, glowMat(0x5fd38d, 0.4), 0, 0.85, Z - 0.52, 0, Math.PI); box(0.1, 0.06, 0.05, MAT.black, 0.3, 0.6, Z - 0.6); box(0.05, 0.02, 0.05, MAT.steelDark, 0.3, 0.7, Z - 0.5);
+    // the bench: a label printer with a tongue of labels, a box cutter, a stool
+    var bx = SPOT.bench.x, bz = SPOT.bench.z; box(0.22, 0.14, 0.18, MAT.white, bx + 0.25, 1.01, bz + 0.6); box(0.18, 0.01, 0.1, MAT.paper, bx + 0.25, 1.09, bz + 0.72); box(0.12, 0.02, 0.03, MAT.yellow, bx - 0.2, 0.955, bz + 0.2).rotation.y = 0.4; box(0.04, 0.005, 0.03, MAT.chrome, bx - 0.13, 0.955, bz + 0.22).rotation.y = 0.4;
+    cyl(0.17, 0.04, MAT.black, bx - 1.0, 0.65, bz - 0.4, null, 16); cyl(0.02, 0.6, MAT.chrome, bx - 1.0, 0.32, bz - 0.4, null, 8); cyl(0.2, 0.03, MAT.steelDark, bx - 1.0, 0.03, bz - 0.4, null, 16);
+    // the notice board: pinned notes at angles
+    [[-16.9, 2.05, -0.1], [-16.4, 1.8, 0.15], [-16.05, 2.1, 0.05]].forEach(function (n) { var nb = box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], Z - 0.253); nb.rotation.z = n[2]; cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, Z - 0.26, null, 8).rotation.x = Math.PI / 2; });
+    // the dock doors: guide rails and a chain hoist beside each
+    doors.forEach(function (dk) { var x = dk.side * (X - 0.15); box(0.06, DOCKS.h, 0.06, MAT.steelDark, x, DOCKS.h / 2, dk.z - DOCKS.w / 2 - 0.05); box(0.06, DOCKS.h, 0.06, MAT.steelDark, x, DOCKS.h / 2, dk.z + DOCKS.w / 2 + 0.05); cyl(0.1, 0.3, MAT.steelDark, x - dk.side * 0.15, DOCKS.h + 0.3, dk.z + DOCKS.w / 2 + 0.35, null, 10).rotation.x = Math.PI / 2; cyl(0.006, DOCKS.h - 0.6, MAT.chrome, x - dk.side * 0.15, DOCKS.h / 2 + 0.2, dk.z + DOCKS.w / 2 + 0.35, null, 4); });
+  }
   function tickDressing(dt) {
+    tickPigeons(dt);
     var power = !S.events.power;
     dress.fans.forEach(function (f) { f.rotation.z += dt * (power ? 9 : 0.5); });
     if (dress.turntable) dress.turntable.rotation.y += dt * (wrapperBusy() ? 1.4 : 0);
@@ -987,6 +1093,7 @@
     box(0.05, 0.5, 1.5, MAT.glass, 0.98, 1.1, 0, g).rotation.z = -0.5; box(0.05, 0.5, 1.5, MAT.glass, -1.38, 1.1, 0, g).rotation.z = 0.5; box(2.0, 0.45, 0.04, MAT.glass, -0.2, 1.1, 0.83, g); box(2.0, 0.45, 0.04, MAT.glass, -0.2, 1.1, -0.83, g);
     [[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]].forEach(function (p) { var w = cyl(0.33, 0.22, MAT.rubber, p[0], 0.33, p[1], g, 14); w.rotation.x = Math.PI / 2; cyl(0.18, 0.23, MAT.chrome, p[0], 0.33, p[1], g, 10).rotation.x = Math.PI / 2; });
     box(0.06, 0.14, 0.3, MAT.lamp, 2.1, 0.6, 0.6, g); box(0.06, 0.14, 0.3, MAT.lamp, 2.1, 0.6, -0.6, g); box(0.06, 0.12, 0.3, MAT.red, -2.1, 0.6, 0.6, g); box(0.06, 0.12, 0.3, MAT.red, -2.1, 0.6, -0.6, g);
+    box(0.1, 0.16, 1.9, MAT.plastic, 2.12, 0.4, 0, g); box(0.1, 0.16, 1.9, MAT.plastic, -2.12, 0.4, 0, g); box(0.02, 0.1, 0.4, MAT.white, 2.18, 0.42, 0, g); box(0.02, 0.1, 0.4, MAT.white, -2.18, 0.42, 0, g); box(0.08, 0.06, 0.16, MAT.black, 0.7, 1.15, 0.9, g); box(0.08, 0.06, 0.16, MAT.black, 0.7, 1.15, -0.9, g); box(0.1, 0.05, 1.2, MAT.chrome, -0.2, 1.42, 0, g);
     box(0.4, 0.08, 1.2, MAT.black, -1.0, 0.28, 0, g); cyl(0.02, 0.4, MAT.black, -0.9, 1.5, 0.3, g, 4);
     return g;
   }
@@ -1016,7 +1123,7 @@
       box(0.08, 0.08, 0.6, MAT.steelDark, side * (X + 0.6), DOCKS.h + 1.0, d.z + DOCKS.w / 2 + 1.0); var lens = box(0.3, 0.2, 0.3, glowMat(0xfff2c0, 0.2), side * (X + 0.9), DOCKS.h + 0.95, d.z + DOCKS.w / 2 + 1.0); yard.lampLenses.push(lens);
     });
     // the fence: mesh panels between posts, with a sliding gate on each truck side and the gatehouse beside it
-    function fenceRun(x0, z0, x1, z1) { var dx = x1 - x0, dz = z1 - z0, len = Math.sqrt(dx * dx + dz * dz), n = Math.round(len / 4), ang = Math.atan2(dx, dz); for (var i = 0; i <= n; i++) { var t = i / n, px = x0 + dx * t, pz = z0 + dz * t; cyl(0.05, 2.3, MAT.steelDark, px, YARD_Y + 1.15, pz, null, 6); if (i < n) { var mp = plane(len / n, 2.1, MAT.mesh, x0 + dx * (t + 0.5 / n), YARD_Y + 1.1, z0 + dz * (t + 0.5 / n), 0, ang); mp.receiveShadow = false; } } box(Math.abs(dx) || 0.05, 0.05, Math.abs(dz) || 0.05, MAT.steelDark, (x0 + x1) / 2, YARD_Y + 2.25, (z0 + z1) / 2); }
+    function fenceRun(x0, z0, x1, z1) { var dx = x1 - x0, dz = z1 - z0, len = Math.sqrt(dx * dx + dz * dz), n = Math.round(len / 4), ang = Math.atan2(dx, dz); for (var i = 0; i <= n; i++) { var t = i / n, px = x0 + dx * t, pz = z0 + dz * t; cyl(0.05, 2.3, MAT.steelDark, px, YARD_Y + 1.15, pz, null, 6); box(0.24, 0.12, 0.24, MAT.grey, px, YARD_Y + 0.06, pz); cyl(0.06, 0.02, MAT.black, px, YARD_Y + 2.31, pz, null, 6); if (i < n) { var mp = plane(len / n, 2.1, MAT.mesh, x0 + dx * (t + 0.5 / n), YARD_Y + 1.1, z0 + dz * (t + 0.5 / n), 0, ang); mp.receiveShadow = false; } } box(Math.abs(dx) || 0.05, 0.05, Math.abs(dz) || 0.05, MAT.steelDark, (x0 + x1) / 2, YARD_Y + 2.25, (z0 + z1) / 2); }
     fenceRun(-84, -60, 84, -60); fenceRun(-84, 60, 84, 60);
     [-1, 1].forEach(function (side) {
       var gx = side * 84; fenceRun(gx, -60, gx, -11.5); fenceRun(gx, 3.5, gx, 60);
@@ -1050,9 +1157,9 @@
     [0, 1, 3, 4].forEach(function (k) { var c = carMesh(CAR_COLS[k % CAR_COLS.length]); c.position.set(-17.65 + k * 2.7, YARD_Y, 21.5); c.rotation.y = Math.PI / 2 + randf(-0.04, 0.04); scene.add(c); });
     cyl(0.04, 2.4, MAT.steelDark, -2, YARD_Y + 1.2, 18.5, null, 6); sign(['STAFF', 'PARKING'], 0.9, 0.6, -2, YARD_Y + 2.5, 18.5, 0, { w: 256, h: 160, bg: '#2c5f9e', fg: '#fff' });
     [[-24, 17], [-24, 21], [-21, 17], [-21, 21]].forEach(function (p) { cyl(0.05, 2.4, MAT.steelDark, p[0], YARD_Y + 1.2, p[1], null, 6); });
-    box(3.6, 0.06, 4.6, MAT.glass, -22.5, YARD_Y + 2.45, 19); box(1.8, 0.06, 0.4, MAT.wood, -22.5, YARD_Y + 0.45, 20.6); [[-23.2], [-21.8]].forEach(function (p) { box(0.06, 0.45, 0.4, MAT.steelDark, p[0], YARD_Y + 0.22, 20.6); });
+    box(3.6, 0.06, 4.6, MAT.glass, -22.5, YARD_Y + 2.45, 19); for (var sl = 0; sl < 4; sl++) box(1.8, 0.04, 0.07, MAT.wood, -22.5, YARD_Y + 0.45, 20.46 + sl * 0.09); box(1.8, 0.04, 0.3, MAT.wood, -22.5, YARD_Y + 0.85, 20.76).rotation.x = -0.2; cyl(0.1, 0.5, MAT.steelDark, -21.0, YARD_Y + 0.25, 18.2, null, 10); cyl(0.11, 0.03, std({ color: 0x8a8a8a, roughness: 0.5 }), -21.0, YARD_Y + 0.52, 18.2, null, 10); [[-23.2], [-21.8]].forEach(function (p) { box(0.06, 0.45, 0.4, MAT.steelDark, p[0], YARD_Y + 0.22, 20.6); });
     cyl(0.12, 0.9, MAT.steelDark, -24.3, YARD_Y + 0.45, 17.4, null, 10); sign(['SMOKING', 'AREA'], 0.8, 0.5, -22.5, YARD_Y + 2.2, 16.8, 0, { w: 256, h: 160, bg: '#1b232c', fg: '#a0acb8' });
-    box(1.8, 1.3, 1.2, std({ color: 0x2f5a3a, roughness: 0.7, metalness: 0.3 }), 24, YARD_Y + 0.65, 18); box(1.9, 0.1, 1.3, MAT.black, 24, YARD_Y + 1.33, 18); sign(['CARDBOARD', 'ONLY'], 1.2, 0.5, 24, YARD_Y + 0.9, 17.38, Math.PI, { w: 256, h: 128, bg: '#2f5a3a', fg: '#fff' });
+    box(1.8, 1.3, 1.2, std({ color: 0x2f5a3a, roughness: 0.7, metalness: 0.3 }), 24, YARD_Y + 0.65, 18); var dl = box(1.9, 0.08, 1.3, MAT.black, 24, YARD_Y + 1.33, 18); dl.rotation.x = -0.35; dl.position.z = 17.8; dl.position.y = YARD_Y + 1.52; [[-0.8, -0.5], [0.8, -0.5], [-0.8, 0.5], [0.8, 0.5]].forEach(function (w) { cyl(0.08, 0.06, MAT.black, 24 + w[0], YARD_Y + 0.08, 18 + w[1], null, 10).rotation.z = Math.PI / 2; }); box(0.1, 0.1, 0.4, MAT.steelDark, 23.05, YARD_Y + 0.9, 18); box(0.1, 0.1, 0.4, MAT.steelDark, 24.95, YARD_Y + 0.9, 18); sign(['CARDBOARD', 'ONLY'], 1.2, 0.5, 24, YARD_Y + 0.9, 17.38, Math.PI, { w: 256, h: 128, bg: '#2f5a3a', fg: '#fff' });
     cyl(0.05, 9, MAT.chrome, 10, YARD_Y + 4.5, 19, null, 8, 0.07); sphere(0.1, MAT.yellow, 10, YARD_Y + 9.05, 19);
     var fg = new THREE.Group(); fg.position.set(10, YARD_Y + 8.3, 19); scene.add(fg); yard.flag = fg;
     var flag = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0, 8, 2), new THREE.MeshStandardMaterial({ map: textTex(['DEPOT CO.'], { w: 256, h: 160, bg: '#f5b53d', fg: '#1b232c' }), side: THREE.DoubleSide, roughness: 0.9 })); flag.position.set(0.82, 0, 0); fg.add(flag); yard.flagMesh = flag;
@@ -1141,7 +1248,7 @@
     S.pallets.forEach(function (pl) { var w = palletWorld(pl); if (!w) return; drawPalletWithBoxes(pl.sku, pl.n, w.x, w.y, w.z, w.ry, { kind: 'pallet', id: pl.id, carried: pl.place !== 'floor' && pl.place !== 'truck' }); });
     var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) putBox(s.id, SPOT.bench.x + (bi % 2 ? 0.23 : -0.23), 0.94 + BOX.h / 2 + Math.floor(bi / 8) * BOX.h, SPOT.bench.z - 1.2 + (Math.floor(bi / 2) % 4) * 0.62, 0, { kind: 'bench', sku: s.id }); });
     S.bench.parcels.forEach(function (oid, i) { putParcel(SPOT.benchOut.x + (i % 2 ? 0.25 : -0.25), 0.63 + 0.23 + Math.floor(i / 4) * 0.47, SPOT.benchOut.z + (Math.floor(i / 2) % 2) * 0.6, 0, { kind: 'shelf', order: oid }); });
-    S.floor.forEach(function (f, i) { if (f.kind === 'box') putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }); });
+    S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) { var im = boxInst[f.sku]; if (im) { var ii = counts[f.sku]++; if (ii < 1400) { _e.set(0, f.rot, 0.35); _q.setFromEuler(_e); _v2.set(1, 0.72, 1.08); _m4.compose(_v.set(f.x, f.y + BOX.h * 0.36, f.z), _q, _v2); im.setMatrixAt(ii, _m4); instSrc.box[f.sku][ii] = { kind: 'floor', idx: i }; } } } else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }); });
     var cw = toolWorld('cart'); S.cart.boxes.forEach(function (sku, i) { var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 3 - 1) * 0.42, ly = i < 3 ? 0.3 : 0.82; putBox(sku, cw.x + lx * c, ly + BOX.h / 2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
     S.trucks.forEach(function (t) { if (t.dir !== 'out') return; t.parcels.forEach(function (oid, i) { var pp = truckParcelPos(t, i); putParcel(pp.x, pp.y + 0.23, pp.z, 0, { kind: 'truck' }); }); });
     S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') putBox(st.carry.sku, st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); if (st.carry && st.carry.kind === 'parcel') putParcel(st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); });
@@ -1157,7 +1264,7 @@
   var handParcel = new THREE.Mesh(PARCEL_GEO, MAT.parcel); handParcel.position.set(0.38, -0.36, -0.74); handParcel.rotation.set(0.15, -0.35, 0.05); handParcel.visible = false; handGroup.add(handParcel);
   function updateHandMesh() { var h = S.hand; handBox.visible = !!(h && h.kind === 'box'); handParcel.visible = !!(h && h.kind === 'parcel'); if (h && h.kind === 'box') handBox.material = CARD[h.sku] || CARD.paint; }
   function handSet(h) { S.hand = h; hudDirty = true; updateHandMesh(); }
-  function handLabel() { var h = S.hand; if (!h) return null; if (h.kind === 'box') return { t: 'A box of ' + skuName(h.sku), s: 'G puts it down' }; var o = orderById(h.order); return { t: 'Parcel #' + (o ? o.num : '?'), s: o ? 'for ' + clientName(o.client) + ' · G puts it down' : '' }; }
+  function handLabel() { var h = S.hand; if (!h) return null; if (h.kind === 'box') return { t: (h.damaged ? 'A damaged box of ' : 'A box of ') + skuName(h.sku), s: h.damaged ? 'bin it by the bench' : 'G puts it down' }; var o = orderById(h.order); return { t: 'Parcel #' + (o ? o.num : '?'), s: o ? 'for ' + clientName(o.client) + ' · G puts it down' : '' }; }
 
   // ── Rack slots ────────────────────────────────────────────────────
   function slotGet(key) { return S.slots[key] || null; }
@@ -1184,6 +1291,7 @@
     if (p.l === RACK.top && !driving) return has ? skuName(s.sku) + ' × ' + s.n + ' · top level: forklift only' : 'Top level: forklift only';
     if (tool === 'cart') { if (has && S.cart.boxes.length < ECON.cartCap) return 'Pick a box of ' + skuName(s.sku) + ' onto the cart (' + s.n + ' here)'; return has ? 'Cart is full' : null; }
     if (tool === 'jack') { var jp = jackPallet(); if (jp) return p.l === 0 ? (slotSpace(key, jp.sku) >= jp.n ? 'Set the pallet into the rack' : (has ? 'Slot holds ' + skuName(s.sku) + ': no room' : null)) : 'The jack only reaches the floor level'; return has && p.l === 0 ? 'Pull the pallet out (' + Math.min(s.n, ECON.palletCap) + ' boxes)' : null; }
+    if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'A damaged box does not go on the rack: bin it';
     if (S.hand && S.hand.kind === 'box') return slotSpace(key, S.hand.sku) > 0 ? 'Put the box on the rack' + (has ? ' (' + s.n + ' here)' : '') : 'Slot holds ' + skuName(s.sku) + ': no room';
     if (S.hand) return null;
     return has ? 'Take a box of ' + skuName(s.sku) + ' (' + s.n + ' here)' : 'Empty slot · ' + slotName(key);
@@ -1198,6 +1306,7 @@
       if (has && p.l === 0) { var np = pullPallet(key); if (np) { np.place = 'jack'; S.jack.pallet = np.id; sfx('jack'); } }
       return;
     }
+    if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. The bin is by the bench.', 'bad'); return; }
     if (S.hand && S.hand.kind === 'box') { if (slotSpace(key, S.hand.sku) > 0) { slotAdd(key, S.hand.sku, 1); handSet(null); sfx('putdown'); S.stats.putaway++; addXp(XP.box); introStep('putaway'); } else toast('No room: that slot holds ' + skuName(s.sku) + '.', 'bad'); return; }
     if (S.hand) return;
     if (has) { slotTake(key, 1); handSet({ kind: 'box', sku: s.sku }); sfx('pickup'); S.stats.picked++; addXp(XP.box); introStep('pick'); }
@@ -1238,10 +1347,10 @@
     if (!insideHall(x, z) && floorY(x, z) < -0.5) { x = player.x; z = player.z; }
     item.x = x; item.z = z; item.y = floorY(x, z); item.rot = player.yaw; S.floor.push(item);
   }
-  function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'box') { if (player.tool === 'cart') return S.cart.boxes.length < ECON.cartCap ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : 'Pick up the box of ' + skuName(f.sku); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
+  function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'box') { if (player.tool === 'cart') return S.cart.boxes.length < ECON.cartCap && !f.damaged ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : (f.damaged ? 'Pick up the damaged box (it goes in the bin)' : 'Pick up the box of ' + skuName(f.sku)); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
   function floorUse(src) {
     var f = S.floor[src.idx]; if (!f) return;
-    if (f.kind === 'box') { if (player.tool === 'cart') { if (S.cart.boxes.length >= ECON.cartCap) return; S.cart.boxes.push(f.sku); } else if (S.hand || player.tool) return; else handSet({ kind: 'box', sku: f.sku }); }
+    if (f.kind === 'box') { if (player.tool === 'cart') { if (f.damaged) { toast('Damaged: carry it to the bin by hand.', 'bad'); return; } if (S.cart.boxes.length >= ECON.cartCap) return; S.cart.boxes.push(f.sku); } else if (S.hand || player.tool) return; else handSet({ kind: 'box', sku: f.sku, damaged: !!f.damaged }); }
     else { if (S.hand || player.tool) return; handSet({ kind: 'parcel', order: f.order }); }
     S.floor.splice(src.idx, 1); sfx('pickup');
   }
@@ -1249,7 +1358,7 @@
     if (player.tool) { releaseTool(); return; }
     if (!S.hand) return;
     var h = S.hand; handSet(null);
-    if (h.kind === 'box') dropAhead({ kind: 'box', sku: h.sku }); else dropAhead({ kind: 'parcel', order: h.order });
+    if (h.kind === 'box') { var dmg = h.damaged || (!player.grounded && Math.random() < 0.6); if (dmg && !h.damaged) { toast('That box landed badly.', 'bad'); burst(player.x, 0.4, player.z, 0xc69c6d, 10, 'out'); sfx('crate'); } dropAhead({ kind: 'box', sku: h.sku, damaged: dmg }); } else dropAhead({ kind: 'parcel', order: h.order });
     sfx('putdown');
   }
   // ── Trucks ────────────────────────────────────────────────────────
@@ -1338,9 +1447,9 @@
   }
   function tickTrucks(dt) {
     // the schedule
-    var inDocks = S.up.dock2 ? [0, 1] : [0];
+    var inDocks = isSunday() ? [] : (S.up.dock2 ? [0, 1] : [0]);
     TRUCK_IN.forEach(function (h, k) { inDocks.forEach(function (dock) { var f = 'in' + S.day + '-' + k + '-' + dock; if (!S.flags[f] && S.time >= h - 0.25 && S.time < h + 1.5) { S.flags[f] = 1; if (!truckAtDoor(dock) && !S.trucks.some(function (t) { return t.dir === 'in' && t.dock === dock && t.state !== 'leaving'; })) spawnTruck('in', dock, h + TRUCK_WAIT); } }); });
-    TRUCK_OUT.forEach(function (w, k) { var f = 'out' + S.day + '-' + k; if (!S.flags[f] && S.time >= w.arrive - 0.25 && S.time < w.leave - 0.3) { S.flags[f] = 1; if (!S.trucks.some(function (t) { return t.dir === 'out' && t.dock === k && t.state !== 'leaving'; })) spawnTruck('out', k, w.leave); } });
+    TRUCK_OUT.forEach(function (w, k) { var f = 'out' + S.day + '-' + k; if (isSunday()) return; if (!S.flags[f] && S.time >= w.arrive - 0.25 && S.time < w.leave - 0.3) { S.flags[f] = 1; if (!S.trucks.some(function (t) { return t.dir === 'out' && t.dock === k && t.state !== 'leaving'; })) spawnTruck('out', k, w.leave); } });
     // movement and waiting
     for (var i = S.trucks.length - 1; i >= 0; i--) {
       var t = S.trucks[i], m = truckMeshes[t.id]; if (!m) { buildTruckMesh(t); m = truckMeshes[t.id]; }
@@ -1440,7 +1549,7 @@
   function genOrder(rush) {
     var avail = unlockedSkus().filter(function (s) { return S.seenSkus.indexOf(s) >= 0; }); if (!avail.length) avail = unlockedSkus();
     var inStock = avail.filter(function (s) { return stockCount(s) > 0; });
-    var client = pick(CLIENTS), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
+    var client = S.contract && S.contract.accepted && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === S.contract.client; })[0] : pick(CLIENTS), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
     var nLines = randi(1, Math.min(3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));
     var lines = [], used = {};
     for (var i = 0; i < nLines; i++) {
@@ -1460,9 +1569,25 @@
     sfx('chime'); rebuildBoardSoon(); introStep('order'); hudDirty = true;
     return o;
   }
+  // contracts: every few days a client offers a run; every order of theirs shipped on time in the window counts
+  function offerContract() {
+    var client = pick(CLIENTS), need = 3 + Math.floor(S.level / 2), days = 3;
+    S.contract = { client: client.id, need: need, done: 0, until: (S.day + days) * 24 + 18, bonus: need * 60 + S.level * 40, penalty: 150, accepted: false, offeredDay: S.day };
+    logEvent(client.name + ' offers a contract: ' + need + ' orders on time in ' + days + ' days for a ' + money(S.contract.bonus) + ' bonus. Accept it on the office PC.', 'rare'); toast('Contract offer from ' + client.name + ' on the PC', 'rare'); sfx('chime');
+  }
+  function contractTick() {
+    var c = S.contract; if (!c) { if (S.level >= 3 && S.day >= S.nextOffer && S.time >= 9 && S.time < 9.2 && !isSunday()) offerContract(); return; }
+    if (!c.accepted && S.day > c.offeredDay) { S.contract = null; S.nextOffer = S.day + 2; logEvent('The contract offer from ' + clientName(c.client) + ' lapsed'); return; }
+    if (c.accepted && nowAbs() > c.until) {
+      if (c.done >= c.need) { pay(c.bonus, 'Contract bonus, ' + clientName(c.client)); addRep(6); toast('Contract complete: ' + money(c.bonus) + ' bonus', 'rare'); logEvent('Contract with ' + clientName(c.client) + ' complete: ' + money(c.bonus) + ' bonus', 'rare'); sfx('fanfare'); addXp(40); }
+      else { pay(-c.penalty, 'Contract penalty, ' + clientName(c.client)); addRep(-4); toast('Contract missed: ' + c.done + ' of ' + c.need + '. Penalty ' + money(c.penalty), 'bad'); logEvent('Contract with ' + clientName(c.client) + ' missed (' + c.done + ' of ' + c.need + ')', 'bad'); }
+      S.contract = null; S.nextOffer = S.day + randi(2, 4);
+    }
+  }
   function tickOrders() {
     var n = nowAbs();
-    if (S.time >= 8 && S.time < 17 && !S.events.power) {
+    if (Math.floor(S.time * 5) !== S.flags.ctQ) { S.flags.ctQ = Math.floor(S.time * 5); contractTick(); }
+    if (S.time >= 8 && S.time < 17 && !S.events.power && !isSunday()) {
       var openN = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }).length;
       var maxOpen = 3 + S.level, gap = Math.max(0.8, 2.3 - S.level * 0.12);
       if (S.day === 1 && !S.flags.firstOrder && S.time >= 8.5) { S.flags.firstOrder = 1; S.lastOrderAt = n; genOrder(false); }
@@ -1482,6 +1607,7 @@
   function benchPrompt() {
     if (player.tool === 'cart') return S.cart.boxes.length ? 'Unload the cart onto the bench (' + S.cart.boxes.length + ' boxes)' : 'Packing bench';
     if (player.tool === 'jack') return null;
+    if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Damaged boxes do not ship: bin it';
     if (S.hand && S.hand.kind === 'box') return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
     if (S.hand) return null;
     return 'Packing bench · ' + benchCount() + ' boxes · ' + openOrders().length + ' open orders';
@@ -1489,6 +1615,7 @@
   function benchUse() {
     if (player.tool === 'cart') { var moved = 0; while (S.cart.boxes.length && benchCount() < ECON.benchCap) { benchAdd(S.cart.boxes.pop(), 1); moved++; } if (moved) { sfx('putdown'); introStep('bench'); } else if (S.cart.boxes.length) toast('The bench is full.', 'bad'); return; }
     if (player.tool === 'jack') return;
+    if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. Bin it.', 'bad'); return; }
     if (S.hand && S.hand.kind === 'box') { if (benchCount() >= ECON.benchCap) { toast('The bench is full.', 'bad'); return; } benchAdd(S.hand.sku, 1); handSet(null); sfx('putdown'); introStep('bench'); return; }
     if (S.hand) return;
     openPanel('bench');
@@ -1513,6 +1640,7 @@
   function shipOrder(o) {
     var late = nowAbs() > o.due, amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1));
     pay(amount, 'Order #' + o.num + ' shipped to ' + clientName(o.client) + (late ? ' (late)' : '') + (o.short ? ' (short)' : ''));
+    if (!late && S.contract && S.contract.accepted && S.contract.client === o.client) { S.contract.done++; feedPush('Contract: ' + S.contract.done + ' of ' + S.contract.need, 'good'); }
     addRep(late ? -1 : o.rush ? 3 : 1.5); S.stats.shipped++; if (late) S.stats.late++; addXp(XP.ship);
     o.state = 'shipped'; o.shippedAt = nowAbs(); o.paid = amount;
     for (var i = 0; i < S.orders.length; i++) if (S.orders[i] === o) { S.orders.splice(i, 1); break; }
@@ -1624,7 +1752,7 @@
     if (throttle && batt <= 0 && !forkLook.flatSaid) { forkLook.flatSaid = true; toast('Flat battery: crawl mode. Park it in its bay by the charger.', 'bad'); }
     // an unwrapped load sheds a box on a fast corner
     var p0 = forkPallet();
-    if (p0 && !p0.wrapped && p0.n > 0 && (k.KeyA || k.KeyD) && Math.abs(forkSpeed) > 3.2 && Math.random() < dt * 0.9) { p0.n--; var tip0 = forkTip(); S.floor.push({ kind: 'box', sku: p0.sku, x: tip0.x + randf(-0.8, 0.8), y: floorY(tip0.x, tip0.z), z: tip0.z + randf(-0.8, 0.8), rot: Math.random() * 6 }); sfx('crate'); burst(tip0.x, tip0.y + 0.5, tip0.z, 0xc69c6d, 10, 'out'); toast('A box fell off the load. Wrap pallets before you move them.', 'bad'); if (p0.n <= 0) { removePallet(p0.id); F.pallet = null; } }
+    if (p0 && !p0.wrapped && p0.n > 0 && (k.KeyA || k.KeyD) && Math.abs(forkSpeed) > 3.2 && Math.random() < dt * 0.9) { p0.n--; var tip0 = forkTip(); S.floor.push({ kind: 'box', sku: p0.sku, x: tip0.x + randf(-0.8, 0.8), y: floorY(tip0.x, tip0.z), z: tip0.z + randf(-0.8, 0.8), rot: Math.random() * 6, damaged: Math.random() < 0.5 }); sfx('crate'); burst(tip0.x, tip0.y + 0.5, tip0.z, 0xc69c6d, 10, 'out'); toast('A box fell off the load. Wrap pallets before you move them.', 'bad'); if (p0.n <= 0) { removePallet(p0.id); F.pallet = null; } }
     if (forkSpeed < -0.3 && Math.floor(worldTime * 2) !== forkLook.beepT) { forkLook.beepT = Math.floor(worldTime * 2); sfx('beepback'); }
     if (k.Space) forkSpeed *= Math.max(0, 1 - 8 * dt);
     if (Math.abs(forkSpeed) < 0.02) forkSpeed = 0;
@@ -2110,6 +2238,7 @@
       y = scanRow(c, y, null, 'Outbound', TRUCK_OUT.map(function (w, i) { return 'OUT ' + (i + 1) + ' ' + fmtTime(w.arrive) + '-' + fmtTime(w.leave); }).join('  '));
       S.trucks.forEach(function (t) { if (y > h - 40) return; y = scanRow(c, y, null, (t.dir === 'in' ? 'IN' : 'OUT') + ' · ' + dockLabel(t.dir === 'in' ? t.dock : 2 + t.dock) + ' · ' + t.state, (t.dir === 'in' ? t.pallets.length + ' pallets' : t.parcels.length + ' parcels') + ' · leaves ' + fmtTime(t.leave), undefined, t.state === 'docked'); });
       y = scanRow(c, y, null, 'Bank ' + money(S.bank), 'rent ' + money(ECON.rent) + ' + wages ' + money(S.staff.reduce(function (a, s) { return a + STAFF_ROLES[s.role].wage; }, 0)) + ' at 06:00', 'rep ' + Math.round(S.rep));
+      if (S.contract && S.contract.accepted && y < h - 40) y = scanRow(c, y, null, 'Contract: ' + clientName(S.contract.client).slice(0, 16), S.contract.done + ' of ' + S.contract.need + ' by ' + fmtTime(S.contract.until % 24) + ' · ' + money(S.contract.bonus), undefined, true);
       if (S.up.fork) y = scanRow(c, y, null, 'Forklift battery', forkCharging() ? 'charging' : 'in the bay to charge', Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100) + '%', (S.fork.batt || 1) > 0.3);
     }
     // the slot under the crosshair, if any
@@ -2195,7 +2324,7 @@
 
   // ── Panels ────────────────────────────────────────────────────────
   var panel = { kind: null, tab: null };
-  var PC_TABS = [['orders', 'Orders'], ['shop', 'Shop'], ['staff', 'Staff'], ['finance', 'Finance'], ['stock', 'Stock'], ['stats', 'Stats']];
+  var PC_TABS = [['orders', 'Orders'], ['contracts', 'Contracts'], ['shop', 'Shop'], ['staff', 'Staff'], ['finance', 'Bank'], ['stock', 'Stock'], ['stats', 'Stats']];
   function openPanel(kind, tab) {
     panel.kind = kind; panel.tab = tab || (kind === 'pc' ? 'orders' : null); ui.panelOpen = true; $('dc-panel').hidden = false; scanToggle(false);
     ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {}
@@ -2225,6 +2354,12 @@
       var os = S.orders.slice().sort(function (a, b) { return a.due - b.due; });
       h += '<h3>Open orders (' + os.length + ')</h3>' + (os.length ? os.map(function (o) { return orderCard(o, false); }).join('') : '<p>Nothing open. Orders arrive between 08:00 and 17:00; more clients send more as your level rises.</p>');
       h += '<h3>Recently shipped</h3>' + (S.shipped.length ? '<table><tr><th>Order</th><th>Client</th><th>Day</th><th class="r">Paid</th></tr>' + S.shipped.slice(0, 12).map(function (s) { return '<tr><td>#' + s.num + (s.late ? ' <span class="dc-tag bad">late</span>' : '') + (s.short ? ' <span class="dc-tag warn">short</span>' : '') + '</td><td>' + esc(clientName(s.client)) + '</td><td>' + s.day + '</td><td class="r">' + money(s.paid) + '</td></tr>'; }).join('') + '</table>' : '<p>Nothing shipped yet.</p>');
+    } else if (tab === 'contracts') {
+      var c = S.contract;
+      h += '<p>A client offers a run of orders. Ship every one of theirs on time inside the window and the bonus is yours; miss the count and there is a penalty. Offers come from level 3, every few days.</p>';
+      if (!c) h += '<div class="dc-card"><div class="body"><b>No offer on the table</b><small>' + (S.level < 3 ? 'Reach level 3.' : 'Next offer around day ' + S.nextOffer + '.') + '</small></div></div>';
+      else if (!c.accepted) h += '<div class="dc-card hi"><div class="body"><b>' + esc(clientName(c.client)) + '</b><small>' + c.need + ' orders on time by ' + dueText(c.until) + ' · bonus ' + money(c.bonus) + ' · penalty ' + money(c.penalty) + '</small></div>' + btn('accept', '', 'Accept', 'primary') + btn('decline', '', 'Decline', '') + '</div>';
+      else h += '<div class="dc-card hi"><div class="body"><b>' + esc(clientName(c.client)) + ' · ' + c.done + ' of ' + c.need + '</b><small>until ' + dueText(c.until) + ' · bonus ' + money(c.bonus) + '</small><div class="dc-bar"><span style="width:' + Math.round(100 * c.done / c.need) + '%"></span></div></div></div>';
     } else if (tab === 'shop') {
       h += '<p>Bank: <b style="color:var(--cash)">' + money(S.bank) + '</b> · level ' + S.level + '. Everything is delivered and fitted at once.</p><div class="dc-grid">';
       UPGRADES.forEach(function (u) {
@@ -2239,6 +2374,8 @@
       if (S.staff.length) h += '<h3>Your crew</h3>' + S.staff.map(function (st) { return '<div class="dc-card"><div class="body"><b>' + esc(st.name) + '</b> · ' + STAFF_ROLES[st.role].name + '<small>' + (staffOnShift() ? 'On shift · ' + st.state : 'Off shift') + ' · hired day ' + st.hiredDay + '</small></div>' + btn('fire', st.id, 'Let go', 'danger') + '</div>'; }).join('');
     } else if (tab === 'finance') {
       h += '<div class="dc-kpis"><div class="dc-kpi"><div class="k">Bank</div><div class="v" style="color:var(--cash)">' + money(S.bank) + '</div></div><div class="dc-kpi"><div class="k">Earned</div><div class="v">' + money(S.stats.earned) + '</div></div><div class="dc-kpi"><div class="k">Spent</div><div class="v">' + money(S.stats.spent) + '</div></div><div class="dc-kpi"><div class="k">Fines</div><div class="v">' + money(S.stats.fines) + '</div></div><div class="dc-kpi"><div class="k">Daily costs</div><div class="v">' + money(ECON.rent + S.staff.reduce(function (a, s) { return a + STAFF_ROLES[s.role].wage; }, 0)) + '</div></div></div>';
+      h += '<h3>The bank</h3><div class="dc-grid"><div class="dc-card"><div class="body"><b>Loan</b><small>' + (S.loan > 0 ? money(S.loan) + ' outstanding · 1.5% a day (' + money(Math.round(S.loan * 0.015)) + ')' : 'Borrow $5,000 at 1.5% a day. Repay when you can.') + '</small></div>' + (S.loan > 0 ? btn('repay', '', 'Repay ' + money(Math.min(S.loan, Math.max(0, S.bank))), 'primary', S.bank <= 0) : btn('borrow', '', 'Borrow $5,000', 'primary', S.level < 2)) + '</div>' +
+        '<div class="dc-card"><div class="body"><b>Theft insurance</b><small>$40 a day. Pays 80% of the value of anything that walks off at night.</small></div>' + btn('insure', '', S.insured ? 'Cancel' : 'Insure', S.insured ? '' : 'primary') + '</div></div>';
       h += '<table><tr><th>Day</th><th>Time</th><th>What</th><th class="r">Amount</th></tr>' + S.ledger.slice(0, 30).map(function (l) { return '<tr><td>' + l.day + '</td><td>' + l.t + '</td><td>' + esc(l.why) + '</td><td class="r" style="color:' + (l.n < 0 ? 'var(--red)' : 'var(--green)') + '">' + money(l.n) + '</td></tr>'; }).join('') + '</table>';
     } else if (tab === 'stock') {
       var sum = stockSummary(), keys = Object.keys(sum).sort();
@@ -2265,6 +2402,11 @@
     else if (act === 'buy') buyUpgrade(arg);
     else if (act === 'hire') { var d = STAFF_ROLES[arg]; if (d && S.level >= d.lvl && S.staff.length < 5) { hireStaff(arg); toast('Hired a ' + d.name.toLowerCase(), 'good'); } }
     else if (act === 'fire') fireStaff(arg);
+    else if (act === 'accept') { if (S.contract) { S.contract.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(S.contract.client), 'good'); } }
+    else if (act === 'decline') { if (S.contract) { logEvent('Declined the contract from ' + clientName(S.contract.client)); S.contract = null; S.nextOffer = S.day + 2; } }
+    else if (act === 'borrow') { if (S.level >= 2 && S.loan <= 0) { S.loan = 5000; pay(5000, 'Bank loan'); sfx('cash'); toast('$5,000 in the bank. 1.5% a day.', 'good'); } }
+    else if (act === 'repay') { var amt = Math.min(S.loan, Math.max(0, S.bank)); if (amt > 0) { S.loan -= amt; pay(-amt, 'Loan repayment'); sfx('cash'); toast('Repaid ' + money(amt), 'good'); } }
+    else if (act === 'insure') { S.insured = !S.insured; toast(S.insured ? 'Insured from tonight' : 'Insurance cancelled', ''); }
     renderPanel(); hudDirty = true;
   }
   function buyUpgrade(id) {
@@ -2339,6 +2481,8 @@
       '<h3>Staff</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC. They work 08:00 to 18:00 and are paid at 06:00. They will not open dock doors: that stays your job.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
       '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
+      '<h3>Contracts and the bank</h3><p>From level 3 a client offers a contract now and then: a number of their orders on time inside a window, for a bonus; miss it and there is a penalty. The bank lends $5,000 at 1.5% a day from level 2, and theft insurance at $40 a day pays most of what walks off at night.</p>' +
+      '<h3>Damaged goods</h3><p>A box dropped mid-air or shed off the forklift can be damaged. It cannot go on a rack or the bench: carry it to the bin by the packing bench and the client charges half its value.</p>' +
       '<h3>Tips</h3><p>Keep one slot per line and the scanner tells you where everything is. Pack before the truck arrives, not after. Coffee makes you faster for an hour. Reputation brings more and bigger orders.</p>';
   }
   // ── Static bake ───────────────────────────────────────────────────
@@ -2395,6 +2539,9 @@
     S.day++; S.stats.days++;
     pay(-ECON.rent, 'Rent, day ' + S.day);
     S.staff.forEach(function (st) { pay(-STAFF_ROLES[st.role].wage, 'Wages, ' + st.name); });
+    if (S.loan > 0) { var interest = Math.round(S.loan * 0.015); pay(-interest, 'Loan interest (1.5%)'); }
+    if (S.insured) pay(-40, 'Insurance premium');
+    if (isSunday()) { toast('Sunday. The depot is closed: no trucks, no orders.', ''); logEvent('Sunday. Nothing moves today. A good day to sleep through.'); }
     for (var f in S.flags) if (/^(in|out)\d+-/.test(f) && +f.replace(/^(in|out)/, '').split('-')[0] < S.day - 1) delete S.flags[f];
     S.events.inspected = false; S.events.prowled = false;
     logEvent('Day ' + S.day + '. Rent and wages paid.', 'rare'); toast('Day ' + S.day, 'rare'); rebuildBoardSoon(); hudDirty = true; save();
@@ -2470,6 +2617,7 @@
     var keys = Object.keys(S.slots).filter(function (k) { return S.slots[k].n > 0; }); if (!keys.length) return;
     var key = pick(keys), sku = S.slots[key].sku, n = slotTake(key, randi(2, 6));
     S.stats.lost += n; addRep(-3); sfx('glass');
+    if (S.insured) { var refund = Math.round(n * SKU[sku].val * 0.8); pay(refund, 'Insurance payout, ' + n + ' boxes'); toast('Insurance paid ' + money(refund) + ' for the loss', 'good'); }
     toast('Someone walked off with ' + n + ' boxes through the open door at ' + dockLabel(open[0].i), 'bad'); logEvent(n + ' boxes of ' + skuName(sku) + ' stolen through the open door at ' + dockLabel(open[0].i) + '. Close the doors at night.', 'bad');
   }
   function onLevelUp() {
@@ -2611,8 +2759,8 @@
   var wrapInst = null;
   function tickWrapper(dt) {
     if (wrapper.t > 0) { wrapper.t -= dt; if (wrapper.t <= 0) { wrapper.t = 0; var p = palletById(wrapper.pallet); if (p) { p.wrapped = true; toast('Pallet wrapped', 'good'); sfx('tape'); burst(dress.wrapper.position.x, 1, dress.wrapper.position.z, 0xffffff, 10, 'out'); } } }
-    if (!wrapInst) { wrapInst = new THREE.InstancedMesh(boxGeo(1.24, 1.0, 1.04), std({ color: 0xffffff, transparent: true, opacity: 0.28, roughness: 0.15, metalness: 0.1, depthWrite: false }), 120); wrapInst.count = 0; wrapInst.frustumCulled = false; scene.add(wrapInst); }
-    var n = 0; S.pallets.forEach(function (p) { if (!p.wrapped || n >= 120) return; var w = palletWorld(p); if (!w) return; var hgt = 0.14 + Math.ceil(p.n / 4) * BOX.h; _e.set(0, w.ry, 0); _q.setFromEuler(_e); _v2.set(1, hgt, 1); _m4.compose(_v.set(w.x, w.y + hgt / 2, w.z), _q, _v2); wrapInst.setMatrixAt(n++, _m4); });
+    if (!wrapInst) { var filmTex = tex(128, 256, function (c, w, h) { c.fillStyle = 'rgba(235,240,245,0.55)'; c.fillRect(0, 0, w, h); for (var i = 0; i < 40; i++) { c.fillStyle = 'rgba(255,255,255,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, 0, randf(1, 4), h); } for (var y = 0; y < h; y += 34) { c.fillStyle = 'rgba(200,210,220,0.35)'; c.fillRect(0, y, w, 3); c.fillStyle = 'rgba(255,255,255,0.3)'; c.fillRect(0, y + 4, w, 1); } }, 2, 1); wrapInst = new THREE.InstancedMesh(boxGeo(1.27, 1.0, 1.07), new THREE.MeshPhysicalMaterial({ map: filmTex, transparent: true, opacity: 0.55, roughness: 0.12, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.1, depthWrite: false, side: THREE.DoubleSide }), 120); wrapInst.count = 0; wrapInst.frustumCulled = false; wrapInst.renderOrder = 1; scene.add(wrapInst); }
+    var n = 0; S.pallets.forEach(function (p) { if (!p.wrapped || n >= 120) return; var w = palletWorld(p); if (!w) return; var hgt = Math.ceil(p.n / 4) * BOX.h + 0.02; _e.set(0, w.ry, 0); _q.setFromEuler(_e); _v2.set(1, hgt, 1); _m4.compose(_v.set(w.x, w.y + 0.14 + hgt / 2 - 0.01, w.z), _q, _v2); wrapInst.setMatrixAt(n++, _m4); });
     wrapInst.count = n; wrapInst.instanceMatrix.needsUpdate = true;
   }
 

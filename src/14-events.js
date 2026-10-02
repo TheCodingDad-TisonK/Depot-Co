@@ -12,6 +12,9 @@
     S.day++; S.stats.days++;
     pay(-ECON.rent, 'Rent, day ' + S.day);
     S.staff.forEach(function (st) { pay(-STAFF_ROLES[st.role].wage, 'Wages, ' + st.name); });
+    if (S.loan > 0) { var interest = Math.round(S.loan * 0.015); pay(-interest, 'Loan interest (1.5%)'); }
+    if (S.insured) pay(-40, 'Insurance premium');
+    if (isSunday()) { toast('Sunday. The depot is closed: no trucks, no orders.', ''); logEvent('Sunday. Nothing moves today. A good day to sleep through.'); }
     for (var f in S.flags) if (/^(in|out)\d+-/.test(f) && +f.replace(/^(in|out)/, '').split('-')[0] < S.day - 1) delete S.flags[f];
     S.events.inspected = false; S.events.prowled = false;
     logEvent('Day ' + S.day + '. Rent and wages paid.', 'rare'); toast('Day ' + S.day, 'rare'); rebuildBoardSoon(); hudDirty = true; save();
@@ -87,6 +90,7 @@
     var keys = Object.keys(S.slots).filter(function (k) { return S.slots[k].n > 0; }); if (!keys.length) return;
     var key = pick(keys), sku = S.slots[key].sku, n = slotTake(key, randi(2, 6));
     S.stats.lost += n; addRep(-3); sfx('glass');
+    if (S.insured) { var refund = Math.round(n * SKU[sku].val * 0.8); pay(refund, 'Insurance payout, ' + n + ' boxes'); toast('Insurance paid ' + money(refund) + ' for the loss', 'good'); }
     toast('Someone walked off with ' + n + ' boxes through the open door at ' + dockLabel(open[0].i), 'bad'); logEvent(n + ' boxes of ' + skuName(sku) + ' stolen through the open door at ' + dockLabel(open[0].i) + '. Close the doors at night.', 'bad');
   }
   function onLevelUp() {

@@ -96,9 +96,10 @@
     box(0.32, 0.45, 0.15, MAT.grey, 0, 2.0, -0.86, wg); plane(0.2, 0.12, MAT.screen, 0, 2.1, -0.78, 0, 0, wg); box(0.05, 0.05, 0.03, MAT.green, -0.08, 1.88, -0.78, wg); box(0.05, 0.05, 0.03, MAT.red, 0.08, 1.88, -0.78, wg); sign(['START'], 0.12, 0.05, -0.08, 1.82, -0.78, 0, { w: 128, h: 48, bg: '#1b232c', fg: '#5fd38d' }, wg);
     sign(['STRETCH WRAP'], 1.2, 0.25, 0, 2.5, -0.9, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#78bdf5' }, wg); solid(7, 9, -13.7, -11.3);
     hitBox(1.0, 2.4, 0.8, 0, 1.2, -1.05, { prompt: function () { return wrapperPrompt(); }, use: function () { wrapperUse(); } }, wg);
-    cyl(0.3, 0.8, MAT.grey, 14.3, 0.4, 2.6, null, 16); cyl(0.32, 0.05, MAT.black, 14.3, 0.82, 2.6, null, 16); solid(14, 14.6, 2.3, 2.9);
-    var broom = cyl(0.015, 1.3, MAT.wood, 14.6, 0.7, 2.95, null, 6); broom.rotation.z = 0.25; box(0.25, 0.08, 0.05, MAT.plastic, 14.75, 0.08, 2.95);
-    [[-1, 0.3], [1, 0.3]].forEach(function (o) { var p = plane(0.4, 0.7, new THREE.MeshBasicMaterial({ map: textTex(['WET', 'FLOOR'], { w: 128, h: 192, bg: '#f5b53d', fg: '#111', size: 44 }), side: THREE.DoubleSide }), 12.0 + o[0] * 0.12, 0.35, 10.6, 0, o[0] * 0.3); p.rotation.x = o[0] * -0.25; });
+    // the damaged-goods bin: a red wheelie bin with a lid, a handle bar and two wheels
+    var bin = cyl(0.3, 0.85, MAT.red, 14.3, 0.47, 2.6, null, 4, 0.25); bin.rotation.y = Math.PI / 4; var lid = box(0.56, 0.05, 0.56, std({ color: 0x8e2420, roughness: 0.7 }), 14.3, 0.92, 2.6); lid.rotation.y = Math.PI / 4; box(0.08, 0.03, 0.5, MAT.black, 14.52, 0.95, 2.6); cyl(0.09, 0.05, MAT.black, 14.1, 0.09, 2.38, null, 12).rotation.x = Math.PI / 2; cyl(0.09, 0.05, MAT.black, 14.1, 0.09, 2.82, null, 12).rotation.x = Math.PI / 2; cyl(0.015, 0.5, MAT.steelDark, 14.1, 0.09, 2.6, null, 6).rotation.x = Math.PI / 2; solid(14, 14.6, 2.3, 2.9); hitBox(0.7, 0.9, 0.7, 14.3, 0.45, 2.6, { prompt: function () { return binPrompt(); }, use: function () { binUse(); } }); sign(['DAMAGED', 'GOODS'], 0.5, 0.3, 14.3, 1.1, 2.6, -Math.PI / 2, { w: 256, h: 128, bg: '#c8342a', fg: '#fff' });
+    var broom = cyl(0.014, 1.3, MAT.wood, 14.62, 0.72, 3.15, null, 6); broom.rotation.z = 0.22; box(0.3, 0.06, 0.06, MAT.plastic, 14.78, 0.1, 3.15); var bristles = box(0.3, 0.06, 0.05, std({ color: 0x8a7a55, roughness: 1 }), 14.78, 0.04, 3.15); cyl(0.02, 0.04, MAT.red, 14.47, 1.36, 3.15, null, 8);
+    wetFloorSign(12.0, 10.6, 0.4);
     // the forklift bay, the tool bays and the charger on the south wall
     var bay = function (cx, cz, w, d, label) { plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz - d / 2, -Math.PI / 2); plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz + d / 2, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx - w / 2, 0.0062, cz, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx + w / 2, 0.0062, cz, -Math.PI / 2); plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex([label], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), cx, 0.0066, cz + d / 2 - 0.3, -Math.PI / 2); };
     bay(SPOT.fork.x, SPOT.fork.z, 2.6, 3.6, 'FORKLIFT'); bay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK'); bay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
@@ -133,6 +134,7 @@
     poster('safety', 0.6, 0.9, 16.5, 2.1, Z - 0.17, Math.PI);
     // the crossing where the walkway meets the dock aprons, and the pedestrian route into the office
     plane(1.4, 0.08, MAT.yellowLine, 12.5, 0.0062, 9.95, -Math.PI / 2);
+    buildPigeons(); buildPropsSweep();
   }
   function rackEnds(r) {
     var z = RACK.rows[r];
@@ -147,7 +149,90 @@
     if (S.bank < 3) { toast('No change on you.', 'bad'); return; }
     pay(-3, 'Snack from the machine'); buff.snackDay = S.day; buff.snackUntil = S.time + 0.5; sfx('vend'); toast('Crisps. Faster for half an hour.', 'good'); burst(dress.vending.parent.position.x, 0.5, dress.vending.parent.position.z - 0.5, 0xf5b53d, 8, 'down');
   }
+  // pigeons: three on a truss, off in a flap when you walk under them, back on another truss a while later
+  var pigeons = [];
+  function buildPigeons() {
+    for (var i = 0; i < 3; i++) {
+      var g = new THREE.Group(); g.userData.dynamic = true; scene.add(g);
+      var body = sphere(0.09, MAT.grey, 0, 0, 0, g); body.scale.set(1, 0.8, 1.4); sphere(0.055, std({ color: 0x4a5560, roughness: 0.9 }), 0, 0.07, 0.1, g); box(0.02, 0.02, 0.05, MAT.yellow, 0, 0.06, 0.16, g);
+      var wl = box(0.16, 0.01, 0.12, MAT.grey, -0.12, 0.03, 0, g), wr2 = box(0.16, 0.01, 0.12, MAT.grey, 0.12, 0.03, 0, g);
+      var perch = { x: -16 + i * 8 + randf(-2, 2), z: pick([-9.5, 9.5]) };
+      pigeons.push({ g: g, wl: wl, wr: wr2, x: perch.x, z: perch.z, y: HALL.h - 0.7, state: 'perch', t: 0, from: null, to: null, flap: Math.random() * 6 });
+      g.position.set(perch.x, HALL.h - 0.7, perch.z); g.rotation.y = Math.random() * 6.28;
+    }
+  }
+  function tickPigeons(dt) {
+    pigeons.forEach(function (p) {
+      if (p.state === 'perch') {
+        p.t += dt; p.g.rotation.y += Math.sin(p.t * 0.7) * 0.004; p.wl.rotation.z = 0; p.wr.rotation.z = 0;
+        if (dist2(player.x, player.z, p.x, p.z) < 30 && insideHall(player.x, player.z) && Math.random() < dt * 2) { p.state = 'fly'; p.t = 0; p.from = { x: p.x, z: p.z }; p.to = { x: clamp(p.x + randf(-14, 14), -17, 17), z: p.z > 0 ? -9.5 : 9.5 }; sfx('flap'); p.g.rotation.y = Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z); }
+      } else {
+        p.t += dt / 3.5; var k = Math.min(1, p.t);
+        p.x = lerp(p.from.x, p.to.x, k); p.z = lerp(p.from.z, p.to.z, k); p.y = HALL.h - 0.7 - Math.sin(k * Math.PI) * 1.6;
+        p.flap += dt * 24; p.wl.rotation.z = Math.sin(p.flap) * 0.9; p.wr.rotation.z = -Math.sin(p.flap) * 0.9;
+        if (k >= 1) { p.state = 'perch'; p.t = 0; }
+      }
+      p.g.position.set(p.x, p.y, p.z);
+    });
+  }
+  // a proper A-frame wet-floor sign: two tapered yellow panels hinged at the top, the warning on both faces, feet that splay
+  function wetFloorSign(x, z, ry) {
+    var g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry || 0; scene.add(g);
+    var face = new THREE.MeshBasicMaterial({ map: textTex(['CAUTION', 'WET FLOOR'], { w: 192, h: 256, bg: '#f5b53d', fg: '#111', size: 34 }) });
+    [-1, 1].forEach(function (s) {
+      var pg = new THREE.Group(); pg.position.set(0, 0.72, 0); pg.rotation.x = s * 0.32; g.add(pg);
+      box(0.34, 0.72, 0.012, MAT.yellow, 0, -0.36, s * 0.006, pg); var f = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.6), face); f.position.set(0, -0.38, s * 0.014); f.rotation.y = s > 0 ? 0 : Math.PI; pg.add(f);
+      box(0.02, 0.72, 0.02, MAT.black, -0.17, -0.36, s * 0.01, pg); box(0.02, 0.72, 0.02, MAT.black, 0.17, -0.36, s * 0.01, pg); box(0.34, 0.03, 0.02, MAT.black, 0, -0.72, s * 0.012, pg);
+    });
+    cyl(0.012, 0.36, MAT.black, 0, 0.72, 0, g, 8).rotation.z = Math.PI / 2; box(0.1, 0.03, 0.02, MAT.black, 0, 0.75, 0, g);
+  }
+  // the props sweep: detail laid over the plainer pieces that were built first
+  function buildPropsSweep() {
+    var Z = HALL.z, X = HALL.x, k = SPOT.coffee;
+    // break room: the cot gets a frame, pillow and a folded blanket; the table gets chrome legs and real chairs
+    var c = SPOT.cot; box(1.95, 0.05, 0.05, MAT.steelDark, c.x, 0.5, c.z - 0.47); box(1.95, 0.05, 0.05, MAT.steelDark, c.x, 0.5, c.z + 0.47); box(0.05, 0.4, 0.95, MAT.steelDark, c.x - 0.97, 0.45, c.z); box(0.05, 0.6, 0.95, MAT.steelDark, c.x + 0.97, 0.55, c.z);
+    box(0.5, 0.12, 0.42, MAT.white, c.x - 0.62, 0.6, c.z).rotation.z = 0.08; var bl = box(0.6, 0.1, 0.8, std({ color: 0x6b2b2b, roughness: 1 }), c.x + 0.55, 0.58, c.z); box(0.6, 0.04, 0.8, std({ color: 0x5a2424, roughness: 1 }), c.x + 0.55, 0.65, c.z);
+    [[-0.42, -0.42], [0.42, -0.42], [-0.42, 0.42], [0.42, 0.42]].forEach(function (o) { cyl(0.025, 0.75, MAT.chrome, -14.5 + o[0], 0.375, 12.5 + o[1], null, 8); });
+    [[-0.75, 0, 1], [0.75, 0, -1], [0, 0.75, 0]].forEach(function (o) { var cg = new THREE.Group(); cg.position.set(-14.5 + o[0], 0, 12.5 + o[1]); cg.rotation.y = Math.atan2(-o[0], -o[1]); scene.add(cg); box(0.42, 0.04, 0.42, MAT.red, 0, 0.46, 0, cg); box(0.42, 0.38, 0.03, MAT.red, 0, 0.72, -0.2, cg); [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]].forEach(function (l) { cyl(0.014, 0.46, MAT.chrome, l[0], 0.23, l[1], cg, 6); }); cyl(0.014, 0.3, MAT.chrome, -0.18, 0.62, -0.2, cg, 6); cyl(0.014, 0.3, MAT.chrome, 0.18, 0.62, -0.2, cg, 6); });
+    cyl(0.05, 0.1, MAT.white, -14.3, 0.83, 12.4, null, 10); box(0.14, 0.02, 0.2, MAT.paper, -14.7, 0.79, 12.7); cyl(0.04, 0.12, std({ color: 0xb8322a, roughness: 0.3, metalness: 0.4 }), -14.2, 0.84, 12.75, null, 10);
+    // the coffee counter: a bean-to-cup machine gets a drip tray, a spout, a cup and a bean hopper; the kettle a lid and spout; a microwave door window
+    box(0.3, 0.02, 0.2, MAT.chrome, k.x, 0.91, k.z + 0.2); box(0.06, 0.08, 0.06, MAT.black, k.x, 1.0, k.z + 0.18); cyl(0.035, 0.09, MAT.white, k.x, 0.955, k.z + 0.2, null, 10); cyl(0.09, 0.14, MAT.glass, k.x, 1.45, k.z - 0.05, null, 12); cyl(0.07, 0.1, std({ color: 0x4a2c1a, roughness: 1 }), k.x, 1.42, k.z - 0.05, null, 10);
+    box(0.03, 0.06, 0.03, MAT.black, k.x - 0.1, 1.2, k.z + 0.2); box(0.03, 0.06, 0.03, MAT.black, k.x + 0.1, 1.2, k.z + 0.2);
+    plane(0.3, 0.16, MAT.glass, k.x + 0.9, 1.07, k.z + 0.146); box(0.06, 0.1, 0.02, MAT.black, k.x + 1.1, 1.05, k.z + 0.15); cyl(0.025, 0.07, MAT.chrome, k.x - 0.5, 1.12, k.z, null, 8); cyl(0.02, 0.1, MAT.chrome, k.x - 0.43, 1.03, k.z + 0.06, null, 6).rotation.z = -0.8;
+    // the vending machine: glass front, a lit shelf strip, the coin panel, the pickup flap
+    var vgp = dress.vending && dress.vending.parent; if (vgp) { var gf = box(0.62, 1.14, 0.01, MAT.glass, -0.1, 1.15, -0.425, vgp); gf.userData.noBake = true; box(0.6, 0.02, 0.6, glowMat(0xdfe9ff, 0.5), -0.1, 1.72, -0.1, vgp); box(0.22, 0.4, 0.02, MAT.steelDark, 0.3, 1.25, -0.42, vgp); box(0.03, 0.06, 0.01, MAT.black, 0.3, 1.38, -0.432, vgp); for (var kp = 0; kp < 6; kp++) box(0.03, 0.03, 0.01, MAT.white, 0.24 + (kp % 3) * 0.05, 1.2 - Math.floor(kp / 3) * 0.05, -0.432, vgp); box(0.5, 0.2, 0.02, MAT.black, -0.1, 0.33, -0.425, vgp); box(0.44, 0.03, 0.02, MAT.chrome, -0.1, 0.42, -0.432, vgp); }
+    // fire extinguishers get a hose, a nozzle and a gauge
+    [[-X + 0.35, -12, Math.PI / 2], [X - 0.35, -12, -Math.PI / 2], [13.2, 6.5, -Math.PI / 2], [-X + 0.35, 13.2, Math.PI / 2]].forEach(function (p) { var eg = new THREE.Group(); eg.position.set(p[0], 0, p[1]); eg.rotation.y = p[2]; scene.add(eg); cyl(0.012, 0.42, MAT.black, 0.08, 1.0, 0.03, eg, 6).rotation.z = 0.15; cyl(0.02, 0.07, MAT.black, 0.11, 0.79, 0.05, eg, 8, 0.03); cyl(0.025, 0.02, MAT.white, 0.0, 1.3, 0.09, eg, 10).rotation.x = Math.PI / 2; box(0.1, 0.1, 0.002, MAT.paper, 0, 1.0, 0.082, eg); });
+    // lockers: vents, handles, numbers
+    [-18.4, -17.7].forEach(function (lx, i) { for (var vv = 0; vv < 3; vv++) box(0.3, 0.01, 0.02, MAT.black, lx, 1.55 - vv * 0.05, 13.34); box(0.03, 0.08, 0.02, MAT.chrome, lx + 0.2, 1.0, 13.34); sign([String(i + 1)], 0.1, 0.1, lx, 1.72, 13.33, Math.PI, { w: 64, h: 64, bg: '#1b232c', fg: '#eef1f5' }); box(0.6, 0.02, 0.5, MAT.steelDark, lx, 0.02, 13.6); });
+    // the fridge: a handle, a kick plate, a note on the door
+    box(0.03, 0.5, 0.03, MAT.chrome, -16.1, 1.2, 9.37); box(0.7, 0.1, 0.02, MAT.black, -16, 0.05, 9.36); box(0.12, 0.14, 0.004, MAT.paper, -15.85, 1.5, 9.36); box(0.02, 0.02, 0.01, MAT.red, -15.85, 1.58, 9.365);
+    // the water cooler: a bottle, two taps, a cup holder
+    cyl(0.1, 0.06, MAT.blue, k.x + 0.5, 1.68, k.z, null, 12); box(0.03, 0.05, 0.04, MAT.blue, k.x + 0.44, 1.3, k.z + 0.26); box(0.03, 0.05, 0.04, MAT.red, k.x + 0.56, 1.3, k.z + 0.26); box(0.06, 0.2, 0.06, MAT.white, k.x + 0.78, 1.4, k.z, null);
+    // the office: a drawer pedestal, a desk pad, keyboard keys, a mouse, a phone, a pen pot; the chair gets a star base and arms; the cabinets get handles and labels
+    var pc = SPOT.pc; box(0.45, 0.6, 0.6, MAT.grey, pc.x - 0.75, 0.3, pc.z + 0.6); for (var dw = 0; dw < 3; dw++) box(0.03, 0.03, 0.2, MAT.chrome, pc.x - 0.52, 0.12 + dw * 0.18, pc.z + 0.6);
+    box(0.6, 0.004, 0.4, std({ color: 0x1f2a36, roughness: 1 }), pc.x - 0.1, 0.783, pc.z + 0.45); for (var kr = 0; kr < 3; kr++) for (var kc = 0; kc < 10; kc++) box(0.03, 0.012, 0.03, std({ color: 0x4a515b, roughness: 0.6 }), pc.x - 0.3 + kc * 0.042, 0.822, pc.z + 0.38 + kr * 0.04);
+    box(0.06, 0.03, 0.1, MAT.black, pc.x + 0.5, 0.8, pc.z + 0.42); box(0.2, 0.06, 0.16, MAT.black, pc.x - 0.75, 0.81, pc.z + 0.86); cyl(0.012, 0.18, MAT.black, pc.x - 0.75, 0.9, pc.z + 0.86, null, 6).rotation.z = Math.PI / 2; cyl(0.03, 0.09, MAT.black, pc.x + 0.9, 0.82, pc.z + 0.55, null, 8); cyl(0.004, 0.14, MAT.blue, pc.x + 0.9, 0.9, pc.z + 0.55, null, 4).rotation.z = 0.2;
+    for (var sp = 0; sp < 5; sp++) { var leg = box(0.04, 0.03, 0.28, MAT.black, pc.x + Math.sin(sp / 5 * 6.283) * 0.14, 0.04, pc.z - 0.2 + Math.cos(sp / 5 * 6.283) * 0.14); leg.rotation.y = sp / 5 * 6.283; cyl(0.03, 0.02, MAT.black, pc.x + Math.sin(sp / 5 * 6.283) * 0.27, 0.03, pc.z - 0.2 + Math.cos(sp / 5 * 6.283) * 0.27, null, 8).rotation.x = Math.PI / 2; }
+    box(0.04, 0.3, 0.3, MAT.black, pc.x - 0.26, 0.68, pc.z - 0.2); box(0.04, 0.3, 0.3, MAT.black, pc.x + 0.26, 0.68, pc.z - 0.2); box(0.5, 0.06, 0.5, MAT.fabric, pc.x, 0.53, pc.z - 0.2); box(0.5, 0.5, 0.06, MAT.fabric, pc.x, 0.78, pc.z - 0.45);
+    [19.0, 19.6].forEach(function (cx2) { for (var cd = 0; cd < 3; cd++) { box(0.5, 0.36, 0.02, MAT.steelDark, cx2, 0.25 + cd * 0.4, 13.19); box(0.14, 0.03, 0.02, MAT.chrome, cx2, 0.33 + cd * 0.4, 13.18); box(0.16, 0.06, 0.003, MAT.paper, cx2, 0.2 + cd * 0.4, 13.18); } });
+    box(0.9, 0.06, 0.9, MAT.wood, 13.2, 0.03, 13.4);
+    // posters get frames
+    [[-X + 0.17, 2.0, -4, Math.PI / 2, 0.7, 1.05], [2.2, 2.0, Z - 0.17, Math.PI, 0.7, 1.05], [-6, 2.0, Z - 0.17, Math.PI, 0.7, 1.05], [12.42, 1.9, 11.5, -Math.PI / 2, 0.7, 1.05], [-X + 0.17, 2.0, 9.2, Math.PI / 2, 0.6, 0.9], [15.2, 1.9, -Z + 0.17, 0, 0.6, 0.9], [-12.6, 2.0, 11.0, -Math.PI / 2, 0.6, 0.9], [-18.6, 2.6, Z - 0.17, Math.PI, 0.5, 0.75], [16.5, 2.1, Z - 0.17, Math.PI, 0.6, 0.9]].forEach(function (f) { var fg = new THREE.Group(); fg.position.set(f[0], f[1], f[2]); fg.rotation.y = f[3]; scene.add(fg); var fw = f[4] + 0.06, fh = f[5] + 0.06; box(fw, 0.03, 0.03, MAT.black, 0, fh / 2, -0.01, fg); box(fw, 0.03, 0.03, MAT.black, 0, -fh / 2, -0.01, fg); box(0.03, fh, 0.03, MAT.black, -fw / 2, 0, -0.01, fg); box(0.03, fh, 0.03, MAT.black, fw / 2, 0, -0.01, fg); });
+    // the hose reel: the hose coiled on the drum, a nozzle on a hook
+    for (var hr = 0; hr < 5; hr++) { var ring = new THREE.Mesh(new THREE.TorusGeometry(0.12 + hr * 0.035, 0.012, 6, 24), MAT.red); ring.position.set(0, 1.5, -Z + 0.38); scene.add(ring); } cyl(0.015, 0.25, MAT.red, 0.3, 1.25, -Z + 0.3, null, 6).rotation.z = 0.4; cyl(0.03, 0.08, MAT.chrome, 0.38, 1.12, -Z + 0.3, null, 8, 0.018);
+    // the charger: a display, a cable to the bay, a plug on a hook
+    plane(0.3, 0.12, glowMat(0x5fd38d, 0.4), 0, 0.85, Z - 0.52, 0, Math.PI); box(0.1, 0.06, 0.05, MAT.black, 0.3, 0.6, Z - 0.6); box(0.05, 0.02, 0.05, MAT.steelDark, 0.3, 0.7, Z - 0.5);
+    // the bench: a label printer with a tongue of labels, a box cutter, a stool
+    var bx = SPOT.bench.x, bz = SPOT.bench.z; box(0.22, 0.14, 0.18, MAT.white, bx + 0.25, 1.01, bz + 0.6); box(0.18, 0.01, 0.1, MAT.paper, bx + 0.25, 1.09, bz + 0.72); box(0.12, 0.02, 0.03, MAT.yellow, bx - 0.2, 0.955, bz + 0.2).rotation.y = 0.4; box(0.04, 0.005, 0.03, MAT.chrome, bx - 0.13, 0.955, bz + 0.22).rotation.y = 0.4;
+    cyl(0.17, 0.04, MAT.black, bx - 1.0, 0.65, bz - 0.4, null, 16); cyl(0.02, 0.6, MAT.chrome, bx - 1.0, 0.32, bz - 0.4, null, 8); cyl(0.2, 0.03, MAT.steelDark, bx - 1.0, 0.03, bz - 0.4, null, 16);
+    // the notice board: pinned notes at angles
+    [[-16.9, 2.05, -0.1], [-16.4, 1.8, 0.15], [-16.05, 2.1, 0.05]].forEach(function (n) { var nb = box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], Z - 0.253); nb.rotation.z = n[2]; cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, Z - 0.26, null, 8).rotation.x = Math.PI / 2; });
+    // the dock doors: guide rails and a chain hoist beside each
+    doors.forEach(function (dk) { var x = dk.side * (X - 0.15); box(0.06, DOCKS.h, 0.06, MAT.steelDark, x, DOCKS.h / 2, dk.z - DOCKS.w / 2 - 0.05); box(0.06, DOCKS.h, 0.06, MAT.steelDark, x, DOCKS.h / 2, dk.z + DOCKS.w / 2 + 0.05); cyl(0.1, 0.3, MAT.steelDark, x - dk.side * 0.15, DOCKS.h + 0.3, dk.z + DOCKS.w / 2 + 0.35, null, 10).rotation.x = Math.PI / 2; cyl(0.006, DOCKS.h - 0.6, MAT.chrome, x - dk.side * 0.15, DOCKS.h / 2 + 0.2, dk.z + DOCKS.w / 2 + 0.35, null, 4); });
+  }
   function tickDressing(dt) {
+    tickPigeons(dt);
     var power = !S.events.power;
     dress.fans.forEach(function (f) { f.rotation.z += dt * (power ? 9 : 0.5); });
     if (dress.turntable) dress.turntable.rotation.y += dt * (wrapperBusy() ? 1.4 : 0);

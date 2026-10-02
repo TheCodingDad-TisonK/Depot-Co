@@ -181,10 +181,28 @@
     solid(ox - 0.5, ox + 0.5, oz - 0.5, oz + 1.1);
     // the two dock consoles by the outbound doors: dispatch a loaded truck early
     [SPOT.console0, SPOT.console1].forEach(function (p, i) {
-      box(0.1, 0.5, 0.4, MAT.steelDark, p.x, 1.4, p.z); var scr = plane(0.3, 0.2, MAT.screen, p.x - 0.06, 1.5, p.z, 0, -Math.PI / 2);
-      hitBox(0.3, 0.6, 0.5, p.x - 0.05, 1.4, p.z, { prompt: function () { return consolePrompt(2 + i); }, use: function () { consoleUse(2 + i); } });
-      sign(['DOCK ' + dockLabel(2 + i)], 0.7, 0.18, p.x - 0.12, 1.85, p.z, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
+      var di = 2 + i;
+      box(0.12, 0.6, 0.5, MAT.steelDark, p.x, 1.45, p.z); box(0.14, 0.04, 0.54, MAT.yellow, p.x, 1.77, p.z); cyl(0.012, 1.0, MAT.black, p.x + 0.03, 0.65, p.z, null, 6);
+      touchScreen({ w: 320, h: 240, pw: 0.4, ph: 0.3, x: p.x - 0.065, y: 1.47, z: p.z, ry: -Math.PI / 2, title: 'Dock console ' + dockLabel(di), draw: function (c, sc) {
+        scBg(c, sc.w, sc.h, 'rgba(95,211,141,0.16)'); scHead(c, sc.w, 'DOCK ' + dockLabel(di));
+        var t = truckAtDoor(di), nxt = TRUCK_OUT[i];
+        if (t) { scText(c, 16, 66, 'Truck docked · ' + t.driver, '#5fd38d', 15); scText(c, 16, 86, t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scButton(sc, 16, 104, 288, 44, t.parcels.length ? 'DISPATCH NOW' : 'nothing loaded', t.parcels.length > 0, function () { consoleUse(di); }, '#5fd38d'); }
+        else { scText(c, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(c, 16, 86, 'Next: ' + fmtTime(nxt.arrive) + ' to ' + fmtTime(nxt.leave), '#eef1f5', 13); }
+        scButton(sc, 16, 160, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
+        var packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length; scButton(sc, 164, 160, 140, 40, packed + ' packed waiting', false, function () { scanToggle(true); scanPage(0); });
+        scText(c, 16, 226, S.events.power ? 'NO POWER' : 'mains ok', S.events.power ? '#ff6b5e' : '#5fd38d', 11);
+      } });
+      sign(['DOCK ' + dockLabel(di)], 0.7, 0.18, p.x - 0.12, 1.95, p.z, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     });
+    // the bench terminal: a monitor on an arm at the north end of the bench, with the orders to pack
+    box(0.05, 0.5, 0.05, MAT.steelDark, bx + 0.4, 1.2, bz - 1.7); box(0.3, 0.04, 0.2, MAT.steelDark, bx + 0.4, 0.95, bz - 1.7); var arm = box(0.4, 0.04, 0.04, MAT.steelDark, bx + 0.2, 1.45, bz - 1.7); box(0.04, 0.4, 0.56, MAT.black, bx - 0.02, 1.45, bz - 1.7);
+    touchScreen({ w: 400, h: 300, pw: 0.5, ph: 0.36, x: bx - 0.045, y: 1.45, z: bz - 1.7, ry: -Math.PI / 2, title: 'Bench terminal', draw: function (c, sc) {
+      scBg(c, sc.w, sc.h); scHead(c, sc.w, 'PACKING', benchCount() + ' / ' + ECON.benchCap + ' on the bench');
+      var os = openOrders().sort(function (a, b2) { return (b2.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b2.due; }).slice(0, 4), y = 56;
+      if (!os.length) scText(c, 16, 76, 'No open orders.', '#a0acb8', 14);
+      os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
+      scText(c, 16, 290, 'E on the bench with empty hands opens the full list', '#6b7784', 10);
+    } });
   }
 
   // the break room: the south-west corner, walled off like the office, with a window onto the floor and a door
@@ -201,6 +219,8 @@
     sign(['BREAK ROOM'], 1.6, 0.45, x0 + 0.09, 2.6, 9.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
     box(0.7, 1.75, 0.7, MAT.white, -16, 0.875, 9.0); box(0.03, 0.4, 0.03, MAT.chrome, -16.3, 1.2, 9.37); box(0.03, 0.3, 0.03, MAT.chrome, -16.3, 0.5, 9.37); solid(-16.4, -15.6, 8.6, 9.4);
   }
+  function binPrompt() { if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Bin the damaged box'; if (S.hand && S.hand.kind === 'box') return 'That box is fine: it belongs on a rack'; return 'The bin · ' + (S.binned || 0) + ' damaged boxes written off'; }
+  function binUse() { if (!(S.hand && S.hand.kind === 'box' && S.hand.damaged)) { sfx('click'); return; } var sku = S.hand.sku; handSet(null); S.binned = (S.binned || 0) + 1; var cost = Math.round(SKU[sku].val * 0.5); pay(-cost, 'Written off: a damaged box of ' + skuName(sku)); addRep(-0.5); sfx('crate'); toast('Binned. The client charges ' + money(cost) + ' for it.', 'bad'); logEvent('A damaged box of ' + skuName(sku) + ' went in the bin (' + money(cost) + ')', 'bad'); }
   function buildBreakCorner() {
     // a cot, a coffee machine on a counter, a locker, a water cooler, a fire extinguisher by the door
     var c = SPOT.cot;

@@ -12,6 +12,7 @@
       jack: { pallet: null, x: SPOT.jack.x, z: SPOT.jack.z, rot: Math.PI / 2 },
       fork: { x: SPOT.fork.x, z: SPOT.fork.z, yaw: Math.PI, lift: 0.1, pallet: null, batt: 1 },
       weather: null, radio: { on: false, station: 0 },
+      loan: 0, insured: false, contract: null, nextOffer: 3, binned: 0,
       hand: null,                // { kind: 'box', sku } | { kind: 'parcel', order }
       orders: [], shipped: [],   // shipped keeps the last 40 for the ledger
       trucks: [], doors: [false, false, false, false],

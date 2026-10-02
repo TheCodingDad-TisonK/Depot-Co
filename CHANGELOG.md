@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 (2026-10-02)
+
+- The dock consoles and a new bench terminal are in-world touch screens: dispatch, open the door, pack an order by looking at the button and pressing E.
+- Damaged goods: a box dropped mid-air or shed off the forklift may be damaged; it cannot be racked or packed and goes in the red bin by the bench at half its value.
+- Client contracts from level 3: a run of orders on time inside three days for a bonus, a penalty for missing it.
+- The bank: a $5,000 loan at 1.5% a day, and theft insurance at $40 a day that pays 80% of night losses.
+- Sunday is really closed: no trucks and no orders.
+- Pigeons on the trusses that take off when you walk under them.
+- A props sweep: a real A-frame wet-floor sign, a wheelie bin for damaged goods, a broom with bristles, the stretch wrap as film with bands, the cot framed with a pillow and blanket, chairs with backs, the coffee machine with a drip tray and cup, the vending machine with glass and a coin panel, extinguishers with hoses and gauges, lockers with vents and numbers, the fridge handle, water-cooler taps, the office desk with drawers, keys, mouse and phone, a five-star chair, cabinet handles, poster frames, a coiled hose reel, a label printer and stool at the bench, pinned notes, dock door rails and chain hoists; outside, car bumpers and plates, a dumpster lid and wheels, a slatted bench and ashtray in the shelter, fence footings.
+
 ## 1.1.0 (2026-10-02)
 
 The depth pass, built the same day after a playtest against Grow Co.
