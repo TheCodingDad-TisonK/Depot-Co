@@ -43,7 +43,8 @@
     var l = new THREE.PointLight(0xfff4e0, 0.55, 26, 2); l.position.set(p[0], 6.3, p[1]); scene.add(l); hallLights.push(l);
   });
   var officeLight = new THREE.PointLight(0xfff8ea, 0.5, 9, 2); officeLight.position.set(16.5, 3.2, 11); scene.add(officeLight);
-  var breakLight = new THREE.PointLight(0xffe9c8, 0.35, 8, 2); breakLight.position.set(-16.5, 3.0, 11); scene.add(breakLight);
+  var breakLight = new THREE.PointLight(0xffe9c8, 0.35, 8, 2); breakLight.position.set(-16.5, 3.0, -12); scene.add(breakLight);
+  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.3, 7, 2); lobbyLight.position.set(-17.7, 3.0, 11.2); scene.add(lobbyLight);
   var yardLights = [];   // filled by the lamp-post props
 
   // ── Textures: every one is drawn on a canvas at boot ──────────────

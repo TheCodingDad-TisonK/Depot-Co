@@ -103,6 +103,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.code === 'F12') { e.preventDefault(); if (ui.started) screenshot(); return; }
+    if (e.code === 'F8') { e.preventDefault(); if (ui.started) { if (ui.panelOpen && panel.kind === 'dev') closePanel(); else openPanel('dev'); } return; }
     if (e.code === 'F3') { e.preventDefault(); SET.fps = !SET.fps; $('h-fps').hidden = !SET.fps; saveSettings(); return; }
     var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT');
     if (typing && e.code !== 'Escape') return;

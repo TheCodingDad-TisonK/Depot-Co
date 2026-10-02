@@ -108,10 +108,10 @@ const SCENARIO = `(async () => {
   // the office PC: sit down, the screen draws, stand up
   T.openPc(); ok(T.pc.on === true, 'sat down at the PC'); T.run(1); ok(T.pc.screen && T.pc.screen.zones.length > 5, 'the PC screen has ' + (T.pc.screen ? T.pc.screen.zones.length : 0) + ' buttons'); T.closePc(); ok(T.pc.on === false, 'stood up from the PC');
   // build mode: grab the cot, move it, turn it, put it back, remove and restore, buy a chair
-  T.player.x = -14.9; T.player.z = 11.5; T.player.y = 0; T.editToggle(); ok(T.edit.on === true, 'build mode on');
+  T.player.x = -16; T.player.z = -11.5; T.player.y = 0; T.editToggle(); ok(T.edit.on === true, 'build mode on');
   const cot0 = { x: T.propInst.cot.P.x, z: T.propInst.cot.P.z };
   T.editGrab('cot'); ok(T.edit.grabbed === 'cot', 'grabbed the cot');
-  T.propInst.cot.g.position.set(-16, 0, 10.5); T.editDrop(false); ok(S.layout.cot && Math.abs(S.layout.cot.x + 16) < 0.01, 'cot placed and saved: ' + JSON.stringify(S.layout.cot));
+  T.propInst.cot.g.position.set(-16, 0, -11); T.editDrop(false); ok(S.layout.cot && Math.abs(S.layout.cot.x + 16) < 0.01, 'cot placed and saved: ' + JSON.stringify(S.layout.cot));
   T.editReset('cot'); ok(!S.layout.cot && Math.abs(T.propInst.cot.P.x - cot0.x) < 0.01, 'cot put back');
   T.propInst.cot.g; T.edit.grabbed = null; S.layout.cot = { hidden: true }; T.buildProp('cot'); ok(T.propInst.cot.g.children.length === 0, 'removed cot builds nothing');
   T.editRestore('cot'); ok(T.propInst.cot.g.children.length > 0, 'cot restored');

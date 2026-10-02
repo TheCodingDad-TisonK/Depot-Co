@@ -1,5 +1,9 @@
 # Player guide
 
+## The building
+
+The staff door on the west wall opens into the entrance lobby: the time clock, lockers, coat hooks and the notice board. Through the lobby door is the hall. The break room is the north-west corner above IN 1 (cot, coffee, vending machine, radio), the office the south-east corner. `F8` opens a dev console for testing.
+
 ## Your first day
 
 You clock in at 06:00 with $600, two rack rows and a pallet jack. The intro in the bottom-left corner walks you through the first day; this is the same thing in full.

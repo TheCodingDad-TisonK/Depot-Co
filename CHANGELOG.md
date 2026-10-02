@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.0 (2026-10-02)
+
+From Tyson's issues list.
+
+- The guided intro follows the real flow: clock in, open IN 1, sign with the driver, unload, rack, scanner, order, pick, bench, pack, load, dispatch.
+- Outside, nothing floats: props stand on the ground under them, the gate guard on the booth floor.
+- Reset save works: the autosave on the way out of the page was writing the save straight back.
+- The jack's tiller leans back over the pump. The empties are a stack of real pallets. The baler is a vertical baler with its loading door, bale door, ram and control box. The bench terminal stands on the bench. The order board hangs from the roof in front of the office instead of sitting on the window. Lockers and the coat stand remodelled. A proper charging point with cable reels, two plugs and the bay.
+- The break room moved to the north-west corner above IN 1, with a door onto the hall and a window. The staff door opens into an entrance lobby with the time clock, lockers, hooks, notices and a bench seat.
+- A dev console on F8: money, levels, the clock, weather, trucks, orders, stock, crew, teleports.
+
 ## 1.5.1 (2026-10-02)
 
 - Consoles beside IN 1 and IN 2 as well: the door button, the docked truck, how many pallets are still on it, and whether the note is signed. The inbound docks had no panel after the button boxes went.

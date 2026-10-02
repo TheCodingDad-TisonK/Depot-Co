@@ -101,16 +101,18 @@
 
   // ── The guided intro ──────────────────────────────────────────────
   var INTRO = [
-    ['door', 'Walk to dock <b>IN 1</b> on the west wall and open the door (E on the door or the button beside it). The first truck docks at 07:30.'],
-    ['unload', 'Walk into the trailer. Take a box off a pallet with <b>E</b>, or grab the pallet jack by the receiving square and lift a whole pallet.'],
+    ['clockin', 'You start in the entrance lobby. Press <b>E</b> on the <b>time clock</b> on the wall beside the staff door and clock in: it keeps your hours.'],
+    ['door', 'Go through the lobby door into the hall and walk to dock <b>IN 1</b> on the west wall. Press E on the roll door, or use the console beside it. The first truck docks at 07:30.'],
+    ['sign', 'When the truck is in, go outside through the door and press <b>E</b> on the driver by the dock to sign the delivery note. Nothing comes off until you do.'],
+    ['unload', 'Walk into the trailer. Take a box off a pallet with <b>E</b>, or grab the pallet jack from its bay by the receiving square and lift a whole pallet.'],
     ['putaway', 'Put it on a rack: look at a slot and press <b>E</b>. Row A, floor level, is nearest. A slot holds 12 boxes of one line.'],
-    ['scanner', 'Press <b>Tab</b>. The scanner lists the orders, what is still on the truck, and where every line is stored.'],
+    ['scanner', 'Press <b>Tab</b>. The scanner in your hand lists the orders, what is still on the truck, and where every line is stored.'],
     ['order', 'Orders arrive from 08:30 on the office PC (sit down at the desk), the wall board and the scanner. Wait for the first one.'],
     ['pick', 'Take the boxes the order needs off the rack (<b>E</b> on the slot). One box per trip until you buy the cart.'],
     ['bench', 'Carry them to the <b>packing bench</b> on the east side and press E to put them down.'],
-    ['pack', 'With empty hands press <b>E</b> on the bench and pack the order. The parcel appears on the shelf beside it.'],
-    ['load', 'Pick the parcel up, open dock <b>OUT 1</b>, walk into the outbound trailer and press E. It waits there from 10:30 to 12:00.'],
-    ['dispatch', 'Press E on the <b>dock console</b> by the door to send the truck now, or let it leave on schedule. You are paid when it goes.']
+    ['pack', 'With empty hands press <b>E</b> on the bench, or use the terminal on it, and pack the order. The parcel appears on the shelf beside it.'],
+    ['load', 'Pick the parcel up, open dock <b>OUT 1</b> from its console, walk into the outbound trailer and press E. The truck waits there from 10:30 to 12:00.'],
+    ['dispatch', 'Press E on the <b>DISPATCH</b> button of the OUT 1 console to send the truck now, or let it leave on schedule. You are paid when it goes.']
   ];
   function introStep(key) {
     if (!S.intro || S.intro.done) return;

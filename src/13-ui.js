@@ -77,10 +77,10 @@
   function closePanel() { if (!ui.panelOpen) return; ui.panelOpen = false; $('dc-panel').hidden = true; panel.kind = null; hudDirty = true; lockPointer(); }
   function renderPanel() {
     if (!ui.panelOpen) return;
-    var title = panel.kind === 'pc' ? 'Office PC · Depot OS' : panel.kind === 'catalogue' ? 'Catalogue · build mode' : 'Packing bench';
+    var title = panel.kind === 'pc' ? 'Office PC · Depot OS' : panel.kind === 'catalogue' ? 'Catalogue · build mode' : panel.kind === 'dev' ? 'Dev console (F8)' : 'Packing bench';
     $('dc-panel-title').textContent = title;
     $('dc-panel-tabs').innerHTML = panel.kind === 'pc' ? PC_TABS.map(function (t) { return '<button class="' + (t[0] === panel.tab ? 'on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') : '';
-    $('dc-panel-body').innerHTML = panel.kind === 'pc' ? pcHtml(panel.tab) : panel.kind === 'catalogue' ? catalogueHtml() : benchHtml();
+    $('dc-panel-body').innerHTML = panel.kind === 'pc' ? pcHtml(panel.tab) : panel.kind === 'catalogue' ? catalogueHtml() : panel.kind === 'dev' ? devHtml() : benchHtml();
   }
   function btn(act, arg, label, cls, disabled) { return '<button class="dc-btn small ' + (cls || '') + '" data-act="' + act + '" data-arg="' + esc(arg == null ? '' : arg) + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>'; }
   function orderCard(o, withPack) {
@@ -140,7 +140,37 @@
     if (S.bench.parcels.length) h += '<h3>Parcels on the shelf</h3><p>' + S.bench.parcels.map(function (id) { var o = orderById(id); return o ? '#' + o.num + ' for ' + esc(clientName(o.client)) : ''; }).join(' · ') + '</p>';
     return h;
   }
+  function devHtml() {
+    var B = function (a, l) { return btn('dev:' + a, '', l, ''); };
+    return '<p>For testing. Nothing here is hidden from the save.</p>' +
+      '<h3>Money and progress</h3><div class="dc-menu-row">' + B('cash', '+ $1,000') + B('cash10', '+ $10,000') + B('level', '+1 level') + B('rep', 'Rep +20') + B('unlock', 'Unlock every upgrade') + B('intro', 'Finish the intro') + '</div>' +
+      '<h3>Time and weather</h3><div class="dc-menu-row">' + B('t6', '06:00') + B('t7', '07:20') + B('t10', '10:20') + B('t13', '13:20') + B('t17', '17:00') + B('t22', '22:00') + B('day', 'Next day') + '</div><div class="dc-menu-row">' + B('clear', 'Clear') + B('rain', 'Rain') + B('storm', 'Storm') + B('snow', 'Snow') + B('power', 'Toggle power cut') + '</div>' +
+      '<h3>Trucks and orders</h3><div class="dc-menu-row">' + B('truckin', 'Inbound truck now') + B('truckout', 'Outbound truck now') + B('order', 'New order') + B('rush', 'Rush order') + B('contract', 'Contract offer') + '</div>' +
+      '<h3>Stock and crew</h3><div class="dc-menu-row">' + B('fill', 'Fill the racks') + B('clearfloor', 'Clear the floor') + B('hire', 'Hire the three') + B('fire', 'Let everyone go') + B('fork', 'Forklift here') + '</div>' +
+      '<h3>Teleport</h3><div class="dc-menu-row">' + B('tpIn', 'IN 1') + B('tpOut', 'OUT 1') + B('tpBench', 'Bench') + B('tpOffice', 'Office') + B('tpBreak', 'Break room') + B('tpYard', 'Yard') + B('tpGate', 'West gate') + '</div>';
+  }
+  function devAct(a) {
+    var tp = function (x, z) { closePanel(); player.x = x; player.z = z; player.y = floorY(x, z); player.vy = 0; };
+    if (a === 'cash') pay(1000, 'Dev'); else if (a === 'cash10') pay(10000, 'Dev'); else if (a === 'level') addXp(XP_FOR(S.level) - S.xp); else if (a === 'rep') addRep(20);
+    else if (a === 'unlock') { S.up.cart = S.up.fork = S.up.lights = S.up.dock2 = S.up.sign = true; while (S.up.rows < 4) { S.up.rows++; buildRack(S.up.rows - 1); } placeTools(); }
+    else if (a === 'intro') { S.intro.done = true; }
+    else if (a === 't6') S.time = 6; else if (a === 't7') S.time = 7.33; else if (a === 't10') S.time = 10.33; else if (a === 't13') S.time = 13.33; else if (a === 't17') S.time = 17; else if (a === 't22') S.time = 22;
+    else if (a === 'day') { S.time = 6; newDay(); }
+    else if (a === 'clear' || a === 'rain' || a === 'storm' || a === 'snow') { S.weather = { kind: a, wet: a === 'rain' || a === 'storm' ? 1 : 0, snow: a === 'snow' ? 1 : 0, wind: a === 'storm' ? 1 : 0.4, until: nowAbs() + 6 }; }
+    else if (a === 'power') { S.events.power = !S.events.power; S.events.powerUntil = S.time + 2; }
+    else if (a === 'truckin') { if (!truckAtDoor(0) && !S.trucks.some(function (t) { return t.dir === 'in' && t.dock === 0 && t.state !== 'leaving'; })) spawnTruck('in', 0, S.time + TRUCK_WAIT); }
+    else if (a === 'truckout') { if (!S.trucks.some(function (t) { return t.dir === 'out' && t.dock === 0 && t.state !== 'leaving'; })) spawnTruck('out', 0, S.time + 1.5); }
+    else if (a === 'order') genOrder(false); else if (a === 'rush') genOrder(true); else if (a === 'contract') { S.contract = null; S.level = Math.max(S.level, 3); offerContract(); }
+    else if (a === 'fill') { for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < RACK.bays; bb++) for (var l = 0; l < 2; l++) { var k = slotKey(r, bb, l); if (!S.slots[k] || !S.slots[k].n) { var s = pick(unlockedSkus()); S.slots[k] = { sku: s, n: 8 }; if (S.seenSkus.indexOf(s) < 0) S.seenSkus.push(s); } } }
+    else if (a === 'clearfloor') { S.floor = []; }
+    else if (a === 'hire') { S.level = Math.max(S.level, 4); ['receiver', 'picker', 'packer'].forEach(function (r) { if (!S.staff.some(function (s) { return s.role === r; })) hireStaff(r); }); }
+    else if (a === 'fire') { S.staff.slice().forEach(function (s) { fireStaff(s.id); }); }
+    else if (a === 'fork') { S.up.fork = true; S.fork.x = player.x - Math.sin(player.yaw) * 2.5; S.fork.z = player.z - Math.cos(player.yaw) * 2.5; S.fork.batt = 1; placeTools(); }
+    else if (a === 'tpIn') tp(-16.5, -8); else if (a === 'tpOut') tp(16.5, -8); else if (a === 'tpBench') tp(15.2, 5.2); else if (a === 'tpOffice') tp(15, 10.5); else if (a === 'tpBreak') tp(-16.5, -11.5); else if (a === 'tpYard') { tp(-30, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
+    sfx('click'); hudDirty = true; rebuildBoardSoon(); screenDirtyAll(); if (ui.panelOpen) renderPanel();
+  }
   function panelAct(act, arg) {
+    if (act.indexOf('dev:') === 0) { devAct(act.slice(4)); return; }
     if (act === 'pack') { var o = orderById(arg); if (o && packOrder(o)) toast('Packed #' + o.num, 'good'); }
     else if (act === 'takeback') { if (!S.hand && benchTake(arg, 1)) { handSet({ kind: 'box', sku: arg }); sfx('pickup'); } }
     else if (act === 'buy' && panel.kind !== 'catalogue') buyUpgrade(arg);
@@ -232,5 +262,6 @@
       '<h3>Contracts and the bank</h3><p>From level 3 a client offers a contract now and then: a number of their orders on time inside a window, for a bonus; miss it and there is a penalty. The bank lends $5,000 at 1.5% a day from level 2, and theft insurance at $40 a day pays most of what walks off at night.</p>' +
       '<h3>Damaged goods</h3><p>A box dropped mid-air or shed off the forklift can be damaged. It cannot go on a rack or the bench: carry it to the bin by the packing bench and the client charges half its value.</p>' +
       '<h3>Build mode</h3><p><kbd>F2</kbd> is build mode. Aim at any piece of furniture, a machine, a poster or a sign and <kbd>E</kbd> grabs it; it follows your aim, <kbd>R</kbd> turns it a quarter, <kbd>E</kbd> puts it down, <kbd>Esc</kbd> drops it back. <kbd>Backspace</kbd> puts a piece back where it started, <kbd>Del</kbd> removes it. <kbd>C</kbd> opens the catalogue: removed pieces to bring back, and extras to buy. The layout saves when you leave build mode.</p>' +
+      '<h3>Dev console</h3><p><kbd>F8</kbd> opens a cheat menu: money, levels, the clock, weather, trucks, orders, stock, crew, teleports. For testing; it writes straight into the save.</p>' +
       '<h3>Tips</h3><p>Keep one slot per line and the scanner tells you where everything is. Pack before the truck arrives, not after. Coffee makes you faster for an hour. Reputation brings more and bigger orders.</p>';
   }

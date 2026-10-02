@@ -51,9 +51,10 @@
     // the forklift bay, the tool bays and the charger on the south wall
     var bay = function (cx, cz, w, d, label) { plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz - d / 2, -Math.PI / 2); plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz + d / 2, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx - w / 2, 0.0062, cz, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx + w / 2, 0.0062, cz, -Math.PI / 2); plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex([label], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), cx, 0.0066, cz + d / 2 - 0.3, -Math.PI / 2); };
     bay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK'); bay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
-    plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2);
+    plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2); plane(1.0, 1.0, MAT.rubberMat, -14.9, 0.004, 9.95, -Math.PI / 2);
     // the office blinds and the crossing into it
     for (var bl2 = 0; bl2 < 14; bl2++) box(5.4, 0.05, 0.02, MAT.trim, 16.1, 2.26 - bl2 * 0.08, 8.58);
+    plane(1.4, 0.08, MAT.yellowLine, -15.5, 0.0062, 9.95, -Math.PI / 2);
     plane(1.4, 0.08, MAT.yellowLine, 12.5, 0.0062, 9.95, -Math.PI / 2);
     buildPigeons();
   }

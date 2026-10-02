@@ -40,9 +40,11 @@
   }
   var saveT = 0;
   function save() {
+    if (wiped) return;
     try { S.savedAt = now(); localStorage.setItem(SAVE, JSON.stringify(S)); saveT = now(); } catch (e) {}
   }
-  function wipe() { try { localStorage.removeItem(SAVE); } catch (e) {} }
+  var wiped = false;
+  function wipe() { wiped = true; try { localStorage.removeItem(SAVE); } catch (e) {} }
   // the ledger and the lifetime stats
   function pay(n, why) { S.bank += n; if (n >= 0) S.stats.earned += n; else S.stats.spent += -n; S.ledger.unshift({ day: S.day, t: fmtTime(S.time), n: n, why: why }); if (S.ledger.length > 80) S.ledger.pop(); hudDirty = true; }
   function addXp(n) {

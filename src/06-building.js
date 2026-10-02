@@ -67,7 +67,8 @@
     // the pallet racks the player owns
     buildOffice(); buildBench(); buildBreakRoom();
     hingedDoor('office', 12.5, 9.45, false, 'the office door', { window: true, swing: 1 });
-    hingedDoor('break', -12.5, 9.45, false, 'the break room door', { window: true, swing: -1 });
+    hingedDoor('lobby', -15.5, 9.45, false, 'the lobby door', { window: true, swing: -1 });
+    hingedDoor('break', -13, -12.95, false, 'the break room door', { window: true, swing: -1 });
     hingedDoor('staff', -X, SPOT.staffDoor.z - 0.5, false, 'the staff door', { mat: MAT.steelDark, swing: 1 });
     hingedDoor('exit', 13.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
@@ -145,21 +146,31 @@
     // the two dock consoles by the outbound doors: dispatch a loaded truck early
   }
 
-  // the break room: the south-west corner, walled off like the office, with a window onto the floor and a door
+  // the entrance lobby (south-west corner) and the break room (north-west corner, above IN 1), both walled like the office
   function buildBreakRoom() {
-    var x0 = -12.5, z0 = 8.5, X = HALL.x, Z = HALL.z, h = 3.2;
+    var X = HALL.x, Z = HALL.z, h = 3.2;
+    // the lobby: x -20..-15.5, z 8.5..14; its door onto the hall at z 9.45..10.45 in the east wall, a window south of it
+    var x0 = -15.5, z0 = 8.5;
     box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 9.95);
     box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 10.9); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 12.5); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 12.5); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 12.5); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
     solid(x0 - 0.08, x0 + 0.08, z0, 9.3); solid(x0 - 0.08, x0 + 0.08, 10.6, Z);
     box(X + x0, h, 0.15, MAT.plaster, (-X + x0) / 2, h / 2, z0); solid(-X, x0, z0 - 0.08, z0 + 0.08);
-    box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2);
-    plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -16.5, h - 0.05, 11);
+    box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
+    box(1.2, 0.08, 0.3, MAT.lamp, -17.7, h - 0.05, 11.2);
     for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 12.5);
-    sign(['BREAK ROOM'], 1.6, 0.45, x0 + 0.09, 2.6, 9.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
+    sign(['LOBBY'], 1.2, 0.45, x0 + 0.09, 2.6, 9.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
+    // the break room: x -20..-13, z -14..-10.2; its door in the east wall at z -12.95..-11.95, a window in the south wall onto the hall
+    var bx = -13, bz = -10.2;
+    box(0.15, h, 1.05, MAT.plaster, bx, h / 2, -Z + 0.525); box(0.15, h - 2.2, 1.3, MAT.plaster, bx, 2.2 + (h - 2.2) / 2, -12.45); box(0.15, h, 1.6, MAT.plaster, bx, h / 2, bz - 0.8);
+    solid(bx - 0.08, bx + 0.08, -Z, -12.95); solid(bx - 0.08, bx + 0.08, -11.95, bz);
+    box(1.0, h, 0.15, MAT.plaster, -X + 0.5, h / 2, bz); box(1.2, h, 0.15, MAT.plaster, bx - 0.6, h / 2, bz);
+    box(X + bx - 2.2, 1.1, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 0.55, bz); box(X + bx - 2.2, h - 2.3, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 2.3 + (h - 2.3) / 2, bz); box(X + bx - 2.2, 1.2, 0.04, MAT.glass, (-X + 1 + bx - 1.2) / 2, 1.7, bz);
+    solid(-X, bx, bz - 0.08, bz + 0.08);
+    box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
+    box(1.2, 0.08, 0.3, MAT.lamp, -16.5, h - 0.05, -12.1);
+    for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -16.4, 2.26 - bl2 * 0.08, bz - 0.09);
+    sign(['BREAK ROOM'], 1.6, 0.45, bx + 0.09, 2.6, -12.45, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
   }
-  function binPrompt() { if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Bin the damaged box'; if (S.hand && S.hand.kind === 'box') return 'That box is fine: it belongs on a rack'; return 'The bin · ' + (S.binned || 0) + ' damaged boxes written off'; }
-  function binUse() { if (!(S.hand && S.hand.kind === 'box' && S.hand.damaged)) { sfx('click'); return; } var sku = S.hand.sku; handSet(null); S.binned = (S.binned || 0) + 1; var cost = Math.round(SKU[sku].val * 0.5); pay(-cost, 'Written off: a damaged box of ' + skuName(sku)); addRep(-0.5); sfx('crate'); toast('Binned. The client charges ' + money(cost) + ' for it.', 'bad'); logEvent('A damaged box of ' + skuName(sku) + ' went in the bin (' + money(cost) + ')', 'bad'); }
   // the order board on the office wall: redrawn when orders change
   function drawBoard() {
     var c = world.boardCtx; if (!c) return; var w = 768, h = 384;
