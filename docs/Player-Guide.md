@@ -30,6 +30,10 @@ Boxes go on the bench as before. Pick an order on the bench terminal and the lin
 
 Through the strip curtain in the north wall. Order pallets of raw granulate on the office PC (Production app, $120 a pallet); they come with the next inbound truck. Bring one on the jack to the hopper and press `E` to tip it in (40 units). Start the moulding line on its screen or with `E` and pick a product: Depot Co. crates, storage bins or planters. A box comes off every eight seconds and rides the main belt through the wall to the palletiser in the hall, which stacks eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your own goods once they have seen them, at a better margin than anything a supplier sends.
 
+## The baler and the wrapper
+
+Every damaged box you bin and every order the pack line closes puts cardboard in the baler's chamber. At ten units, `E` on the baler (or BALE on its screen) presses a bale in eight seconds; outbound trucks take up to four bales away at $18 each. The stretch wrapper runs on a film roll good for twenty pallets; fit a new one on its screen for $30.
+
 ## Drivers and the delivery note
 
 When a truck docks the driver climbs down, walks along the trailer, climbs the dock steps and, once the dock door is up, comes inside and waits beside it with the paperwork. Nothing comes off an inbound truck until you press `E` on the driver and sign. Talk to them afterwards if you like. They get impatient after two hours.

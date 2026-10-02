@@ -25,7 +25,7 @@
   function buildDressing() {
     var X = HALL.x, Z = HALL.z, H = HALL.h;
     // pilasters on the long walls, and bollards guarding every dock door
-    [-12, -4, 4, 12].forEach(function (x) { box(0.4, H, 0.4, MAT.steelDark, x, H / 2, -Z + 0.35); box(0.4, H, 0.4, MAT.steelDark, x, H / 2, Z - 0.35); });
+    [-12, -4, 4, 12].forEach(function (x) { box(0.4, H, 0.4, MAT.steelDark, x, H / 2, Z - 0.35); }); [-20, -12, 12, 20].forEach(function (x) { box(0.4, H, 0.4, MAT.steelDark, x, H / 2, -Z + 0.35); });   // the north wall's stand clear of the belt opening and the wing doorway
     doors.forEach(function (d) { [-1, 1].forEach(function (s) { var bx = d.side * (X - 1.0), bz = d.z + s * (DOCKS.w / 2 + 0.5); cyl(0.11, 1.0, MAT.yellow, bx, 0.5, bz, null, 10); cyl(0.14, 0.05, MAT.black, bx, 0.025, bz, null, 10); }); });
     // the north wall: cable tray, sprinkler main, extractor fans, the exit sign, the painted name
     box(2 * X - 1, 0.08, 0.3, MAT.steelDark, 0, 5.6, -Z + 0.35); for (var cx = -18; cx <= 18; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, 5.6, -Z + 0.35);

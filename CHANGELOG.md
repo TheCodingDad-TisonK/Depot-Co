@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.1 (2026-10-02)
+
+- The baler works: binned boxes and packing offcuts fill its chamber, ten units make a bale (E, or the BALE button on its screen), and outbound trucks take the bales away at $18 each. Rebuilt on the machine kit with a chamber door, ram, power pack, cabinet with screen, lamp stack and E-stop, and the finished bales stacked beside it.
+- The stretch wrapper is on the machine registry too: status lamps, a screen, and a film roll good for twenty pallets that you replace on the screen for $30 instead of paying $2 a wrap.
+- The north wall's pilasters stand clear of the belt opening and the wing doorway (one stood through the belt).
+- The moving parts of the wing machines (platen, fan, feeder) are out of the static bake so they actually move.
+
 ## 1.9.0 (2026-10-02)
 
 - **The production wing**, bolted onto the north wall behind a strip curtain: a hopper you tip pallets of raw granulate into, a moulding line that turns granulate into own-brand boxes (crates, storage bins, planters), and a main belt that carries them through the wall into the hall, where a palletiser stacks eight to a pallet and drops it beside itself. A silo stands outside. Order granulate on the office PC's new Production app; it comes with the next inbound truck. Clients start ordering your own goods once they have seen them.

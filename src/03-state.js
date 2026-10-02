@@ -11,7 +11,8 @@
       bench: { boxes: {}, parcels: [] },
       pack: { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null },           // the pack line
       factory: { raw: 0, product: 'dccrate', on: false, made: 0, rawOrdered: 0, t: 0, jam: false },   // the moulding line and its hopper
-      pal: { sku: null, n: 0 }, belts: {},                                                   // the palletiser's pallet, and what is on each belt
+      pal: { sku: null, n: 0 }, belts: {},
+      baler: { card: 0, bales: 0, t: 0, made: 0 }, wrap: { film: 20, wrapped: 0 },                                                   // the palletiser's pallet, and what is on each belt
       cart: { boxes: [], x: SPOT.cart.x, z: SPOT.cart.z, rot: 0 },
       jack: { pallet: null, x: SPOT.jack.x, z: SPOT.jack.z, rot: Math.PI / 2 },
       fork: { x: SPOT.fork.x, z: SPOT.fork.z, yaw: Math.PI, lift: 0.1, pallet: null, batt: 1 },

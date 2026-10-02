@@ -134,14 +134,15 @@
   function wrapperPrompt() {
     if (wrapperBusy()) return 'Wrapping… ' + Math.ceil(wrapper.t) + ' s';
     if (S.events.power) return 'The wrapper is off: no power';
-    var p = jackPallet(); if (player.tool === 'jack' && p) return p.wrapped ? 'That pallet is already wrapped' : 'Wrap the pallet ($2)';
+    if (S.wrap && S.wrap.film <= 0) return 'The film roll is finished: fit a new one on the screen';
+    var p = jackPallet(); if (player.tool === 'jack' && p) return p.wrapped ? 'That pallet is already wrapped' : 'Wrap the pallet';
     return 'Stretch wrapper · bring a pallet on the jack';
   }
   function wrapperUse() {
     if (wrapperBusy() || S.events.power) return;
     var p = jackPallet(); if (!(player.tool === 'jack' && p) || p.wrapped) { sfx('bad'); return; }
-    if (S.bank < 2) { toast('No money for film.', 'bad'); return; }
-    pay(-2, 'Stretch film'); wrapper.t = 5; wrapper.pallet = p.id; sfx('hydraulic'); addXp(3);
+    if (!S.wrap) S.wrap = { film: FILM_ROLL, wrapped: 0 }; if (S.wrap.film <= 0) { toast('The film roll is finished. Fit a new one on the wrapper screen.', 'bad'); sfx('bad'); return; }
+    S.wrap.film--; S.wrap.wrapped++; wrapper.t = 5; wrapper.pallet = p.id; sfx('hydraulic'); addXp(3); screenDirtyAll();
   }
   var wrapInst = null;
   function tickWrapper(dt) {

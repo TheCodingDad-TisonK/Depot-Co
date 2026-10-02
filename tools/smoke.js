@@ -112,6 +112,7 @@ const SCENARIO = `(async () => {
   S.factory.product = 'dcbin'; T.moulderUse(); ok(S.factory.on, 'moulding line started'); T.run(20); ok(S.factory.made >= 1 && (T.beltItems('moulderOut').length + T.beltItems('beltMain').length) >= 1, 'a box came off the moulder onto the belt');
   T.run(140); ok(S.pallets.some((p) => p.sku === 'dcbin' && p.place === 'floor' && p.n === 8), 'palletiser dropped a pallet of eight own-brand boxes: made ' + S.factory.made + ', hopper ' + S.factory.raw);
   S.factory.on = false;
+  const cardB = S.baler.card; T.addWaste(10); T.balerUse(); ok(S.baler.t > 0 && S.baler.card === cardB, 'baler started on ten cardboard (offcuts already in the chamber: ' + cardB + ')'); T.run(9); ok(S.baler.bales === 1, 'a bale came out');
   S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 25; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(24.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
   // the office PC: sit down, the screen draws, stand up
   T.openPc(); ok(T.pc.on === true, 'sat down at the PC'); T.run(1); ok(T.pc.screen && T.pc.screen.zones.length > 5, 'the PC screen has ' + (T.pc.screen ? T.pc.screen.zones.length : 0) + ' buttons'); T.closePc(); ok(T.pc.on === false, 'stood up from the PC');
