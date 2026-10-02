@@ -1384,16 +1384,6 @@
     touchScreen({ w: 200, h: 80, pw: 0.4, ph: 0.16, x: 0.05, y: 1.3, z: 0.035, ry: 0, parent: c.group, title: 'Charger display', draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.2)'); var b = Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100); scText(cc, 10, 30, S.fork.plugged ? (b >= 100 ? 'FORKLIFT · FULL' : 'CHARGING · ' + b + '%') : 'FORKLIFT · ' + b + '% · unplugged', S.fork.plugged ? '#5fd38d' : '#f5b53d', 18); cc.fillStyle = 'rgba(255,255,255,0.12)'; cc.fillRect(10, 48, 180, 14); cc.fillStyle = b < 20 ? '#ff6b5e' : '#5fd38d'; cc.fillRect(10, 48, 1.8 * b, 14); } });
     var w = 2.6, d = 3.6, cz = 2.8; [[0, cz - d / 2, w, 0.08], [0, cz + d / 2, w, 0.08], [-w / 2, cz, 0.08, d], [w / 2, cz, 0.08, d]].forEach(function (ln) { c.plane(ln[2], ln[3], MAT.yellowLine, ln[0], 0.0062, ln[1], -Math.PI / 2, 0); }); c.plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex(['FORKLIFT'], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), 0, 0.0066, cz - d / 2 + 0.3, -Math.PI / 2, 0);
   }
-  // the jack's own charger by its bay: a small wall unit, one reel, one plug post
-  function jackChargerBuild(c) {
-    c.box(0.4, 0.5, 0.2, std({ color: 0x8b949c, roughness: 0.5, metalness: 0.4 }), 0, 1.35, -0.08); c.box(0.44, 0.03, 0.24, MAT.steelDark, 0, 1.61, -0.08);
-    for (var vv = 0; vv < 4; vv++) c.box(0.26, 0.012, 0.02, MAT.black, 0, 1.5 - vv * 0.04, 0.03); c.box(0.05, 0.05, 0.02, glowMat(0x5fd38d, 1.2), 0.12, 1.22, 0.03); c.box(0.05, 0.05, 0.02, glowMat(0xf5b53d, 0.6), -0.12, 1.22, 0.03);
-    c.sign(['JACK CHARGER'], 0.4, 0.08, 0, 1.72, 0.03, 0, { w: 256, h: 48, bg: '#1b232c', fg: '#5fd38d' });
-    var reel = c.cyl(0.11, 0.1, MAT.black, 0, 0.8, -0.05, 16); reel.rotation.x = Math.PI / 2; c.cyl(0.04, 0.12, MAT.steelDark, 0, 0.8, -0.05, 10).rotation.x = Math.PI / 2; var cab = c.cyl(0.015, 0.8, MAT.black, 0.1, 0.4, 0.3, 6); cab.rotation.x = 1.1;
-    c.box(0.16, 0.55, 0.16, MAT.steelDark, 0.25, 0.275, 0.55); c.box(0.2, 0.04, 0.2, MAT.yellow, 0.25, 0.57, 0.55); c.box(0.08, 0.07, 0.06, MAT.red, 0.25, 0.45, 0.64); c.sign(['JACK'], 0.16, 0.04, 0.25, 0.3, 0.64, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#eef1f5' });
-    c.solid(-0.22, 0.4, -0.2, 0.65, 0, 1.8);
-    c.hit(0.6, 1.2, 0.4, 0, 1.2, 0.05, { prompt: function () { return cablePrompt('jack'); }, use: function () { cableUse('jack'); } });
-  }
   function lampPostBuild(c) { c.cyl(0.08, 7.5, MAT.steelDark, 0, 3.75, 0, 8, 0.11); c.box(0.6, 0.2, 0.3, MAT.steelDark, 0, 7.65, 0); var lens = c.box(0.5, 0.04, 0.24, glowMat(0xffd9a0, 0.2), 0, 7.53, 0); yard.lampLenses.push(lens); var l = new THREE.PointLight(0xffd9a0, 0.0, 30, 2); l.position.set(0, 7.7, 0); c.add(l); yardLights.push(l); c.box(0.3, 0.2, 0.3, MAT.grey, 0, 0.1, 0); c.solid(-0.15, 0.15, -0.15, 0.15, -2, 2); }
   function carBuild(k) { return function (c) { c.add(carMesh(typeof k === "number" ? CAR_COLS[k % CAR_COLS.length] : k)); c.solid(-2.2, 2.2, -1.0, 1.0, -2, 1.5); }; }
   function paintedBuild(c) { c.sign(['DEPOT CO.'], 9, 1.6, 0, 4.4, 0.01, 0, { w: 1024, h: 192, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['RECEIVE · STORE · PICK · SHIP'], 7, 0.5, 0, 3.3, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); }
@@ -1410,7 +1400,6 @@
   defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
   defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, build: boardBuild });
   defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, x: 0, z: 13.83, rot: 2, build: chargerBuild });
-  defProp('jackCharger', { label: 'jack charger', cat: 'wall', wall: true, x: -19.83, z: 4.0, rot: 1, build: jackChargerBuild });
   defProp('painted', { label: 'painted name', cat: 'wall', wall: true, x: 0, z: -13.83, rot: 0, build: paintedBuild });
   [['aisleAB', -4, 'AISLE  A · B'], ['aisleBC', 0, 'AISLE  B · C'], ['aisleCD', 4, 'AISLE  C · D']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
   [[-30, -12], [-30, 10], [30, -12], [30, 10]].forEach(function (p, i) { defProp('lamp' + i, { label: 'lamp post', cat: 'yard', yard: true, x: p[0], z: p[1], rot: 0, build: lampPostBuild }); });
@@ -2220,9 +2209,9 @@
     forkM = { g: f, car: car, beacon: beaconLens, wheel: wheel };
     placeTools();
   }
-  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (tool === 'jack' && player.tool === 'jcable') return 'Plug the jack in'; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return tool === 'jack' ? 'Grab the pallet jack' : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
-  function grabTool(tool) { if (tool === 'jack' && player.tool === 'jcable') { cablePlugInto('jack'); return; } if (tool === 'jack' && S.jack.plugged) { S.jack.plugged = false; toast('Jack unplugged', ''); } if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
-  function releaseTool() { if (!player.tool) return; if (player.tool === 'cable' || player.tool === 'jcable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool), tm = player.tool === 'jack' ? jackMesh : cartMesh; if (tm && tm.userData.towRy !== undefined) { w.ry = tm.userData.towRy; w.x = tm.position.x; w.z = tm.position.z; } var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
+  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return tool === 'jack' ? 'Grab the pallet jack' : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
+  function grabTool(tool) { if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
+  function releaseTool() { if (!player.tool) return; if (player.tool === 'cable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool), tm = player.tool === 'jack' ? jackMesh : cartMesh; if (tm && tm.userData.towRy !== undefined) { w.ry = tm.userData.towRy; w.x = tm.position.x; w.z = tm.position.z; } var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
   function placeTools() {
     // a towed tool trails the player: its heading eases toward the player's, so a look round does not whip it about
     var towed = function (tool, mesh) { var w = toolWorld(tool); if (player.tool === tool) { var cur = mesh.userData.towRy === undefined ? w.ry : mesh.userData.towRy, d = Math.atan2(Math.sin(w.ry - cur), Math.cos(w.ry - cur)); cur += d * 0.1; mesh.userData.towRy = cur; w.ry = cur; w.x = player.x + Math.sin(cur) * 1.15; w.z = player.z + Math.cos(cur) * 1.15; } else mesh.userData.towRy = undefined; mesh.position.set(w.x, floorY(w.x, w.z), w.z); mesh.rotation.y = w.ry; };
@@ -2718,7 +2707,7 @@
     doors.forEach(function (d) { if (d.anim < 0.6) dyn.push({ x0: d.side * HALL.x - 0.3, x1: d.side * HALL.x + 0.3, z0: d.z - DOCKS.w / 2, z1: d.z + DOCKS.w / 2, y0: -2, y1: 9 }); });
     doorSolids(dyn);
     if (S.up.fork) dyn.push({ x0: S.fork.x - 1.0, x1: S.fork.x + 1.0, z0: S.fork.z - 1.0, z1: S.fork.z + 1.0, y0: -1, y1: 2.4, fork: true });
-    if (player.tool !== 'jack' && player.tool !== 'cable' && player.tool !== 'jcable' && jackPallet()) { /* a pallet on a parked jack is part of the jack: walk round it */ var jw = toolWorld('jack'); dyn.push({ x0: jw.x - 0.7, x1: jw.x + 0.7, z0: jw.z - 0.7, z1: jw.z + 0.7, y0: -1, y1: 1.5 }); }
+    if (player.tool !== 'jack' && player.tool !== 'cable' && jackPallet()) { /* a pallet on a parked jack is part of the jack: walk round it */ var jw = toolWorld('jack'); dyn.push({ x0: jw.x - 0.7, x1: jw.x + 0.7, z0: jw.z - 0.7, z1: jw.z + 0.7, y0: -1, y1: 1.5 }); }
   }
   function collides(x, z, ignoreFork) {
     var r = 0.32, y0 = player.y, y1 = player.y + 1.7;
@@ -3011,7 +3000,7 @@
     $('h-day').textContent = 'Day ' + S.day + (S.time >= DAY_END || S.time < DAY_START ? ' · night' : ''); $('h-clock').textContent = fmtTime(S.time);
     var ev = $('h-event'); if (S.events.power) { ev.hidden = false; ev.textContent = '⚡ Power cut: reset the breaker in the office'; } else ev.hidden = true;
     var held = $('h-held'), hl = handLabel();
-    if (player.tool === 'cable' || player.tool === 'jcable') { held.hidden = false; held.innerHTML = 'Charging cable (' + (player.tool === 'cable' ? 'forklift' : 'jack') + ')<small>E on the ' + (player.tool === 'cable' ? 'forklift' : 'jack') + ' plugs it in · G hangs it back</small>'; }
+    if (player.tool === 'cable') { held.hidden = false; held.innerHTML = 'Charging cable (forklift)<small>E on the forklift plugs it in · G hangs it back</small>'; }
     else if (player.tool) { held.hidden = false; held.innerHTML = (player.tool === 'jack' ? 'Pallet jack' + (jackPallet() ? ' · ' + jackPallet().n + ' × ' + skuName(jackPallet().sku) : ' (empty)') : 'Picking cart · ' + S.cart.boxes.length + ' / ' + ECON.cartCap + ' boxes') + '<small>G lets go</small>'; }
     else if (hl) { held.hidden = false; held.innerHTML = esc(hl.t) + '<small>' + esc(hl.s) + '</small>'; }
     else held.hidden = true;
@@ -3256,7 +3245,7 @@
       '<h3>Shipping</h3><p>Outbound trucks wait at OUT 1 from 10:30 to 12:00 and OUT 2 from 16:00 to 18:00. Open the door, carry the parcel into the trailer and press E. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
       '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
       '<h3>Drivers</h3><p>Sign the delivery note with the driver (<kbd>E</kbd> on him by the dock outside) before anything comes off the truck. He will nag after two hours.</p>' +
-      '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. The jack has its own small charger by its bay. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
+      '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
       '<h3>Staff and the time clock</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at 06:00. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
       '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
@@ -3518,28 +3507,28 @@
   // ── Charging cables ───────────────────────────────────────────────
   // Each charger has a cable on a reel. E takes the plug; walk it to the forklift (or the jack) and E plugs it in. A tube hangs
   // between the reel and wherever the plug is. Charging happens only while plugged in; driving off pulls the plug.
-  var cables = { fork: { tool: 'cable', prop: 'charger', mesh: null, plugged: function () { return !!S.fork.plugged; } }, jack: { tool: 'jcable', prop: 'jackCharger', mesh: null, plugged: function () { return !!S.jack.plugged; } } };
+  var cables = { fork: { tool: 'cable', prop: 'charger', mesh: null, plugged: function () { return !!S.fork.plugged; } } };
   var CABLE_REACH = 8;
   function cableReel(prop) { var P = PROPS[prop] ? propPlacement(prop) : null; if (!P) return null; var a = P.rot * Math.PI / 2, lx = prop === 'charger' ? -0.28 : 0, ly = prop === 'charger' ? 0.75 : 0.8, lz = -0.05; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), y: propGroundY(P.x, P.z) + ly, z: P.z - lx * Math.sin(a) + lz * Math.cos(a) }; }
   function cablePlugEnd(k) {
     var cb = cables[k];
     if (player.tool === cb.tool) return { x: player.x - Math.sin(player.yaw) * 0.35 + Math.cos(player.yaw) * 0.25, y: player.y + 1.0, z: player.z - Math.cos(player.yaw) * 0.35 - Math.sin(player.yaw) * 0.25 };
-    if (cb.plugged()) { if (k === 'fork') return { x: S.fork.x - Math.sin(S.fork.yaw) * 1.0, y: floorY(S.fork.x, S.fork.z) + 0.95, z: S.fork.z - Math.cos(S.fork.yaw) * 1.0 }; var jw = toolWorld('jack'); return { x: jw.x - Math.sin(jw.ry) * 0.7, y: floorY(jw.x, jw.z) + 0.35, z: jw.z - Math.cos(jw.ry) * 0.7 }; }
+    if (cb.plugged()) return { x: S.fork.x - Math.sin(S.fork.yaw) * 1.0, y: floorY(S.fork.x, S.fork.z) + 0.95, z: S.fork.z - Math.cos(S.fork.yaw) * 1.0 };
     return null;
   }
   function cablePrompt(k) { var cb = cables[k], name = k === 'fork' ? 'forklift' : 'jack'; if (player.tool === cb.tool) return 'Hang the ' + name + ' cable back on the reel'; if (cb.plugged()) return 'Unplug the ' + name + ' (E)'; if (player.tool || S.hand) return 'Hands full'; return 'Take the ' + name + ' charging cable'; }
   function cableUse(k) {
     var cb = cables[k], name = k === 'fork' ? 'forklift' : 'jack';
     if (player.tool === cb.tool) { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; }
-    if (cb.plugged()) { if (k === 'fork') S.fork.plugged = false; else S.jack.plugged = false; sfx('click'); toast(name.charAt(0).toUpperCase() + name.slice(1) + ' unplugged', ''); screenDirtyAll(); hudDirty = true; return; }
+    if (cb.plugged()) { S.fork.plugged = false; sfx('click'); toast(name.charAt(0).toUpperCase() + name.slice(1) + ' unplugged', ''); screenDirtyAll(); hudDirty = true; return; }
     if (player.tool || S.hand || driving) { toast('Hands full.', 'bad'); return; }
     player.tool = cb.tool; sfx('pickup'); toast('Carrying the cable · E on the ' + name + ' plugs it in · it reaches ' + CABLE_REACH + ' m', ''); hudDirty = true;
   }
   function cablePlugInto(k) {
     var cb = cables[k], reel = cableReel(cb.prop), name = k === 'fork' ? 'forklift' : 'jack'; if (player.tool !== cb.tool) return false;
-    var tgt = k === 'fork' ? { x: S.fork.x, z: S.fork.z } : toolWorld('jack');
+    var tgt = { x: S.fork.x, z: S.fork.z };
     if (reel && Math.sqrt(dist2(reel.x, reel.z, tgt.x, tgt.z)) > CABLE_REACH) { toast('The cable does not reach. Bring the ' + name + ' nearer the charger.', 'bad'); return true; }
-    if (k === 'fork') S.fork.plugged = true; else S.jack.plugged = true;
+    S.fork.plugged = true;
     player.tool = null; sfx('click'); toast(name.charAt(0).toUpperCase() + name.slice(1) + ' plugged in' + (k === 'fork' ? ': charging' : ''), 'good'); addXp(2); screenDirtyAll(); hudDirty = true; return true;
   }
   function cableUnplugFork(why) { if (S.fork.plugged) { S.fork.plugged = false; toast(why || 'The charger plug came out', 'bad'); sfx('bad'); screenDirtyAll(); } }
@@ -3555,7 +3544,7 @@
       if (!cb.mesh) { cb.mesh = new THREE.Mesh(geo, cableMat); cb.mesh.castShadow = true; cb.mesh.userData.dynamic = true; scene.add(cb.mesh); } else { cb.mesh.geometry.dispose(); cb.mesh.geometry = geo; }
       cb.mesh.visible = true;
     });
-    handPlug.visible = player.tool === 'cable' || player.tool === 'jcable';
+    handPlug.visible = player.tool === 'cable';
   }
 
   // ── The forklift battery ──────────────────────────────────────────

@@ -411,16 +411,6 @@
     touchScreen({ w: 200, h: 80, pw: 0.4, ph: 0.16, x: 0.05, y: 1.3, z: 0.035, ry: 0, parent: c.group, title: 'Charger display', draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.2)'); var b = Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100); scText(cc, 10, 30, S.fork.plugged ? (b >= 100 ? 'FORKLIFT · FULL' : 'CHARGING · ' + b + '%') : 'FORKLIFT · ' + b + '% · unplugged', S.fork.plugged ? '#5fd38d' : '#f5b53d', 18); cc.fillStyle = 'rgba(255,255,255,0.12)'; cc.fillRect(10, 48, 180, 14); cc.fillStyle = b < 20 ? '#ff6b5e' : '#5fd38d'; cc.fillRect(10, 48, 1.8 * b, 14); } });
     var w = 2.6, d = 3.6, cz = 2.8; [[0, cz - d / 2, w, 0.08], [0, cz + d / 2, w, 0.08], [-w / 2, cz, 0.08, d], [w / 2, cz, 0.08, d]].forEach(function (ln) { c.plane(ln[2], ln[3], MAT.yellowLine, ln[0], 0.0062, ln[1], -Math.PI / 2, 0); }); c.plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex(['FORKLIFT'], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), 0, 0.0066, cz - d / 2 + 0.3, -Math.PI / 2, 0);
   }
-  // the jack's own charger by its bay: a small wall unit, one reel, one plug post
-  function jackChargerBuild(c) {
-    c.box(0.4, 0.5, 0.2, std({ color: 0x8b949c, roughness: 0.5, metalness: 0.4 }), 0, 1.35, -0.08); c.box(0.44, 0.03, 0.24, MAT.steelDark, 0, 1.61, -0.08);
-    for (var vv = 0; vv < 4; vv++) c.box(0.26, 0.012, 0.02, MAT.black, 0, 1.5 - vv * 0.04, 0.03); c.box(0.05, 0.05, 0.02, glowMat(0x5fd38d, 1.2), 0.12, 1.22, 0.03); c.box(0.05, 0.05, 0.02, glowMat(0xf5b53d, 0.6), -0.12, 1.22, 0.03);
-    c.sign(['JACK CHARGER'], 0.4, 0.08, 0, 1.72, 0.03, 0, { w: 256, h: 48, bg: '#1b232c', fg: '#5fd38d' });
-    var reel = c.cyl(0.11, 0.1, MAT.black, 0, 0.8, -0.05, 16); reel.rotation.x = Math.PI / 2; c.cyl(0.04, 0.12, MAT.steelDark, 0, 0.8, -0.05, 10).rotation.x = Math.PI / 2; var cab = c.cyl(0.015, 0.8, MAT.black, 0.1, 0.4, 0.3, 6); cab.rotation.x = 1.1;
-    c.box(0.16, 0.55, 0.16, MAT.steelDark, 0.25, 0.275, 0.55); c.box(0.2, 0.04, 0.2, MAT.yellow, 0.25, 0.57, 0.55); c.box(0.08, 0.07, 0.06, MAT.red, 0.25, 0.45, 0.64); c.sign(['JACK'], 0.16, 0.04, 0.25, 0.3, 0.64, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#eef1f5' });
-    c.solid(-0.22, 0.4, -0.2, 0.65, 0, 1.8);
-    c.hit(0.6, 1.2, 0.4, 0, 1.2, 0.05, { prompt: function () { return cablePrompt('jack'); }, use: function () { cableUse('jack'); } });
-  }
   function lampPostBuild(c) { c.cyl(0.08, 7.5, MAT.steelDark, 0, 3.75, 0, 8, 0.11); c.box(0.6, 0.2, 0.3, MAT.steelDark, 0, 7.65, 0); var lens = c.box(0.5, 0.04, 0.24, glowMat(0xffd9a0, 0.2), 0, 7.53, 0); yard.lampLenses.push(lens); var l = new THREE.PointLight(0xffd9a0, 0.0, 30, 2); l.position.set(0, 7.7, 0); c.add(l); yardLights.push(l); c.box(0.3, 0.2, 0.3, MAT.grey, 0, 0.1, 0); c.solid(-0.15, 0.15, -0.15, 0.15, -2, 2); }
   function carBuild(k) { return function (c) { c.add(carMesh(typeof k === "number" ? CAR_COLS[k % CAR_COLS.length] : k)); c.solid(-2.2, 2.2, -1.0, 1.0, -2, 1.5); }; }
   function paintedBuild(c) { c.sign(['DEPOT CO.'], 9, 1.6, 0, 4.4, 0.01, 0, { w: 1024, h: 192, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['RECEIVE · STORE · PICK · SHIP'], 7, 0.5, 0, 3.3, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); }
@@ -437,7 +427,6 @@
   defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
   defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, build: boardBuild });
   defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, x: 0, z: 13.83, rot: 2, build: chargerBuild });
-  defProp('jackCharger', { label: 'jack charger', cat: 'wall', wall: true, x: -19.83, z: 4.0, rot: 1, build: jackChargerBuild });
   defProp('painted', { label: 'painted name', cat: 'wall', wall: true, x: 0, z: -13.83, rot: 0, build: paintedBuild });
   [['aisleAB', -4, 'AISLE  A · B'], ['aisleBC', 0, 'AISLE  B · C'], ['aisleCD', 4, 'AISLE  C · D']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
   [[-30, -12], [-30, 10], [30, -12], [30, 10]].forEach(function (p, i) { defProp('lamp' + i, { label: 'lamp post', cat: 'yard', yard: true, x: p[0], z: p[1], rot: 0, build: lampPostBuild }); });

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.3 (2026-10-02)
+
+- The pallet jack is a hand pallet truck again. It never had a battery, so the jack charger, its cable and the plug prompt were decoration with nothing behind them; they are gone.
+
 ## 1.7.2 (2026-10-02)
 
 - Forklift tyres are solid cushion tyres with fine tread, sidewall rings and a dished rim with a bolt circle, not gears.
