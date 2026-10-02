@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.2 (2026-10-02)
+
+- The forklift beacon lens and both tail lights were built without the forklift as parent, so an amber lens floated at the hall origin at 2.5 m whenever you drove and two red lights sat on the floor there. A nesting-aware scan of every builder finds no other orphans.
+- The overhead guard roof is four round cross tubes with two runners and a round beacon base, instead of thin rods and a loose square plate.
+
 ## 1.10.1 (2026-10-02)
 
 - A dock door loaded open looked shut until it was toggled twice, so its console said open while the roller was down. The pose is applied every frame now.

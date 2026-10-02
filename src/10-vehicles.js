@@ -77,8 +77,9 @@
     box(0.12, 0.012, 0.08, MAT.rubber, 0.12, 0.78, 0.3, f).rotation.x = -0.35; box(0.12, 0.012, 0.08, MAT.rubber, -0.08, 0.78, 0.3, f).rotation.x = -0.35; var pb = cyl(0.01, 0.22, FD, -0.3, 0.88, 0.1, f, 6); pb.rotation.x = -0.5; box(0.05, 0.03, 0.06, MAT.red, -0.3, 0.98, 0.15, f);
     var guardPts = [[-0.52, 0.9, 0.5], [-0.52, 2.2, 0.5], [-0.52, 2.4, 0.3], [-0.52, 2.4, -0.85], [-0.52, 2.2, -1.05], [-0.52, 0.9, -1.05]];
     [-1, 1].forEach(function (s) { var pts = guardPts.map(function (p) { return new THREE.Vector3(p[0] * s, p[1], p[2]); }); var tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.2), 40, 0.035, 8, false), FD); tube.castShadow = true; f.add(tube); });
-    for (var cb = -0.95; cb <= 0.4; cb += 0.27) cyl(0.025, 1.04, FD, 0, 2.4, cb, f, 8).rotation.z = Math.PI / 2; box(0.22, 0.03, 0.22, FD, 0, 2.43, -0.3, f);
-    cyl(0.07, 0.14, glowMat(0xffa000, 0.6), 0, 2.53, -0.3, f, 12); var beaconLens = box(0.03, 0.12, 0.14, glowMat(0xffd060, 2.5), 0.06, 2.53, -0.3);
+    // the guard roof: four round cross tubes and two runners, a round base for the beacon
+    [-0.95, -0.5, -0.05, 0.4].forEach(function (cb) { cyl(0.032, 1.06, FD, 0, 2.4, cb, f, 10).rotation.z = Math.PI / 2; }); [-0.3, 0.3].forEach(function (rx) { cyl(0.02, 1.4, FD, rx, 2.42, -0.27, f, 8).rotation.x = Math.PI / 2; }); cyl(0.09, 0.03, FD, 0, 2.44, -0.3, f, 14);
+    cyl(0.07, 0.14, glowMat(0xffa000, 0.6), 0, 2.53, -0.3, f, 12); var beaconLens = box(0.03, 0.12, 0.14, glowMat(0xffd060, 2.5), 0.06, 2.53, -0.3, f);
     var iShape = new THREE.Shape(); iShape.moveTo(-0.05, -0.08); iShape.lineTo(0.05, -0.08); iShape.lineTo(0.05, -0.05); iShape.lineTo(0.015, -0.05); iShape.lineTo(0.015, 0.05); iShape.lineTo(0.05, 0.05); iShape.lineTo(0.05, 0.08); iShape.lineTo(-0.05, 0.08); iShape.lineTo(-0.05, 0.05); iShape.lineTo(-0.015, 0.05); iShape.lineTo(-0.015, -0.05); iShape.lineTo(-0.05, -0.05); iShape.closePath();
     var iGeo = new THREE.ExtrudeGeometry(iShape, { depth: 2.7, bevelEnabled: false }); iGeo.rotateX(-Math.PI / 2);
     [-0.5, 0.5].forEach(function (x) { var ch = new THREE.Mesh(iGeo, FS); ch.position.set(x, 0.1, 0.62); ch.castShadow = true; f.add(ch); box(0.08, 2.45, 0.1, MAT.chrome, x * 0.84, 1.5, 0.63, f); });
@@ -91,7 +92,7 @@
     [-0.3, 0.3].forEach(function (x) { rb(0.12, 0.05, 1.15, 0.01, FS, x, 0.03, 1.33, car); rb(0.12, 0.42, 0.05, 0.01, FS, x, 0.26, 0.77, car); var ft = box(0.12, 0.05, 0.1, FS, x, 0.02, 1.92, car); ft.rotation.x = 0.3; });
     tyre(0.34, 0.26, -0.58, 0.34, 0.45); tyre(0.34, 0.26, 0.58, 0.34, 0.45); tyre(0.27, 0.2, -0.47, 0.27, -1.0); tyre(0.27, 0.2, 0.47, 0.27, -1.0);
     rb(0.5, 0.24, 0.1, 0.03, FD, -0.56, 0.72, 0.45); rb(0.5, 0.24, 0.1, 0.03, FD, 0.56, 0.72, 0.45); rb(0.4, 0.2, 0.1, 0.03, FD, -0.5, 0.6, -1.0); rb(0.4, 0.2, 0.1, 0.03, FD, 0.5, 0.6, -1.0);
-    box(0.14, 0.1, 0.06, MAT.lamp, -0.45, 1.0, 0.72, f); box(0.14, 0.1, 0.06, MAT.lamp, 0.45, 1.0, 0.72, f); box(0.12, 0.08, 0.05, glowMat(0xff2a1a, 0.8), -0.4, 0.75, -1.5); box(0.12, 0.08, 0.05, glowMat(0xff2a1a, 0.8), 0.4, 0.75, -1.5);
+    box(0.14, 0.1, 0.06, MAT.lamp, -0.45, 1.0, 0.72, f); box(0.14, 0.1, 0.06, MAT.lamp, 0.45, 1.0, 0.72, f); box(0.12, 0.08, 0.05, glowMat(0xff2a1a, 0.8), -0.4, 0.75, -1.5, f); box(0.12, 0.08, 0.05, glowMat(0xff2a1a, 0.8), 0.4, 0.75, -1.5, f);
     sign(['DC-01'], 0.3, 0.09, 0, 0.55, -1.51, Math.PI, { w: 256, h: 80, bg: '#f5f1e6', fg: '#1b232c' }, f); sign(['DEPOT CO.'], 0.6, 0.14, 0, 0.9, -1.51, Math.PI, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' }, f);
     sign(['2.5 t', 'max 3.3 m'], 0.3, 0.16, -0.57, 0.5, -0.4, -Math.PI / 2, { w: 256, h: 128, bg: '#1b232c', fg: '#f5b53d', size: 40 }, f); sign(['ELECTRIC'], 0.4, 0.08, 0.57, 0.5, -0.5, Math.PI / 2, { w: 256, h: 64, bg: '#f2b705', fg: '#1a1205' }, f);
     cyl(0.04, 0.3, MAT.red, 0.5, 1.4, -1.15, f, 10); box(0.03, 0.12, 0.1, MAT.chrome, -0.6, 1.9, 0.1, f); cyl(0.01, 0.3, FS, -0.6, 1.95, 0.05, f, 4).rotation.z = 0.3;

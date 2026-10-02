@@ -51,7 +51,7 @@
       slotKey: slotKey, slotUse: slotUse, slotPrompt: slotPrompt, stockCount: stockCount, totalStock: totalStock,
       grabTool: grabTool, releaseTool: releaseTool, toolWorld: toolWorld,
       genOrder: genOrder, orderById: orderById, benchAdd: benchAdd, benchUse: benchUse, packOrder: packOrder, canPack: canPack, shelfUse: shelfUse, loadUse: loadUse, consoleUse: consoleUse, consolePrompt: consolePrompt,
-      hireStaff: hireStaff, fireStaff: fireStaff, buyUpgrade: buyUpgrade, startDrive: startDrive, stopDrive: stopDrive, forkGearCycle: forkGearCycle, forkUse: forkUse, forkTip: forkTip,
+      hireStaff: hireStaff, fireStaff: fireStaff, buyUpgrade: buyUpgrade, startDrive: startDrive, stopDrive: stopDrive, forkGearCycle: forkGearCycle, forkLook: forkLook, forkUse: forkUse, forkTip: forkTip,
       handSet: handSet, putDown: putDown, interact: interact, useFocus: useFocus, focusText: function () { return focusText; },
       lookAt: function (x, y, z) { camera.position.set(player.x, player.y + 1.62, player.z); camera.lookAt(x, y, z); camera.updateMatrixWorld(true); player.yaw = Math.atan2(-(x - player.x), -(z - player.z)); player.pitch = Math.atan2(y - camera.position.y, Math.sqrt(dist2(x, z, player.x, player.z))); interact(); return focusText; },
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
