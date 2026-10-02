@@ -116,6 +116,8 @@ b { font-weight: 600; }
 .dc-prompt .sub { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; white-space: normal; }
 .dc-held { position: absolute; right: 16px; bottom: 16px; padding: 8px 12px; border: 1px solid var(--amber-line); border-radius: var(--r2); background: var(--panel); font: 14px var(--display); }
 .dc-held small { display: block; color: var(--muted); font: 12px var(--sans); }
+.dc-editbanner { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border: 1px solid var(--amber-line); border-radius: 999px; background: rgba(60, 44, 10, 0.88); color: #ffe9b8; font: 14px var(--display); white-space: nowrap; }
+.dc-editbanner b { color: var(--amber); font: 12px var(--mono); padding: 0 5px; border: 1px solid var(--amber-line); border-radius: 4px; }
 .dc-objective { position: absolute; left: 16px; bottom: 16px; max-width: 360px; padding: 8px 12px; border: 1px solid var(--panel-line); border-left: 3px solid var(--amber); border-radius: var(--r2); background: var(--panel); font-size: 13px; }
 .dc-objective:empty { display: none; }
 .dc-objective b { color: var(--amber); }

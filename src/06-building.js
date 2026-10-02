@@ -67,12 +67,12 @@
     yardLights.forEach(function (l) { cyl(0.08, 7.5, MAT.steelDark, l.position.x, YARD_Y + 3.75, l.position.z, null, 8, 0.11); box(0.6, 0.2, 0.3, MAT.steelDark, l.position.x, l.position.y + 0.15, l.position.z); var lens = box(0.5, 0.04, 0.24, glowMat(0xffd9a0, 0.2), l.position.x, l.position.y + 0.03, l.position.z); yard.lampLenses.push(lens); });
     // the pallet racks the player owns
     for (var r = 0; r < 4; r++) if (r < S.up.rows) buildRack(r);
-    buildOffice(); buildBench(); buildBreakRoom(); buildBreakCorner();
+    buildOffice(); buildBench(); buildBreakRoom();
     hingedDoor('office', 12.5, 9.45, false, 'the office door', { window: true, swing: 1 });
     hingedDoor('break', -12.5, 9.45, false, 'the break room door', { window: true, swing: -1 });
     hingedDoor('staff', -X, SPOT.staffDoor.z - 0.5, false, 'the staff door', { mat: MAT.steelDark, swing: 1 });
     hingedDoor('exit', 13.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
-    buildYard(); buildDressing(); buildControlCabinet();
+    buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
   function buildDoor(i, side, z) {
@@ -142,17 +142,6 @@
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
     var lamp = box(1.2, 0.08, 0.3, MAT.lamp, 16.5, h - 0.05, 11); world.officeLamp = lamp;
     sign(['OFFICE'], 1.4, 0.45, x0 - 0.09, 2.6, 9.95, -Math.PI / 2, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' });
-    // desk, chair, PC, cabinet
-    box(2.2, 0.06, 0.8, MAT.wood, SPOT.pc.x, 0.75, SPOT.pc.z + 0.6); [[-1, -0.3], [1, -0.3], [-1, 0.3], [1, 0.3]].forEach(function (o) { box(0.05, 0.75, 0.05, MAT.steelDark, SPOT.pc.x + o[0] * 1.05, 0.375, SPOT.pc.z + 0.6 + o[1]); });
-    solid(SPOT.pc.x - 1.1, SPOT.pc.x + 1.1, SPOT.pc.z + 0.2, SPOT.pc.z + 1);
-    box(0.3, 0.05, 0.25, MAT.steelDark, SPOT.pc.x, 0.8, SPOT.pc.z + 0.8); cyl(0.03, 0.25, MAT.steelDark, SPOT.pc.x, 0.9, SPOT.pc.z + 0.85);
-    var mon = box(0.8, 0.5, 0.04, MAT.black, SPOT.pc.x, 1.25, SPOT.pc.z + 0.85);
-    world.pcScreen = plane(0.74, 0.44, new THREE.MeshBasicMaterial({ map: textTex(['DEPOT OS', 'press E'], { w: 256, h: 160, bg: '#0d1b2a', fg: '#78bdf5', size: 40 }) }), SPOT.pc.x, 1.25, SPOT.pc.z + 0.825, 0, Math.PI);
-    box(0.45, 0.03, 0.15, MAT.steelDark, SPOT.pc.x - 0.1, 0.8, SPOT.pc.z + 0.45); box(0.1, 0.03, 0.06, MAT.steelDark, SPOT.pc.x + 0.5, 0.8, SPOT.pc.z + 0.45);
-    hitBox(1.2, 1.0, 0.6, SPOT.pc.x, 1.1, SPOT.pc.z + 0.7, { prompt: function () { return S.events.power ? 'The PC is off: no power' : 'Use the office PC'; }, use: function () { if (S.events.power) { toast('No power.', 'bad'); return; } openPc(); } });
-    box(0.5, 0.06, 0.5, MAT.black, SPOT.pc.x, 0.5, SPOT.pc.z - 0.2); cyl(0.04, 0.5, MAT.steelDark, SPOT.pc.x, 0.25, SPOT.pc.z - 0.2); box(0.5, 0.5, 0.06, MAT.black, SPOT.pc.x, 0.78, SPOT.pc.z - 0.45);
-    box(0.5, 1.3, 0.6, MAT.grey, 19.6, 0.65, 13.5); box(0.5, 1.3, 0.6, MAT.grey, 19.0, 0.65, 13.5);
-    solid(18.7, 19.9, 13.1, 14);
     // the breaker panel on the east wall
     var brk = box(0.12, 0.6, 0.4, MAT.grey, HALL.x - 0.21, 1.5, SPOT.breaker.z); box(0.03, 0.12, 0.06, MAT.red, HALL.x - 0.28, 1.5, SPOT.breaker.z);
     addInter(brk, { prompt: function () { return S.events.power ? 'Reset the breaker' : 'Breaker panel (power is on)'; }, use: function () { flipBreaker(); } });
@@ -167,18 +156,6 @@
 
   function buildBench() {
     var bx = SPOT.bench.x, bz = SPOT.bench.z;
-    box(1.0, 0.08, 3.2, MAT.wood, bx, 0.9, bz); [[-0.45, -1.5], [0.45, -1.5], [-0.45, 1.5], [0.45, 1.5]].forEach(function (o) { box(0.06, 0.9, 0.06, MAT.steelDark, bx + o[0], 0.45, bz + o[1]); });
-    box(0.9, 0.04, 3.0, MAT.steelDark, bx, 0.3, bz);
-    solid(bx - 0.5, bx + 0.5, bz - 1.6, bz + 1.6);
-    box(0.25, 0.12, 0.12, MAT.red, bx - 0.3, 1.0, bz - 1.3); cyl(0.07, 0.1, MAT.white, bx - 0.3, 1.02, bz - 1.3);   // tape gun
-    box(0.3, 0.05, 0.3, MAT.steelDark, bx + 0.25, 0.965, bz - 1.35); plane(0.2, 0.1, MAT.screen, bx + 0.25, 1.0, bz - 1.2, -0.6);   // scale
-    cyl(0.02, 0.9, MAT.steelDark, bx - 0.4, 1.4, bz + 1.4); box(0.3, 0.08, 0.15, MAT.lamp, bx - 0.3, 1.85, bz + 1.4);   // lamp
-    hitBox(1.1, 1.2, 3.2, bx, 1.4, bz, { prompt: function () { return benchPrompt(); }, use: function () { benchUse(); } });
-    sign(['PACKING'], 1.8, 0.5, bx + 0.3, 2.6, bz, -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' });
-    // the parcel shelf: packed orders wait here until they go out
-    var ox = SPOT.benchOut.x, oz = SPOT.benchOut.z;
-    box(1.0, 0.06, 1.5, MAT.steelDark, ox, 0.6, oz + 0.3); [[-0.45, -0.4], [0.45, -0.4], [-0.45, 1.0], [0.45, 1.0]].forEach(function (o) { box(0.05, 0.6, 0.05, MAT.steelDark, ox + o[0], 0.3, oz + o[1]); });
-    solid(ox - 0.5, ox + 0.5, oz - 0.5, oz + 1.1);
     // the two dock consoles by the outbound doors: dispatch a loaded truck early
     [SPOT.console0, SPOT.console1].forEach(function (p, i) {
       var di = 2 + i;
@@ -194,15 +171,6 @@
       } });
       sign(['DOCK ' + dockLabel(di)], 0.7, 0.18, p.x - 0.12, 1.95, p.z, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     });
-    // the bench terminal: a monitor on an arm at the north end of the bench, with the orders to pack
-    box(0.05, 0.5, 0.05, MAT.steelDark, bx + 0.4, 1.2, bz - 1.7); box(0.3, 0.04, 0.2, MAT.steelDark, bx + 0.4, 0.95, bz - 1.7); var arm = box(0.4, 0.04, 0.04, MAT.steelDark, bx + 0.2, 1.45, bz - 1.7); box(0.04, 0.4, 0.56, MAT.black, bx - 0.02, 1.45, bz - 1.7);
-    touchScreen({ w: 400, h: 300, pw: 0.5, ph: 0.36, x: bx - 0.045, y: 1.45, z: bz - 1.7, ry: -Math.PI / 2, title: 'Bench terminal', draw: function (c, sc) {
-      scBg(c, sc.w, sc.h); scHead(c, sc.w, 'PACKING', benchCount() + ' / ' + ECON.benchCap + ' on the bench');
-      var os = openOrders().sort(function (a, b2) { return (b2.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b2.due; }).slice(0, 4), y = 56;
-      if (!os.length) scText(c, 16, 76, 'No open orders.', '#a0acb8', 14);
-      os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
-      scText(c, 16, 290, 'E on the bench with empty hands opens the full list', '#6b7784', 10);
-    } });
   }
 
   // the break room: the south-west corner, walled off like the office, with a window onto the floor and a door
@@ -217,31 +185,9 @@
     box(1.2, 0.08, 0.3, MAT.lamp, -16.5, h - 0.05, 11);
     for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 12.5);
     sign(['BREAK ROOM'], 1.6, 0.45, x0 + 0.09, 2.6, 9.95, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
-    box(0.7, 1.75, 0.7, MAT.white, -16, 0.875, 9.0); box(0.03, 0.4, 0.03, MAT.chrome, -16.3, 1.2, 9.37); box(0.03, 0.3, 0.03, MAT.chrome, -16.3, 0.5, 9.37); solid(-16.4, -15.6, 8.6, 9.4);
   }
   function binPrompt() { if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Bin the damaged box'; if (S.hand && S.hand.kind === 'box') return 'That box is fine: it belongs on a rack'; return 'The bin · ' + (S.binned || 0) + ' damaged boxes written off'; }
   function binUse() { if (!(S.hand && S.hand.kind === 'box' && S.hand.damaged)) { sfx('click'); return; } var sku = S.hand.sku; handSet(null); S.binned = (S.binned || 0) + 1; var cost = Math.round(SKU[sku].val * 0.5); pay(-cost, 'Written off: a damaged box of ' + skuName(sku)); addRep(-0.5); sfx('crate'); toast('Binned. The client charges ' + money(cost) + ' for it.', 'bad'); logEvent('A damaged box of ' + skuName(sku) + ' went in the bin (' + money(cost) + ')', 'bad'); }
-  function buildBreakCorner() {
-    // a cot, a coffee machine on a counter, a locker, a water cooler, a fire extinguisher by the door
-    var c = SPOT.cot;
-    box(1.9, 0.12, 0.9, MAT.steelDark, c.x, 0.3, c.z); box(1.85, 0.18, 0.85, MAT.blue, c.x, 0.45, c.z); box(0.5, 0.1, 0.4, MAT.white, c.x - 0.6, 0.6, c.z);
-    [[-0.9, -0.4], [0.9, -0.4], [-0.9, 0.4], [0.9, 0.4]].forEach(function (o) { box(0.05, 0.3, 0.05, MAT.steelDark, c.x + o[0], 0.15, c.z + o[1]); });
-    solid(c.x - 0.95, c.x + 0.95, c.z - 0.45, c.z + 0.45);
-    world.cot = hitBox(1.9, 0.6, 0.9, c.x, 0.5, c.z, { prompt: function () { return cotPrompt(); }, use: function () { sleepNow(); } });
-    var k = SPOT.coffee;
-    box(1.4, 0.9, 0.6, MAT.grey, k.x, 0.45, k.z); solid(k.x - 0.7, k.x + 0.7, k.z - 0.3, k.z + 0.3);
-    box(0.35, 0.5, 0.35, MAT.black, k.x, 1.15, k.z); box(0.3, 0.08, 0.1, MAT.red, k.x, 1.3, k.z + 0.2); plane(0.12, 0.08, MAT.screen, k.x, 1.2, k.z + 0.18);
-    world.coffeeMachine = hitBox(0.5, 0.6, 0.5, k.x, 1.15, k.z, { prompt: function () { return S.events.power ? 'The coffee machine is off' : (buff.coffeeUntil > S.time && buff.coffeeDay === S.day ? 'Coffee is still working' : 'Have a coffee (walk faster for an hour)'); }, use: function () { drinkCoffee(); } });
-    box(0.5, 0.6, 0.5, MAT.white, k.x + 0.5, 1.1, k.z); cyl(0.12, 0.3, MAT.glass, k.x + 0.5, 1.5, k.z);   // water cooler
-    box(0.6, 1.8, 0.5, MAT.grey, -18.4, 0.9, 13.6); box(0.6, 1.8, 0.5, MAT.grey, -17.7, 0.9, 13.6); solid(-18.7, -17.4, 13.3, 14);
-    box(0.9, 0.06, 0.9, MAT.wood, -14.5, 0.75, 12.5); cyl(0.04, 0.75, MAT.steelDark, -14.5, 0.375, 12.5); [[-0.6, 0], [0.6, 0]].forEach(function (o) { box(0.4, 0.04, 0.4, MAT.red, -14.5 + o[0], 0.45, 12.5 + o[1]); cyl(0.03, 0.45, MAT.steelDark, -14.5 + o[0], 0.22, 12.5 + o[1]); });
-    
-    sign(['BREAK ROOM'], 1.6, 0.45, -19.78, 2.6, 11, Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' });
-    // a notice board with the day's schedule
-    box(1.6, 1.0, 0.04, MAT.wood, -16.5, 1.9, 13.78);
-    sign(['TRUCKS', 'IN 07:30 · 13:30', 'OUT 10:30-12 · 16-18'], 1.5, 0.9, -16.5, 1.9, 13.75, Math.PI, { w: 512, h: 320, bg: '#f5f1e6', fg: '#1b232c', size: 56 });
-  }
-
   // the order board on the office wall: redrawn when orders change
   function drawBoard() {
     var c = world.boardCtx; if (!c) return; var w = 768, h = 384;

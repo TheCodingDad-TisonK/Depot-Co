@@ -99,6 +99,17 @@ const SCENARIO = `(async () => {
   const bank2 = S.bank; S.contract.until = T.S.day * 24 + T.S.time - 1; T.run(1); ok(S.contract === null && S.bank > bank2, 'contract paid out');
   S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
   S.hand = { kind: 'box', sku: 'paint', damaged: true }; T.handSet(S.hand); T.player.x = 15; T.player.z = 2.6; const binned0 = S.binned || 0; T.lookAt(14.3, 0.45, 2.6); T.useFocus(); ok((S.binned || 0) === binned0 + 1 && !S.hand, 'damaged box binned');
+  // build mode: grab the cot, move it, turn it, put it back, remove and restore, buy a chair
+  T.player.x = -14.9; T.player.z = 11.5; T.player.y = 0; T.editToggle(); ok(T.edit.on === true, 'build mode on');
+  const cot0 = { x: T.propInst.cot.P.x, z: T.propInst.cot.P.z };
+  T.editGrab('cot'); ok(T.edit.grabbed === 'cot', 'grabbed the cot');
+  T.propInst.cot.g.position.set(-16, 0, 10.5); T.editDrop(false); ok(S.layout.cot && Math.abs(S.layout.cot.x + 16) < 0.01, 'cot placed and saved: ' + JSON.stringify(S.layout.cot));
+  T.editReset('cot'); ok(!S.layout.cot && Math.abs(T.propInst.cot.P.x - cot0.x) < 0.01, 'cot put back');
+  T.propInst.cot.g; T.edit.grabbed = null; S.layout.cot = { hidden: true }; T.buildProp('cot'); ok(T.propInst.cot.g.children.length === 0, 'removed cot builds nothing');
+  T.editRestore('cot'); ok(T.propInst.cot.g.children.length > 0, 'cot restored');
+  const bank4 = S.bank; T.editBuy('xChair'); ok(S.custom.length === 1 && S.bank === bank4 - 25 && T.edit.grabbed === S.custom[0].id, 'bought a chair and carrying it');
+  T.editDrop(false); ok(T.propInst[S.custom[0].id] && !T.edit.grabbed, 'chair placed'); T.edit.grabbed = null;
+  T.editToggle(); ok(T.edit.on === false, 'build mode off, layout saved');
   // events
   T.flipBreaker(); S.events.power = true; T.flipBreaker(); ok(S.events.power === false, 'breaker resets a power cut');
   T.setDoor(1, true); S.events.prowled = false; const stock0 = T.totalStock(); T.setTime(22.9); T.run(10); ok(T.totalStock() < stock0, 'prowler took stock through the open door');

@@ -21,7 +21,7 @@
   var flags = {}; try { ['depotco-skip-splash', 'depotco-autoplay'].forEach(function (k) { flags[k] = sessionStorage.getItem(k) === '1'; sessionStorage.removeItem(k); }); } catch (e) {}
   var splashDone = false;
   function endSplash() { if (splashDone) return; splashDone = true; menu.hidden = false; showMain(); splash.classList.add('fade'); setTimeout(function () { splash.hidden = true; }, 750); }
-  if (flags['depotco-skip-splash']) { splash.hidden = true; splashDone = true; menu.hidden = false; }
+  if (flags['depotco-skip-splash']) { splash.hidden = true; splashDone = true; menu.hidden = false; showMain(); }
   else { setTimeout(endSplash, 3400); splash.addEventListener('click', endSplash); window.addEventListener('keydown', function once() { window.removeEventListener('keydown', once); endSplash(); }); }
 
   function body(html) { $('dc-menu-main').innerHTML = html; }

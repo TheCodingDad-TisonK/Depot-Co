@@ -73,6 +73,12 @@
     focus = null; focusText = '';
     if (!ui.started || ui.blocked() || driving) return;
     ray.setFromCamera(centre, camera);
+    if (edit.on) {
+      if (edit.grabbed) return;
+      ray.far = 7; var ph = ray.intersectObjects(scene.children, true); ray.far = 3.4;
+      for (var q = 0; q < ph.length; q++) { var pid = propIdOf(ph[q].object); if (!pid) continue; if (ph[q].object.userData.baked || !ph[q].object.visible) continue; var pdef = propDef(pid); if (!pdef) continue; focus = { editId: pid, prompt: function () { return ''; }, use: function () {} }; focusText = 'Grab the ' + pdef.label + '  ·  R turn · Backspace put back · Del remove'; return; }
+      return;
+    }
     var hits = ray.intersectObjects(inter.concat(instList), false);
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i], def = h.object.userData.it || srcDef(instSource(h));
@@ -81,7 +87,7 @@
       focus = def; focusText = txt; break;
     }
   }
-  function useFocus() { if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } }
+  function useFocus() { if (edit.on) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; } if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } }
 
   // ── Input ─────────────────────────────────────────────────────────
   function lockPointer() { if (!ui.started || ui.blocked()) return; try { var r = canvas.requestPointerLock(); if (r && r.catch) r.catch(function () {}); } catch (e) {} }
@@ -99,8 +105,17 @@
     var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT');
     if (typing && e.code !== 'Escape') return;
     if (!ui.started) return;
-    if (e.code === 'Escape') { e.preventDefault(); if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
+    if (e.code === 'Escape') { e.preventDefault(); if (edit.on && edit.grabbed) { editDrop(true); return; } if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
     if (ui.blocked()) return;
+    if (e.code === 'F2') { e.preventDefault(); if (!driving) editToggle(); return; }
+    if (edit.on) {
+      if (e.code === 'KeyR') { editRotate(); return; }
+      if (e.code === 'Backspace') { e.preventDefault(); editReset(); return; }
+      if (e.code === 'Delete') { editRemove(); return; }
+      if (e.code === 'KeyC') { openPanel('catalogue'); return; }
+      if (e.code === 'KeyE' && !e.repeat) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; }
+      if (e.code === 'KeyG' && !e.repeat) { if (edit.grabbed) editDrop(true); return; }
+    }
     if (e.code === 'Tab') { e.preventDefault(); scanToggle(!ui.scanOpen); return; }
     if (ui.scanOpen && /^Digit[1-4]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return; }
     player.keys[e.code] = true;

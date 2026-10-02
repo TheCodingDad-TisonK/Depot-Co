@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 (2026-10-02)
+
+- Build mode, the same editor as Grow Co.: F2, then E grabs any prop and it follows your aim, R turns it a quarter, E puts it down, Esc drops it back, Backspace puts it back where it started, Del removes it. C opens the catalogue: removed pieces to bring back and extras to buy (chairs, tables, lockers, plants, coolers, cots, cabinets, bins, signs, bollards, extinguishers, clocks, notice boards, every poster, trees, bench seats, shelters, dumpsters). Bought extras sell back for half. The layout saves when you leave build mode; the bake comes apart for it and goes back together after.
+- Fifty props across the break room, the office, the hall and the yard are movable: furniture, machines, the packing bench with its terminal, posters, clocks, extinguishers, the hose reel, the notice board, the flag, the shelter, the dumpster.
+- The break room laid out properly: the way from the staff door to the hall stays clear, the cot is on the far wall, lockers and hooks by the door, the coffee counter, fridge and cooler on the north wall, the table out of the walkway.
+- The main menu renders again after Quit (its body was never drawn when the splash was skipped).
+
 ## 1.2.0 (2026-10-02)
 
 - The dock consoles and a new bench terminal are in-world touch screens: dispatch, open the door, pack an order by looking at the button and pressing E.

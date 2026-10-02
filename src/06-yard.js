@@ -70,14 +70,6 @@
     for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -19 + b * 2.7, YARD_Y + 0.012, 21, -Math.PI / 2);
     plane(16.2, 0.12, MAT.whiteLine, -10.9, YARD_Y + 0.012, 18.25, -Math.PI / 2);
     [0, 1, 3, 4].forEach(function (k) { var c = carMesh(CAR_COLS[k % CAR_COLS.length]); c.position.set(-17.65 + k * 2.7, YARD_Y, 21.5); c.rotation.y = Math.PI / 2 + randf(-0.04, 0.04); scene.add(c); });
-    cyl(0.04, 2.4, MAT.steelDark, -2, YARD_Y + 1.2, 18.5, null, 6); sign(['STAFF', 'PARKING'], 0.9, 0.6, -2, YARD_Y + 2.5, 18.5, 0, { w: 256, h: 160, bg: '#2c5f9e', fg: '#fff' });
-    [[-24, 17], [-24, 21], [-21, 17], [-21, 21]].forEach(function (p) { cyl(0.05, 2.4, MAT.steelDark, p[0], YARD_Y + 1.2, p[1], null, 6); });
-    box(3.6, 0.06, 4.6, MAT.glass, -22.5, YARD_Y + 2.45, 19); for (var sl = 0; sl < 4; sl++) box(1.8, 0.04, 0.07, MAT.wood, -22.5, YARD_Y + 0.45, 20.46 + sl * 0.09); box(1.8, 0.04, 0.3, MAT.wood, -22.5, YARD_Y + 0.85, 20.76).rotation.x = -0.2; cyl(0.1, 0.5, MAT.steelDark, -21.0, YARD_Y + 0.25, 18.2, null, 10); cyl(0.11, 0.03, std({ color: 0x8a8a8a, roughness: 0.5 }), -21.0, YARD_Y + 0.52, 18.2, null, 10); [[-23.2], [-21.8]].forEach(function (p) { box(0.06, 0.45, 0.4, MAT.steelDark, p[0], YARD_Y + 0.22, 20.6); });
-    cyl(0.12, 0.9, MAT.steelDark, -24.3, YARD_Y + 0.45, 17.4, null, 10); sign(['SMOKING', 'AREA'], 0.8, 0.5, -22.5, YARD_Y + 2.2, 16.8, 0, { w: 256, h: 160, bg: '#1b232c', fg: '#a0acb8' });
-    box(1.8, 1.3, 1.2, std({ color: 0x2f5a3a, roughness: 0.7, metalness: 0.3 }), 24, YARD_Y + 0.65, 18); var dl = box(1.9, 0.08, 1.3, MAT.black, 24, YARD_Y + 1.33, 18); dl.rotation.x = -0.35; dl.position.z = 17.8; dl.position.y = YARD_Y + 1.52; [[-0.8, -0.5], [0.8, -0.5], [-0.8, 0.5], [0.8, 0.5]].forEach(function (w) { cyl(0.08, 0.06, MAT.black, 24 + w[0], YARD_Y + 0.08, 18 + w[1], null, 10).rotation.z = Math.PI / 2; }); box(0.1, 0.1, 0.4, MAT.steelDark, 23.05, YARD_Y + 0.9, 18); box(0.1, 0.1, 0.4, MAT.steelDark, 24.95, YARD_Y + 0.9, 18); sign(['CARDBOARD', 'ONLY'], 1.2, 0.5, 24, YARD_Y + 0.9, 17.38, Math.PI, { w: 256, h: 128, bg: '#2f5a3a', fg: '#fff' });
-    cyl(0.05, 9, MAT.chrome, 10, YARD_Y + 4.5, 19, null, 8, 0.07); sphere(0.1, MAT.yellow, 10, YARD_Y + 9.05, 19);
-    var fg = new THREE.Group(); fg.position.set(10, YARD_Y + 8.3, 19); scene.add(fg); yard.flag = fg;
-    var flag = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0, 8, 2), new THREE.MeshStandardMaterial({ map: textTex(['DEPOT CO.'], { w: 256, h: 160, bg: '#f5b53d', fg: '#1b232c' }), side: THREE.DoubleSide, roughness: 0.9 })); flag.position.set(0.82, 0, 0); fg.add(flag); yard.flagMesh = flag;
     for (var t = -56; t <= 56; t += 14) { tree(t, -56, randf(0.8, 1.2)); tree(t + 7, 56, randf(0.8, 1.2)); }
     tree(-30, 24, 1.1); tree(30, 26, 0.9);
     // the neighbours across the fence, each with its own dock doors and a name
