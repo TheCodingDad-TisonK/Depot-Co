@@ -94,7 +94,8 @@
   function dockLabel(i) { return (i < 2 ? 'IN ' : 'OUT ') + (i % 2 + 1); }
   function setDoor(i, open) { if (S.doors[i] === open) return; S.doors[i] = open; sfx('roller'); logEvent('Dock door ' + dockLabel(i) + (open ? ' opened' : ' closed')); if (open && i < 2) introStep('door'); rebuildDyn(); }
   function doorAnim(dt) {
-    doors.forEach(function (d) { var t = S.doors[d.i] ? 1 : 0; if (d.anim === t) return; d.anim = clamp(d.anim + (t ? dt : -dt) / 1.6, 0, 1); var sc = 1 - d.anim * 0.93; d.panel.scale.y = sc; d.panel.position.y = DOCKS.h - DOCKS.h * sc / 2; });
+    // the pose is applied every frame, so a door loaded open looks open without waiting for a toggle
+    doors.forEach(function (d) { var t = S.doors[d.i] ? 1 : 0; if (d.anim !== t) d.anim = clamp(d.anim + (t ? dt : -dt) / 1.6, 0, 1); var sc = 1 - d.anim * 0.93; d.panel.scale.y = sc; d.panel.position.y = DOCKS.h - DOCKS.h * sc / 2; });
   }
   function doorPassable(i) { return doors[i].anim > 0.6; }
 

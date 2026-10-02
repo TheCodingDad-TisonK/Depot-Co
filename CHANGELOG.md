@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.1 (2026-10-02)
+
+- A dock door loaded open looked shut until it was toggled twice, so its console said open while the roller was down. The pose is applied every frame now.
+- Rain and snow no longer spawn under the hall or wing roof for a frame, which read as drizzle indoors.
+- The jack's contact shadow is the size of the jack.
+
 ## 1.10.0 (2026-10-02)
 
 - Forklift gears: Shift cycles creep, normal and fast while driving. Fast is half again quicker, drinks the battery and throws unwrapped loads on the corners. The gear shows in the driving HUD.

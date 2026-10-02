@@ -668,7 +668,8 @@
   function dockLabel(i) { return (i < 2 ? 'IN ' : 'OUT ') + (i % 2 + 1); }
   function setDoor(i, open) { if (S.doors[i] === open) return; S.doors[i] = open; sfx('roller'); logEvent('Dock door ' + dockLabel(i) + (open ? ' opened' : ' closed')); if (open && i < 2) introStep('door'); rebuildDyn(); }
   function doorAnim(dt) {
-    doors.forEach(function (d) { var t = S.doors[d.i] ? 1 : 0; if (d.anim === t) return; d.anim = clamp(d.anim + (t ? dt : -dt) / 1.6, 0, 1); var sc = 1 - d.anim * 0.93; d.panel.scale.y = sc; d.panel.position.y = DOCKS.h - DOCKS.h * sc / 2; });
+    // the pose is applied every frame, so a door loaded open looks open without waiting for a toggle
+    doors.forEach(function (d) { var t = S.doors[d.i] ? 1 : 0; if (d.anim !== t) d.anim = clamp(d.anim + (t ? dt : -dt) / 1.6, 0, 1); var sc = 1 - d.anim * 0.93; d.panel.scale.y = sc; d.panel.position.y = DOCKS.h - DOCKS.h * sc / 2; });
   }
   function doorPassable(i) { return doors[i].anim > 0.6; }
 
@@ -1977,8 +1978,8 @@
     var W = S.weather || { kind: 'clear', wet: 0, snow: 0, wind: 0.4 };
     var raining = W.kind === 'rain' || W.kind === 'storm', snowing = W.kind === 'snow';
     yard.rain.visible = raining; yard.snow.visible = snowing;
-    if (raining) { var p = yard.rain.geometry.attributes.position.array, px = player.x, pz = player.z; for (var r = 0; r < p.length; r += 3) { p[r + 1] -= (9 + (W.kind === 'storm' ? 4 : 0)) * dt; var inWg = inWing(p[r], p[r + 2]), inHall = (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) || inWg, roofY = inWg ? WING.h + 0.3 : inHall ? HALL.h + 0.3 : YARD_Y; if (!inHall) for (var tk = 0; tk < S.trucks.length; tk++) { var tb = trailerBounds(S.trucks[tk]); if (p[r] > tb.x0 - 3.5 && p[r] < tb.x1 + 3.5 && p[r + 2] > tb.z0 - 0.4 && p[r + 2] < tb.z1 + 0.4) { roofY = TRAILER.h + 0.1; break; } } if (p[r + 1] < roofY || Math.abs(p[r] - px) > 26 || Math.abs(p[r + 2] - pz) > 26) { p[r] = px + randf(-24, 24); p[r + 1] = randf(6, 16); p[r + 2] = pz + randf(-24, 24); } } yard.rain.geometry.attributes.position.needsUpdate = true; }
-    if (snowing) { var q = yard.snow.geometry.attributes.position.array, qx = player.x, qz = player.z; for (var s = 0; s < q.length; s += 3) { q[s + 1] -= 1.3 * dt; q[s] += Math.sin(yard.windT + s) * 0.4 * dt; var inH = (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) || inWing(q[s], q[s + 2]); if (q[s + 1] < (inH ? HALL.h + 0.3 : YARD_Y) || Math.abs(q[s] - qx) > 32 || Math.abs(q[s + 2] - qz) > 32) { q[s] = qx + randf(-30, 30); q[s + 1] = randf(6, 16); q[s + 2] = qz + randf(-30, 30); } } yard.snow.geometry.attributes.position.needsUpdate = true; }
+    if (raining) { var p = yard.rain.geometry.attributes.position.array, px = player.x, pz = player.z; for (var r = 0; r < p.length; r += 3) { p[r + 1] -= (9 + (W.kind === 'storm' ? 4 : 0)) * dt; var inWg = inWing(p[r], p[r + 2]), inHall = (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) || inWg, roofY = inWg ? WING.h + 0.3 : inHall ? HALL.h + 0.3 : YARD_Y; if (!inHall) for (var tk = 0; tk < S.trucks.length; tk++) { var tb = trailerBounds(S.trucks[tk]); if (p[r] > tb.x0 - 3.5 && p[r] < tb.x1 + 3.5 && p[r + 2] > tb.z0 - 0.4 && p[r + 2] < tb.z1 + 0.4) { roofY = TRAILER.h + 0.1; break; } } if (p[r + 1] < roofY || Math.abs(p[r] - px) > 26 || Math.abs(p[r + 2] - pz) > 26) { p[r] = px + randf(-24, 24); p[r + 2] = pz + randf(-24, 24); var rf = inWing(p[r], p[r + 2]) ? WING.h + 0.6 : (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) ? HALL.h + 0.6 : 6; p[r + 1] = randf(rf, 16); } } yard.rain.geometry.attributes.position.needsUpdate = true; }
+    if (snowing) { var q = yard.snow.geometry.attributes.position.array, qx = player.x, qz = player.z; for (var s = 0; s < q.length; s += 3) { q[s + 1] -= 1.3 * dt; q[s] += Math.sin(yard.windT + s) * 0.4 * dt; var inH = (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) || inWing(q[s], q[s + 2]); if (q[s + 1] < (inWing(q[s], q[s + 2]) ? WING.h + 0.3 : inH ? HALL.h + 0.3 : YARD_Y) || Math.abs(q[s] - qx) > 32 || Math.abs(q[s + 2] - qz) > 32) { q[s] = qx + randf(-30, 30); q[s + 2] = qz + randf(-30, 30); var sf = inWing(q[s], q[s + 2]) ? WING.h + 0.6 : (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) ? HALL.h + 0.6 : 6; q[s + 1] = randf(sf, 16); } } yard.snow.geometry.attributes.position.needsUpdate = true; }
     yard.puddles.forEach(function (pm) { pm.material.opacity = W.wet * 0.85; });
     var snowCol = 0xdfe4e9; MAT.yard.color.setHex(0xffffff).lerp(new THREE.Color(snowCol), W.snow * 0.9); MAT.grass.color.setHex(0xffffff).lerp(new THREE.Color(0xf4f6f8), W.snow);
     var overcast = raining ? 0.75 : snowing ? 0.6 : W.kind === 'overcast' ? 0.5 : 0;
@@ -2462,7 +2463,7 @@
     cyl(0.025, 1.0, MAT.steelDark, 0, 0.5, 0, tiller, 10); box(0.44, 0.06, 0.07, MAT.rubber, 0, 1.0, 0, tiller); box(0.05, 0.05, 0.05, MAT.rubber, -0.2, 1.0, 0, tiller); box(0.05, 0.05, 0.05, MAT.rubber, 0.2, 1.0, 0, tiller);
     box(0.08, 0.03, 0.1, MAT.red, 0, 0.95, 0.06, tiller); cyl(0.04, 0.08, MAT.steelDark, 0, 0.0, 0, tiller, 10);
     sign(['2500 kg'], 0.3, 0.1, 0, 0.3, -0.5, 0, { w: 256, h: 80, bg: '#1b232c', fg: '#f5b53d' }, j);
-    groundBlob(1.3, 2.4, 0, -0.2, j, 0);
+    groundBlob(0.9, 1.7, 0, -0.1, j, 0);
     hitBox(1.0, 1.3, 1.9, 0, 0.6, -0.25, { prompt: function () { return toolPrompt('jack'); }, use: function () { grabTool('jack'); } }, j);
     // ── the picking cart: a tubular frame, two mesh shelves, a push loop, four casters and a clipboard
     var c = new THREE.Group(); c.userData.dynamic = true; scene.add(c); cartMesh = c;
@@ -4175,7 +4176,7 @@
       get S() { return S; }, player: player, ui: ui, save: save,
       run: function (sec) { var n = Math.round(sec / 0.05); for (var i = 0; i < n; i++) { tickWorld(0.05); tickLife(0.05); doorAnim(0.05); placeTools(0.05); } syncInstances(); },
       setTime: function (h) { S.time = h; hudDirty = true; },
-      spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckMeshes: truckMeshes, doorPassable: doorPassable, truckLeave: truckLeave, setDoor: setDoor,
+      spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckMeshes: truckMeshes, doorPassable: doorPassable, doorPanelScale: function (i) { return doors[i].panel.scale.y; }, truckLeave: truckLeave, setDoor: setDoor,
       palletById: palletById, palletUse: palletUse, palletPrompt: palletPrompt, storePallet: storePallet, findSlotFor: findSlotFor, newPallet: newPallet,
       slotKey: slotKey, slotUse: slotUse, slotPrompt: slotPrompt, stockCount: stockCount, totalStock: totalStock,
       grabTool: grabTool, releaseTool: releaseTool, toolWorld: toolWorld,
