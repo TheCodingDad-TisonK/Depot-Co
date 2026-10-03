@@ -114,7 +114,7 @@
     stageIn: { x: -26, z: -10 }, stageOut: { x: 26, z: -10 },
     pc: { x: 27.5, z: 21.8 }, breaker: { x: 29.7, z: 19.6 },
     cot: { x: -27.2, z: 22.2 }, coffee: { x: -29.4, z: 19.3 },
-    jack: { x: -25, z: 4 }, cart: { x: -25, z: 6.5 }, fork: { x: 0, z: 20.5 },
+    jack: { x: -28.6, z: 6.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 20.5 },   // jack and cart along the west wall between the row D and row E crane columns
     spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -8.5 }
   };
   // ── State ─────────────────────────────────────────────────────────
@@ -165,6 +165,8 @@
       if (oldHall) { s.hall = 3; s.layout = {}; s.custom = []; s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); (s.staff || []).forEach(function (st) { if (st.x !== undefined) { st.x = clamp(st.x, -HALL.x + 2, HALL.x - 2); st.z = clamp(st.z, -HALL.z + 2, HALL.z - 2); } }); s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; s.fork.x = SPOT.fork.x; s.fork.z = SPOT.fork.z; s.fork.plugged = false; (s.pallets || []).forEach(function (p) { if (p.place === 'floor') { p.x = clamp(p.x, -HALL.x + 2, HALL.x - 2); p.z = clamp(p.z, -HALL.z + 2, HALL.z - 2); } }); }
       for (var k3 in f.up) if (!(k3 in s.up)) s.up[k3] = f.up[k3];
       for (var k4 in f.events) if (!(k4 in s.events)) s.events[k4] = f.events[k4];
+      // 1.12.8 moved the jack and cart bays off the row D end (a crane column stood in the old jack bay): tools still parked there follow
+      if (!s.flags.toolBays2) { s.flags.toolBays2 = 1; var near = function (o, x, z) { return o && Math.abs(o.x - x) < 1.2 && Math.abs(o.z - z) < 1.6; }; if (near(s.jack, -25, 4)) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; } if (near(s.cart, -25, 6.5)) { s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; } }
       S = s; return true;
     } catch (e) { return false; }
   }
@@ -4484,7 +4486,7 @@
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
-      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, BELTS: BELTS, MACH: MACH, inWing: inWing,
+      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

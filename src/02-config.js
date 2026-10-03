@@ -83,6 +83,6 @@
     stageIn: { x: -26, z: -10 }, stageOut: { x: 26, z: -10 },
     pc: { x: 27.5, z: 21.8 }, breaker: { x: 29.7, z: 19.6 },
     cot: { x: -27.2, z: 22.2 }, coffee: { x: -29.4, z: 19.3 },
-    jack: { x: -25, z: 4 }, cart: { x: -25, z: 6.5 }, fork: { x: 0, z: 20.5 },
+    jack: { x: -28.6, z: 6.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 20.5 },   // jack and cart along the west wall between the row D and row E crane columns
     spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -8.5 }
   };

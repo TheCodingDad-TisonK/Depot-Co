@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.12.8 (2026-10-03)
+
+- The jack and cart bays moved to the west wall between rows D and E: a crane column stood in the old jack bay at the end of row D. Tools still parked in the old bays follow on load.
+- Test suite: the row B crane check owns its only coffee stock, the AGV check accepts a second put-away in its window, and a new check keeps both tool bays clear of every solid with all six cranes up.
+
 ## 1.12.7 (2026-10-03)
 
 - Every crane cabinet carries a touchscreen: status, what it is picking, where the trolley and hook are, what its row holds, how many boxes ride its belt, with PAUSE/RESUME and RESET JOB buttons. First of a round of interactive panels across the warehouse.
