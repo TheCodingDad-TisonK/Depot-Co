@@ -73,7 +73,7 @@
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
   var HALL = { x: 30, z: 24, h: 8 };   // grew from 40 x 28 on 2026-10-02 so a row holds 15 bays and the forklift has room
-  var RACK = { rows: [-15, -9, -3, 3, 9, 15], bays: 15, bayW: 3, x0: -22.5, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
+  var RACK = { rows: [-15, -9, -3, 3, 9, 15], bays: 15, bayW: 3, x0: -24, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
   var DOCKS = { in: [{ z: -14 }, { z: -6 }], out: [{ z: -14 }, { z: -6 }], w: 3.6, h: 4.2 };
   var YARD_Y = -1.2;
   var SKYLIGHT_Z = [-14, -7, 0, 7, 14];   // the roof lights and the shafts under them

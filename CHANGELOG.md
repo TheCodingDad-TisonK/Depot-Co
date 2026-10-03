@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.3 (2026-10-03)
+
+- The rack block sits 1.5 m further west: fifteen bays still, but the packing side of the hall is 9 m wide now instead of 7.5. The AGV dock and the gantry end moved with it.
+
 ## 1.12.2 (2026-10-03)
 
 - Belts rebuilt: channel side frames with a painted lip, rollers under the bed and end drums, the return run underneath, guide rails on brackets instead of floating bars, a motor and gearbox hung off the drive drum, braced legs on levelling feet, photo-eye and reflector, a cable run.

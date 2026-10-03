@@ -104,7 +104,7 @@
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
   var HALL = { x: 30, z: 24, h: 8 };   // grew from 40 x 28 on 2026-10-02 so a row holds 15 bays and the forklift has room
-  var RACK = { rows: [-15, -9, -3, 3, 9, 15], bays: 15, bayW: 3, x0: -22.5, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
+  var RACK = { rows: [-15, -9, -3, 3, 9, 15], bays: 15, bayW: 3, x0: -24, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
   var DOCKS = { in: [{ z: -14 }, { z: -6 }], out: [{ z: -14 }, { z: -6 }], w: 3.6, h: 4.2 };
   var YARD_Y = -1.2;
   var SKYLIGHT_Z = [-14, -7, 0, 7, 14];   // the roof lights and the shafts under them
@@ -1697,7 +1697,7 @@
     c.hit(0.8, 1.6, 0.6, 46.4, 1.2, -2.0, { prompt: function () { return gantryPrompt(); }, use: function () { sfx('click'); } });
     [-0.4, 46.4].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -1.75, -1.45, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 1.45, 1.75, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
   }
-  function pickBeltBuild(c) { conveyorPath(c, [[0, 0, 2.4], [0, 15.0, 2.4], [0, 19.5, 0], [2.2, 19.5, 0]]); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  function pickBeltBuild(c) { conveyorPath(c, [[0, 0, 2.4], [0, 15.0, 2.4], [0, 19.5, 0], [3.7, 19.5, 0]]); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function agvDockBuild(c) {
     var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.15, 0.7, -0.84); c.plane(0.26, 0.1, MAT.screen, 0.05, 0.7, -0.84, 0, 0);
     c.sign(['AGV DOCK'], 0.5, 0.12, 0, 0.82, -0.84, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#f5b53d' });
@@ -1928,9 +1928,9 @@
   defProp('hopper', { label: 'raw hopper', cat: 'factory', abs: true, x: -9.5, z: -37, rot: 0, build: hopperBuild });
   defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, x: 26.6, z: 14.3, rot: 0, build: shipBeltBuild, when: function () { return !!S.up.shipbelt; } });
   defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt; } });
-  defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -24, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
-  defProp('gantry', { label: 'gantry picker', cat: 'hall', abs: true, x: -22.5, z: -15, rot: 0, build: gantryBuild, when: function () { return !!S.up.gantry; } });
-  defProp('pickBelt', { label: 'pick belt', cat: 'hall', abs: true, x: 23.4, z: -15, rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
+  defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
+  defProp('gantry', { label: 'gantry picker', cat: 'hall', abs: true, x: -24, z: -15, rot: 0, build: gantryBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickBelt', { label: 'pick belt', cat: 'hall', abs: true, x: 22.0, z: -15, rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
   defProp('silo', { label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
   defProp('extWing', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
   defProp('qcBench', { label: 'quality bench', cat: 'factory', abs: true, x: 6.5, z: -29, rot: 2, build: qcBenchBuild });
@@ -3446,7 +3446,7 @@
   var GANTRY_ROW = 0, GANTRY_SPEED = 3.0, GANTRY_LIFT = 2.0;
   // the pick belt runs overhead at 2.4 m so the east aisle stays open, and comes down to the bench at its end
   var PICK_H = 2.4;
-  defBelt('pickBelt', { prop: 'pickBelt', path: [[0, 0, PICK_H], [0, 15.0, PICK_H], [0, 19.5, 0], [2.2, 19.5, 0]] });
+  defBelt('pickBelt', { prop: 'pickBelt', path: [[0, 0, PICK_H], [0, 15.0, PICK_H], [0, 19.5, 0], [3.7, 19.5, 0]] });
   defMachine('benchIn', { prop: 'bench', inlet: [-0.8, 0], accept: function (it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; } });
   defMachine('gantry', { prop: 'gantry' });
   function gantryState() { if (!S.gantry) S.gantry = { x: 23.4, lift: 5.0, state: 'idle', sku: null, key: null, t: 0, picked: 0 }; return S.gantry; }
@@ -3466,7 +3466,7 @@
     if (!powered()) return;
     var toX = function (lx, speed) { var d = lx - G.x; if (Math.abs(d) <= speed * dt) { G.x = lx; return true; } G.x += Math.sign(d) * speed * dt; return false; };
     var toLift = function (y, speed) { var d = y - G.lift; if (Math.abs(d) <= speed * dt) { G.lift = y; return true; } G.lift += Math.sign(d) * speed * dt; return false; };
-    if (G.state === 'idle') { var job = gantryNeed(); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.x0 + RACK.bayW * (sp.b + 0.5) + 22.5; G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(46.0, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
+    if (G.state === 'idle') { var job = gantryNeed(); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(46.0, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
     else if (G.state === 'toBay') { if (toX(G.bayX, GANTRY_SPEED)) G.state = 'down'; }
     else if (G.state === 'down') { if (toLift(G.level, GANTRY_LIFT)) { var s = S.slots[G.key]; if (s && s.sku === G.sku && s.n > 0) { slotTake(G.key, 1); s.wrapped = false; S.stats.picked++; G.state = 'up'; } else { G.sku = null; G.state = 'up'; } } }
     else if (G.state === 'up') { if (toLift(5.0, GANTRY_LIFT)) G.state = G.sku ? 'toDrop' : 'idle'; }

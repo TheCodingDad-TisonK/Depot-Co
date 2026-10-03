@@ -6,7 +6,7 @@
   var GANTRY_ROW = 0, GANTRY_SPEED = 3.0, GANTRY_LIFT = 2.0;
   // the pick belt runs overhead at 2.4 m so the east aisle stays open, and comes down to the bench at its end
   var PICK_H = 2.4;
-  defBelt('pickBelt', { prop: 'pickBelt', path: [[0, 0, PICK_H], [0, 15.0, PICK_H], [0, 19.5, 0], [2.2, 19.5, 0]] });
+  defBelt('pickBelt', { prop: 'pickBelt', path: [[0, 0, PICK_H], [0, 15.0, PICK_H], [0, 19.5, 0], [3.7, 19.5, 0]] });
   defMachine('benchIn', { prop: 'bench', inlet: [-0.8, 0], accept: function (it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; } });
   defMachine('gantry', { prop: 'gantry' });
   function gantryState() { if (!S.gantry) S.gantry = { x: 23.4, lift: 5.0, state: 'idle', sku: null, key: null, t: 0, picked: 0 }; return S.gantry; }
@@ -26,7 +26,7 @@
     if (!powered()) return;
     var toX = function (lx, speed) { var d = lx - G.x; if (Math.abs(d) <= speed * dt) { G.x = lx; return true; } G.x += Math.sign(d) * speed * dt; return false; };
     var toLift = function (y, speed) { var d = y - G.lift; if (Math.abs(d) <= speed * dt) { G.lift = y; return true; } G.lift += Math.sign(d) * speed * dt; return false; };
-    if (G.state === 'idle') { var job = gantryNeed(); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.x0 + RACK.bayW * (sp.b + 0.5) + 22.5; G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(46.0, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
+    if (G.state === 'idle') { var job = gantryNeed(); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(46.0, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
     else if (G.state === 'toBay') { if (toX(G.bayX, GANTRY_SPEED)) G.state = 'down'; }
     else if (G.state === 'down') { if (toLift(G.level, GANTRY_LIFT)) { var s = S.slots[G.key]; if (s && s.sku === G.sku && s.n > 0) { slotTake(G.key, 1); s.wrapped = false; S.stats.picked++; G.state = 'up'; } else { G.sku = null; G.state = 'up'; } } }
     else if (G.state === 'up') { if (toLift(5.0, GANTRY_LIFT)) G.state = G.sku ? 'toDrop' : 'idle'; }
