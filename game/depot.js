@@ -103,7 +103,11 @@
   var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
-  var HALL = { x: 30, z: 24, h: 8 };   // grew from 40 x 28 on 2026-10-02 so a row holds 15 bays and the forklift has room
+  var HALL = { x: 36, z: 24, h: 8 };   // 40 x 28 until 2026-10-02, 60 x 48 until 2026-10-03, now 72 x 48: the east and west corridors needed 6 m more each for the forklift
+  // the side walls moved from x 30 to x 36 on 2026-10-03. Anything authored against them follows: a hall position with |x| in the old wall zone
+  // (22.1 up to the old wall) moves out by the growth; a yard position beside a side wall (|z| inside the hall) moves with it too.
+  var WALL_SHIFT = HALL.x - 30;
+  function wallX(x, z, yard) { var ax = Math.abs(x); var move = yard ? (ax >= 22.1 && Math.abs(z) < HALL.z + 2) : (ax >= 22.1 && ax < 30.5); return move ? x + (x < 0 ? -WALL_SHIFT : WALL_SHIFT) : x; }
   var RACK = { rows: [-17.5, -10.9, -4.3, 2.3, 8.9, 15.5], bays: 15, bayW: 3, x0: -24, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // rows 6.6 m apart, biased south so row F and its crane clear the office front at z 18.5; levels: the y of the pallet base; top is forklift-only
   var DOCKS = { in: [{ z: -14 }, { z: -6 }], out: [{ z: -14 }, { z: -6 }], w: 3.6, h: 4.2 };
   var YARD_Y = -1.2;
@@ -117,11 +121,12 @@
     jack: { x: -27.8, z: -18.0 }, jack2: { x: 27.8, z: -18.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 20.5 },   // one jack by the IN docks, one by the OUT docks, the cart on the west wall
     spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -8.5 }
   };
+  for (var spk in SPOT) SPOT[spk].x = wallX(SPOT[spk].x, SPOT[spk].z, false);   // authored against the 30 m walls
   // ── State ─────────────────────────────────────────────────────────
   function freshState() {
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
-      hall: 3,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
+      hall: 4,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
       up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false },
       gantries: {}, speed: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
@@ -170,6 +175,8 @@
       if (!s.flags.toolBays2) { s.flags.toolBays2 = 1; var near = function (o, x, z) { return o && Math.abs(o.x - x) < 1.2 && Math.abs(o.z - z) < 1.6; }; if (near(s.jack, -25, 4)) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; } if (near(s.cart, -25, 6.5)) { s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; } }
       // 1.12.9 put the first jack by the IN docks and added a second by OUT: a jack still parked in the 1.12.8 bay follows
       if (!s.flags.toolBays3) { s.flags.toolBays3 = 1; if (s.jack && Math.abs(s.jack.x - -28.6) < 1.2 && Math.abs(s.jack.z - 6.0) < 1.6) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.jack.rot = Math.PI / 2; } }
+      // 2026-10-03, hall 4: the side walls went from x 30 to x 36. Anything a player left against them follows, once
+      if (s.hall === 3) { s.hall = 4; var mv = function (o, yard) { if (o && typeof o.x === 'number') o.x = wallX(o.x, o.z || 0, !!yard); }; for (var lk in (s.layout || {})) mv(s.layout[lk], PROPS[lk] && PROPS[lk].yard); (s.custom || []).forEach(function (c) { mv(c, PROPS[c.type] && PROPS[c.type].yard); }); (s.pallets || []).forEach(function (p) { if (p.place === 'floor') mv(p, false); }); (s.staff || []).forEach(function (stf) { mv(stf, false); }); mv(s.fork, false); ['jack', 'jack2', 'cart'].forEach(function (tl) { if (s[tl]) { s[tl].x = SPOT[tl].x; s[tl].z = SPOT[tl].z; } }); s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); if (s.agv) s.agv.placed = false; }
       S = s; return true;
     } catch (e) { return false; }
   }
@@ -329,7 +336,7 @@
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
   // nine high bays on a 20 x 15 m grid: the hall is 60 x 48 since 2026-10-02, and six lights on the old 20 x 10 grid left the edges dark
-  [[-20, -15], [0, -15], [20, -15], [-20, 0], [0, 0], [20, 0], [-20, 15], [0, 15], [20, 15]].forEach(function (p) {
+  [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]].forEach(function (p) {   // twelve since the 72 m hall
     var l = new THREE.PointLight(0xfff4e0, 0.55, 38, 2); l.position.set(p[0], 7.3, p[1]); scene.add(l); hallLights.push(l);
   });
   var officeLight = new THREE.PointLight(0xfff8ea, 0.5, 9, 2); officeLight.position.set(16.5, 3.2, 11); scene.add(officeLight);
@@ -634,7 +641,7 @@
     function lineZ(z0, z1, x, w) { plane(w || 0.1, z1 - z0, MAT.yellowLine, x, 0.006, (z0 + z1) / 2, -Math.PI / 2); }
     function square(cx, cz, s) { lineX(cx - s / 2, cx + s / 2, cz - s / 2); lineX(cx - s / 2, cx + s / 2, cz + s / 2); lineZ(cz - s / 2, cz + s / 2, cx - s / 2); lineZ(cz - s / 2, cz + s / 2, cx + s / 2); }
     square(SPOT.stageIn.x, SPOT.stageIn.z, 3.4); square(SPOT.stageOut.x, SPOT.stageOut.z, 3.4);
-    lineX(-X + 0.3, 22.2, 18.2); lineX(-X + 0.3, 22.2, 19.4);                      // the pedestrian walkway along the south strip, lobby to office
+    lineX(-X + 0.3, X - 7.8, 18.2); lineX(-X + 0.3, X - 7.8, 19.4);                      // the pedestrian walkway along the south strip, lobby to office
     lineZ(-Z + 1.6, 18.2, 24.4); lineZ(-Z + 1.6, 19.4, 25.6); lineX(WING.door.x1 + 0.4, 24.4, -Z + 1.6); lineX(WING.door.x1 + 0.4, 25.6, -Z + 2.8);   // up the east side and along the north wall to the production door
 
     lineZ(-Z + 0.3, Z - 0.3, RACK.x0 - 0.4); lineZ(-Z + 0.3, Z - 0.3, -RACK.x0 + 0.4);              // the rack block edges
@@ -649,9 +656,9 @@
     // the yard lamp posts (the lights themselves live in 05-three)
     // the pallet racks the player owns
     buildOffice(); buildBench(); buildBreakRoom(); buildWing();
-    hingedDoor('office', 22.5, 19.45, false, 'the office door', { window: true, swing: 1 });
-    hingedDoor('lobby', -25.5, 19.45, false, 'the lobby door', { window: true, swing: -1 });
-    hingedDoor('break', -23, -22.95, false, 'the break room door', { window: true, swing: -1 });
+    hingedDoor('office', X - 7.5, 19.45, false, 'the office door', { window: true, swing: 1 });
+    hingedDoor('lobby', -X + 4.5, 19.45, false, 'the lobby door', { window: true, swing: -1 });
+    hingedDoor('break', -X + 7, -22.95, false, 'the break room door', { window: true, swing: -1 });
     hingedDoor('staff', -X, SPOT.staffDoor.z - 0.5, false, 'the staff door', { mat: MAT.steelDark, swing: 1 });
     hingedDoor('exit', 23.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
@@ -722,7 +729,7 @@
   }
   var LINING = { lobby: std({ map: TEX.plaster, color: 0xd9e3ea, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), brk: std({ map: TEX.plaster, color: 0xf0e6cf, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), office: std({ map: TEX.plaster, color: 0xe6e8e4, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }) };
   function buildOffice() {
-    var x0 = 22.5, z0 = 18.5, X = HALL.x, Z = HALL.z, h = 3.2;
+    var X = HALL.x, Z = HALL.z, x0 = X - 7.5, z0 = 18.5, h = 3.2;
     // the wall along x = x0 with a doorway, the wall along z = z0 with a window, and a ceiling
     box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h, Z - 20.6, MAT.plaster, x0, h / 2, 20.6 + (Z - 20.6) / 2); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95);
     solid(x0 - 0.08, x0 + 0.08, z0, 19.3); solid(x0 - 0.08, x0 + 0.08, 20.6, Z);
@@ -733,7 +740,7 @@
     box(X - x0, 0.12, Z - z0, MAT.plaster, (x0 + X) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', X, z0 + 0.1, Z - 0.1, h, LINING.office, [], -1); lineWall('z', Z, x0 + 0.1, X - 0.1, h, LINING.office, [], -1);
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    var lamp = box(1.2, 0.08, 0.3, MAT.lamp, 26.5, h - 0.05, 21); world.officeLamp = lamp;
+    var lamp = box(1.2, 0.08, 0.3, MAT.lamp, X - 3.5, h - 0.05, 21); world.officeLamp = lamp;
   }
 
   function buildBench() {
@@ -745,17 +752,17 @@
   function buildBreakRoom() {
     var X = HALL.x, Z = HALL.z, h = 3.2;
     // the lobby: x -30..-25.5, z 18.5..24; its door onto the hall at z 19.45..20.45 in the east wall, a window south of it
-    var x0 = -25.5, z0 = 18.5;
+    var x0 = -X + 4.5, z0 = 18.5;
     box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95);
     box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 20.9); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 22.5); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 22.5); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 22.5); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
     solid(x0 - 0.08, x0 + 0.08, z0, 19.3); solid(x0 - 0.08, x0 + 0.08, 20.6, Z);
     box(X + x0, h, 0.15, MAT.plaster, (-X + x0) / 2, h / 2, z0); solid(-X, x0, z0 - 0.08, z0 + 0.08);
     box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', -X, z0 + 0.1, Z - 0.1, h, LINING.lobby, [[SPOT.staffDoor.z - 0.65, SPOT.staffDoor.z + 0.65, 2.25]], 1); lineWall('z', Z, -X + 0.1, x0 - 0.1, h, LINING.lobby, [], -1); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -27.7, h - 0.05, 21.2);
+    box(1.2, 0.08, 0.3, MAT.lamp, -X + 2.3, h - 0.05, 21.2);
     for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 22.5);
     // the break room: x -30..-23, z -24..-20.2; its door in the east wall at z -22.95..-21.95, a window in the south wall onto the hall
-    var bx = -23, bz = -20.2;
+    var bx = -X + 7, bz = -20.2;
     box(0.15, h, 1.05, MAT.plaster, bx, h / 2, -Z + 0.525); box(0.15, h - 2.2, 1.3, MAT.plaster, bx, 2.2 + (h - 2.2) / 2, -22.45); box(0.15, h, 1.6, MAT.plaster, bx, h / 2, bz - 0.8);
     solid(bx - 0.08, bx + 0.08, -Z, -22.95); solid(bx - 0.08, bx + 0.08, -21.95, bz);
     box(1.0, h, 0.15, MAT.plaster, -X + 0.5, h / 2, bz); box(1.2, h, 0.15, MAT.plaster, bx - 0.6, h / 2, bz);
@@ -763,8 +770,8 @@
     solid(-X, bx, bz - 0.08, bz + 0.08);
     box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2);
     lineWall('x', -X, -Z + 0.1, bz - 0.1, h, LINING.brk, [], 1); lineWall('z', -Z, -X + 0.1, bx - 0.1, h, LINING.brk, [], 1); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -26.5, h - 0.05, -22.1);
-    for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -26.4, 2.26 - bl2 * 0.08, bz - 0.09);
+    box(1.2, 0.08, 0.3, MAT.lamp, -X + 3.5, h - 0.05, -22.1);
+    for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -X + 3.6, 2.26 - bl2 * 0.08, bz - 0.09);
   }
   // the order board on the office wall: redrawn when orders change
   function drawBoard() {
@@ -931,10 +938,10 @@
     // the forklift bay, the tool bays and the charger on the south wall
     var bay = function (cx, cz, w, d, label) { plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz - d / 2, -Math.PI / 2); plane(w, 0.08, MAT.yellowLine, cx, 0.0062, cz + d / 2, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx - w / 2, 0.0062, cz, -Math.PI / 2); plane(0.08, d, MAT.yellowLine, cx + w / 2, 0.0062, cz, -Math.PI / 2); plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex([label], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), cx, 0.0066, cz + d / 2 - 0.3, -Math.PI / 2); };
     bay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK 1'); bay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); bay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
-    plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2); plane(1.0, 1.0, MAT.rubberMat, -24.9, 0.004, 19.95, -Math.PI / 2);
+    plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2); plane(1.0, 1.0, MAT.rubberMat, -X + 5.1, 0.004, 19.95, -Math.PI / 2);
     // the office blinds and the crossing into it
-    for (var bl2 = 0; bl2 < 14; bl2++) box(5.4, 0.05, 0.02, MAT.trim, 26.1, 2.26 - bl2 * 0.08, 18.58);
-    plane(1.4, 0.08, MAT.yellowLine, -25.5, 0.0062, 19.95, -Math.PI / 2);
+    for (var bl2 = 0; bl2 < 14; bl2++) box(5.4, 0.05, 0.02, MAT.trim, X - 3.9, 2.26 - bl2 * 0.08, 18.58);
+    plane(1.4, 0.08, MAT.yellowLine, -X + 4.5, 0.0062, 19.95, -Math.PI / 2);
     plane(1.4, 0.08, MAT.yellowLine, 12.5, 0.0062, 9.95, -Math.PI / 2);
     // grime: a dark gradient along the foot of every wall, tyre scuffs at the dock aprons and in the aisles, oil where machines stand
     var grimeTex = tex(64, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(20,18,16,0.5)'); g.addColorStop(0.5, 'rgba(20,18,16,0.18)'); g.addColorStop(1, 'rgba(20,18,16,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); for (var i = 0; i < 60; i++) { c.fillStyle = 'rgba(10,10,10,' + randf(0.05, 0.2) + ')'; c.fillRect(Math.random() * w, h - Math.random() * 20, randf(1, 4), randf(1, 3)); } });
@@ -1006,9 +1013,11 @@
   var PROPS = {}, PROP_ORDER = [], propInst = {};
   // defaults were authored for the 40 x 28 hall; the hall grew by 10 m on every side, so anything near a wall follows its wall
   function grown(v) { return Math.abs(v) >= 8 ? v + (v < 0 ? -HALL_GROW : HALL_GROW) : v; }
-  var HALL_GROW = HALL.x - 20;
+  var HALL_GROW = 10;   // the first growth (40 to 60 m wide); the second is wallX in the config
   function defProp(id, def) {
-    if (!def.abs && typeof def.x === 'number') { def.x = grown(def.x); def.z = grown(def.z); } def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
+    if (!def.abs && typeof def.x === 'number') { def.x = grown(def.x); def.z = grown(def.z); }
+    if (typeof def.x === 'number' && !def.keep && !/^gantry/.test(id)) def.x = wallX(def.x, def.z, !!def.yard);   // the side walls moved out: wall-side props follow
+    def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
   function propDef(id) { if (PROPS[id]) return PROPS[id]; var c = customById(id); return c ? PROPS[c.type] : null; }
   function customById(id) { return (S.custom || []).filter(function (c) { return c.id === id; })[0] || null; }
   function propPlacement(id) {
@@ -1090,9 +1099,9 @@
     if (WALLS.length) return WALLS;
     var X = HALL.x, Z = HALL.z;
     WALLS.push({ a: 'x', v: -X + 0.17, n: 1, z0: -Z, z1: Z }, { a: 'x', v: X - 0.17, n: -1, z0: -Z, z1: Z }, { a: 'z', v: -Z + 0.17, n: 1, x0: -X, x1: X }, { a: 'z', v: Z - 0.17, n: -1, x0: -X, x1: X });
-    WALLS.push({ a: 'x', v: 22.42, n: -1, z0: 18.5, z1: Z }, { a: 'x', v: 22.58, n: 1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: 22.5, x1: X }, { a: 'z', v: 18.58, n: 1, x0: 22.5, x1: X });
-    WALLS.push({ a: 'x', v: -25.58, n: 1, z0: 18.5, z1: Z }, { a: 'x', v: -25.42, n: -1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: -X, x1: -25.5 }, { a: 'z', v: 18.58, n: 1, x0: -X, x1: -25.5 });
-    WALLS.push({ a: 'x', v: -23.08, n: 1, z0: -Z, z1: -20.2 }, { a: 'x', v: -22.92, n: -1, z0: -Z, z1: -20.2 }, { a: 'z', v: -20.28, n: -1, x0: -X, x1: -23 }, { a: 'z', v: -20.12, n: 1, x0: -X, x1: -23 });
+    WALLS.push({ a: 'x', v: X - 7.58, n: -1, z0: 18.5, z1: Z }, { a: 'x', v: X - 7.42, n: 1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: X - 7.5, x1: X }, { a: 'z', v: 18.58, n: 1, x0: X - 7.5, x1: X });
+    WALLS.push({ a: 'x', v: -X + 4.42, n: 1, z0: 18.5, z1: Z }, { a: 'x', v: -X + 4.58, n: -1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: -X, x1: -X + 4.5 }, { a: 'z', v: 18.58, n: 1, x0: -X, x1: -X + 4.5 });
+    WALLS.push({ a: 'x', v: -X + 6.92, n: 1, z0: -Z, z1: -20.2 }, { a: 'x', v: -X + 7.08, n: -1, z0: -Z, z1: -20.2 }, { a: 'z', v: -20.28, n: -1, x0: -X, x1: -X + 7 }, { a: 'z', v: -20.12, n: 1, x0: -X, x1: -X + 7 });
     return WALLS;
   }
   function editAim(def) {
@@ -1650,7 +1659,9 @@
       var sc = propCtx(sg, 'seg'); conveyorBuild(sc, 0, 0, len, { noEye: i < pts.length - 1, noLegs: true });
       // legs in the prop frame, the right height wherever the belt is, braced when tall
       var ux = (bx - ax) / run, uz = (bz - az) / run, px = uz, pz = -ux;
-      for (var d = 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
+      var hang = pts[i][3] === 'hang';
+      if (hang) { for (var hd = 0.6; hd < run; hd += 2.5) { var ht = BELT_Y + ay + (by - ay) * hd / run + 0.05, hx = ax + ux * hd, hz = az + uz * hd; [-0.3, 0.3].forEach(function (o) { c.cyl(0.025, HALL.h - 0.2 - ht, MAT_MACH.frame, hx + px * o, (HALL.h - 0.2 + ht) / 2, hz + pz * o, 6); }); var hb = c.box(0.8, 0.06, 0.06, MAT_MACH.frame, hx, ht, hz); hb.rotation.y = ang; var hp = c.box(0.9, 0.05, 0.3, MAT_MACH.frame, hx, HALL.h - 0.2, hz); hp.rotation.y = ang; } }
+      else for (var d = 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
       var lowY = BELT_Y + Math.min(ay, by) - 0.15, high = Math.min(ay, by) > 1.2;
       c.solid(Math.min(ax, bx) - 0.4, Math.max(ax, bx) + 0.4, Math.min(az, bz) - 0.4, Math.max(az, bz) + 0.4, high ? lowY : 0, high ? lowY + 1.2 : 0.82);
     }
@@ -1963,7 +1974,7 @@
   defProp('signOffice', { label: 'sign: OFFICE', cat: 'wall', wall: true, abs: true, x: 22.41, z: 19.95, rot: 3, build: wallSignBuild(['OFFICE'], 1.4, 0.45, 2.6, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
   defProp('signLobby', { label: 'sign: LOBBY', cat: 'wall', wall: true, abs: true, x: -25.41, z: 19.95, rot: 1, build: wallSignBuild(['LOBBY'], 1.2, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
   defProp('signBreak', { label: 'sign: BREAK ROOM', cat: 'wall', wall: true, abs: true, x: -22.91, z: -22.45, rot: 1, build: wallSignBuild(['BREAK ROOM'], 1.6, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('exitNorth', { label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
+  defProp('exitNorth', { keep: true, label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
   defProp('exitStaff', { label: 'exit sign (staff door)', cat: 'wall', wall: true, abs: true, x: -29.8, z: 22, rot: 1, build: exitSignBuild });
   defProp('signPacking', { label: 'sign: PACKING', cat: 'wall', wall: true, abs: true, x: 29.83, z: 5.2, rot: 3, build: wallSignBuild(['PACKING'], 1.8, 0.5, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' }) });
   defProp('signProduction', { label: 'sign: PRODUCTION', cat: 'wall', wall: true, abs: true, x: 5.8, z: -23.83, rot: 0, build: wallSignBuild(['PRODUCTION'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#78bdf5' }) });
@@ -3005,7 +3016,7 @@
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && !st.leaving;
-      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -26.3 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
+      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -HALL.x + 3.7 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
       if (!brk && st.state === 'break') st.state = 'idle';
       var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
@@ -3049,7 +3060,7 @@
     var want = null;
     var orders = openOrders().slice().sort(function (a, b) { return (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due; });
     for (var i = 0; i < orders.length && !want; i++) orders[i].lines.forEach(function (l) { if (want) return; if (skuDemand(l.sku) > 0) { var keys = slotsWith(l.sku).filter(function (k) { return slotParse(k).l < RACK.top; }); if (keys.length) want = { sku: l.sku, key: keys[0] }; } });
-    if (!want) { idleAt(st, { x: 24.6, z: 2.6 }); return; }
+    if (!want) { idleAt(st, { x: SPOT.bench.x - 2.0, z: 2.6 }); return; }
     st.task = { kind: 'pick', sku: want.sku, key: want.key };
     staffGo(st, slotStand(want.key), 'wait'); st.timer = 1.0; st.working = true;
     st.after = function () { var s = S.slots[want.key]; if (s && s.sku === want.sku && s.n > 0) { slotTake(want.key, 1); st.carry = { kind: 'box', sku: want.sku }; S.stats.picked++; sfx('pickup'); } st.task = null; };
@@ -3074,13 +3085,13 @@
       st.after = function () { var oid = S.bench.parcels.shift(); if (oid) { st.carry = { kind: 'parcel', order: oid }; sfx('pickup'); } };
       return;
     }
-    idleAt(st, { x: 24.8, z: 7.4 });
+    idleAt(st, { x: SPOT.bench.x - 1.8, z: 7.4 });
   }
   // ── The time clock ────────────────────────────────────────────────
   // Nobody is paid a flat wage. The crew clock in at the reader by the staff door when they arrive and clock out when
   // they leave; the day's pay at 06:00 is their clocked hours at the hourly rate, with anything past ten hours at
   // time and a half. Punctuality is a trait: some are early, some drift in late, and a word puts them right for a while.
-  var CLOCK_SPOT = { x: -29.0, z: 20.2 }, RAMP_BOTTOM = { x: -37.3, z: 22 }, SHIFT_START = 8;
+  var CLOCK_SPOT = { x: -HALL.x + 1.0, z: 20.2 }, RAMP_BOTTOM = { x: -HALL.x - 7.3, z: 22 }, SHIFT_START = 8;
   function hourly(st) { return STAFF_ROLES[st.role].wage / 10; }
   function shiftEnd(st) { return st.overtime ? 20 : 18; }
   function staffArrival(st) { return SHIFT_START + (st.arriveOff || 0) / 60; }
@@ -3489,11 +3500,15 @@
   // the pick belts run overhead at 2.4 m so the east aisle stays open, and come down to the bench at their ends
   var PICK_H = 2.4;
   // the south belt starts over row A, stays high past row D and drops to the bench; the north one starts over row F, passes row E and drops from the other side
-  var PB_S = (function () { var z0 = RACK.rows[0], yD = RACK.rows[3] - z0 + 0.6, yB = 4.5 - z0; return [[0, 0, PICK_H], [0, yD, PICK_H], [0, yB, 1.9], [3.7, yB, 0]]; })();
-  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yE = RACK.rows[4] - z0 - 0.6, yB = 5.7 - z0; return [[0, 0, PICK_H], [0, yE, PICK_H], [0, yB, 1.9], [3.7, yB, 0]]; })();
+  // both belts stay high along the row ends, cross the east corridor hung from the roof (no legs in the drive lane) and ramp down beside the bench:
+  // the south one just past row D, ramping south to the bench's west inlet; the north one just past row E, ramping north to a second inlet
+  var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [8.8, yC, PICK_H, 'hang'], [8.8, yC + 4.0, 0]]; })();
+  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [7.6, yC, PICK_H, 'hang'], [7.6, yC - 4.0, 0]]; })();
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
   defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
-  defMachine('benchIn', { prop: 'bench', inlet: [-0.8, 0], accept: function (it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; } });
+  function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
+  defMachine('benchIn', { prop: 'bench', inlet: [-1.8, 2.2], accept: benchAccept });    // where the south pick belt lands
+  defMachine('benchIn2', { prop: 'bench', inlet: [-3.0, -0.6], accept: benchAccept });  // where the north pick belt lands
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }
   function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); return out; }
@@ -4028,7 +4043,7 @@
     else if (a === 'hire') { S.level = Math.max(S.level, 4); ['receiver', 'picker', 'packer'].forEach(function (r) { if (!S.staff.some(function (s) { return s.role === r; })) hireStaff(r); }); }
     else if (a === 'fire') { S.staff.slice().forEach(function (s) { fireStaff(s.id); }); }
     else if (a === 'fork') { S.up.fork = true; S.fork.x = player.x - Math.sin(player.yaw) * 2.5; S.fork.z = player.z - Math.cos(player.yaw) * 2.5; S.fork.batt = 1; placeTools(); }
-    else if (a === 'tpIn') tp(-26.5, -14); else if (a === 'tpOut') tp(26.5, -14); else if (a === 'tpBench') tp(25.2, 5.2); else if (a === 'tpOffice') tp(25, 20.5); else if (a === 'tpBreak') tp(-26.5, -21.5); else if (a === 'tpYard') { tp(-30, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
+    else if (a === 'tpIn') tp(-HALL.x + 3.5, -14); else if (a === 'tpOut') tp(HALL.x - 3.5, -14); else if (a === 'tpBench') tp(SPOT.bench.x - 1.4, 5.2); else if (a === 'tpOffice') tp(HALL.x - 5, 20.5); else if (a === 'tpBreak') tp(-HALL.x + 3.5, -21.5); else if (a === 'tpYard') { tp(-HALL.x, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
     sfx('click'); hudDirty = true; rebuildBoardSoon(); screenDirtyAll(); if (ui.panelOpen) renderPanel();
   }
   function panelAct(act, arg) {
@@ -4524,7 +4539,7 @@
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
-      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, BELTS: BELTS, MACH: MACH, inWing: inWing,
+      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, HALL: HALL, wallX: wallX, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

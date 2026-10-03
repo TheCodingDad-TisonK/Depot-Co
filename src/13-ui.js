@@ -167,7 +167,7 @@
     else if (a === 'hire') { S.level = Math.max(S.level, 4); ['receiver', 'picker', 'packer'].forEach(function (r) { if (!S.staff.some(function (s) { return s.role === r; })) hireStaff(r); }); }
     else if (a === 'fire') { S.staff.slice().forEach(function (s) { fireStaff(s.id); }); }
     else if (a === 'fork') { S.up.fork = true; S.fork.x = player.x - Math.sin(player.yaw) * 2.5; S.fork.z = player.z - Math.cos(player.yaw) * 2.5; S.fork.batt = 1; placeTools(); }
-    else if (a === 'tpIn') tp(-26.5, -14); else if (a === 'tpOut') tp(26.5, -14); else if (a === 'tpBench') tp(25.2, 5.2); else if (a === 'tpOffice') tp(25, 20.5); else if (a === 'tpBreak') tp(-26.5, -21.5); else if (a === 'tpYard') { tp(-30, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
+    else if (a === 'tpIn') tp(-HALL.x + 3.5, -14); else if (a === 'tpOut') tp(HALL.x - 3.5, -14); else if (a === 'tpBench') tp(SPOT.bench.x - 1.4, 5.2); else if (a === 'tpOffice') tp(HALL.x - 5, 20.5); else if (a === 'tpBreak') tp(-HALL.x + 3.5, -21.5); else if (a === 'tpYard') { tp(-HALL.x, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
     sfx('click'); hudDirty = true; rebuildBoardSoon(); screenDirtyAll(); if (ui.panelOpen) renderPanel();
   }
   function panelAct(act, arg) {

@@ -72,7 +72,11 @@
   var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
-  var HALL = { x: 30, z: 24, h: 8 };   // grew from 40 x 28 on 2026-10-02 so a row holds 15 bays and the forklift has room
+  var HALL = { x: 36, z: 24, h: 8 };   // 40 x 28 until 2026-10-02, 60 x 48 until 2026-10-03, now 72 x 48: the east and west corridors needed 6 m more each for the forklift
+  // the side walls moved from x 30 to x 36 on 2026-10-03. Anything authored against them follows: a hall position with |x| in the old wall zone
+  // (22.1 up to the old wall) moves out by the growth; a yard position beside a side wall (|z| inside the hall) moves with it too.
+  var WALL_SHIFT = HALL.x - 30;
+  function wallX(x, z, yard) { var ax = Math.abs(x); var move = yard ? (ax >= 22.1 && Math.abs(z) < HALL.z + 2) : (ax >= 22.1 && ax < 30.5); return move ? x + (x < 0 ? -WALL_SHIFT : WALL_SHIFT) : x; }
   var RACK = { rows: [-17.5, -10.9, -4.3, 2.3, 8.9, 15.5], bays: 15, bayW: 3, x0: -24, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // rows 6.6 m apart, biased south so row F and its crane clear the office front at z 18.5; levels: the y of the pallet base; top is forklift-only
   var DOCKS = { in: [{ z: -14 }, { z: -6 }], out: [{ z: -14 }, { z: -6 }], w: 3.6, h: 4.2 };
   var YARD_Y = -1.2;
@@ -86,3 +90,4 @@
     jack: { x: -27.8, z: -18.0 }, jack2: { x: 27.8, z: -18.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 20.5 },   // one jack by the IN docks, one by the OUT docks, the cart on the west wall
     spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -8.5 }
   };
+  for (var spk in SPOT) SPOT[spk].x = wallX(SPOT[spk].x, SPOT[spk].z, false);   // authored against the 30 m walls

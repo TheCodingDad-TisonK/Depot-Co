@@ -3,7 +3,7 @@
   function freshState() {
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
-      hall: 3,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
+      hall: 4,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
       up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false },
       gantries: {}, speed: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
@@ -52,6 +52,8 @@
       if (!s.flags.toolBays2) { s.flags.toolBays2 = 1; var near = function (o, x, z) { return o && Math.abs(o.x - x) < 1.2 && Math.abs(o.z - z) < 1.6; }; if (near(s.jack, -25, 4)) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; } if (near(s.cart, -25, 6.5)) { s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; } }
       // 1.12.9 put the first jack by the IN docks and added a second by OUT: a jack still parked in the 1.12.8 bay follows
       if (!s.flags.toolBays3) { s.flags.toolBays3 = 1; if (s.jack && Math.abs(s.jack.x - -28.6) < 1.2 && Math.abs(s.jack.z - 6.0) < 1.6) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.jack.rot = Math.PI / 2; } }
+      // 2026-10-03, hall 4: the side walls went from x 30 to x 36. Anything a player left against them follows, once
+      if (s.hall === 3) { s.hall = 4; var mv = function (o, yard) { if (o && typeof o.x === 'number') o.x = wallX(o.x, o.z || 0, !!yard); }; for (var lk in (s.layout || {})) mv(s.layout[lk], PROPS[lk] && PROPS[lk].yard); (s.custom || []).forEach(function (c) { mv(c, PROPS[c.type] && PROPS[c.type].yard); }); (s.pallets || []).forEach(function (p) { if (p.place === 'floor') mv(p, false); }); (s.staff || []).forEach(function (stf) { mv(stf, false); }); mv(s.fork, false); ['jack', 'jack2', 'cart'].forEach(function (tl) { if (s[tl]) { s[tl].x = SPOT[tl].x; s[tl].z = SPOT[tl].z; } }); s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); if (s.agv) s.agv.placed = false; }
       S = s; return true;
     } catch (e) { return false; }
   }

@@ -40,7 +40,7 @@
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
   // nine high bays on a 20 x 15 m grid: the hall is 60 x 48 since 2026-10-02, and six lights on the old 20 x 10 grid left the edges dark
-  [[-20, -15], [0, -15], [20, -15], [-20, 0], [0, 0], [20, 0], [-20, 15], [0, 15], [20, 15]].forEach(function (p) {
+  [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]].forEach(function (p) {   // twelve since the 72 m hall
     var l = new THREE.PointLight(0xfff4e0, 0.55, 38, 2); l.position.set(p[0], 7.3, p[1]); scene.add(l); hallLights.push(l);
   });
   var officeLight = new THREE.PointLight(0xfff8ea, 0.5, 9, 2); officeLight.position.set(16.5, 3.2, 11); scene.add(officeLight);

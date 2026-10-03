@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.12.13 (2026-10-03)
+
+- The hall is 72 x 48 m: the east and west walls moved out 6 m each. Everything that stood against them follows: docks, consoles, dock loader and shipping belt, bench and pack line, AGV dock, jack bays, stage squares, office, lobby and break room. The racks, cranes and pick belts stay where they were, so the east lane is now about 7 m clear between the crane columns and the bench, and the west lane about 9 m between the columns and the wall.
+- The pick belts cross the east lane overhead, hung from the roof on rods instead of standing on legs, and ramp down beside the bench to two inlets. Nothing of theirs stands in the drive lane.
+- Twelve hall lights instead of nine, so the new strips are lit.
+- Saves migrate once: layout moves, bought props, floor pallets, staff and tools follow the walls; docked trucks are sent away.
+- Test suite: a check that the east lane at x 25.5 and the west lane at x -27.5 are clear for the forklift along the full rack length. A drive map tool (tools/drivemap.js) prints where the forklift can stand.
+
 ## 1.12.12 (2026-10-03)
 
 - Crane and AGV screens take E again. The cabinet interaction box reached past the screen, so looking at a button focused the cabinet instead. A touchscreen now wins over any hit box within half a metre, and the crane and AGV cabinets use a box the size of the cabinet.

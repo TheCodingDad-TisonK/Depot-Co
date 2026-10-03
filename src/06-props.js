@@ -6,9 +6,11 @@
   var PROPS = {}, PROP_ORDER = [], propInst = {};
   // defaults were authored for the 40 x 28 hall; the hall grew by 10 m on every side, so anything near a wall follows its wall
   function grown(v) { return Math.abs(v) >= 8 ? v + (v < 0 ? -HALL_GROW : HALL_GROW) : v; }
-  var HALL_GROW = HALL.x - 20;
+  var HALL_GROW = 10;   // the first growth (40 to 60 m wide); the second is wallX in the config
   function defProp(id, def) {
-    if (!def.abs && typeof def.x === 'number') { def.x = grown(def.x); def.z = grown(def.z); } def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
+    if (!def.abs && typeof def.x === 'number') { def.x = grown(def.x); def.z = grown(def.z); }
+    if (typeof def.x === 'number' && !def.keep && !/^gantry/.test(id)) def.x = wallX(def.x, def.z, !!def.yard);   // the side walls moved out: wall-side props follow
+    def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
   function propDef(id) { if (PROPS[id]) return PROPS[id]; var c = customById(id); return c ? PROPS[c.type] : null; }
   function customById(id) { return (S.custom || []).filter(function (c) { return c.id === id; })[0] || null; }
   function propPlacement(id) {
@@ -90,9 +92,9 @@
     if (WALLS.length) return WALLS;
     var X = HALL.x, Z = HALL.z;
     WALLS.push({ a: 'x', v: -X + 0.17, n: 1, z0: -Z, z1: Z }, { a: 'x', v: X - 0.17, n: -1, z0: -Z, z1: Z }, { a: 'z', v: -Z + 0.17, n: 1, x0: -X, x1: X }, { a: 'z', v: Z - 0.17, n: -1, x0: -X, x1: X });
-    WALLS.push({ a: 'x', v: 22.42, n: -1, z0: 18.5, z1: Z }, { a: 'x', v: 22.58, n: 1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: 22.5, x1: X }, { a: 'z', v: 18.58, n: 1, x0: 22.5, x1: X });
-    WALLS.push({ a: 'x', v: -25.58, n: 1, z0: 18.5, z1: Z }, { a: 'x', v: -25.42, n: -1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: -X, x1: -25.5 }, { a: 'z', v: 18.58, n: 1, x0: -X, x1: -25.5 });
-    WALLS.push({ a: 'x', v: -23.08, n: 1, z0: -Z, z1: -20.2 }, { a: 'x', v: -22.92, n: -1, z0: -Z, z1: -20.2 }, { a: 'z', v: -20.28, n: -1, x0: -X, x1: -23 }, { a: 'z', v: -20.12, n: 1, x0: -X, x1: -23 });
+    WALLS.push({ a: 'x', v: X - 7.58, n: -1, z0: 18.5, z1: Z }, { a: 'x', v: X - 7.42, n: 1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: X - 7.5, x1: X }, { a: 'z', v: 18.58, n: 1, x0: X - 7.5, x1: X });
+    WALLS.push({ a: 'x', v: -X + 4.42, n: 1, z0: 18.5, z1: Z }, { a: 'x', v: -X + 4.58, n: -1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: -X, x1: -X + 4.5 }, { a: 'z', v: 18.58, n: 1, x0: -X, x1: -X + 4.5 });
+    WALLS.push({ a: 'x', v: -X + 6.92, n: 1, z0: -Z, z1: -20.2 }, { a: 'x', v: -X + 7.08, n: -1, z0: -Z, z1: -20.2 }, { a: 'z', v: -20.28, n: -1, x0: -X, x1: -X + 7 }, { a: 'z', v: -20.12, n: 1, x0: -X, x1: -X + 7 });
     return WALLS;
   }
   function editAim(def) {
