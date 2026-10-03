@@ -1720,6 +1720,7 @@
     [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -0.93, -0.63, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 0.63, 0.93, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
   }; }
   function pickBeltBuild(c) { conveyorPath(c, BELTS.pickBelt.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  function pickMergeBuild(c) { conveyorPath(c, BELTS.pickMerge.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 2.0, BELT_Y + 2.4 + 0.3, 0.45, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function pickBelt2Build(c) { conveyorPath(c, BELTS.pickBelt2.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, -4, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function agvDockBuild(c) {
     var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.2, 0.76, -0.84); agvScreen = touchScreen({ w: 300, h: 200, pw: 0.33, ph: 0.22, x: 0, y: 0.57, z: -0.845, ry: 0, parent: c.group, title: 'AGV dock', draw: agvScreenDraw }); agvScreen.mesh.userData.propId = 'agvDock';
@@ -1954,6 +1955,7 @@
   defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
   for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDEF'[r], cat: 'hall', abs: true, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
   defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[0], rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickMerge', { keep: true, label: 'pick belt merge', cat: 'hall', abs: true, x: 26.6, z: 5.2, rot: 0, build: pickMergeBuild, when: function () { return !!S.up.gantry; } });
   defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[RACK.rows.length - 1], rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 4; } });
   defProp('silo', { label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
   defProp('extWing', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
@@ -3248,7 +3250,7 @@
         ahead = it.d;
       }
     }
-    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y += BELT_SPEED * speedOf(pl.userData.speedKey === 'pickBelt2' ? 'pickBelt' : pl.userData.speedKey) * dt / 0.5; });   // stripes run with the items, towards local +z
+    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y += BELT_SPEED * speedOf(/^pick/.test(pl.userData.speedKey || '') ? 'pickBelt' : pl.userData.speedKey) * dt / 0.5; });   // stripes run with the items, towards local +z
   }
   // belt items are drawn with the instanced boxes and parcels, inside syncInstances
   function drawBeltItems() {
@@ -3502,13 +3504,17 @@
   // the south belt starts over row A, stays high past row D and drops to the bench; the north one starts over row F, passes row E and drops from the other side
   // both belts stay high along the row ends, cross the east corridor hung from the roof (no legs in the drive lane) and ramp down beside the bench:
   // the south one just past row D, ramping south to the bench's west inlet; the north one just past row E, ramping north to a second inlet
-  var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [8.8, yC, PICK_H, 'hang'], [8.8, yC + 4.0, 0]]; })();
-  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [7.6, yC, PICK_H, 'hang'], [7.6, yC - 4.0, 0]]; })();
+  // the two feeders stay high along the row ends, turn in past row D and row E and meet hung over the lane at the merge point (26.6, 5.2);
+  // from there one merge belt crosses the rest of the lane on rods and ramps down to bench height at the bench's north-west corner
+  var PICK_MERGE = { x: 26.6, z: 5.2 };
+  var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
+  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
+  var PB_M = [[0, 0, PICK_H], [4.2, 0, PICK_H, 'hang'], [4.2, -3.2, 0.2]];
+  defBelt('pickMerge', { prop: 'pickMerge', path: PB_M, speedKey: 'pickBelt' });
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
   defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
   function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
-  defMachine('benchIn', { prop: 'bench', inlet: [-1.8, 2.2], accept: benchAccept });    // where the south pick belt lands
-  defMachine('benchIn2', { prop: 'bench', inlet: [-3.0, -0.6], accept: benchAccept });  // where the north pick belt lands
+  defMachine('benchIn', { prop: 'bench', inlet: [-1.8, -3.2], accept: benchAccept });   // where the merge belt lands, at bench height
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }
   function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); return out; }
@@ -3516,7 +3522,7 @@
   function gantryNeed(r) {
     var need = {}; S.orders.forEach(function (o) { if (o.state !== 'open') return; o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); });
     for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k];
-    ['pickBelt', 'pickBelt2'].forEach(function (bid) { beltItems(bid).forEach(function (it) { if (it.kind === 'box') need[it.sku] = (need[it.sku] || 0) - 1; }); });
+    ['pickBelt', 'pickBelt2', 'pickMerge'].forEach(function (bid) { beltItems(bid).forEach(function (it) { if (it.kind === 'box') need[it.sku] = (need[it.sku] || 0) - 1; }); });
     gantryRows().forEach(function (gr2) { var G = gantryState(gr2); if (G.sku && G.state !== 'idle') need[G.sku] = (need[G.sku] || 0) - 1; });
     S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') need[st.carry.sku] = (need[st.carry.sku] || 0) - 1; });
     for (var sku in need) if (need[sku] > 0) { for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === r && s && s.sku === sku && s.n > 0) return { sku: sku, key: key }; } }
@@ -3558,7 +3564,7 @@
   }; }
   function gantryPrompt(r) { var G = gantryState(r); return 'Gantry picker ' + 'ABCDEF'[r] + ' · ' + (!powered() ? 'no power' : G.state === 'idle' ? 'watching the orders' : G.sku ? 'picking ' + skuName(G.sku) : 'working') + ' · ' + G.picked + ' boxes picked'; }
   // the crane props follow the rack rows: buying the gantry upgrade builds one over every row you own, buying a row adds its crane
-  function buildGantries() { if (!S.up.gantry) return; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows) buildProp('gantry' + r); buildProp('pickBelt'); if (S.up.rows > 4) buildProp('pickBelt2'); }
+  function buildGantries() { if (!S.up.gantry) return; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows) buildProp('gantry' + r); buildProp('pickBelt'); buildProp('pickMerge'); if (S.up.rows > 4) buildProp('pickBelt2'); }
   // ── Player ────────────────────────────────────────────────────────
   var player = { x: SPOT.spawn.x, y: 0, z: SPOT.spawn.z, yaw: -Math.PI / 2 - 0.4, pitch: 0, vy: 0, grounded: true, keys: {}, locked: false, tool: null, stepT: 0, bob: 0 };
   var ui = { started: false, menuOpen: false, panelOpen: false, scanOpen: false, blocked: function () { return ui.menuOpen || ui.panelOpen; } };

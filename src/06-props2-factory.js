@@ -149,6 +149,7 @@
     [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -0.93, -0.63, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 0.63, 0.93, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
   }; }
   function pickBeltBuild(c) { conveyorPath(c, BELTS.pickBelt.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  function pickMergeBuild(c) { conveyorPath(c, BELTS.pickMerge.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 2.0, BELT_Y + 2.4 + 0.3, 0.45, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function pickBelt2Build(c) { conveyorPath(c, BELTS.pickBelt2.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, -4, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function agvDockBuild(c) {
     var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.2, 0.76, -0.84); agvScreen = touchScreen({ w: 300, h: 200, pw: 0.33, ph: 0.22, x: 0, y: 0.57, z: -0.845, ry: 0, parent: c.group, title: 'AGV dock', draw: agvScreenDraw }); agvScreen.mesh.userData.propId = 'agvDock';
@@ -383,6 +384,7 @@
   defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
   for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDEF'[r], cat: 'hall', abs: true, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
   defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[0], rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickMerge', { keep: true, label: 'pick belt merge', cat: 'hall', abs: true, x: 26.6, z: 5.2, rot: 0, build: pickMergeBuild, when: function () { return !!S.up.gantry; } });
   defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[RACK.rows.length - 1], rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 4; } });
   defProp('silo', { label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
   defProp('extWing', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });

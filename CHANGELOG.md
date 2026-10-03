@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.14 (2026-10-03)
+
+- The two overhead pick belts meet above the east lane and feed one merge belt, which ramps down to bench height at the north-west corner of the packing bench. Picked boxes arrive in a single stream at one spot.
+
 ## 1.12.13 (2026-10-03)
 
 - The hall is 72 x 48 m: the east and west walls moved out 6 m each. Everything that stood against them follows: docks, consoles, dock loader and shipping belt, bench and pack line, AGV dock, jack bays, stage squares, office, lobby and break room. The racks, cranes and pick belts stay where they were, so the east lane is now about 7 m clear between the crane columns and the bench, and the west lane about 9 m between the columns and the wall.

@@ -49,7 +49,7 @@
         ahead = it.d;
       }
     }
-    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y += BELT_SPEED * speedOf(pl.userData.speedKey === 'pickBelt2' ? 'pickBelt' : pl.userData.speedKey) * dt / 0.5; });   // stripes run with the items, towards local +z
+    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y += BELT_SPEED * speedOf(/^pick/.test(pl.userData.speedKey || '') ? 'pickBelt' : pl.userData.speedKey) * dt / 0.5; });   // stripes run with the items, towards local +z
   }
   // belt items are drawn with the instanced boxes and parcels, inside syncInstances
   function drawBeltItems() {
