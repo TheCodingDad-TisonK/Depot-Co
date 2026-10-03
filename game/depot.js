@@ -92,7 +92,7 @@
     { id: 'sign',   name: 'Roadside sign',       price: 500,             lvl: 2, desc: 'New clients find you sooner. Reputation grows a little faster.' },
     { id: 'shipbelt', name: 'Shipping belt and dock loader', price: 1800, lvl: 3, desc: 'Parcels roll off the pack line shelf onto a belt down the east wall to OUT 2, where the dock loader pushes them into any docked truck with its door up. OUT 1 stays manual.' },
     { id: 'agv',    name: 'AGV pallet mover',    price: 3200,            lvl: 4, desc: 'A driverless truck. Set a pallet on its pickup square (or let the palletiser drop one) and it puts it away on the racks by itself.' },
-    { id: 'gantry', name: 'Gantry picker over row A', price: 5000,       lvl: 5, desc: 'A crane over row A that watches the orders, picks the boxes the bench still needs out of row A and sends them down the pick belt to the bench.' }
+    { id: 'gantry', name: 'Gantry pickers over the racks', price: 5000, lvl: 5, desc: 'A crane over every rack row you own (new rows get theirs too). Each watches the orders, picks the boxes the bench still needs out of its row and sends them down the overhead pick belts to the bench.' }
   ];
   var STAFF_ROLES = {
     receiver: { name: 'Receiver', wage: ECON.wage.receiver, lvl: 3, desc: 'Walks pallets out of a docked inbound truck and puts them on the racks.' },
@@ -123,7 +123,7 @@
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
       hall: 3,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
       up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false },
-      gantry: { x: 46, lift: 5.0, state: 'idle', sku: null, key: null, t: 0, picked: 0 },
+      gantries: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
       slots: {},                 // "row,bay,level" -> { sku, n }
       pallets: [],               // { id, sku, n, place: 'truck'|'floor'|'jack'|'fork'|'staff', truck, idx, x, z, y, rot }
@@ -1678,12 +1678,13 @@
     MACH[id].anim = { boom: boom, pusher: pusher, pushT: 0, ext: 0 };
     c.hit(2.0, 2.0, 2.4, 0, 1.0, 0.6, { prompt: function () { return dockLoaderPrompt(); }, use: function () { sfx('click'); } });
     c.solid(-1.4, 0.7, -0.5, 1.8, 0, 2.1);
-  }  function gantryBuild(c) {
+  }  function gantryBuild(r) { return function (c) {
     var DG = MAT_MACH.frame, YL = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.3 }), LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 });
     // end columns stand clear of the racking at the row ends; the mid columns stand tight against the rack faces, out of the aisles
-    [-0.4, 46.4].forEach(function (cx) { [-1.6, 1.6].forEach(function (cz) { c.box(0.26, 5.4, 0.26, YL, cx, 2.7, cz); c.box(0.5, 0.03, 0.5, DG, cx, 0.015, cz); c.box(0.3, 0.3, 0.3, DG, cx, 5.5, cz); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); });
+    // the east pair stands at 47.2, past the overhead pick belt that runs along the row ends at 46
+    [-0.4, 47.2].forEach(function (cx) { [-1.6, 1.6].forEach(function (cz) { c.box(0.26, 5.4, 0.26, YL, cx, 2.7, cz); c.box(0.5, 0.03, 0.5, DG, cx, 0.015, cz); c.box(0.3, 0.3, 0.3, DG, cx, 5.5, cz); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); });
     for (var cx = 7.67; cx < 46; cx += 7.67) { [-0.78, 0.78].forEach(function (cz) { c.box(0.2, 5.4, 0.2, YL, cx, 2.7, cz); c.box(0.4, 0.03, 0.4, DG, cx, 0.015, cz); var ob = c.box(0.2, 0.2, 0.9, DG, cx, 5.45, cz * 1.5); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); }
-    [-1.6, 1.6].forEach(function (rz) { c.box(47.4, 0.18, 0.2, DG, 23, 5.4, rz); c.box(47.4, 0.04, 0.06, MAT.chrome, 23, 5.5, rz); });
+    [-1.6, 1.6].forEach(function (rz) { c.box(48.2, 0.18, 0.2, DG, 23.4, 5.4, rz); c.box(48.2, 0.04, 0.06, MAT.chrome, 23.4, 5.5, rz); });
     var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
     var trolley = new THREE.Group(); trolley.position.set(46, 5.0, 0); dyn.add(trolley);
     box(1.0, 0.3, 3.6, YL, 0, 0.55, 0, trolley); box(1.1, 0.12, 0.5, DG, 0, 0.6, -1.6, trolley); box(1.1, 0.12, 0.5, DG, 0, 0.6, 1.6, trolley); [-0.4, 0.4].forEach(function (wx) { [-1.6, 1.6].forEach(function (wz) { cyl(0.1, 0.08, MAT.black, wx, 0.6, wz, trolley, 12).rotation.z = Math.PI / 2; }); });
@@ -1691,13 +1692,14 @@
     var mast = box(0.28, 4.0, 0.28, LG, 0, -2.0, 0, trolley); mast.scale.y = 0.05; mast.position.y = 0;   // scaled from the trolley down to the gripper
     var grip = new THREE.Group(); grip.position.set(0, 0, 0); trolley.add(grip); box(0.5, 0.15, 0.5, DG, 0, 0.3, 0, grip); box(0.7, 0.06, 0.7, MAT.black, 0, 0.2, 0, grip); [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(function (s) { cyl(0.07, 0.06, MAT_MACH.rubber, s[0], 0.15, s[1], grip, 10); });
     var bx = new THREE.Mesh(BOX_GEO, CARD[SKUS[0].id]); bx.position.set(0, -0.05, 0); bx.visible = false; grip.add(bx);
-    c.sign(['GANTRY PICKER · ROW A', 'AUTOMATIC · KEEP CLEAR'], 2.0, 0.4, 44.5, 5.9, 1.75, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#f5b53d' });
-    c.box(0.5, 1.0, 0.3, LG, 46.4, 1.4, -2.0); c.box(0.08, 0.3, 0.3, DG, 46.4, 1.1, -1.75); eStop(c, 46.4, 1.2, -1.84); MACH.gantry.lamps = lampStack(c, 46.4, 2.0, -2.0);
-    MACH.gantry.anim = { trolley: trolley, mast: mast, grip: grip, box: bx, beacon: beacon };
-    c.hit(0.8, 1.6, 0.6, 46.4, 1.2, -2.0, { prompt: function () { return gantryPrompt(); }, use: function () { sfx('click'); } });
-    [-0.4, 46.4].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -1.75, -1.45, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 1.45, 1.75, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
-  }
-  function pickBeltBuild(c) { conveyorPath(c, [[0, 0, 2.4], [0, 15.0, 2.4], [0, 19.5, 0], [3.7, 19.5, 0]]); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+    c.sign(['GANTRY PICKER · ROW ' + 'ABCDEF'[r], 'AUTOMATIC · KEEP CLEAR'], 2.0, 0.4, 44.5, 5.9, 1.75, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#f5b53d' });
+    c.box(0.5, 1.0, 0.3, LG, 47.2, 1.4, -2.0); c.box(0.08, 0.3, 0.3, DG, 47.2, 1.1, -1.75); eStop(c, 47.2, 1.2, -1.84); MACH['gantry' + r].lamps = lampStack(c, 47.2, 2.0, -2.0);
+    MACH['gantry' + r].anim = { trolley: trolley, mast: mast, grip: grip, box: bx, beacon: beacon };
+    c.hit(0.8, 1.6, 0.6, 47.2, 1.2, -2.0, { prompt: function () { return gantryPrompt(r); }, use: function () { sfx('click'); } });
+    [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -1.75, -1.45, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 1.45, 1.75, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
+  }; }
+  function pickBeltBuild(c) { conveyorPath(c, BELTS.pickBelt.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  function pickBelt2Build(c) { conveyorPath(c, BELTS.pickBelt2.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, -4, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function agvDockBuild(c) {
     var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.15, 0.7, -0.84); c.plane(0.26, 0.1, MAT.screen, 0.05, 0.7, -0.84, 0, 0);
     c.sign(['AGV DOCK'], 0.5, 0.12, 0, 0.82, -0.84, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#f5b53d' });
@@ -1929,8 +1931,9 @@
   defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, x: 26.6, z: 14.3, rot: 0, build: shipBeltBuild, when: function () { return !!S.up.shipbelt; } });
   defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt; } });
   defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
-  defProp('gantry', { label: 'gantry picker', cat: 'hall', abs: true, x: -24, z: -15, rot: 0, build: gantryBuild, when: function () { return !!S.up.gantry; } });
-  defProp('pickBelt', { label: 'pick belt', cat: 'hall', abs: true, x: 22.0, z: -15, rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
+  for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDEF'[r], cat: 'hall', abs: true, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
+  defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, x: 22.0, z: -15, rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, x: 22.0, z: 15, rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 4; } });
   defProp('silo', { label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
   defProp('extWing', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
   defProp('qcBench', { label: 'quality bench', cat: 'factory', abs: true, x: 6.5, z: -29, rot: 2, build: qcBenchBuild });
@@ -2528,7 +2531,7 @@
       var openN = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }).length;
       var maxOpen = 3 + S.level, gap = Math.max(0.8, 2.3 - S.level * 0.12);
       if (S.day === 1 && !S.flags.firstOrder && S.time >= 8.5) { S.flags.firstOrder = 1; S.lastOrderAt = n; genOrder(false); }
-      else if (openN < maxOpen && n - S.lastOrderAt >= gap) { S.lastOrderAt = n + randf(-0.3, 0.3); genOrder(Math.random() < 0.12 && S.level >= 3); }
+      else if (openN < maxOpen && n - S.lastOrderAt >= gap && !S.flags.noOrders) { S.lastOrderAt = n + randf(-0.3, 0.3); genOrder(Math.random() < 0.12 && S.level >= 3); }
     }
     for (var i = S.orders.length - 1; i >= 0; i--) {
       var o = S.orders[i];
@@ -3219,9 +3222,12 @@
   }
   // belt items are drawn with the instanced boxes and parcels, inside syncInstances
   function drawBeltItems() {
-    for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; beltItems(k).forEach(function (it) { var w = beltPoint(b, it.d); if (it.kind === 'parcel') putParcel(w.x, w.y + 0.23, w.z, w.ry, { kind: 'belt' }); else putBox(it.sku, w.x, w.y + BOX.h / 2, w.z, w.ry, { kind: 'belt' }); }); }
+    for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; beltItems(k).forEach(function (it) { var w = beltPoint(b, it.d); var src = { kind: 'belt', belt: k, item: it }; if (it.kind === 'parcel') putParcel(w.x, w.y + 0.23, w.z, w.ry, src); else putBox(it.sku, w.x, w.y + BOX.h / 2, w.z, w.ry, src); }); }
     if (S.pal && S.pal.n > 0 && propInst.palletiser) { var cw = propWorld('palletiser', 0, 0); drawPalletWithBoxes(S.pal.sku, S.pal.n, cw.x, 0.42, cw.z, cw.a, { kind: 'palletiser' }); }
   }
+  // a box or a parcel riding a belt can be lifted off by hand
+  function beltItemPrompt(src) { if (S.hand) return null; var it = src.item; if (it.kind === 'box') return 'Take the box of ' + skuName(it.sku) + ' off the belt'; if (it.kind === 'parcel' && it.order) return 'Take the parcel off the belt'; return null; }
+  function beltItemUse(src) { if (S.hand) return; var arr = beltItems(src.belt), i = arr.indexOf(src.item); if (i < 0) return; var it = arr[i]; if (it.kind === 'box') handSet({ kind: 'box', sku: it.sku }); else if (it.kind === 'parcel' && it.order) handSet({ kind: 'parcel', order: it.order }); else return; arr.splice(i, 1); sfx('pickup'); }
   function lampSet(m, status) { if (!m.lamps) return; m.lamps.g.visible = status === 'run'; m.lamps.a.visible = status === 'idle'; m.lamps.r.visible = status === 'jam' || status === 'off'; }
 
   // ── The pack line: the bench feeds boxes onto the infeed, the case taper closes the order into one parcel, the outfeed drops it on the shelf
@@ -3440,44 +3446,51 @@
     groundBlob(1.0, 1.6, 0, -0.1, g, 0);
   }
   function tickAutomation(dt) { tickShipping(dt); tickAgv(dt); tickGantry(dt); }
-  // ── The gantry picker ─────────────────────────────────────────────
-  // Two rails run the length of row A. A trolley with a telescoping mast and a gripper rides them: it looks at the open orders,
-  // takes a box the bench still needs out of a row A slot, lifts it clear of the racking, runs to the east end and sets it on
-  // the pick belt. The belt ends at the bench, so a picked box lands where a picker would have put it.
-  var GANTRY_ROW = 0, GANTRY_SPEED = 3.0, GANTRY_LIFT = 2.0;
-  // the pick belt runs overhead at 2.4 m so the east aisle stays open, and comes down to the bench at its end
+  // ── The gantry pickers ────────────────────────────────────────────
+  // Every rack row carries its own crane: two rails run the length of the row and a trolley with a telescoping mast and a gripper
+  // rides them. Each crane looks at the open orders, takes a box the bench still needs out of its own row, lifts it clear of the
+  // racking, runs to the east end and sets it on the overhead pick belt that passes there. Rows A to D drop on the south belt,
+  // rows E and F on the north one; both belts end at the bench, so a picked box lands where a picker would have put it.
+  var GANTRY_SPEED = 3.0, GANTRY_LIFT = 2.0, GANTRY_DROP_X = 46.0;
+  // the pick belts run overhead at 2.4 m so the east aisle stays open, and come down to the bench at their ends
   var PICK_H = 2.4;
-  defBelt('pickBelt', { prop: 'pickBelt', path: [[0, 0, PICK_H], [0, 15.0, PICK_H], [0, 19.5, 0], [3.7, 19.5, 0]] });
+  defBelt('pickBelt', { prop: 'pickBelt', path: [[0, 0, PICK_H], [0, 18.6, PICK_H], [0, 19.5, 1.9], [3.7, 19.5, 0]] });
+  defBelt('pickBelt2', { prop: 'pickBelt2', path: [[0, 0, PICK_H], [0, -8.6, PICK_H], [0, -9.3, 1.9], [3.7, -9.3, 0]] });
   defMachine('benchIn', { prop: 'bench', inlet: [-0.8, 0], accept: function (it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; } });
-  defMachine('gantry', { prop: 'gantry' });
-  function gantryState() { if (!S.gantry) S.gantry = { x: 23.4, lift: 5.0, state: 'idle', sku: null, key: null, t: 0, picked: 0 }; return S.gantry; }
-  function gantryPark() { return propInst.gantry ? propWorld('gantry', 46.0, 0) : null; }
-  function gantryNeed() {
+  for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
+  function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }
+  function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); return out; }
+  function gantryState(r) { r = r || 0; if (!S.gantries) S.gantries = {}; if (!S.gantries[r]) S.gantries[r] = { x: GANTRY_DROP_X, lift: 5.0, state: 'idle', sku: null, key: null, t: 0, picked: 0 }; return S.gantries[r]; }
+  function gantryNeed(r) {
     var need = {}; S.orders.forEach(function (o) { if (o.state !== 'open') return; o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); });
     for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k];
-    beltItems('pickBelt').forEach(function (it) { if (it.kind === 'box') need[it.sku] = (need[it.sku] || 0) - 1; });
-    var G = gantryState(); if (G.sku && G.state !== 'idle') need[G.sku] = (need[G.sku] || 0) - 1;
+    ['pickBelt', 'pickBelt2'].forEach(function (bid) { beltItems(bid).forEach(function (it) { if (it.kind === 'box') need[it.sku] = (need[it.sku] || 0) - 1; }); });
+    gantryRows().forEach(function (gr2) { var G = gantryState(gr2); if (G.sku && G.state !== 'idle') need[G.sku] = (need[G.sku] || 0) - 1; });
     S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') need[st.carry.sku] = (need[st.carry.sku] || 0) - 1; });
-    for (var sku in need) if (need[sku] > 0) { for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === GANTRY_ROW && s && s.sku === sku && s.n > 0) return { sku: sku, key: key }; } }
+    for (var sku in need) if (need[sku] > 0) { for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === r && s && s.sku === sku && s.n > 0) return { sku: sku, key: key }; } }
     return null;
   }
   function tickGantry(dt) {
-    if (!S.up.gantry || !propInst.gantry) return;
-    var G = gantryState(), P = propPlacement('gantry'), a = P.rot * Math.PI / 2;
-    if (!powered()) return;
+    if (!S.up.gantry || !powered()) return;
+    gantryRows().forEach(function (r) { tickGantryRow(r, dt); });
+  }
+  function tickGantryRow(r, dt) {
+    var G = gantryState(r), id = 'gantry' + r, belt = gantryBeltFor(r);
     var toX = function (lx, speed) { var d = lx - G.x; if (Math.abs(d) <= speed * dt) { G.x = lx; return true; } G.x += Math.sign(d) * speed * dt; return false; };
     var toLift = function (y, speed) { var d = y - G.lift; if (Math.abs(d) <= speed * dt) { G.lift = y; return true; } G.lift += Math.sign(d) * speed * dt; return false; };
-    if (G.state === 'idle') { var job = gantryNeed(); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(46.0, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
+    if (G.state === 'idle') { var job = gantryNeed(r); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(GANTRY_DROP_X, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
     else if (G.state === 'toBay') { if (toX(G.bayX, GANTRY_SPEED)) G.state = 'down'; }
     else if (G.state === 'down') { if (toLift(G.level, GANTRY_LIFT)) { var s = S.slots[G.key]; if (s && s.sku === G.sku && s.n > 0) { slotTake(G.key, 1); s.wrapped = false; S.stats.picked++; G.state = 'up'; } else { G.sku = null; G.state = 'up'; } } }
     else if (G.state === 'up') { if (toLift(5.0, GANTRY_LIFT)) G.state = G.sku ? 'toDrop' : 'idle'; }
-    else if (G.state === 'toDrop') { if (toX(46.0, GANTRY_SPEED)) G.state = 'lower'; }
+    else if (G.state === 'toDrop') { if (toX(GANTRY_DROP_X, GANTRY_SPEED)) G.state = 'lower'; }
     else if (G.state === 'lower') { if (toLift(BELT_Y + PICK_H + 0.6, GANTRY_LIFT)) G.state = 'drop'; }
-    else if (G.state === 'drop') { if (beltPush('pickBelt', { kind: 'box', sku: G.sku })) { G.picked++; S.stats.gantryPicked = (S.stats.gantryPicked || 0) + 1; sfx('click'); G.sku = null; G.state = 'up'; } }
-    var m = MACH.gantry.anim; if (m) { m.trolley.position.x = G.x; m.mast.scale.y = Math.max(0.05, (5.0 - G.lift) / 4.0); m.mast.position.y = -(5.0 - G.lift) / 2; m.grip.position.y = -(5.0 - G.lift); m.box.visible = !!G.sku && G.state !== 'toBay' && G.state !== 'down'; if (m.box.visible && G.sku) { m.box.material = CARD[G.sku] || m.box.material; } m.beacon.visible = G.state !== 'idle'; m.beacon.rotation.y = worldTime * 6; }
-    lampSet(MACH.gantry, G.state === 'idle' ? 'idle' : 'run');
+    else if (G.state === 'drop') { if (propInst[BELTS[belt].prop] && beltPush(belt, { kind: 'box', sku: G.sku })) { G.picked++; S.stats.gantryPicked = (S.stats.gantryPicked || 0) + 1; sfx('click'); G.sku = null; G.state = 'up'; } }
+    var m = MACH[id].anim; if (m) { m.trolley.position.x = G.x; m.mast.scale.y = Math.max(0.05, (5.0 - G.lift) / 4.0); m.mast.position.y = -(5.0 - G.lift) / 2; m.grip.position.y = -(5.0 - G.lift); m.box.visible = !!G.sku && G.state !== 'toBay' && G.state !== 'down'; if (m.box.visible && G.sku) { m.box.material = CARD[G.sku] || m.box.material; } m.beacon.visible = G.state !== 'idle'; m.beacon.rotation.y = worldTime * 6; }
+    lampSet(MACH[id], G.state === 'idle' ? 'idle' : 'run');
   }
-  function gantryPrompt() { var G = gantryState(); return 'Gantry picker · ' + (!powered() ? 'no power' : G.state === 'idle' ? 'watching the orders' : G.sku ? 'picking ' + skuName(G.sku) : 'working') + ' · ' + (S.stats.gantryPicked || 0) + ' boxes picked'; }
+  function gantryPrompt(r) { var G = gantryState(r); return 'Gantry picker ' + 'ABCDEF'[r] + ' · ' + (!powered() ? 'no power' : G.state === 'idle' ? 'watching the orders' : G.sku ? 'picking ' + skuName(G.sku) : 'working') + ' · ' + G.picked + ' boxes picked'; }
+  // the crane props follow the rack rows: buying the gantry upgrade builds one over every row you own, buying a row adds its crane
+  function buildGantries() { if (!S.up.gantry) return; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows) buildProp('gantry' + r); buildProp('pickBelt'); if (S.up.rows > 4) buildProp('pickBelt2'); }
   // ── Player ────────────────────────────────────────────────────────
   var player = { x: SPOT.spawn.x, y: 0, z: SPOT.spawn.z, yaw: -Math.PI / 2 - 0.4, pitch: 0, vy: 0, grounded: true, keys: {}, locked: false, tool: null, stepT: 0, bob: 0 };
   var ui = { started: false, menuOpen: false, panelOpen: false, scanOpen: false, blocked: function () { return ui.menuOpen || ui.panelOpen; } };
@@ -3547,6 +3560,7 @@
     if (src.kind === 'pallet') return { prompt: function () { return palletPrompt(src); }, use: function () { palletUse(src); } };
     if (src.kind === 'shelf') return { prompt: function () { return shelfPrompt(src); }, use: function () { shelfUse(src); } };
     if (src.kind === 'floor') return { prompt: function () { return floorPrompt(src); }, use: function () { floorUse(src); } };
+    if (src.kind === 'belt') return { prompt: function () { return beltItemPrompt(src); }, use: function () { beltItemUse(src); } };
     return null;
   }
   function interact() {
@@ -3982,7 +3996,7 @@
     var rowN = /^row(\d)$/.test(id) ? +id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[id];
     if (owned || S.level < u.lvl || S.bank < u.price || (rowN && S.up.rows < rowN - 1)) { sfx('bad'); return; }
     pay(-u.price, 'Bought ' + u.name);
-    if (rowN) { S.up.rows = rowN; buildRack(rowN - 1); } else { S.up[id] = true; if (id === 'shipbelt') { buildProp('shipBelt'); buildProp('dockLoader2'); } if (id === 'agv') buildProp('agvDock'); if (id === 'gantry') { buildProp('gantry'); buildProp('pickBelt'); } }
+    if (rowN) { S.up.rows = rowN; buildRack(rowN - 1); buildGantries(); } else { S.up[id] = true; if (id === 'shipbelt') { buildProp('shipBelt'); buildProp('dockLoader2'); } if (id === 'agv') buildProp('agvDock'); if (id === 'gantry') buildGantries(); }
     if (id === 'row3' || id === 'row4') { if (edit.on) {} else { unbakeStatic(); bakeStatic(); } }
     if (id === 'lights') hallLights.forEach(function (l) { l.distance = 30; });
     toast(u.name + ' bought', 'good'); logEvent('Bought ' + u.name + ' for ' + money(u.price), 'good'); sfx('cash'); save();
@@ -4049,7 +4063,7 @@
       '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
       '<h3>Drivers</h3><p>Open the dock door and the driver walks in and waits beside it. Sign the delivery note (<kbd>E</kbd> on him) before anything comes off the truck. He will nag after two hours.</p>' +
       '<h3>The pack line and the production wing</h3><p>Boxes go on the bench as before, but packing is a machine now: pick an order on the bench terminal and the line feeds its boxes onto the infeed belt, the case taper closes them into one parcel, and the parcel rolls down the outfeed onto the shelf. It jams now and then: <kbd>E</kbd> on it clears the jam.</p><p>Through the strip curtain in the north wall is the production wing. Order pallets of raw granulate on the office PC (Production app); they come with the next inbound truck. Bring one on the jack to the hopper and <kbd>E</kbd> tips it in. Start the moulding line on its screen or with <kbd>E</kbd>, pick a product, and own-brand boxes come down the main belt into the hall, where the palletiser stacks them eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your goods once they have seen them.</p>' +
-      '<h3>Automation (shop)</h3><p>The <b>shipping belt</b> (level 3) takes parcels off the pack line shelf and runs them down the east wall to OUT 2, where the <b>dock loader</b> pushes them into any docked truck with its door up. OUT 1 stays a manual dock. The <b>AGV</b> (level 4) is a driverless pallet truck: set a pallet on its pickup square by the receiving area, or let the palletiser drop one, and it puts it away on the racks and comes back to its dock. The <b>gantry picker</b> (level 5) is a crane over row A: it watches the open orders, takes the boxes the bench still needs out of row A and sends them down the pick belt, which ends at the bench. Keep what the clients order most in row A and a whole order can go pick, pack, ship without a hand on it. All three stop in a power cut.</p>' +
+      '<h3>Automation (shop)</h3><p>The <b>shipping belt</b> (level 3) takes parcels off the pack line shelf and runs them down the east wall to OUT 2, where the <b>dock loader</b> pushes them into any docked truck with its door up. OUT 1 stays a manual dock. The <b>AGV</b> (level 4) is a driverless pallet truck: set a pallet on its pickup square by the receiving area, or let the palletiser drop one, and it puts it away on the racks and comes back to its dock. The <b>gantry pickers</b> (level 5) put a crane over every rack row you own, and a new row brings its own crane: each one watches the open orders, takes the boxes the bench still needs out of its row and sets them on the overhead pick belts, which end at the bench. A whole order can go pick, pack, ship without a hand on it. Anything riding a belt can still be lifted off by hand. All three stop in a power cut.</p>' +
       '<h3>Tools</h3><p>The pallet jack is yours from day one. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, Shift cycles three gears (creep, normal, fast; fast drinks the battery and throws unwrapped loads on corners), lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
       '<h3>Staff and the time clock</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at 06:00. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
@@ -4454,7 +4468,7 @@
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
-      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, BELTS: BELTS, MACH: MACH, inWing: inWing,
+      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

@@ -61,7 +61,7 @@
     { id: 'sign',   name: 'Roadside sign',       price: 500,             lvl: 2, desc: 'New clients find you sooner. Reputation grows a little faster.' },
     { id: 'shipbelt', name: 'Shipping belt and dock loader', price: 1800, lvl: 3, desc: 'Parcels roll off the pack line shelf onto a belt down the east wall to OUT 2, where the dock loader pushes them into any docked truck with its door up. OUT 1 stays manual.' },
     { id: 'agv',    name: 'AGV pallet mover',    price: 3200,            lvl: 4, desc: 'A driverless truck. Set a pallet on its pickup square (or let the palletiser drop one) and it puts it away on the racks by itself.' },
-    { id: 'gantry', name: 'Gantry picker over row A', price: 5000,       lvl: 5, desc: 'A crane over row A that watches the orders, picks the boxes the bench still needs out of row A and sends them down the pick belt to the bench.' }
+    { id: 'gantry', name: 'Gantry pickers over the racks', price: 5000, lvl: 5, desc: 'A crane over every rack row you own (new rows get theirs too). Each watches the orders, picks the boxes the bench still needs out of its row and sends them down the overhead pick belts to the bench.' }
   ];
   var STAFF_ROLES = {
     receiver: { name: 'Receiver', wage: ECON.wage.receiver, lvl: 3, desc: 'Walks pallets out of a docked inbound truck and puts them on the racks.' },

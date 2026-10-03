@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.6 (2026-10-03)
+
+- The gantry picker upgrade now puts a crane over every rack row you own, each with its own trolley, and buying a new row adds its crane. Rows A to D drop on the south pick belt, rows E and F on a north one; both end at the bench. Saves with three or four rows get exactly that many cranes and no north belt.
+- Boxes and parcels riding any belt can be lifted off by hand, including the overhead pick belt.
+- The east crane columns stand clear of the pick belt.
+
 ## 1.12.5 (2026-10-03)
 
 - Drivers walked on the spot beside the cab since 1.12.2: a comment had swallowed the line that moves them along the route. They walk again, and the test suite now checks that a driver actually arrives.
