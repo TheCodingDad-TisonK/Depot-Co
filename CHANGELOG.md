@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.1 (2026-10-03)
+
+- The dock consoles showed a black screen: the bezel plate from the polish sweep sat in the same plane as the screen and covered it. The bezel sits behind the screen now, on the consoles and the time clock.
+
 ## 1.12.0 (2026-10-03)
 
 - You can jump over a belt: the jump is a little higher and a belt's collision box stops at its top surface.
