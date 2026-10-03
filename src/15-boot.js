@@ -8,6 +8,7 @@
   if (S.jack.pallet && !palletById(S.jack.pallet)) S.jack.pallet = null;
   if (S.fork.pallet && !palletById(S.fork.pallet)) S.fork.pallet = null;
   updateHandMesh(); applySettings(); resize(); rebuildDyn(); drawBoard();
+  buildAgv();
   if (!/nobake=1/.test(location.search)) bakeStatic();
   camera.position.set(12, 3.6, 0); camera.lookAt(0, 1.4, 0); if (!loaded) S.time = 10.5;
   $('dc-start-stats').innerHTML = loaded ? ['Day ' + S.day, 'Level ' + S.level, money(S.bank), Math.round(S.rep) + ' rep', S.stats.shipped + ' shipped'].map(function (s) { return '<span>' + s + '</span>'; }).join('') : ['New depot', money(ECON.start), '2 rack rows', 'a pallet jack'].map(function (s) { return '<span>' + s + '</span>'; }).join('');
@@ -59,7 +60,7 @@
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
-      hopperUse: hopperUse, moulderUse: moulderUse, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, BELTS: BELTS, MACH: MACH, inWing: inWing,
+      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

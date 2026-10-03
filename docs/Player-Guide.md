@@ -34,6 +34,10 @@ Through the strip curtain in the north wall. Order pallets of raw granulate on t
 
 Every damaged box you bin and every order the pack line closes puts cardboard in the baler's chamber. At ten units, `E` on the baler (or BALE on its screen) presses a bale in eight seconds; outbound trucks take up to four bales away at $18 each. The stretch wrapper runs on a film roll good for twenty pallets; fit a new one on its screen for $30.
 
+## Automation (shop)
+
+Three upgrades, each a machine you can move in build mode. The **shipping belt and dock loader** (level 3) take parcels off the pack line shelf, down the east wall to OUT 2, and push them into a docked truck with its door up; OUT 1 stays manual. The **AGV** (level 4) is a driverless pallet truck: set a pallet on its pickup square by receiving, or let the palletiser drop one, and it racks it and returns to its dock. The **gantry picker** (level 5) runs on rails over row A, picks the boxes the bench still needs out of row A and sends them along an overhead belt to the bench. All of them stop in a power cut.
+
 ## Drivers and the delivery note
 
 When a truck docks the driver climbs down, walks along the trailer, climbs the dock steps and, once the dock door is up, comes inside and waits beside it with the paperwork. Nothing comes off an inbound truck until you press `E` on the driver and sign. Talk to them afterwards if you like. They get impatient after two hours.

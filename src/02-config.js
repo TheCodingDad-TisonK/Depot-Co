@@ -58,7 +58,10 @@
     { id: 'row6',   name: 'Sixth rack row',      price: ECON.rowPrice,   lvl: 5, desc: 'The last rack row. The hall is full after this one.' },
     { id: 'lights', name: 'LED high bays',       price: ECON.lightsPrice, lvl: 2, desc: 'Brighter hall, and the inspector likes a well-lit floor: fines are halved.' },
     { id: 'dock2',  name: 'Second inbound bay',  price: 1400,            lvl: 3, desc: 'Two inbound trucks a day can dock at once, and clients send bigger loads.' },
-    { id: 'sign',   name: 'Roadside sign',       price: 500,             lvl: 2, desc: 'New clients find you sooner. Reputation grows a little faster.' }
+    { id: 'sign',   name: 'Roadside sign',       price: 500,             lvl: 2, desc: 'New clients find you sooner. Reputation grows a little faster.' },
+    { id: 'shipbelt', name: 'Shipping belt and dock loader', price: 1800, lvl: 3, desc: 'Parcels roll off the pack line shelf onto a belt down the east wall to OUT 2, where the dock loader pushes them into any docked truck with its door up. OUT 1 stays manual.' },
+    { id: 'agv',    name: 'AGV pallet mover',    price: 3200,            lvl: 4, desc: 'A driverless truck. Set a pallet on its pickup square (or let the palletiser drop one) and it puts it away on the racks by itself.' },
+    { id: 'gantry', name: 'Gantry picker over row A', price: 5000,       lvl: 5, desc: 'A crane over row A that watches the orders, picks the boxes the bench still needs out of row A and sends them down the pick belt to the bench.' }
   ];
   var STAFF_ROLES = {
     receiver: { name: 'Receiver', wage: ECON.wage.receiver, lvl: 3, desc: 'Walks pallets out of a docked inbound truck and puts them on the racks.' },
@@ -81,5 +84,5 @@
     pc: { x: 27.5, z: 21.8 }, breaker: { x: 29.7, z: 19.6 },
     cot: { x: -27.2, z: 22.2 }, coffee: { x: -29.4, z: 19.3 },
     jack: { x: -25, z: 4 }, cart: { x: -25, z: 6.5 }, fork: { x: 0, z: 20.5 },
-    spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -3.5 }
+    spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -8.5 }
   };

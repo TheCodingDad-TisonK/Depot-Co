@@ -4,7 +4,9 @@
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
       hall: 3,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
-      up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false },
+      up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false },
+      gantry: { x: 46, lift: 5.0, state: 'idle', sku: null, key: null, t: 0, picked: 0 },
+      agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
       slots: {},                 // "row,bay,level" -> { sku, n }
       pallets: [],               // { id, sku, n, place: 'truck'|'floor'|'jack'|'fork'|'staff', truck, idx, x, z, y, rot }
       floor: [],                 // loose boxes and parcels on the floor: { kind: 'box'|'parcel', sku|order, x, y, z, rot }

@@ -24,6 +24,7 @@
     if (p.place === 'jack') { var jw = toolWorld('jack'); return { x: jw.x, y: 0.1, z: jw.z, ry: jw.ry }; }
     if (p.place === 'fork') { var fw = forkTip(); return { x: fw.x, y: fw.y, z: fw.z, ry: S.fork.yaw }; }
     if (p.place === 'staff') { var st = staffById(p.staff); if (!st) return null; return { x: st.x + Math.sin(st.yaw) * 0.95, y: 0.1, z: st.z + Math.cos(st.yaw) * 0.95, ry: st.yaw }; }
+    if (p.place === 'agv') { var A = S.agv; if (!A) return null; return { x: A.x + Math.sin(A.yaw) * 1.0, y: 0.18, z: A.z + Math.cos(A.yaw) * 1.0, ry: A.yaw }; }
     return null;
   }
   function syncInstances() {
@@ -98,6 +99,7 @@
       else if (s && s.pal && p.l === 0) { delete S.slots[key]; var ep = newPallet(s.sku, 0, { place: 'jack' }); S.jack.pallet = ep.id; sfx('jack'); }
       return;
     }
+    if (!S.hand && has && s.wrapped) s.wrapped = false;   // cutting the film to take a box
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. The bin is by the bench.', 'bad'); return; }
     if (S.hand && S.hand.kind === 'box') { if (slotSpace(key, S.hand.sku) > 0) { slotAdd(key, S.hand.sku, 1); handSet(null); sfx('putdown'); S.stats.putaway++; addXp(XP.box); introStep('putaway'); } else toast('No room: that slot holds ' + skuName(s.sku) + '.', 'bad'); return; }
     if (S.hand) return;
@@ -108,8 +110,8 @@
   function palletById(id) { for (var i = 0; i < S.pallets.length; i++) if (S.pallets[i].id === id) return S.pallets[i]; return null; }
   function newPallet(sku, n, props) { var p = { id: uid('pl'), sku: sku, n: n, place: 'floor', x: 0, y: 0, z: 0, rot: 0 }; for (var k in props) p[k] = props[k]; S.pallets.push(p); return p; }
   function removePallet(id) { for (var i = 0; i < S.pallets.length; i++) if (S.pallets[i].id === id) { S.pallets.splice(i, 1); return; } }
-  function storePallet(p, key) { if (!slotOwned(key) || slotSpace(key, p.sku) < p.n) return false; slotAdd(key, p.sku, p.n); S.slots[key].pal = true; S.stats.putaway += p.n; removePallet(p.id); return true; }
-  function pullPallet(key) { var s = S.slots[key]; if (!s || !s.n) return null; var sku = s.sku, n = Math.min(s.n, ECON.palletCap); slotTake(key, n); return newPallet(sku, n, { place: 'floor' }); }
+  function storePallet(p, key) { if (!slotOwned(key) || slotSpace(key, p.sku) < p.n) return false; slotAdd(key, p.sku, p.n); S.slots[key].pal = true; S.slots[key].wrapped = !!p.wrapped; S.stats.putaway += p.n; removePallet(p.id); return true; }
+  function pullPallet(key) { var s = S.slots[key]; if (!s || !s.n) return null; var sku = s.sku, n = Math.min(s.n, ECON.palletCap), wrapped = !!s.wrapped; slotTake(key, n); return newPallet(sku, n, { place: 'floor', wrapped: wrapped }); }
   function jackPallet() { return S.jack.pallet ? palletById(S.jack.pallet) : null; }
   function forkPallet() { return S.fork.pallet ? palletById(S.fork.pallet) : null; }
   function palletPrompt(src) {
@@ -125,7 +127,7 @@
     var p = palletById(src.id); if (!p || src.carried) return;
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return; if (!t.signed) { toast('Sign the delivery note with the driver first. He is by the dock outside.', 'bad'); return; } }
     if (player.tool === 'jack') { if (!jackPallet()) { if (p.place === 'truck') { onPalletLeftTruck(p); } p.place = 'jack'; S.jack.pallet = p.id; sfx('jack'); introStep('unload'); } return; }
-    var take = function () { if (p.place === 'truck') onPalletLeftTruck(p); p.n--; S.stats.picked++; addXp(XP.box); if (p.n <= 0) { p.n = 0; if (p.place === 'truck') toast('That pallet is empty: take it out with the jack, or the truck takes it back', ''); } introStep('unload'); };
+    var take = function () { if (p.place === 'truck') onPalletLeftTruck(p); p.n--; p.wrapped = false; S.stats.picked++; addXp(XP.box); if (p.n <= 0) { p.n = 0; if (p.place === 'truck') toast('That pallet is empty: take it out with the jack, or the truck takes it back', ''); } introStep('unload'); };
     if (player.tool === 'cart') { if (S.cart.boxes.length < ECON.cartCap) { S.cart.boxes.push(p.sku); take(); sfx('pickup'); } return; }
     if (S.hand && S.hand.kind === 'box' && S.hand.sku === p.sku && p.n < 12) { p.n++; handSet(null); sfx('putdown'); return; }
     if (S.hand) return;

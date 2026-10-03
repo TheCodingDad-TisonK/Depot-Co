@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.12.0 (2026-10-03)
+
+- You can jump over a belt: the jump is a little higher and a belt's collision box stops at its top surface.
+- The OUT 2 dock console sits on the far side of its door, clear of the loader.
+- A third automation upgrade: the gantry picker over row A (level 5, $5,000), a crane on two rails that watches the open orders, picks the boxes the bench still needs out of row A and sends them down the pick belt to the bench. With the pack line, the shipping belt and the dock loader, an order can go pick, pack, ship without a hand on it.
+- The shipping belt runs straight down the east wall to a single dock loader at OUT 2, a full machine with a roller boom, light curtain and cabinet. OUT 1 stays a manual dock, so the morning truck is loaded by hand and the afternoon one by machine.
+- Two automation upgrades in the shop. The shipping belt and dock loader (level 3, $1,800): parcels roll off the pack line shelf onto a belt down the east wall to OUT 1, where a dock loader with a telescopic boom pushes them into any docked truck with its door up. The AGV pallet mover (level 4, $3,200): a driverless truck that collects any pallet set on its pickup square by receiving, or dropped by the palletiser, puts it away on the racks and returns to its dock. Both stop in a power cut.
+- The forklift lifts an empty pallet out of a rack slot. Wrap film follows a wrapped pallet onto the rack and back off it; taking a box by hand cuts the film.
+- Polish: the break room chairs and table, the cot, the vending machine, the office desk, chair and filing cabinets, the time clock, the dock consoles and the breaker panel are rebuilt with bevelled bodies, proper frames and the small parts that make them read as the real thing.
+
 ## 1.11.1 (2026-10-03)
 
 - Empty pallets exist everywhere now, not only at the hopper: the last box off a pallet leaves the empty pallet where it was (in the trailer or on the floor), a rack slot emptied of a pallet's boxes keeps the empty pallet, the jack lifts them, and the empties stack takes them (E with one on the jack). The receiver ignores them and a truck takes its own empties back without a penalty.

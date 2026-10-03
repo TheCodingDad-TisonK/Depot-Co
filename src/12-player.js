@@ -51,7 +51,7 @@
       if (player.stepT > 2.1) { player.stepT = 0; sfx('step', floorY(player.x, player.z) < -0.5 ? 'outside' : insideHall(player.x, player.z) ? 'floor' : 'steel'); }
     } else player.bob *= Math.max(0, 1 - 8 * dt);
     var fy = floorY(player.x, player.z);
-    if (k.Space && player.grounded && !player.jumped) { player.vy = 5.2; player.grounded = false; player.jumped = true; }
+    if (k.Space && player.grounded && !player.jumped) { player.vy = 6.0; player.grounded = false; player.jumped = true; }
     if (!k.Space) player.jumped = false;
     player.vy -= 16 * dt; player.y += player.vy * dt;
     if (player.y <= fy) { if (!player.grounded && player.vy < -6) sfx('putdown'); player.y = fy; player.vy = 0; player.grounded = true; } else player.grounded = false;

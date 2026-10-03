@@ -66,14 +66,75 @@
   function conveyorBuild(c, x, z0, z1, opt) {
     opt = opt || {}; var len = z1 - z0, zc = (z0 + z1) / 2, y = BELT_Y;
     c.box(0.05, 0.1, len, MAT_MACH.frame, x - 0.34, y - 0.04, zc); c.box(0.05, 0.1, len, MAT_MACH.frame, x + 0.34, y - 0.04, zc);
-    for (var lz = z0 + 0.3; lz < z1; lz += 1.2) { [-0.3, 0.3].forEach(function (lx) { c.box(0.05, y - 0.12, 0.05, MAT_MACH.frame, x + lx, (y - 0.12) / 2, lz); c.box(0.12, 0.02, 0.12, MAT_MACH.frame, x + lx, 0.01, lz); }); c.box(0.65, 0.04, 0.04, MAT_MACH.frame, x, y - 0.11, lz); }
+    if (!opt.noLegs) for (var lz = z0 + 0.3; lz < z1; lz += 1.2) { [-0.3, 0.3].forEach(function (lx) { c.box(0.05, y - 0.12, 0.05, MAT_MACH.frame, x + lx, (y - 0.12) / 2, lz); c.box(0.12, 0.02, 0.12, MAT_MACH.frame, x + lx, 0.01, lz); }); c.box(0.65, 0.04, 0.04, MAT_MACH.frame, x, y - 0.11, lz); }
     for (var rz = z0 + 0.12; rz < z1; rz += 0.24) { var r = c.cyl(0.035, 0.62, MAT_MACH.roller, x, y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; }
     var bt = beltTexBase.clone(); bt.needsUpdate = true; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; bt.repeat.set(1, len / 0.5); var bm = std({ map: bt, roughness: 0.9 }); bm.userData.noBake = true;
     var top = c.plane(0.6, len, bm, x, y + 0.02, zc, -Math.PI / 2, 0); BELT_PLANES.push(top);
     c.box(0.03, 0.03, len, MAT_MACH.guard, x - 0.31, y + 0.12, zc); c.box(0.03, 0.03, len, MAT_MACH.guard, x + 0.31, y + 0.12, zc); for (var gz = z0 + 0.4; gz < z1; gz += 1.2) { c.box(0.03, 0.12, 0.03, MAT_MACH.guard, x - 0.31, y + 0.05, gz); c.box(0.03, 0.12, 0.03, MAT_MACH.guard, x + 0.31, y + 0.05, gz); }
     var mt = c.cyl(0.09, 0.22, MAT_MACH.blue, x + 0.48, y - 0.1, z1 - 0.25, 12); mt.rotation.z = Math.PI / 2; c.box(0.1, 0.12, 0.14, MAT.black, x + 0.6, y - 0.1, z1 - 0.25);
     if (!opt.noEye) { c.box(0.03, 0.4, 0.03, MAT_MACH.frame, x - 0.4, y + 0.2, z1 - 0.1); c.box(0.04, 0.05, 0.03, MAT.black, x - 0.4, y + 0.3, z1 - 0.1); c.box(0.02, 0.02, 0.005, glowMat(0xff3b2f, 1.2), x - 0.38, y + 0.3, z1 - 0.1); }
-    c.solid(x - 0.4, x + 0.4, z0, z1, 0, 0.95);
+    c.solid(x - 0.4, x + 0.4, z0, z1, 0, 0.82);
+  }
+  // a conveyor along a path of local points: each straight run is a conveyorBuild in a sub-group turned to face along it; solids are added per run
+  function conveyorPath(c, pts) {
+    for (var i = 1; i < pts.length; i++) {
+      var ax = pts[i - 1][0], az = pts[i - 1][1], ay = pts[i - 1][2] || 0, bx = pts[i][0], bz = pts[i][1], by = pts[i][2] || 0, run = Math.hypot(bx - ax, bz - az), ang = Math.atan2(bx - ax, bz - az), slope = Math.atan2(by - ay, run), len = Math.hypot(run, by - ay);
+      var sg = new THREE.Group(); sg.position.set(ax, ay, az); sg.rotation.order = 'YXZ'; sg.rotation.y = ang; sg.rotation.x = -slope; c.group.add(sg);
+      var sc = propCtx(sg, 'seg'); conveyorBuild(sc, 0, 0, len, { noEye: i < pts.length - 1, noLegs: true });
+      // legs in the prop frame, the right height wherever the belt is, braced when tall
+      var ux = (bx - ax) / run, uz = (bz - az) / run, px = uz, pz = -ux;
+      for (var d = 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
+      var lowY = BELT_Y + Math.min(ay, by) - 0.15, high = Math.min(ay, by) > 1.2;
+      c.solid(Math.min(ax, bx) - 0.4, Math.max(ax, bx) + 0.4, Math.min(az, bz) - 0.4, Math.max(az, bz) + 0.4, high ? lowY : 0, high ? lowY + 1.2 : 0.82);
+    }
+  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [1.9, 0.5], [1.9, -18.6]]); c.sign(['TO OUT 2'], 0.6, 0.14, 1.9, 1.05, 4, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  function dockLoaderBuild(c) {
+    var id = 'dockLoader2', label = 'OUT 2';
+    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame;
+    var rbx = function (w, h, d, r, mat, x, y, z) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; c.group.add(mm); return mm; };
+    rbx(1.8, 0.3, 1.8, 0.03, DG, -0.2, 0.15, 0.6); rbx(1.5, 0.9, 1.5, 0.05, LG, -0.3, 0.75, 0.6); c.box(1.52, 0.04, 1.52, MAT.hazard, -0.3, 0.32, 0.6); rbx(0.9, 0.5, 0.8, 0.04, MAT_MACH.blue, -0.5, 1.45, 0.6);
+    for (var rz = 0.1; rz < 1.4; rz += 0.2) { var r = c.cyl(0.035, 0.7, MAT_MACH.roller, -0.1, BELT_Y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; } c.box(0.05, 0.1, 1.4, DG, -0.47, BELT_Y - 0.04, 0.75); c.box(0.05, 0.1, 1.4, DG, 0.27, BELT_Y - 0.04, 0.75);
+    var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
+    var boom = new THREE.Group(); boom.position.set(0.9, BELT_Y, 0.4); dyn.add(boom); box(1.6, 0.14, 0.7, DG, 0, 0, 0, boom); box(1.6, 0.03, 0.6, std({ color: 0x2c3035, roughness: 0.9 }), 0, 0.085, 0, boom); box(1.6, 0.05, 0.03, MAT_MACH.guard, 0, 0.13, 0.33, boom); box(1.6, 0.05, 0.03, MAT_MACH.guard, 0, 0.13, -0.33, boom); for (var bk = -0.6; bk <= 0.6; bk += 0.3) cyl(0.03, 0.62, MAT_MACH.roller, bk, 0.07, 0, boom, 8).rotation.x = Math.PI / 2; cyl(0.06, 0.4, MAT.rubber, 0.8, 0, 0, boom, 10).rotation.x = Math.PI / 2; box(0.1, 0.12, 0.72, MAT.yellow, 0.82, 0.02, 0, boom);
+    var pusher = box(0.08, 0.34, 0.56, MAT_MACH.blue, 0.2, 0.28, 0, boom); box(0.4, 0.05, 0.05, MAT.chrome, 0.0, 0.28, 0, boom);
+    c.box(0.5, 1.2, 0.5, DG, 0.3, 1.0, 0.4); c.box(0.6, 0.08, 0.6, DG, 0.3, 1.64, 0.4);
+    var cab = rbx(0.6, 1.4, 0.45, 0.03, LG, -1.4, 0.8, 0.6); c.box(0.62, 0.2, 0.47, DG, -1.4, 0.1, 0.6); var scr = touchScreen({ w: 300, h: 200, pw: 0.42, ph: 0.28, x: -1.4, y: 1.1, z: 0.84, ry: 0, parent: c.group, title: 'Dock loader ' + label, draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(cc, sc.w, 'DOCK LOADER ' + label, dockLoaderStatus().toUpperCase()); scText(cc, 16, 70, dockLoaderPrompt().split(' · ').slice(1, 2).join(''), '#eef1f5', 13); scText(cc, 16, 100, 'On the way: ' + beltItems('shipBelt').length + ' parcels', '#a0acb8', 12); } }); scr.mesh.userData.propId = id;
+    eStop(c, -1.4, 0.55, 0.84); MACH[id].lamps = lampStack(c, -1.4, 1.5, 0.6);
+    [-0.3, 1.5].forEach(function (lz) { c.box(0.06, 1.6, 0.06, MAT.yellow, 0.9, 0.8, lz); c.box(0.02, 1.4, 0.02, glowMat(0xff3b2f, 0.6), 0.94, 0.8, lz); });
+    c.sign(['DOCK LOADER', 'KEEP CLEAR OF THE BOOM'], 1.2, 0.24, -0.3, 1.3, -0.17, Math.PI, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' }); c.sign([label + ' · AUTO'], 0.6, 0.14, -0.3, 1.78, 0.6, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
+    MACH[id].anim = { boom: boom, pusher: pusher, pushT: 0, ext: 0 };
+    c.hit(2.0, 1.8, 2.0, -0.3, 0.9, 0.6, { prompt: function () { return dockLoaderPrompt(); }, use: function () { sfx('click'); } });
+    c.solid(-1.75, 0.6, -0.3, 1.5, 0, 1.8);
+  }
+  // the gantry picker: columns and two rails over row A, a trolley with a telescoping mast and a gripper, and the pick belt it feeds
+  function gantryBuild(c) {
+    var DG = MAT_MACH.frame, YL = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.3 }), LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 });
+    // end columns stand clear of the racking at the row ends; the mid columns stand tight against the rack faces, out of the aisles
+    [-0.4, 46.4].forEach(function (cx) { [-1.6, 1.6].forEach(function (cz) { c.box(0.26, 5.4, 0.26, YL, cx, 2.7, cz); c.box(0.5, 0.03, 0.5, DG, cx, 0.015, cz); c.box(0.3, 0.3, 0.3, DG, cx, 5.5, cz); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); });
+    for (var cx = 7.67; cx < 46; cx += 7.67) { [-0.78, 0.78].forEach(function (cz) { c.box(0.2, 5.4, 0.2, YL, cx, 2.7, cz); c.box(0.4, 0.03, 0.4, DG, cx, 0.015, cz); var ob = c.box(0.2, 0.2, 0.9, DG, cx, 5.45, cz * 1.5); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); }
+    [-1.6, 1.6].forEach(function (rz) { c.box(47.4, 0.18, 0.2, DG, 23, 5.4, rz); c.box(47.4, 0.04, 0.06, MAT.chrome, 23, 5.5, rz); });
+    var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
+    var trolley = new THREE.Group(); trolley.position.set(46, 5.0, 0); dyn.add(trolley);
+    box(1.0, 0.3, 3.6, YL, 0, 0.55, 0, trolley); box(1.1, 0.12, 0.5, DG, 0, 0.6, -1.6, trolley); box(1.1, 0.12, 0.5, DG, 0, 0.6, 1.6, trolley); [-0.4, 0.4].forEach(function (wx) { [-1.6, 1.6].forEach(function (wz) { cyl(0.1, 0.08, MAT.black, wx, 0.6, wz, trolley, 12).rotation.z = Math.PI / 2; }); });
+    box(0.7, 0.5, 0.7, LG, 0, 0.95, 0, trolley); box(0.3, 0.3, 0.3, MAT_MACH.blue, 0.5, 0.95, 0, trolley); var beacon = cyl(0.05, 0.12, glowMat(0xffd060, 2.5), 0, 1.3, 0, trolley, 10); box(0.02, 0.1, 0.06, MAT.black, 0.03, 1.3, 0, beacon);
+    var mast = box(0.28, 4.0, 0.28, LG, 0, -2.0, 0, trolley); mast.scale.y = 0.05; mast.position.y = 0;   // scaled from the trolley down to the gripper
+    var grip = new THREE.Group(); grip.position.set(0, 0, 0); trolley.add(grip); box(0.5, 0.15, 0.5, DG, 0, 0.3, 0, grip); box(0.7, 0.06, 0.7, MAT.black, 0, 0.2, 0, grip); [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(function (s) { cyl(0.07, 0.06, MAT_MACH.rubber, s[0], 0.15, s[1], grip, 10); });
+    var bx = new THREE.Mesh(BOX_GEO, CARD[SKUS[0].id]); bx.position.set(0, -0.05, 0); bx.visible = false; grip.add(bx);
+    c.sign(['GANTRY PICKER · ROW A', 'AUTOMATIC · KEEP CLEAR'], 2.0, 0.4, 44.5, 5.9, 1.75, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#f5b53d' });
+    c.box(0.5, 1.0, 0.3, LG, 46.4, 1.4, -2.0); c.box(0.08, 0.3, 0.3, DG, 46.4, 1.1, -1.75); eStop(c, 46.4, 1.2, -1.84); MACH.gantry.lamps = lampStack(c, 46.4, 2.0, -2.0);
+    MACH.gantry.anim = { trolley: trolley, mast: mast, grip: grip, box: bx, beacon: beacon };
+    c.hit(0.8, 1.6, 0.6, 46.4, 1.2, -2.0, { prompt: function () { return gantryPrompt(); }, use: function () { sfx('click'); } });
+    [-0.4, 46.4].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -1.75, -1.45, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 1.45, 1.75, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
+  }
+  function pickBeltBuild(c) { conveyorPath(c, [[0, 0, 2.4], [0, 15.0, 2.4], [0, 19.5, 0], [2.2, 19.5, 0]]); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  function agvDockBuild(c) {
+    var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.15, 0.7, -0.84); c.plane(0.26, 0.1, MAT.screen, 0.05, 0.7, -0.84, 0, 0);
+    c.sign(['AGV DOCK'], 0.5, 0.12, 0, 0.82, -0.84, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#f5b53d' });
+    [[-1.0, 1.6], [1.0, 1.6], [-1.0, 3.6], [1.0, 3.6]].forEach(function (p) { c.cyl(0.04, 0.5, MAT.yellow, p[0], 0.25, p[1], 8); });
+    [[0, 1.6, 2.0, 0.08], [0, 3.6, 2.0, 0.08]].forEach(function (l) { c.plane(l[2], l[3], MAT.yellowLine, l[0], 0.0065, l[1], -Math.PI / 2); }); c.plane(0.08, 2.0, MAT.yellowLine, -1.0, 0.0065, 2.6, -Math.PI / 2); c.plane(0.08, 2.0, MAT.yellowLine, 1.0, 0.0065, 2.6, -Math.PI / 2);
+    var fs2 = c.sign(['AGV PICKUP', 'set a pallet here'], 1.6, 0.5, 0, 0.0068, 2.6, 0, { w: 512, h: 160, bg: 'rgba(0,0,0,0)', fg: '#f5b53d' }); fs2.rotation.x = -Math.PI / 2;
+    c.hit(0.8, 1.0, 0.5, 0, 0.5, -1.0, { prompt: function () { return agvPrompt(); }, use: function () { sfx('click'); } });
+    c.solid(-0.3, 0.3, -1.2, -0.85, 0, 1.0);
   }
   function eStop(c, x, y, z) { c.box(0.12, 0.12, 0.03, MAT.yellow, x, y, z); c.cyl(0.035, 0.04, MAT.red, x, y, z + 0.03, 12).rotation.x = Math.PI / 2; }
   function cabinet(c, x, y, z, w, h, d) { c.box(w, h, d, MAT_MACH.panel, x, y, z); c.box(w + 0.02, 0.05, d + 0.02, MAT_MACH.frame, x, y + h / 2, z); c.box(w - 0.1, h - 0.12, 0.01, std({ color: 0xcfd4d9, roughness: 0.5 }), x, y, z + d / 2 + 0.004); c.box(0.025, 0.08, 0.02, MAT.chrome, x + w / 2 - 0.08, y, z + d / 2 + 0.015); }
@@ -292,6 +353,11 @@
   defProp('beltMain', { label: 'main belt', cat: 'factory', abs: true, x: -4, z: -32.5, rot: 0, build: beltMainBuild });
   defProp('palletiser', { label: 'palletiser', cat: 'hall', abs: true, x: -4, z: -19.5, rot: 0, build: palletiserBuild });
   defProp('hopper', { label: 'raw hopper', cat: 'factory', abs: true, x: -9.5, z: -37, rot: 0, build: hopperBuild });
+  defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, x: 26.6, z: 14.3, rot: 0, build: shipBeltBuild, when: function () { return !!S.up.shipbelt; } });
+  defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt; } });
+  defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -24, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
+  defProp('gantry', { label: 'gantry picker', cat: 'hall', abs: true, x: -22.5, z: -15, rot: 0, build: gantryBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickBelt', { label: 'pick belt', cat: 'hall', abs: true, x: 23.4, z: -15, rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
   defProp('silo', { label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
   defProp('extWing', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
   defProp('qcBench', { label: 'quality bench', cat: 'factory', abs: true, x: 6.5, z: -29, rot: 2, build: qcBenchBuild });

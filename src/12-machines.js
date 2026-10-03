@@ -11,8 +11,8 @@
   function propWorld(prop, lx, lz) { var P = propPlacement(prop), a = P.rot * Math.PI / 2; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a), a: a }; }
   function beltLen(b) { var p = b.path, n = 0; for (var i = 1; i < p.length; i++) n += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return n; }
   function beltPoint(b, d) {   // the world point d metres along the belt
-    var p = b.path, rem = d; for (var i = 1; i < p.length; i++) { var seg = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); if (rem <= seg || i === p.length - 1) { var t = seg > 0 ? clamp(rem / seg, 0, 1) : 0; var w = propWorld(b.prop, lerp(p[i - 1][0], p[i][0], t), lerp(p[i - 1][1], p[i][1], t)); w.ry = w.a + Math.atan2(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return w; } rem -= seg; }
-    return propWorld(b.prop, p[0][0], p[0][1]);
+    var p = b.path, rem = d; for (var i = 1; i < p.length; i++) { var seg = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); if (rem <= seg || i === p.length - 1) { var t = seg > 0 ? clamp(rem / seg, 0, 1) : 0; var w = propWorld(b.prop, lerp(p[i - 1][0], p[i][0], t), lerp(p[i - 1][1], p[i][1], t)); w.ry = w.a + Math.atan2(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); w.y = BELT_Y + lerp(p[i - 1][2] || 0, p[i][2] || 0, t); return w; } rem -= seg; }
+    var w0 = propWorld(b.prop, p[0][0], p[0][1]); w0.y = BELT_Y + (p[0][2] || 0); return w0;
   }
   function beltItems(id) { if (!S.belts) S.belts = {}; if (!S.belts[id]) S.belts[id] = []; return S.belts[id]; }
   function beltStartFree(id) { var it = beltItems(id); return !it.length || it[it.length - 1].d > BELT_GAP; }
@@ -20,8 +20,9 @@
   // what sits at a belt's far end: another belt whose start is within reach, or a machine whose inlet is
   function beltSink(b) {
     var end = beltPoint(b, beltLen(b));
+    // a machine inlet at the end wins over another belt's start, so a sorter or a loader placed at a belt end takes the item
+    for (var mk in MACH) { var mc = MACH[mk]; if (!mc.inlet || !PROPS[mc.prop] || !propInst[mc.prop]) continue; var w = propWorld(mc.prop, mc.inlet[0], mc.inlet[1]); if (dist2(end.x, end.z, w.x, w.z) < REACH * REACH) return { machine: mc }; }
     for (var k in BELTS) { if (k === b.id) continue; var s = beltPoint(BELTS[k], 0); if (dist2(end.x, end.z, s.x, s.z) < REACH * REACH) return { belt: BELTS[k] }; }
-    for (var m in MACH) { var mc = MACH[m]; if (!mc.inlet || !PROPS[mc.prop] || !propInst[mc.prop]) continue; var w = propWorld(mc.prop, mc.inlet[0], mc.inlet[1]); if (dist2(end.x, end.z, w.x, w.z) < REACH * REACH) return { machine: mc }; }
     return null;
   }
   function machineOutBelt(m) { if (!m.outlet) return null; var w = propWorld(m.prop, m.outlet[0], m.outlet[1]); for (var k in BELTS) { var s = beltPoint(BELTS[k], 0); if (dist2(w.x, w.z, s.x, s.z) < REACH * REACH) return BELTS[k]; } return null; }
@@ -42,11 +43,11 @@
         ahead = it.d;
       }
     }
-    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y -= BELT_SPEED * dt / 0.5; });
+    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y += BELT_SPEED * dt / 0.5; });   // stripes run with the items, towards local +z
   }
   // belt items are drawn with the instanced boxes and parcels, inside syncInstances
   function drawBeltItems() {
-    for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; beltItems(k).forEach(function (it) { var w = beltPoint(b, it.d); if (it.kind === 'parcel') putParcel(w.x, BELT_Y + 0.23, w.z, w.ry, { kind: 'belt' }); else putBox(it.sku, w.x, BELT_Y + BOX.h / 2, w.z, w.ry, { kind: 'belt' }); }); }
+    for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; beltItems(k).forEach(function (it) { var w = beltPoint(b, it.d); if (it.kind === 'parcel') putParcel(w.x, w.y + 0.23, w.z, w.ry, { kind: 'belt' }); else putBox(it.sku, w.x, w.y + BOX.h / 2, w.z, w.ry, { kind: 'belt' }); }); }
     if (S.pal && S.pal.n > 0 && propInst.palletiser) { var cw = propWorld('palletiser', 0, 0); drawPalletWithBoxes(S.pal.sku, S.pal.n, cw.x, 0.42, cw.z, cw.a, { kind: 'palletiser' }); }
   }
   function lampSet(m, status) { if (!m.lamps) return; m.lamps.g.visible = status === 'run'; m.lamps.a.visible = status === 'idle'; m.lamps.r.visible = status === 'jam' || status === 'off'; }
@@ -185,7 +186,7 @@
 
   function tickMachines(dt) {
     if (!S.wrap) S.wrap = { film: FILM_ROLL, wrapped: 0 };
-    tickBaler(dt); lampSet(MACH.wrapper, wrapperStatus());
+    tickBaler(dt); lampSet(MACH.wrapper, wrapperStatus()); tickAutomation(dt);
     if (!S.pack) S.pack = { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null };
     if (!S.factory) S.factory = { raw: 0, product: 'dccrate', on: false, made: 0, rawOrdered: 0, t: 0, jam: false };
     if (!S.pal) S.pal = { sku: null, n: 0 };

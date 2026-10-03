@@ -175,6 +175,7 @@
     if (best) { if (best.place === 'truck') onPalletLeftTruck(best); best.place = 'fork'; F.pallet = best.id; sfx('hydraulic'); introStep('unload'); return; }
     var key2 = slotNear(tip.x, tip.z, F.lift);
     if (key2 && S.slots[key2] && S.slots[key2].n) { var np = pullPallet(key2); if (np) { np.place = 'fork'; F.pallet = np.id; sfx('hydraulic'); } return; }
+    if (key2 && S.slots[key2] && S.slots[key2].pal) { var s2 = S.slots[key2]; delete S.slots[key2]; var ep = newPallet(s2.sku, 0, { place: 'fork' }); F.pallet = ep.id; sfx('hydraulic'); return; }
     toast('Nothing on the forks. Line them up with a pallet at this height.', 'bad');
   }
   function slotNear(x, z, lift) {
