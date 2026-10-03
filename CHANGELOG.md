@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.16 (2026-10-03)
+
+- The picking cart unloads onto pallets. E with the cart at a pallet puts every box of the pallet's line from the cart onto it, up to twelve; at an empty pallet it unloads the line it carries most of. With nothing matching aboard the cart picks from the pallet as before.
+
 ## 1.12.15 (2026-10-03)
 
 - Empty pallets come off the stack: with an empty jack, E on the empty pallet stack takes one. Set it down and loose boxes of one line go on it by hand; the pallet then stores on a rack like any other, and a racked empty pallet takes boxes by hand and adopts their line.

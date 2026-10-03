@@ -114,11 +114,13 @@
   function pullPallet(key) { var s = S.slots[key]; if (!s || !s.n) return null; var sku = s.sku, n = Math.min(s.n, ECON.palletCap), wrapped = !!s.wrapped; slotTake(key, n); return newPallet(sku, n, { place: 'floor', wrapped: wrapped }); }
   function jackPallet(tool) { var t = tool || jackTool(), js = S[t]; return js && js.pallet ? palletById(js.pallet) : null; }
   function forkPallet() { return S.fork.pallet ? palletById(S.fork.pallet) : null; }
+  // what the cart could put on this pallet: boxes of the pallet's line, or of the line the cart holds most of when the pallet is empty
+  function cartUnloadable(p) { var cb = S.cart.boxes; if (!cb.length || p.n >= 12) return { n: 0 }; var sku = p.sku; if (p.n === 0) { var cnt = {}; cb.forEach(function (s) { cnt[s] = (cnt[s] || 0) + 1; }); sku = null; for (var k in cnt) if (!sku || cnt[k] > cnt[sku]) sku = k; } var n = cb.filter(function (s) { return s === sku; }).length; return { n: Math.min(n, 12 - p.n), sku: sku }; }
   function palletPrompt(src) {
     var p = palletById(src.id); if (!p || src.carried) return null;
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return null; if (!t.signed) return 'Sign the delivery note with ' + t.driver + ' first'; }
     if (isJack(player.tool)) return jackPallet() ? null : (p.n > 0 ? 'Lift the pallet with the jack (' + p.n + ' × ' + skuName(p.sku) + ')' : 'Lift the empty pallet with the jack');
-    if (player.tool === 'cart') return S.cart.boxes.length < ECON.cartCap ? 'Take a box of ' + skuName(p.sku) + ' onto the cart (' + p.n + ' left)' : 'Cart is full';
+    if (player.tool === 'cart') { var cu = cartUnloadable(p); if (cu.n) return 'Unload ' + cu.n + ' × ' + skuName(cu.sku) + ' from the cart onto the pallet'; if (p.n === 0) return 'Empty pallet · boxes on the cart go onto it'; return S.cart.boxes.length < ECON.cartCap ? 'Take a box of ' + skuName(p.sku) + ' onto the cart (' + p.n + ' left)' : 'Cart is full'; }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return p.n === 0 ? 'A damaged box does not go on a pallet: bin it' : null;
     if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12) return p.n === 0 ? 'Put the box on the empty pallet' : 'Put the box back on the pallet';
     if (S.hand) return null;
@@ -130,7 +132,7 @@
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return; if (!t.signed) { toast('Sign the delivery note with the driver first. He is by the dock outside.', 'bad'); return; } }
     if (isJack(player.tool)) { if (!jackPallet()) { if (p.place === 'truck') { onPalletLeftTruck(p); } var jt = jackTool(); p.place = 'jack'; p.jack = jt; S[jt].pallet = p.id; sfx('jack'); introStep('unload'); } return; }
     var take = function () { if (p.place === 'truck') onPalletLeftTruck(p); p.n--; p.wrapped = false; S.stats.picked++; addXp(XP.box); if (p.n <= 0) { p.n = 0; if (p.place === 'truck') toast('That pallet is empty: take it out with the jack, or the truck takes it back', ''); } introStep('unload'); };
-    if (player.tool === 'cart') { if (S.cart.boxes.length < ECON.cartCap) { S.cart.boxes.push(p.sku); take(); sfx('pickup'); } return; }
+    if (player.tool === 'cart') { var cu2 = cartUnloadable(p); if (cu2.n) { for (var ci = S.cart.boxes.length - 1; ci >= 0 && p.n < 12; ci--) if (S.cart.boxes[ci] === cu2.sku) { S.cart.boxes.splice(ci, 1); p.sku = cu2.sku; p.n++; } sfx('putdown'); hudDirty = true; return; } if (p.n === 0) { sfx('click'); return; } if (S.cart.boxes.length < ECON.cartCap) { S.cart.boxes.push(p.sku); take(); sfx('pickup'); } return; }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. The bin is by the bench.', 'bad'); return; }
     if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12) { if (p.n === 0) p.sku = S.hand.sku; p.n++; handSet(null); sfx('putdown'); return; }
     if (S.hand) return;
