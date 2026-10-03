@@ -2402,7 +2402,8 @@
         // walk the route by distance; segment 4 (the landing) to 5 (the door) only once the dock door is open
         var R = m.route, doorOpen = doorPassable((t.dir === 'in' ? 0 : 2) + t.dock), segLen = function (k) { var a = R[k], b = R[k + 1]; return Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2])); };
         var total = 0, landing = 0; for (var sk = 0; sk < R.length - 1; sk++) { if (sk === 4) landing = total; total += segLen(sk); }
-        var cap = doorOpen && t.dir === 'in' ? total : landing;   // an outbound driver has nothing to sign: he waits on the landing, clear of the dock loader if (docked && m.drvD < cap) m.drvD = Math.min(cap, m.drvD + dt * 1.8);
+        var cap = doorOpen && t.dir === 'in' ? total : landing;   // an outbound driver has nothing to sign: he waits on the landing, clear of the dock loader
+        if (docked && m.drvD < cap) m.drvD = Math.min(cap, m.drvD + dt * 1.8);
         var rem = m.drvD, si = 0; while (si < R.length - 2 && rem > segLen(si)) { rem -= segLen(si); si++; } var A = R[si], B = R[si + 1], sl = segLen(si), fr = sl > 0 ? Math.min(1, rem / sl) : 1;
         m.driver.position.set(lerp(A[0], B[0], fr), lerp(A[1], B[1], fr), lerp(A[2], B[2], fr)); m.driver.userData.baseY = lerp(A[1], B[1], fr);
         var moving = docked && m.drvD < cap; if (moving) m.driver.rotation.y = Math.atan2(B[0] - A[0], B[2] - A[2]); else m.driver.rotation.y = t.side < 0 ? Math.PI / 2 : -Math.PI / 2;

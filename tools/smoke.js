@@ -25,7 +25,7 @@ const SCENARIO = `(async () => {
   ok(!!tin, 'inbound truck docked at IN 1');
   ok(tin && tin.pallets.length >= 2, 'truck carries pallets: ' + (tin && tin.pallets.length));
   S.flags.noEvents = 1;   // no random power cuts: the long automation runs need the mains
-  T.setDoor(0, true); T.run(0.5); ok(!T.doorPassable(0), 'door panel still rising after half a second'); ok(T.floorY(-30.2, -14) === 0, 'the dock leveller bridges the slot between the floor edge and the bed'); ok(T.doorPanelScale(0) < 0.99, 'and the panel mesh has started to rise'); T.run(2.5); ok(T.doorPassable(0), 'door panel up after three seconds');
+  T.setDoor(0, true); T.run(0.5); ok(!T.doorPassable(0), 'door panel still rising after half a second'); T.run(3); const tdr = T.truckAtDoor(0); if (tdr) { T.run(30); const mdr = T.truckMeshes[tdr.id]; ok(mdr.drvD > 20, 'the driver walked in from the cab: ' + mdr.drvD.toFixed(1) + ' m'); } ok(T.floorY(-30.2, -14) === 0, 'the dock leveller bridges the slot between the floor edge and the bed'); ok(T.doorPanelScale(0) < 0.99, 'and the panel mesh has started to rise'); T.run(2.5); ok(T.doorPassable(0), 'door panel up after three seconds');
   ok(S.doors[0] === true, 'door IN 1 open');
   ok(/Sign the delivery note/.test(T.palletPrompt({ kind: 'pallet', id: tin.pallets[0] })), 'pallets wait for the signature: ' + T.palletPrompt({ kind: 'pallet', id: tin.pallets[0] }));
   T.signTruck(tin); ok(tin.signed === true, 'delivery note signed');

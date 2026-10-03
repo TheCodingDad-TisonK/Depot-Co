@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.5 (2026-10-03)
+
+- Drivers walked on the spot beside the cab since 1.12.2: a comment had swallowed the line that moves them along the route. They walk again, and the test suite now checks that a driver actually arrives.
+
 ## 1.12.4 (2026-10-03)
 
 - An idle AGV that is not on its dock drives back to it, so a moved dock (or a save from before the move) no longer leaves it parked in the open.
