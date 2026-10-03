@@ -117,3 +117,7 @@ They work 08:00 to 18:00 and go home with nothing in their hands. Up to five at 
 ## Keys
 
 `WASD` move · `Shift` run · `Space` jump · `E` use · `G` put down or let go · `Tab` scanner · `1`-`4` scanner pages · `Esc` pause · `F3` FPS · `F12` screenshot · `F11` fullscreen. Forklift: `W S` drive, `A D` steer, `R F` forks, `E` lift or set down, `G` get off.
+
+## Pallet jacks and empty pallets
+
+Two pallet jacks come with the depot: jack 1 parks by the IN docks, jack 2 by the OUT docks, and either one lifts a floor-level pallet. With an empty jack, E on the empty pallet stack takes a pallet off it; loose boxes of one line go on it by hand, and the loaded pallet stores on a rack like any other, or goes to the bin by the bench to write the whole load off. Empty pallets off the racks or the hopper go back on the stack the same way.

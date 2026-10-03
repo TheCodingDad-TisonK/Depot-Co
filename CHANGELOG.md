@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.15 (2026-10-03)
+
+- Empty pallets come off the stack: with an empty jack, E on the empty pallet stack takes one. Set it down and loose boxes of one line go on it by hand; the pallet then stores on a rack like any other, and a racked empty pallet takes boxes by hand and adopts their line.
+- The bin by the bench writes off a whole pallet load brought on the jack, at half value per box, leaving the pallet empty.
+- Fixed: lifting a floor or truck pallet with jack 2 put it on jack 1, and stacking an empty from jack 2 cleared jack 1.
+
 ## 1.12.14 (2026-10-03)
 
 - The two overhead pick belts meet above the east lane and feed one merge belt, which ramps down to bench height at the north-west corner of the packing bench. Picked boxes arrive in a single stream at one spot.
