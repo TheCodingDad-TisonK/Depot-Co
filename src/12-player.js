@@ -82,6 +82,8 @@
       return;
     }
     var hits = ray.intersectObjects(inter.concat(instList), false);
+    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins
+    for (var si = 1; si < hits.length; si++) { if (hits[si].object.userData.screen && hits[si].distance - hits[0].distance < 0.5) { var sh = hits.splice(si, 1)[0]; hits.unshift(sh); break; } }
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i], def = h.object.userData.it || srcDef(instSource(h));
       if (!def) continue;

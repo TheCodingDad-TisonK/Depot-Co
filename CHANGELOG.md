@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.12.12 (2026-10-03)
+
+- Crane and AGV screens take E again. The cabinet interaction box reached past the screen, so looking at a button focused the cabinet instead. A touchscreen now wins over any hit box within half a metre, and the crane and AGV cabinets use a box the size of the cabinet.
+- The crane lamp stacks stand on the cabinet top instead of floating 10 cm above it.
+
 ## 1.12.11 (2026-10-03)
 
 - Speed dials on every machine screen, 50 to 200 percent per machine: cranes, AGV, pack line, moulding line, baler, wrapper. Belts are set from the screen of the machine they feed (pick belts on the crane screens, the main belt on the palletiser, the shipping belt on the dock loader). A fast pack line jams more often.
