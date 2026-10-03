@@ -305,6 +305,14 @@
   defProp('shiftBoard', { label: 'shift board', cat: 'wall', wall: true, abs: true, x: 9.83, z: -33, rot: 3, build: shiftBoardBuild });
   defProp('clockWing', { label: 'wing clock', cat: 'wall', wall: true, abs: true, x: 9.83, z: -27, rot: 3, build: function (c) { var f = clockBuild(0.4); f(c); c.group.children[c.group.children.length - 1].position.y = 3.6; } });
   defProp('firstAidWing', { label: 'first-aid box', cat: 'wall', wall: true, abs: true, x: 9.83, z: -25.5, rot: 3, build: firstAidBuild });
+  function exitSignBuild(c) { var m = c.sign(['EXIT'], 0.5, 0.2, 0, 2.6, 0.03, 0, { w: 256, h: 96, bg: '#1f7a3a', fg: '#dfffe8' }); m.renderOrder = 1; c.box(0.54, 0.24, 0.04, MAT.exit, 0, 2.6, 0); }
+  defProp('signStaff', { label: 'sign: STAFF', cat: 'wall', wall: true, abs: true, x: -30.17, z: 22, rot: 3, build: wallSignBuild(['STAFF'], 1.2, 0.4, 2.7, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signFront', { label: 'sign: DEPOT CO. (front)', cat: 'wall', wall: true, abs: true, x: 0, z: 24.17, rot: 0, build: function (c) { c.sign(['DEPOT CO.'], 12, 2.6, 0, 5, 0.01, 0, { w: 1024, h: 224, bg: '#1b232c', fg: '#f5b53d', border: '#f5b53d' }); c.sign(['3PL · STORAGE · FULFILMENT'], 10, 0.8, 0, 3.2, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); } });
+  defProp('signOffice', { label: 'sign: OFFICE', cat: 'wall', wall: true, abs: true, x: 22.41, z: 19.95, rot: 3, build: wallSignBuild(['OFFICE'], 1.4, 0.45, 2.6, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signLobby', { label: 'sign: LOBBY', cat: 'wall', wall: true, abs: true, x: -25.41, z: 19.95, rot: 1, build: wallSignBuild(['LOBBY'], 1.2, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signBreak', { label: 'sign: BREAK ROOM', cat: 'wall', wall: true, abs: true, x: -22.91, z: -22.45, rot: 1, build: wallSignBuild(['BREAK ROOM'], 1.6, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('exitNorth', { label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
+  defProp('exitStaff', { label: 'exit sign (staff door)', cat: 'wall', wall: true, abs: true, x: -29.8, z: 22, rot: 1, build: exitSignBuild });
   defProp('signProduction', { label: 'sign: PRODUCTION', cat: 'wall', wall: true, abs: true, x: 5.8, z: -23.83, rot: 0, build: wallSignBuild(['PRODUCTION'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#78bdf5' }) });
   defProp('signWarehouse', { label: 'sign: WAREHOUSE', cat: 'wall', wall: true, abs: true, x: 5.8, z: -24.17, rot: 2, build: wallSignBuild(['WAREHOUSE'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' }) });
   defProp('signPpe', { label: 'sign: PPE', cat: 'wall', wall: true, abs: true, x: 2.5, z: -23.83, rot: 0, build: wallSignBuild(['PPE BEYOND THIS POINT', 'ear defenders · safety boots · hi-vis'], 1.2, 0.5, 2.3, { w: 512, h: 200, bg: '#1f4e8c', fg: '#eef1f5' }) });

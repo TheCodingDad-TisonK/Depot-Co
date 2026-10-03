@@ -108,7 +108,7 @@
         if ((dirn > 0 && t.x >= dx) || (dirn < 0 && t.x <= dx)) { t.x = dx; t.state = 'docked'; t.arrived = S.time; sfx('airbrake'); if (t.dir === 'in') { toast('Truck at ' + dockLabel(t.dock) + ': ' + t.pallets.length + ' pallets from ' + clientName(t.client), 'rare'); logEvent(t.driver + ' docked at ' + dockLabel(t.dock) + ' with ' + t.pallets.length + ' pallets'); introStep('truck'); } else { toast('Outbound truck at ' + dockLabel(2 + t.dock) + ' · leaves ' + fmtTime(t.leave), 'rare'); logEvent('Outbound truck at ' + dockLabel(2 + t.dock) + ', leaves at ' + fmtTime(t.leave)); } rebuildBoardSoon(); }
       } else if (t.state === 'docked') {
         if (t.dir === 'in') {
-          var left = S.pallets.some(function (p) { return p.place === 'truck' && p.truck === t.id; });
+          var left = S.pallets.some(function (p) { return p.place === 'truck' && p.truck === t.id && p.n > 0; });
           if (!left) { if (!t.doneAt) t.doneAt = S.time; if (S.time >= t.doneAt + 0.25) truckLeave(t, 'done'); }
           else if (S.time >= t.leave) truckLeave(t, 'timeout');
         } else if (S.time >= t.leave) truckLeave(t, 'schedule');
@@ -150,6 +150,7 @@
     if (t.state !== 'docked') return;
     sellBales(t);
     if (t.dir === 'in') {
+      S.pallets.filter(function (p) { return p.place === 'truck' && p.truck === t.id && p.n <= 0; }).forEach(function (p) { removePallet(p.id); });   // empties go back with the truck, no harm done
       var left = S.pallets.filter(function (p) { return p.place === 'truck' && p.truck === t.id; });
       if (left.length) { left.forEach(function (p) { removePallet(p.id); }); addRep(-2 * left.length); S.stats.lost += left.length; logEvent(left.length + ' pallet' + (left.length > 1 ? 's' : '') + ' went back on the truck unreceived', 'bad'); toast('Refused delivery: ' + left.length + ' pallet' + (left.length > 1 ? 's' : '') + ' went back', 'bad'); }
       else { logEvent(t.driver + ' left ' + dockLabel(t.dock) + ' empty', 'good'); }

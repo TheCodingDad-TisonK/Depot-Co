@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.1 (2026-10-03)
+
+- Empty pallets exist everywhere now, not only at the hopper: the last box off a pallet leaves the empty pallet where it was (in the trailer or on the floor), a rack slot emptied of a pallet's boxes keeps the empty pallet, the jack lifts them, and the empties stack takes them (E with one on the jack). The receiver ignores them and a truck takes its own empties back without a penalty.
+- More signs are props, so build mode moves them: STAFF, the big DEPOT CO. front sign, OFFICE, LOBBY, BREAK ROOM and both EXIT signs.
+
 ## 1.11.0 (2026-10-03)
 
 - The clock runs at one game hour per 75 real seconds, half the old rate: a sixteen-hour day is twenty minutes. The big hall needs the walking time.
