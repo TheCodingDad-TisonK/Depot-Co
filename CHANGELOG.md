@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.4 (2026-10-03)
+
+- An idle AGV that is not on its dock drives back to it, so a moved dock (or a save from before the move) no longer leaves it parked in the open.
+
 ## 1.12.3 (2026-10-03)
 
 - The rack block sits 1.5 m further west: fifteen bays still, but the packing side of the hall is 9 m wide now instead of 7.5. The AGV dock and the gantry end moved with it.
