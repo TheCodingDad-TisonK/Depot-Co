@@ -132,7 +132,7 @@
   var wrapper = { t: 0, pallet: null };
   function wrapperBusy() { return wrapper.t > 0; }
   // the pallet the wrapper would wrap: the one on the jack you are holding, else a floor pallet sitting on the turntable
-  function wrapperTarget() { var p = player.tool === 'jack' ? jackPallet() : null; if (p) return p; var P = PROPS.wrapper ? propPlacement('wrapper') : null; if (!P) return null; var best = null, bd = 1.3 * 1.3; S.pallets.forEach(function (q) { if (q.place !== 'floor') return; var d = dist2(q.x, q.z, P.x, P.z); if (d < bd) { bd = d; best = q; } }); return best; }
+  function wrapperTarget() { var p = isJack(player.tool) ? jackPallet() : null; if (p) return p; var P = PROPS.wrapper ? propPlacement('wrapper') : null; if (!P) return null; var best = null, bd = 1.3 * 1.3; S.pallets.forEach(function (q) { if (q.place !== 'floor') return; var d = dist2(q.x, q.z, P.x, P.z); if (d < bd) { bd = d; best = q; } }); return best; }
   function wrapperPrompt() {
     if (wrapperBusy()) return 'Wrapping… ' + Math.ceil(wrapper.t) + ' s';
     if (S.events.power) return 'The wrapper is off: no power';

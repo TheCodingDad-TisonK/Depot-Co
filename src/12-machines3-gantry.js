@@ -7,8 +7,11 @@
   var GANTRY_SPEED = 3.0, GANTRY_LIFT = 2.0, GANTRY_DROP_X = 46.0;
   // the pick belts run overhead at 2.4 m so the east aisle stays open, and come down to the bench at their ends
   var PICK_H = 2.4;
-  defBelt('pickBelt', { prop: 'pickBelt', path: [[0, 0, PICK_H], [0, 18.6, PICK_H], [0, 19.5, 1.9], [3.7, 19.5, 0]] });
-  defBelt('pickBelt2', { prop: 'pickBelt2', path: [[0, 0, PICK_H], [0, -8.6, PICK_H], [0, -9.3, 1.9], [3.7, -9.3, 0]] });
+  // the south belt starts over row A, stays high past row D and drops to the bench; the north one starts over row F, passes row E and drops from the other side
+  var PB_S = (function () { var z0 = RACK.rows[0], yD = RACK.rows[3] - z0 + 0.6, yB = 4.5 - z0; return [[0, 0, PICK_H], [0, yD, PICK_H], [0, yB, 1.9], [3.7, yB, 0]]; })();
+  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yE = RACK.rows[4] - z0 - 0.6, yB = 5.7 - z0; return [[0, 0, PICK_H], [0, yE, PICK_H], [0, yB, 1.9], [3.7, yB, 0]]; })();
+  defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
+  defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N });
   defMachine('benchIn', { prop: 'bench', inlet: [-0.8, 0], accept: function (it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; } });
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }

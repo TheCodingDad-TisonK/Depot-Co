@@ -138,13 +138,13 @@
   // ── The hopper: a pallet of raw granulate on the jack or the forks tips into it
   var RAW_PER_SACK = 5, HOPPER_CAP = 400;
   defMachine('hopper', { prop: 'hopper' });
-  function rawPalletInHand() { var p = player.tool === 'jack' ? jackPallet() : driving ? forkPallet() : null; return p && p.sku === 'raw' ? p : null; }
-  function hopperPrompt() { var p = rawPalletInHand(); if (p) return S.factory.raw >= HOPPER_CAP ? 'The hopper is full' : 'Tip the granulate into the hopper (+' + p.n * RAW_PER_SACK + ')'; return 'Raw hopper · ' + S.factory.raw + ' / ' + HOPPER_CAP + ' units' + (player.tool === 'jack' || driving ? ' · bring a pallet of raw granulate' : ''); }
+  function rawPalletInHand() { var p = isJack(player.tool) ? jackPallet() : driving ? forkPallet() : null; return p && p.sku === 'raw' ? p : null; }
+  function hopperPrompt() { var p = rawPalletInHand(); if (p) return S.factory.raw >= HOPPER_CAP ? 'The hopper is full' : 'Tip the granulate into the hopper (+' + p.n * RAW_PER_SACK + ')'; return 'Raw hopper · ' + S.factory.raw + ' / ' + HOPPER_CAP + ' units' + (isJack(player.tool) || driving ? ' · bring a pallet of raw granulate' : ''); }
   function hopperUse() {
     var p = rawPalletInHand(); if (!p) { sfx('bad'); return; } if (S.factory.raw >= HOPPER_CAP) { toast('The hopper is full.', 'bad'); return; }
     S.factory.raw = Math.min(HOPPER_CAP, S.factory.raw + p.n * RAW_PER_SACK);
     for (var i = 0; i < S.pallets.length; i++) if (S.pallets[i].id === p.id) { S.pallets.splice(i, 1); break; }
-    if (S.jack.pallet === p.id) S.jack.pallet = null; if (S.fork.pallet === p.id) S.fork.pallet = null;
+    if (S.jack.pallet === p.id) S.jack.pallet = null; if (S.jack2 && S.jack2.pallet === p.id) S.jack2.pallet = null; if (S.fork.pallet === p.id) S.fork.pallet = null;
     S.pallets.push(newPalletObj('empty')); sfx('hydraulic'); addXp(4); toast('Granulate tipped in: hopper at ' + S.factory.raw, 'good'); logEvent('Tipped a pallet of raw granulate into the hopper'); screenDirtyAll(); hudDirty = true;
     if (MACH.hopper.anim) MACH.hopper.anim.tipT = 1.5;
   }

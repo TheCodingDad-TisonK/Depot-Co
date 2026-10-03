@@ -73,7 +73,7 @@
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
   var HALL = { x: 30, z: 24, h: 8 };   // grew from 40 x 28 on 2026-10-02 so a row holds 15 bays and the forklift has room
-  var RACK = { rows: [-15, -9, -3, 3, 9, 15], bays: 15, bayW: 3, x0: -24, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
+  var RACK = { rows: [-16.5, -9.9, -3.3, 3.3, 9.9, 16.5], bays: 15, bayW: 3, x0: -24, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // levels: the y of the pallet base; top is forklift-only
   var DOCKS = { in: [{ z: -14 }, { z: -6 }], out: [{ z: -14 }, { z: -6 }], w: 3.6, h: 4.2 };
   var YARD_Y = -1.2;
   var SKYLIGHT_Z = [-14, -7, 0, 7, 14];   // the roof lights and the shafts under them
@@ -83,6 +83,6 @@
     stageIn: { x: -26, z: -10 }, stageOut: { x: 26, z: -10 },
     pc: { x: 27.5, z: 21.8 }, breaker: { x: 29.7, z: 19.6 },
     cot: { x: -27.2, z: 22.2 }, coffee: { x: -29.4, z: 19.3 },
-    jack: { x: -28.6, z: 6.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 20.5 },   // jack and cart along the west wall between the row D and row E crane columns
+    jack: { x: -27.8, z: -18.0 }, jack2: { x: 27.8, z: -18.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 20.5 },   // one jack by the IN docks, one by the OUT docks, the cart on the west wall
     spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }, console0: { x: 29.7, z: -11.5 }, console1: { x: 29.7, z: -8.5 }
   };

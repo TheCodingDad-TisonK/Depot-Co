@@ -18,7 +18,7 @@
     doors.forEach(function (d) { if (d.anim < 0.6) dyn.push({ x0: d.side * HALL.x - 0.3, x1: d.side * HALL.x + 0.3, z0: d.z - DOCKS.w / 2, z1: d.z + DOCKS.w / 2, y0: -2, y1: 9 }); });
     doorSolids(dyn);
     if (S.up.fork) dyn.push({ x0: S.fork.x - 1.0, x1: S.fork.x + 1.0, z0: S.fork.z - 1.0, z1: S.fork.z + 1.0, y0: -1, y1: 2.4, fork: true });
-    if (player.tool !== 'jack' && player.tool !== 'cable' && jackPallet()) { /* a pallet on a parked jack is part of the jack: walk round it */ var jw = toolWorld('jack'); dyn.push({ x0: jw.x - 0.7, x1: jw.x + 0.7, z0: jw.z - 0.7, z1: jw.z + 0.7, y0: -1, y1: 1.5 }); }
+    ['jack', 'jack2'].forEach(function (jt) { if (player.tool !== jt && jackPallet(jt)) { /* a pallet on a parked jack is part of the jack: walk round it */ var jw = toolWorld(jt); dyn.push({ x0: jw.x - 0.7, x1: jw.x + 0.7, z0: jw.z - 0.7, z1: jw.z + 0.7, y0: -1, y1: 1.5 }); } });
   }
   function collides(x, z, ignoreFork) {
     var r = 0.32, y0 = player.y, y1 = player.y + 1.7;
@@ -38,7 +38,7 @@
     }
     var k = player.keys, run = k.ShiftLeft || k.ShiftRight;
     var coffee = buff.coffeeDay === S.day && buff.coffeeUntil > S.time, snack = buff.snackDay === S.day && buff.snackUntil > S.time;
-    var speed = 4.0 * (run ? 1.55 : 1) * (coffee ? 1.2 : 1) * (snack ? 1.1 : 1) * (player.tool === 'jack' && jackPallet() ? 0.78 : player.tool ? 0.92 : 1);
+    var speed = 4.0 * (run ? 1.55 : 1) * (coffee ? 1.2 : 1) * (snack ? 1.1 : 1) * (isJack(player.tool) && jackPallet() ? 0.78 : player.tool ? 0.92 : 1);
     var fwd = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), side = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
     var mx = 0, mz = 0;
     if (fwd || side) {
@@ -89,9 +89,9 @@
       focus = def; focusText = txt; break;
     }
   }
-  function useFocus() { if (edit.on) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; } if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } else if (player.tool === 'jack' && jackPallet()) jackSetDown(); }
+  function useFocus() { if (edit.on) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; } if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } else if (isJack(player.tool) && jackPallet()) jackSetDown(); }
   // E on open floor with a loaded jack lowers the forks and leaves the pallet where the jack stands
-  function jackSetDown() { var p = jackPallet(); if (!p) return; var w = toolWorld('jack'); if (jackMesh && jackMesh.userData.towRy !== undefined) { w.x = jackMesh.position.x; w.z = jackMesh.position.z; w.ry = jackMesh.userData.towRy; } if (!insideHall(w.x, w.z) && floorY(w.x, w.z) < -0.5) { toast('Not out in the yard: set it down inside.', 'bad'); sfx('bad'); return; } p.place = 'floor'; p.x = w.x; p.z = w.z; p.y = floorY(w.x, w.z); p.rot = w.ry; S.jack.pallet = null; sfx('putdown'); toast('Pallet set down', ''); hudDirty = true; }
+  function jackSetDown() { var p = jackPallet(); if (!p) return; var jt = jackTool(), jm = jackMeshes[jt], w = toolWorld(jt); if (jm && jm.userData.towRy !== undefined) { w.x = jm.position.x; w.z = jm.position.z; w.ry = jm.userData.towRy; } if (!insideHall(w.x, w.z) && floorY(w.x, w.z) < -0.5) { toast('Not out in the yard: set it down inside.', 'bad'); sfx('bad'); return; } p.place = 'floor'; p.x = w.x; p.z = w.z; p.y = floorY(w.x, w.z); p.rot = w.ry; S[jt].pallet = null; sfx('putdown'); toast('Pallet set down', ''); hudDirty = true; }
 
   // ── Input ─────────────────────────────────────────────────────────
   function lockPointer() { if (!ui.started || ui.blocked()) return; try { var r = canvas.requestPointerLock(); if (r && r.catch) r.catch(function () {}); } catch (e) {} }
@@ -131,5 +131,6 @@
     else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving && !e.repeat) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
-  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } }, { passive: true });
+  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.dirty = true; } } }, { passive: true });
+  function screenUnderCrosshair() { for (var i = 0; i < screens.length; i++) { if (!screens[i].mesh.visible) continue; if (ray.intersectObject(screens[i].mesh, false).length) return screens[i]; } return null; }
   window.addEventListener('blur', function () { player.keys = {}; });

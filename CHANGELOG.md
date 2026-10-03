@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.12.9 (2026-10-03)
+
+- Wider aisles: the rack rows sit 6.6 m apart instead of 6, and every crane column stands tight against the rack face on an outrigger, so the narrowest aisle is 4.8 m clear with all cranes up (it was 2.8 m at the row ends). The pick belts follow the rows.
+- Two pallet jacks: jack 1 parks by the IN docks, jack 2 by the OUT docks. Each carries its own pallet. A jack left in the old bay moves on load.
+- The AGV goes straight from a put-away to the next waiting pallet, and turns round on its way home if one appears. It only returns to the dock when there is nothing to fetch.
+- The AGV dock cabinet carries a touchscreen with PAUSE/RESUME and DROP LOAD.
+- The bench terminal scrolls: the mouse wheel or UP/DOWN buttons page through every open order.
+
 ## 1.12.8 (2026-10-03)
 
 - The jack and cart bays moved to the west wall between rows D and E: a crane column stood in the old jack bay at the end of row D. Tools still parked in the old bays follow on load.

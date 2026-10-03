@@ -127,7 +127,8 @@
     var DG = MAT_MACH.frame, YL = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.3 }), LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 });
     // end columns stand clear of the racking at the row ends; the mid columns stand tight against the rack faces, out of the aisles
     // the east pair stands at 47.2, past the overhead pick belt that runs along the row ends at 46
-    [-0.4, 47.2].forEach(function (cx) { [-1.6, 1.6].forEach(function (cz) { c.box(0.26, 5.4, 0.26, YL, cx, 2.7, cz); c.box(0.5, 0.03, 0.5, DG, cx, 0.015, cz); c.box(0.3, 0.3, 0.3, DG, cx, 5.5, cz); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); });
+    // every column stands tight against the rack face and reaches the rails on an outrigger, so nothing stands in the aisle
+    [-0.4, 47.2].forEach(function (cx) { [-0.78, 0.78].forEach(function (cz) { c.box(0.26, 5.4, 0.26, YL, cx, 2.7, cz); c.box(0.5, 0.03, 0.5, DG, cx, 0.015, cz); c.box(0.26, 0.2, 1.0, DG, cx, 5.45, cz * 1.5); c.box(0.3, 0.3, 0.3, DG, cx, 5.5, cz); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); });
     for (var cx = 7.67; cx < 46; cx += 7.67) { [-0.78, 0.78].forEach(function (cz) { c.box(0.2, 5.4, 0.2, YL, cx, 2.7, cz); c.box(0.4, 0.03, 0.4, DG, cx, 0.015, cz); var ob = c.box(0.2, 0.2, 0.9, DG, cx, 5.45, cz * 1.5); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); }
     [-1.6, 1.6].forEach(function (rz) { c.box(48.2, 0.18, 0.2, DG, 23.4, 5.4, rz); c.box(48.2, 0.04, 0.06, MAT.chrome, 23.4, 5.5, rz); });
     var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
@@ -142,12 +143,12 @@
     c.box(0.42, 0.3, 0.02, DG, 47.2, 1.6, -2.155); var gsc = touchScreen({ w: 300, h: 200, pw: 0.36, ph: 0.24, x: 47.2, y: 1.6, z: -2.168, ry: Math.PI, parent: c.group, title: 'Gantry ' + 'ABCDEF'[r], draw: gantryScreenDraw(r) }); gsc.mesh.userData.propId = 'gantry' + r; MACH['gantry' + r].screen = gsc;
     MACH['gantry' + r].anim = { trolley: trolley, mast: mast, grip: grip, box: bx, beacon: beacon };
     c.hit(0.8, 1.6, 0.6, 47.2, 1.2, -2.0, { prompt: function () { return gantryPrompt(r); }, use: function () { sfx('click'); } });
-    [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -1.75, -1.45, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 1.45, 1.75, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
+    [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -0.93, -0.63, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 0.63, 0.93, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
   }; }
   function pickBeltBuild(c) { conveyorPath(c, BELTS.pickBelt.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function pickBelt2Build(c) { conveyorPath(c, BELTS.pickBelt2.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, -4, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function agvDockBuild(c) {
-    var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.15, 0.7, -0.84); c.plane(0.26, 0.1, MAT.screen, 0.05, 0.7, -0.84, 0, 0);
+    var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.2, 0.76, -0.84); agvScreen = touchScreen({ w: 300, h: 200, pw: 0.33, ph: 0.22, x: 0, y: 0.57, z: -0.845, ry: 0, parent: c.group, title: 'AGV dock', draw: agvScreenDraw }); agvScreen.mesh.userData.propId = 'agvDock';
     c.sign(['AGV DOCK'], 0.5, 0.12, 0, 0.82, -0.84, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#f5b53d' });
     [[-1.0, 1.6], [1.0, 1.6], [-1.0, 3.6], [1.0, 3.6]].forEach(function (p) { c.cyl(0.04, 0.5, MAT.yellow, p[0], 0.25, p[1], 8); });
     [[0, 1.6, 2.0, 0.08], [0, 3.6, 2.0, 0.08]].forEach(function (l) { c.plane(l[2], l[3], MAT.yellowLine, l[0], 0.0065, l[1], -Math.PI / 2); }); c.plane(0.08, 2.0, MAT.yellowLine, -1.0, 0.0065, 2.6, -Math.PI / 2); c.plane(0.08, 2.0, MAT.yellowLine, 1.0, 0.0065, 2.6, -Math.PI / 2);
@@ -378,8 +379,8 @@
   defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt; } });
   defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
   for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDEF'[r], cat: 'hall', abs: true, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
-  defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, x: 22.0, z: -15, rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
-  defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, x: 22.0, z: 15, rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 4; } });
+  defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[0], rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[RACK.rows.length - 1], rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 4; } });
   defProp('silo', { label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
   defProp('extWing', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
   defProp('qcBench', { label: 'quality bench', cat: 'factory', abs: true, x: 6.5, z: -29, rot: 2, build: qcBenchBuild });

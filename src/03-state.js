@@ -17,6 +17,7 @@
       baler: { card: 0, bales: 0, t: 0, made: 0 }, wrap: { film: 20, wrapped: 0 },                                                   // the palletiser's pallet, and what is on each belt
       cart: { boxes: [], x: SPOT.cart.x, z: SPOT.cart.z, rot: 0 },
       jack: { pallet: null, x: SPOT.jack.x, z: SPOT.jack.z, rot: Math.PI / 2 },
+      jack2: { pallet: null, x: SPOT.jack2.x, z: SPOT.jack2.z, rot: -Math.PI / 2 },
       fork: { x: SPOT.fork.x, z: SPOT.fork.z, yaw: Math.PI, lift: 0.1, pallet: null, batt: 1 },
       weather: null, radio: { on: false, station: 0 },
       loan: 0, insured: false, contract: null, nextOffer: 3, binned: 0,
@@ -49,6 +50,8 @@
       for (var k4 in f.events) if (!(k4 in s.events)) s.events[k4] = f.events[k4];
       // 1.12.8 moved the jack and cart bays off the row D end (a crane column stood in the old jack bay): tools still parked there follow
       if (!s.flags.toolBays2) { s.flags.toolBays2 = 1; var near = function (o, x, z) { return o && Math.abs(o.x - x) < 1.2 && Math.abs(o.z - z) < 1.6; }; if (near(s.jack, -25, 4)) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; } if (near(s.cart, -25, 6.5)) { s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; } }
+      // 1.12.9 put the first jack by the IN docks and added a second by OUT: a jack still parked in the 1.12.8 bay follows
+      if (!s.flags.toolBays3) { s.flags.toolBays3 = 1; if (s.jack && Math.abs(s.jack.x - -28.6) < 1.2 && Math.abs(s.jack.z - 6.0) < 1.6) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.jack.rot = Math.PI / 2; } }
       S = s; return true;
     } catch (e) { return false; }
   }
