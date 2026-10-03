@@ -27,11 +27,13 @@
     if (!S.up.gantry || !powered()) return;
     gantryRows().forEach(function (r) { tickGantryRow(r, dt); });
   }
+  var gantryShown = {};
   function tickGantryRow(r, dt) {
     var G = gantryState(r), id = 'gantry' + r, belt = gantryBeltFor(r);
+    if (gantryShown[r] !== G.state + (G.paused ? 'p' : '')) { gantryShown[r] = G.state + (G.paused ? 'p' : ''); if (MACH[id].screen) MACH[id].screen.dirty = true; }
     var toX = function (lx, speed) { var d = lx - G.x; if (Math.abs(d) <= speed * dt) { G.x = lx; return true; } G.x += Math.sign(d) * speed * dt; return false; };
     var toLift = function (y, speed) { var d = y - G.lift; if (Math.abs(d) <= speed * dt) { G.lift = y; return true; } G.lift += Math.sign(d) * speed * dt; return false; };
-    if (G.state === 'idle') { var job = gantryNeed(r); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(GANTRY_DROP_X, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
+    if (G.state === 'idle') { var job = G.paused ? null : gantryNeed(r); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(GANTRY_DROP_X, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
     else if (G.state === 'toBay') { if (toX(G.bayX, GANTRY_SPEED)) G.state = 'down'; }
     else if (G.state === 'down') { if (toLift(G.level, GANTRY_LIFT)) { var s = S.slots[G.key]; if (s && s.sku === G.sku && s.n > 0) { slotTake(G.key, 1); s.wrapped = false; S.stats.picked++; G.state = 'up'; } else { G.sku = null; G.state = 'up'; } } }
     else if (G.state === 'up') { if (toLift(5.0, GANTRY_LIFT)) G.state = G.sku ? 'toDrop' : 'idle'; }
@@ -39,8 +41,21 @@
     else if (G.state === 'lower') { if (toLift(BELT_Y + PICK_H + 0.6, GANTRY_LIFT)) G.state = 'drop'; }
     else if (G.state === 'drop') { if (propInst[BELTS[belt].prop] && beltPush(belt, { kind: 'box', sku: G.sku })) { G.picked++; S.stats.gantryPicked = (S.stats.gantryPicked || 0) + 1; sfx('click'); G.sku = null; G.state = 'up'; } }
     var m = MACH[id].anim; if (m) { m.trolley.position.x = G.x; m.mast.scale.y = Math.max(0.05, (5.0 - G.lift) / 4.0); m.mast.position.y = -(5.0 - G.lift) / 2; m.grip.position.y = -(5.0 - G.lift); m.box.visible = !!G.sku && G.state !== 'toBay' && G.state !== 'down'; if (m.box.visible && G.sku) { m.box.material = CARD[G.sku] || m.box.material; } m.beacon.visible = G.state !== 'idle'; m.beacon.rotation.y = worldTime * 6; }
-    lampSet(MACH[id], G.state === 'idle' ? 'idle' : 'run');
+    lampSet(MACH[id], G.paused && G.state === 'idle' ? 'off' : G.state === 'idle' ? 'idle' : 'run');
   }
+  // the control panel on each crane's cabinet: what it is doing, what its row holds, pause and reset
+  function gantryRowStock(r) { var n = 0, slots = 0; for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === r && s && s.n > 0) { n += s.n; slots++; } } return { n: n, slots: slots }; }
+  function gantryScreenDraw(r) { return function (c, sc) {
+    var G = gantryState(r), st = !powered() ? 'off' : G.paused && G.state === 'idle' ? 'paused' : G.state === 'idle' ? 'ready' : 'running';
+    scBg(c, sc.w, sc.h, st === 'running' ? 'rgba(95,211,141,0.18)' : st === 'paused' || st === 'off' ? 'rgba(255,107,94,0.22)' : 'rgba(245,181,61,0.18)'); scHead(c, sc.w, 'GANTRY ' + 'ABCDEF'[r], st.toUpperCase());
+    var rs = gantryRowStock(r), pos = G.state === 'idle' ? 'parked at the belt' : G.state === 'toBay' ? 'running to bay ' + (Math.round(G.bayX / RACK.bayW - 0.5) + 1) : G.state === 'down' || G.state === 'up' ? 'at the rack' : G.state === 'toDrop' ? 'running to the belt' : 'setting down';
+    scText(c, 16, 70, G.sku ? 'Picking ' + skuName(G.sku) : G.paused ? 'Held: finishing nothing' : 'Watching the orders', '#eef1f5', 16);
+    scText(c, 16, 94, pos + ' · trolley ' + G.x.toFixed(1) + ' m · hook ' + G.lift.toFixed(1) + ' m', '#a0acb8', 13);
+    scText(c, 16, 118, 'Row ' + 'ABCDEF'[r] + ': ' + rs.n + ' boxes in ' + rs.slots + ' slots · picked ' + G.picked, '#a0acb8', 13);
+    scText(c, 16, 136, 'Belt: ' + beltItems(gantryBeltFor(r)).length + ' riding · bench ' + benchCount() + '/' + ECON.benchCap, '#a0acb8', 13);
+    scButton(sc, 16, 150, 120, 34, G.paused ? 'RESUME' : 'PAUSE', !G.paused, function () { G.paused = !G.paused; toast('Gantry ' + 'ABCDEF'[r] + (G.paused ? ' will hold after this pick' : ' running'), G.paused ? 'bad' : 'good'); }, G.paused ? '#5fd38d' : '#f5b53d');
+    scButton(sc, 148, 150, 136, 34, 'RESET JOB', G.state !== 'idle', function () { if (G.state === 'idle') return; G.sku = null; G.key = null; G.state = 'up'; sfx('hydraulic'); toast('Gantry ' + 'ABCDEF'[r] + ' dropped its job and is coming home', 'good'); }, '#ff6b5e');
+  }; }
   function gantryPrompt(r) { var G = gantryState(r); return 'Gantry picker ' + 'ABCDEF'[r] + ' · ' + (!powered() ? 'no power' : G.state === 'idle' ? 'watching the orders' : G.sku ? 'picking ' + skuName(G.sku) : 'working') + ' · ' + G.picked + ' boxes picked'; }
   // the crane props follow the rack rows: buying the gantry upgrade builds one over every row you own, buying a row adds its crane
   function buildGantries() { if (!S.up.gantry) return; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows) buildProp('gantry' + r); buildProp('pickBelt'); if (S.up.rows > 4) buildProp('pickBelt2'); }

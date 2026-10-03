@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.7 (2026-10-03)
+
+- Every crane cabinet carries a touchscreen: status, what it is picking, where the trolley and hook are, what its row holds, how many boxes ride its belt, with PAUSE/RESUME and RESET JOB buttons. First of a round of interactive panels across the warehouse.
+
 ## 1.12.6 (2026-10-03)
 
 - The gantry picker upgrade now puts a crane over every rack row you own, each with its own trolley, and buying a new row adds its crane. Rows A to D drop on the south pick belt, rows E and F on a north one; both end at the bench. Saves with three or four rows get exactly that many cranes and no north belt.

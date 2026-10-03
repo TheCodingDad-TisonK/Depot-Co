@@ -1694,6 +1694,7 @@
     var bx = new THREE.Mesh(BOX_GEO, CARD[SKUS[0].id]); bx.position.set(0, -0.05, 0); bx.visible = false; grip.add(bx);
     c.sign(['GANTRY PICKER · ROW ' + 'ABCDEF'[r], 'AUTOMATIC · KEEP CLEAR'], 2.0, 0.4, 44.5, 5.9, 1.75, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#f5b53d' });
     c.box(0.5, 1.0, 0.3, LG, 47.2, 1.4, -2.0); c.box(0.08, 0.3, 0.3, DG, 47.2, 1.1, -1.75); eStop(c, 47.2, 1.2, -1.84); MACH['gantry' + r].lamps = lampStack(c, 47.2, 2.0, -2.0);
+    c.box(0.42, 0.3, 0.02, DG, 47.2, 1.6, -2.155); var gsc = touchScreen({ w: 300, h: 200, pw: 0.36, ph: 0.24, x: 47.2, y: 1.6, z: -2.168, ry: Math.PI, parent: c.group, title: 'Gantry ' + 'ABCDEF'[r], draw: gantryScreenDraw(r) }); gsc.mesh.userData.propId = 'gantry' + r; MACH['gantry' + r].screen = gsc;
     MACH['gantry' + r].anim = { trolley: trolley, mast: mast, grip: grip, box: bx, beacon: beacon };
     c.hit(0.8, 1.6, 0.6, 47.2, 1.2, -2.0, { prompt: function () { return gantryPrompt(r); }, use: function () { sfx('click'); } });
     [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -1.75, -1.45, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 1.45, 1.75, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
@@ -3474,11 +3475,13 @@
     if (!S.up.gantry || !powered()) return;
     gantryRows().forEach(function (r) { tickGantryRow(r, dt); });
   }
+  var gantryShown = {};
   function tickGantryRow(r, dt) {
     var G = gantryState(r), id = 'gantry' + r, belt = gantryBeltFor(r);
+    if (gantryShown[r] !== G.state + (G.paused ? 'p' : '')) { gantryShown[r] = G.state + (G.paused ? 'p' : ''); if (MACH[id].screen) MACH[id].screen.dirty = true; }
     var toX = function (lx, speed) { var d = lx - G.x; if (Math.abs(d) <= speed * dt) { G.x = lx; return true; } G.x += Math.sign(d) * speed * dt; return false; };
     var toLift = function (y, speed) { var d = y - G.lift; if (Math.abs(d) <= speed * dt) { G.lift = y; return true; } G.lift += Math.sign(d) * speed * dt; return false; };
-    if (G.state === 'idle') { var job = gantryNeed(r); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(GANTRY_DROP_X, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
+    if (G.state === 'idle') { var job = G.paused ? null : gantryNeed(r); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(GANTRY_DROP_X, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
     else if (G.state === 'toBay') { if (toX(G.bayX, GANTRY_SPEED)) G.state = 'down'; }
     else if (G.state === 'down') { if (toLift(G.level, GANTRY_LIFT)) { var s = S.slots[G.key]; if (s && s.sku === G.sku && s.n > 0) { slotTake(G.key, 1); s.wrapped = false; S.stats.picked++; G.state = 'up'; } else { G.sku = null; G.state = 'up'; } } }
     else if (G.state === 'up') { if (toLift(5.0, GANTRY_LIFT)) G.state = G.sku ? 'toDrop' : 'idle'; }
@@ -3486,8 +3489,21 @@
     else if (G.state === 'lower') { if (toLift(BELT_Y + PICK_H + 0.6, GANTRY_LIFT)) G.state = 'drop'; }
     else if (G.state === 'drop') { if (propInst[BELTS[belt].prop] && beltPush(belt, { kind: 'box', sku: G.sku })) { G.picked++; S.stats.gantryPicked = (S.stats.gantryPicked || 0) + 1; sfx('click'); G.sku = null; G.state = 'up'; } }
     var m = MACH[id].anim; if (m) { m.trolley.position.x = G.x; m.mast.scale.y = Math.max(0.05, (5.0 - G.lift) / 4.0); m.mast.position.y = -(5.0 - G.lift) / 2; m.grip.position.y = -(5.0 - G.lift); m.box.visible = !!G.sku && G.state !== 'toBay' && G.state !== 'down'; if (m.box.visible && G.sku) { m.box.material = CARD[G.sku] || m.box.material; } m.beacon.visible = G.state !== 'idle'; m.beacon.rotation.y = worldTime * 6; }
-    lampSet(MACH[id], G.state === 'idle' ? 'idle' : 'run');
+    lampSet(MACH[id], G.paused && G.state === 'idle' ? 'off' : G.state === 'idle' ? 'idle' : 'run');
   }
+  // the control panel on each crane's cabinet: what it is doing, what its row holds, pause and reset
+  function gantryRowStock(r) { var n = 0, slots = 0; for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === r && s && s.n > 0) { n += s.n; slots++; } } return { n: n, slots: slots }; }
+  function gantryScreenDraw(r) { return function (c, sc) {
+    var G = gantryState(r), st = !powered() ? 'off' : G.paused && G.state === 'idle' ? 'paused' : G.state === 'idle' ? 'ready' : 'running';
+    scBg(c, sc.w, sc.h, st === 'running' ? 'rgba(95,211,141,0.18)' : st === 'paused' || st === 'off' ? 'rgba(255,107,94,0.22)' : 'rgba(245,181,61,0.18)'); scHead(c, sc.w, 'GANTRY ' + 'ABCDEF'[r], st.toUpperCase());
+    var rs = gantryRowStock(r), pos = G.state === 'idle' ? 'parked at the belt' : G.state === 'toBay' ? 'running to bay ' + (Math.round(G.bayX / RACK.bayW - 0.5) + 1) : G.state === 'down' || G.state === 'up' ? 'at the rack' : G.state === 'toDrop' ? 'running to the belt' : 'setting down';
+    scText(c, 16, 70, G.sku ? 'Picking ' + skuName(G.sku) : G.paused ? 'Held: finishing nothing' : 'Watching the orders', '#eef1f5', 16);
+    scText(c, 16, 94, pos + ' · trolley ' + G.x.toFixed(1) + ' m · hook ' + G.lift.toFixed(1) + ' m', '#a0acb8', 13);
+    scText(c, 16, 118, 'Row ' + 'ABCDEF'[r] + ': ' + rs.n + ' boxes in ' + rs.slots + ' slots · picked ' + G.picked, '#a0acb8', 13);
+    scText(c, 16, 136, 'Belt: ' + beltItems(gantryBeltFor(r)).length + ' riding · bench ' + benchCount() + '/' + ECON.benchCap, '#a0acb8', 13);
+    scButton(sc, 16, 150, 120, 34, G.paused ? 'RESUME' : 'PAUSE', !G.paused, function () { G.paused = !G.paused; toast('Gantry ' + 'ABCDEF'[r] + (G.paused ? ' will hold after this pick' : ' running'), G.paused ? 'bad' : 'good'); }, G.paused ? '#5fd38d' : '#f5b53d');
+    scButton(sc, 148, 150, 136, 34, 'RESET JOB', G.state !== 'idle', function () { if (G.state === 'idle') return; G.sku = null; G.key = null; G.state = 'up'; sfx('hydraulic'); toast('Gantry ' + 'ABCDEF'[r] + ' dropped its job and is coming home', 'good'); }, '#ff6b5e');
+  }; }
   function gantryPrompt(r) { var G = gantryState(r); return 'Gantry picker ' + 'ABCDEF'[r] + ' · ' + (!powered() ? 'no power' : G.state === 'idle' ? 'watching the orders' : G.sku ? 'picking ' + skuName(G.sku) : 'working') + ' · ' + G.picked + ' boxes picked'; }
   // the crane props follow the rack rows: buying the gantry upgrade builds one over every row you own, buying a row adds its crane
   function buildGantries() { if (!S.up.gantry) return; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows) buildProp('gantry' + r); buildProp('pickBelt'); if (S.up.rows > 4) buildProp('pickBelt2'); }
@@ -4468,7 +4484,7 @@
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
-      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, BELTS: BELTS, MACH: MACH, inWing: inWing,
+      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,
