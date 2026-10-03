@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.12.2 (2026-10-03)
+
+- Belts rebuilt: channel side frames with a painted lip, rollers under the bed and end drums, the return run underneath, guide rails on brackets instead of floating bars, a motor and gearbox hung off the drive drum, braced legs on levelling feet, photo-eye and reflector, a cable run.
+- The dock loader rebuilt as a telescopic boom conveyor: a heavy base with its own belt section, a lifting frame with pivot and hydraulic cylinder, the boom with rollers, side guards, lip roller and bump bar, a canopy lamp, a light curtain at the door and an operator pedestal.
+- The pack line taper rebuilt: a body on four legs with louvred side panels, service doors, a top housing with a window onto the tape head, a parcel exit flap, a nameplate, a cabinet on a pedestal with trunking back to the machine; the gravity shelf stands on a framed base.
+- The PACKING sign is its own wall sign, so the bench can go anywhere while the sign stays on the wall.
+- The office PC scrolls its lists with the mouse wheel.
+- Outbound drivers wait on the dock landing instead of walking in; they have nothing to sign, and the inside spot is where the dock loader stands.
+
 ## 1.12.1 (2026-10-03)
 
 - The dock consoles showed a black screen: the bezel plate from the polish sweep sat in the same plane as the screen and covered it. The bezel sits behind the screen now, on the consoles and the time clock.

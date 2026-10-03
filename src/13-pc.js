@@ -9,7 +9,7 @@
     pc.saved = { x: player.x, z: player.z, yaw: player.yaw, pitch: player.pitch };
     if (player.tool) releaseTool();
     sfx('click'); introStep('pc'); screenDirtyAll(); hudDirty = true;
-    $('h-drive').hidden = false; $('h-drive').innerHTML = 'Office PC · aim at a button and <b>E</b> taps it · <b>Esc</b> or <b>WASD</b> stands up';
+    $('h-drive').hidden = false; $('h-drive').innerHTML = 'Office PC · aim at a button and <b>E</b> taps it · mouse wheel scrolls a list · <b>Esc</b> or <b>WASD</b> stands up';
   }
   function closePc() { if (!pc.on) return; pc.on = false; $('h-drive').hidden = true; if (pc.saved) { player.x = pc.saved.x; player.z = pc.saved.z; player.yaw = pc.saved.yaw; player.pitch = pc.saved.pitch; } sfx('click'); hudDirty = true; }
   // where to sit: in front of the desk prop, facing the monitor

@@ -64,19 +64,24 @@
   }
   // a straight belt along local +z from z0 to z1 at x: frame, legs, rollers, a scrolling belt top, guide rails and a drive motor
   function conveyorBuild(c, x, z0, z1, opt) {
-    opt = opt || {}; var len = z1 - z0, zc = (z0 + z1) / 2, y = BELT_Y;
-    c.box(0.05, 0.1, len, MAT_MACH.frame, x - 0.34, y - 0.04, zc); c.box(0.05, 0.1, len, MAT_MACH.frame, x + 0.34, y - 0.04, zc);
-    if (!opt.noLegs) for (var lz = z0 + 0.3; lz < z1; lz += 1.2) { [-0.3, 0.3].forEach(function (lx) { c.box(0.05, y - 0.12, 0.05, MAT_MACH.frame, x + lx, (y - 0.12) / 2, lz); c.box(0.12, 0.02, 0.12, MAT_MACH.frame, x + lx, 0.01, lz); }); c.box(0.65, 0.04, 0.04, MAT_MACH.frame, x, y - 0.11, lz); }
-    for (var rz = z0 + 0.12; rz < z1; rz += 0.24) { var r = c.cyl(0.035, 0.62, MAT_MACH.roller, x, y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; }
+    opt = opt || {}; var len = z1 - z0, zc = (z0 + z1) / 2, y = BELT_Y, FR = MAT_MACH.frame, LG = std({ color: 0xcfd4d9, roughness: 0.45, metalness: 0.3 });
+    // side frames: a channel profile (web plus top and bottom flanges) with a painted top lip
+    [-0.36, 0.36].forEach(function (sx) { c.box(0.04, 0.16, len, LG, x + sx, y - 0.06, zc); c.box(0.1, 0.02, len, LG, x + sx + (sx < 0 ? 0.03 : -0.03), y + 0.02, zc); c.box(0.1, 0.02, len, LG, x + sx + (sx < 0 ? 0.03 : -0.03), y - 0.14, zc); c.box(0.05, 0.02, len, MAT_MACH.blue, x + sx, y + 0.035, zc); });
+    for (var cb = z0 + 0.6; cb < z1; cb += 1.2) c.box(0.68, 0.04, 0.05, FR, x, y - 0.13, cb);                                               // cross stays under the bed
+    // rollers under the belt, end drums, the belt itself
+    for (var rz = z0 + 0.18; rz < z1 - 0.1; rz += 0.3) { var r = c.cyl(0.03, 0.66, MAT_MACH.roller, x, y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; }
+    [z0 + 0.06, z1 - 0.06].forEach(function (dz) { var dr = c.cyl(0.07, 0.68, MAT_MACH.roller, x, y - 0.03, dz, 14); dr.rotation.z = Math.PI / 2; });
     var bt = beltTexBase.clone(); bt.needsUpdate = true; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; bt.repeat.set(1, len / 0.5); var bm = std({ map: bt, roughness: 0.9 }); bm.userData.noBake = true;
-    var top = c.plane(0.6, len, bm, x, y + 0.02, zc, -Math.PI / 2, 0); BELT_PLANES.push(top);
-    c.box(0.03, 0.03, len, MAT_MACH.guard, x - 0.31, y + 0.12, zc); c.box(0.03, 0.03, len, MAT_MACH.guard, x + 0.31, y + 0.12, zc); for (var gz = z0 + 0.4; gz < z1; gz += 1.2) { c.box(0.03, 0.12, 0.03, MAT_MACH.guard, x - 0.31, y + 0.05, gz); c.box(0.03, 0.12, 0.03, MAT_MACH.guard, x + 0.31, y + 0.05, gz); }
-    var mt = c.cyl(0.09, 0.22, MAT_MACH.blue, x + 0.48, y - 0.1, z1 - 0.25, 12); mt.rotation.z = Math.PI / 2; c.box(0.1, 0.12, 0.14, MAT.black, x + 0.6, y - 0.1, z1 - 0.25);
-    if (!opt.noEye) { c.box(0.03, 0.4, 0.03, MAT_MACH.frame, x - 0.4, y + 0.2, z1 - 0.1); c.box(0.04, 0.05, 0.03, MAT.black, x - 0.4, y + 0.3, z1 - 0.1); c.box(0.02, 0.02, 0.005, glowMat(0xff3b2f, 1.2), x - 0.38, y + 0.3, z1 - 0.1); }
+    var top = c.plane(0.62, len - 0.04, bm, x, y + 0.025, zc, -Math.PI / 2, 0); BELT_PLANES.push(top); c.box(0.62, 0.012, len - 0.04, std({ color: 0x1c1f23, roughness: 0.95 }), x, y - 0.09, zc);   // the return run underneath
+    // guide rails on brackets, not floating
+    [-0.32, 0.32].forEach(function (gx) { c.box(0.03, 0.04, len - 0.1, MAT_MACH.guard, x + gx, y + 0.14, zc); for (var gz = z0 + 0.3; gz < z1; gz += 1.2) { c.box(0.03, 0.14, 0.03, FR, x + gx, y + 0.08, gz); c.box(0.08, 0.02, 0.03, FR, x + gx + (gx < 0 ? 0.03 : -0.03), y + 0.04, gz); } });
+    // the drive: motor and gearbox hung off the far drum, a guard over the chain
+    var mt = c.cyl(0.085, 0.26, MAT_MACH.blue, x + 0.5, y - 0.1, z1 - 0.2, 14); mt.rotation.z = Math.PI / 2; c.cyl(0.095, 0.02, MAT.black, x + 0.64, y - 0.1, z1 - 0.2, 14).rotation.z = Math.PI / 2; c.box(0.12, 0.16, 0.16, FR, x + 0.43, y - 0.1, z1 - 0.2); c.box(0.06, 0.26, 0.2, FR, x + 0.4, y - 0.05, z1 - 0.1); c.box(0.03, 0.02, 0.4, MAT.black, x + 0.43, y - 0.2, z1 - 0.4);
+    if (!opt.noLegs) for (var lz = z0 + 0.4; lz < z1; lz += 1.5) { [-0.3, 0.3].forEach(function (lx) { c.box(0.06, y - 0.14, 0.06, FR, x + lx, (y - 0.14) / 2, lz); c.box(0.14, 0.02, 0.14, FR, x + lx, 0.01, lz); c.cyl(0.02, 0.04, MAT.chrome, x + lx, 0.03, lz, 6); }); c.box(0.66, 0.05, 0.05, FR, x, 0.2, lz); var dg = c.box(0.04, Math.hypot(0.6, y - 0.4), 0.04, FR, x, (y - 0.14) / 2 + 0.05, lz); dg.rotation.z = Math.atan2(0.6, y - 0.4); }
+    if (!opt.noEye) { c.box(0.03, 0.4, 0.03, FR, x - 0.42, y + 0.2, z1 - 0.3); c.box(0.05, 0.06, 0.04, MAT.black, x - 0.42, y + 0.32, z1 - 0.3); c.box(0.02, 0.02, 0.005, glowMat(0xff3b2f, 1.2), x - 0.395, y + 0.32, z1 - 0.3); c.box(0.03, 0.3, 0.03, FR, x + 0.42, y + 0.15, z1 - 0.3); c.box(0.03, 0.03, 0.02, MAT.white, x + 0.42, y + 0.32, z1 - 0.3); }
+    c.box(0.04, 0.03, len - 0.6, MAT.black, x - 0.4, y - 0.18, zc); for (var cz = z0 + 0.5; cz < z1; cz += 2) c.box(0.06, 0.08, 0.04, FR, x - 0.4, y - 0.18, cz);   // the cable run
     c.solid(x - 0.4, x + 0.4, z0, z1, 0, 0.82);
-  }
-  // a conveyor along a path of local points: each straight run is a conveyorBuild in a sub-group turned to face along it; solids are added per run
-  function conveyorPath(c, pts) {
+  }  function conveyorPath(c, pts) {
     for (var i = 1; i < pts.length; i++) {
       var ax = pts[i - 1][0], az = pts[i - 1][1], ay = pts[i - 1][2] || 0, bx = pts[i][0], bz = pts[i][1], by = pts[i][2] || 0, run = Math.hypot(bx - ax, bz - az), ang = Math.atan2(bx - ax, bz - az), slope = Math.atan2(by - ay, run), len = Math.hypot(run, by - ay);
       var sg = new THREE.Group(); sg.position.set(ax, ay, az); sg.rotation.order = 'YXZ'; sg.rotation.y = ang; sg.rotation.x = -slope; c.group.add(sg);
@@ -90,24 +95,35 @@
   }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [1.9, 0.5], [1.9, -18.6]]); c.sign(['TO OUT 2'], 0.6, 0.14, 1.9, 1.05, 4, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function dockLoaderBuild(c) {
     var id = 'dockLoader2', label = 'OUT 2';
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame;
-    var rbx = function (w, h, d, r, mat, x, y, z) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; c.group.add(mm); return mm; };
-    rbx(1.8, 0.3, 1.8, 0.03, DG, -0.2, 0.15, 0.6); rbx(1.5, 0.9, 1.5, 0.05, LG, -0.3, 0.75, 0.6); c.box(1.52, 0.04, 1.52, MAT.hazard, -0.3, 0.32, 0.6); rbx(0.9, 0.5, 0.8, 0.04, MAT_MACH.blue, -0.5, 1.45, 0.6);
-    for (var rz = 0.1; rz < 1.4; rz += 0.2) { var r = c.cyl(0.035, 0.7, MAT_MACH.roller, -0.1, BELT_Y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; } c.box(0.05, 0.1, 1.4, DG, -0.47, BELT_Y - 0.04, 0.75); c.box(0.05, 0.1, 1.4, DG, 0.27, BELT_Y - 0.04, 0.75);
+    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, BL = MAT_MACH.blue;
+    var rbx = function (w, h, d, r, mat, x, y, z, parent) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; (parent || c.group).add(mm); return mm; };
+    // the base: a heavy frame on levelling feet, the fixed belt section that takes parcels off the shipping belt
+    rbx(1.6, 0.26, 2.2, 0.03, DG, -0.2, 0.13, 0.6); [[-0.9, -0.4], [0.5, -0.4], [-0.9, 1.6], [0.5, 1.6]].forEach(function (p) { c.cyl(0.07, 0.04, DG, p[0], 0.02, p[1], 10); c.box(0.12, 0.3, 0.12, DG, p[0], 0.3, p[1]); });
+    [-0.46, 0.26].forEach(function (sx) { c.box(0.04, 0.16, 1.9, LG, sx, BELT_Y - 0.06, 0.75); c.box(0.05, 0.02, 1.9, BL, sx, BELT_Y + 0.035, 0.75); });
+    for (var rz = -0.1; rz < 1.6; rz += 0.3) { var r = c.cyl(0.03, 0.68, MAT_MACH.roller, -0.1, BELT_Y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; }
+    var bt = beltTexBase.clone(); bt.needsUpdate = true; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; bt.repeat.set(1, 3.8); var bm = std({ map: bt, roughness: 0.9 }); bm.userData.noBake = true; var top = c.plane(0.62, 1.86, bm, -0.1, BELT_Y + 0.025, 0.75, -Math.PI / 2, 0); BELT_PLANES.push(top);
+    [-0.42, 0.22].forEach(function (gx) { c.box(0.03, 0.04, 1.8, MAT_MACH.guard, gx, BELT_Y + 0.14, 0.75); [0.0, 0.8, 1.5].forEach(function (gz) { c.box(0.03, 0.14, 0.03, DG, gx, BELT_Y + 0.08, gz); }); });
+    // the lifting frame: two A-frame uprights with a cross head, the pivot, the hydraulic cylinder under the boom
+    [[-0.1, -0.1], [-0.1, 0.9]].forEach(function (p) { c.box(0.14, 1.9, 0.14, BL, 0.55, 0.95, p[1]); }); c.box(0.16, 0.16, 1.2, BL, 0.55, 1.9, 0.4); c.cyl(0.1, 0.9, DG, 0.55, 1.1, 0.4, 12).rotation.x = Math.PI / 2;
+    var cylm = c.cyl(0.06, 1.0, MAT.chrome, 1.0, 0.5, 0.4, 10); cylm.rotation.z = -0.9; var cylb = c.cyl(0.08, 0.6, DG, 0.75, 0.3, 0.4, 10); cylb.rotation.z = -0.9;
+    // the boom: a telescopic belt section that slides out towards the door (animated), with rollers, side guards, a lip roller and a bump bar
     var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
-    var boom = new THREE.Group(); boom.position.set(0.9, BELT_Y, 0.4); dyn.add(boom); box(1.6, 0.14, 0.7, DG, 0, 0, 0, boom); box(1.6, 0.03, 0.6, std({ color: 0x2c3035, roughness: 0.9 }), 0, 0.085, 0, boom); box(1.6, 0.05, 0.03, MAT_MACH.guard, 0, 0.13, 0.33, boom); box(1.6, 0.05, 0.03, MAT_MACH.guard, 0, 0.13, -0.33, boom); for (var bk = -0.6; bk <= 0.6; bk += 0.3) cyl(0.03, 0.62, MAT_MACH.roller, bk, 0.07, 0, boom, 8).rotation.x = Math.PI / 2; cyl(0.06, 0.4, MAT.rubber, 0.8, 0, 0, boom, 10).rotation.x = Math.PI / 2; box(0.1, 0.12, 0.72, MAT.yellow, 0.82, 0.02, 0, boom);
-    var pusher = box(0.08, 0.34, 0.56, MAT_MACH.blue, 0.2, 0.28, 0, boom); box(0.4, 0.05, 0.05, MAT.chrome, 0.0, 0.28, 0, boom);
-    c.box(0.5, 1.2, 0.5, DG, 0.3, 1.0, 0.4); c.box(0.6, 0.08, 0.6, DG, 0.3, 1.64, 0.4);
-    var cab = rbx(0.6, 1.4, 0.45, 0.03, LG, -1.4, 0.8, 0.6); c.box(0.62, 0.2, 0.47, DG, -1.4, 0.1, 0.6); var scr = touchScreen({ w: 300, h: 200, pw: 0.42, ph: 0.28, x: -1.4, y: 1.1, z: 0.84, ry: 0, parent: c.group, title: 'Dock loader ' + label, draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(cc, sc.w, 'DOCK LOADER ' + label, dockLoaderStatus().toUpperCase()); scText(cc, 16, 70, dockLoaderPrompt().split(' · ').slice(1, 2).join(''), '#eef1f5', 13); scText(cc, 16, 100, 'On the way: ' + beltItems('shipBelt').length + ' parcels', '#a0acb8', 12); } }); scr.mesh.userData.propId = id;
-    eStop(c, -1.4, 0.55, 0.84); MACH[id].lamps = lampStack(c, -1.4, 1.5, 0.6);
-    [-0.3, 1.5].forEach(function (lz) { c.box(0.06, 1.6, 0.06, MAT.yellow, 0.9, 0.8, lz); c.box(0.02, 1.4, 0.02, glowMat(0xff3b2f, 0.6), 0.94, 0.8, lz); });
-    c.sign(['DOCK LOADER', 'KEEP CLEAR OF THE BOOM'], 1.2, 0.24, -0.3, 1.3, -0.17, Math.PI, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' }); c.sign([label + ' · AUTO'], 0.6, 0.14, -0.3, 1.78, 0.6, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
+    var boom = new THREE.Group(); boom.position.set(0.9, BELT_Y + 0.02, 0.4); dyn.add(boom);
+    box(1.6, 0.16, 0.76, LG, 0, 0, 0, boom); box(1.6, 0.03, 0.62, std({ color: 0x2c3035, roughness: 0.9 }), 0, 0.1, 0, boom); box(1.6, 0.05, 0.03, MAT_MACH.guard, 0, 0.16, 0.34, boom); box(1.6, 0.05, 0.03, MAT_MACH.guard, 0, 0.16, -0.34, boom);
+    for (var bk = -0.6; bk <= 0.6; bk += 0.3) cyl(0.03, 0.62, MAT_MACH.roller, bk, 0.09, 0, boom, 8).rotation.x = Math.PI / 2;
+    cyl(0.06, 0.66, MAT.rubber, 0.82, 0.02, 0, boom, 10).rotation.x = Math.PI / 2; box(0.12, 0.12, 0.8, MAT.yellow, 0.86, -0.08, 0, boom); box(0.14, 0.04, 0.8, MAT.black, 0.86, 0.0, 0, boom);
+    box(1.4, 0.06, 0.1, DG, 0, -0.1, 0.42, boom); box(1.4, 0.06, 0.1, DG, 0, -0.1, -0.42, boom); box(0.3, 0.1, 0.5, DG, -0.6, -0.14, 0, boom);
+    var pusher = box(0.08, 0.34, 0.56, BL, 0.2, 0.3, 0, boom); box(0.4, 0.05, 0.05, MAT.chrome, 0.0, 0.3, 0, boom); box(0.1, 0.1, 0.1, DG, -0.2, 0.3, 0, boom);
+    // canopy lamp over the boom, the operator pedestal with screen, E-stop and lamp stack, light curtain at the door side
+    c.box(0.08, 0.08, 0.08, DG, 0.55, 2.0, 0.4); c.box(0.6, 0.08, 0.3, DG, 0.85, 2.05, 0.4); c.box(0.5, 0.05, 0.22, MAT.lamp, 0.9, 1.99, 0.4);
+    var ped = rbx(0.5, 1.3, 0.4, 0.03, LG, -1.1, 0.7, 1.6); c.box(0.52, 0.16, 0.42, DG, -1.1, 0.08, 1.6); var scr = touchScreen({ w: 300, h: 200, pw: 0.38, ph: 0.25, x: -1.1, y: 1.15, z: 1.81, ry: 0, parent: c.group, title: 'Dock loader ' + label, draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(cc, sc.w, 'DOCK LOADER ' + label, dockLoaderStatus().toUpperCase()); scText(cc, 16, 70, dockLoaderPrompt().split(' · ').slice(1, 2).join(''), '#eef1f5', 13); scText(cc, 16, 100, 'On the way: ' + beltItems('shipBelt').length + ' parcels', '#a0acb8', 12); } }); scr.mesh.userData.propId = id;
+    eStop(c, -1.1, 0.6, 1.81); MACH[id].lamps = lampStack(c, -1.1, 1.4, 1.6); c.box(0.04, 1.1, 0.04, MAT.black, -1.3, 0.55, 1.4);
+    [-0.2, 1.0].forEach(function (lz) { c.box(0.06, 1.7, 0.06, MAT.yellow, 1.55, 0.85, lz); c.box(0.02, 1.5, 0.02, glowMat(0xff3b2f, 0.6), 1.59, 0.85, lz); c.box(0.14, 0.03, 0.14, DG, 1.55, 0.015, lz); });
+    c.sign(['DOCK LOADER', 'KEEP CLEAR OF THE BOOM'], 1.2, 0.24, -0.2, 1.0, -0.56, Math.PI, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' }); c.sign([label + ' · AUTO'], 0.6, 0.14, 0.55, 2.12, 0.4, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     MACH[id].anim = { boom: boom, pusher: pusher, pushT: 0, ext: 0 };
-    c.hit(2.0, 1.8, 2.0, -0.3, 0.9, 0.6, { prompt: function () { return dockLoaderPrompt(); }, use: function () { sfx('click'); } });
-    c.solid(-1.75, 0.6, -0.3, 1.5, 0, 1.8);
-  }
-  // the gantry picker: columns and two rails over row A, a trolley with a telescoping mast and a gripper, and the pick belt it feeds
-  function gantryBuild(c) {
+    c.hit(2.0, 2.0, 2.4, 0, 1.0, 0.6, { prompt: function () { return dockLoaderPrompt(); }, use: function () { sfx('click'); } });
+    c.solid(-1.4, 0.7, -0.5, 1.8, 0, 2.1);
+  }  function gantryBuild(c) {
     var DG = MAT_MACH.frame, YL = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.3 }), LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 });
     // end columns stand clear of the racking at the row ends; the mid columns stand tight against the rack faces, out of the aisles
     [-0.4, 46.4].forEach(function (cx) { [-1.6, 1.6].forEach(function (cz) { c.box(0.26, 5.4, 0.26, YL, cx, 2.7, cz); c.box(0.5, 0.03, 0.5, DG, cx, 0.015, cz); c.box(0.3, 0.3, 0.3, DG, cx, 5.5, cz); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); });
@@ -140,31 +156,33 @@
   function cabinet(c, x, y, z, w, h, d) { c.box(w, h, d, MAT_MACH.panel, x, y, z); c.box(w + 0.02, 0.05, d + 0.02, MAT_MACH.frame, x, y + h / 2, z); c.box(w - 0.1, h - 0.12, 0.01, std({ color: 0xcfd4d9, roughness: 0.5 }), x, y, z + d / 2 + 0.004); c.box(0.025, 0.08, 0.02, MAT.chrome, x + w / 2 - 0.08, y, z + d / 2 + 0.015); }
   // ── The pack line prop: infeed belt, the case taper, outfeed belt, the gravity shelf
   function packLineBuild(c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame;
+    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, BL = MAT_MACH.blue;
     var rbx = function (w, h, d, r, mat, x, y, z) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; mm.receiveShadow = true; c.group.add(mm); return mm; };
     conveyorBuild(c, 0, 0, 2.0, { noEye: true });
-    // the taper: a solid body on a dark base, a tunnel through it, the taping head in a bridge on top, side drive belts inside, flap folders at the mouth
-    rbx(1.5, 0.3, 1.9, 0.03, DG, 0, 0.15, 2.9); rbx(1.4, 1.3, 1.8, 0.05, LG, 0, 0.95, 2.9); c.box(1.42, 0.05, 1.82, MAT.hazard, 0, 0.32, 2.9);
-    c.box(0.9, 0.7, 0.1, MAT.black, 0, 1.1, 2.02); c.box(0.9, 0.7, 0.1, MAT.black, 0, 1.1, 3.78);                                                   // the tunnel mouths
+    // the taper body on four legs: lower skirt, louvred side panels, a top housing with a window onto the tape head, service doors
+    [[-0.6, 2.15], [0.6, 2.15], [-0.6, 3.65], [0.6, 3.65]].forEach(function (p) { c.box(0.1, 0.7, 0.1, DG, p[0], 0.35, p[1]); c.box(0.2, 0.03, 0.2, DG, p[0], 0.015, p[1]); });
+    rbx(1.4, 0.16, 1.8, 0.02, DG, 0, 0.78, 2.9); rbx(1.4, 1.0, 1.8, 0.04, LG, 0, 1.36, 2.9); c.box(1.42, 0.04, 1.82, MAT.hazard, 0, 0.88, 2.9);
+    [-0.71, 0.71].forEach(function (sx) { for (var lv = 0; lv < 8; lv++) c.box(0.015, 0.03, 1.3, DG, sx, 1.0 + lv * 0.08, 2.9); c.box(0.02, 0.5, 0.5, std({ color: 0xcfd4d9, roughness: 0.5 }), sx, 1.3, 2.3); c.box(0.03, 0.08, 0.02, MAT.chrome, sx + (sx < 0 ? -0.01 : 0.01), 1.3, 2.5); });
+    c.box(0.9, 0.7, 0.1, MAT.black, 0, 1.2, 2.02); c.box(0.9, 0.7, 0.1, MAT.black, 0, 1.2, 3.78); var flap = c.box(0.86, 0.3, 0.02, std({ color: 0xd8dde3, roughness: 0.4, transparent: true, opacity: 0.6 }), 0, 1.4, 3.8); flap.rotation.x = -0.6; flap.userData.noBake = true;
     for (var rz = 2.1; rz < 3.7; rz += 0.2) { var r = c.cyl(0.035, 0.84, MAT_MACH.roller, 0, BELT_Y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; }
     [-0.4, 0.4].forEach(function (x) { c.box(0.04, 0.28, 1.5, MAT_MACH.rubber, x, BELT_Y + 0.2, 2.9); });
-    rbx(1.0, 0.5, 1.2, 0.05, LG, 0, 1.85, 2.9); c.box(1.04, 0.04, 1.24, DG, 0, 1.62, 2.9); c.box(0.36, 0.42, 0.5, DG, 0, 1.4, 2.9); var roll = c.cyl(0.16, 0.08, MAT.white, 0, 1.5, 3.15, 16); roll.rotation.z = Math.PI / 2; c.cyl(0.03, 0.14, MAT.chrome, 0, 1.5, 3.15, 8).rotation.z = Math.PI / 2; var pr = c.cyl(0.04, 0.3, MAT_MACH.rubber, 0, 1.25, 2.62, 10); pr.rotation.z = Math.PI / 2;
+    rbx(1.0, 0.5, 1.2, 0.05, LG, 0, 2.1, 2.9); c.box(1.04, 0.04, 1.24, DG, 0, 1.88, 2.9); c.plane(0.7, 0.3, std({ color: 0x9fc4d6, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.4 }), 0.0, 2.15, 3.51, 0, 0); c.box(0.74, 0.34, 0.02, DG, 0, 2.15, 3.5);
+    c.box(0.36, 0.42, 0.5, DG, 0, 1.62, 2.9); var roll = c.cyl(0.16, 0.08, MAT.white, 0, 1.72, 3.15, 16); roll.rotation.z = Math.PI / 2; c.cyl(0.03, 0.14, MAT.chrome, 0, 1.72, 3.15, 8).rotation.z = Math.PI / 2; var pr = c.cyl(0.04, 0.3, MAT_MACH.rubber, 0, 1.45, 2.62, 10); pr.rotation.z = Math.PI / 2;
     c.box(0.3, 0.02, 0.4, MAT_MACH.guard, -0.42, BELT_Y + 0.5, 2.1).rotation.z = 0.5; c.box(0.3, 0.02, 0.4, MAT_MACH.guard, 0.42, BELT_Y + 0.5, 2.1).rotation.z = -0.5;
-    c.box(0.3, 0.2, 0.24, LG, 0.5, 1.12, 3.72); c.box(0.22, 0.01, 0.03, MAT.paper, 0.5, 1.04, 3.86);                                                // the label printer at the outfeed
-    c.sign(['CASE TAPER 400', 'KEEP HANDS CLEAR OF THE INFEED'], 1.0, 0.2, 0, 1.5, 2.0, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' });
-    rbx(0.5, 1.3, 0.5, 0.03, LG, 0.95, 0.95, 2.9); c.box(0.52, 0.3, 0.52, DG, 0.95, 0.15, 2.9); var scr = touchScreen({ w: 300, h: 200, pw: 0.36, ph: 0.24, x: 0.95, y: 1.3, z: 3.16, ry: 0, parent: c.group, title: 'Pack line', draw: packScreenDraw }); scr.mesh.userData.propId = 'packline';
-    eStop(c, 0.95, 0.9, 3.16); MACH.taper.lamps = lampStack(c, 0.95, 1.62, 2.9); c.cyl(0.02, 0.6, MAT.black, 1.1, 0.5, 2.75, 6);
-    c.hit(1.6, 2.2, 1.9, 0.1, 1.1, 2.9, { prompt: function () { return packPrompt(); }, use: function () { packUse(); } });
-    c.solid(-0.75, 1.25, 2.0, 3.8, 0, 2.4);
+    c.box(0.3, 0.2, 0.24, LG, 0.5, 1.12, 3.74); c.box(0.22, 0.01, 0.03, MAT.paper, 0.5, 1.04, 3.88); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), 0.62, 1.2, 3.86);
+    c.sign(['CASE TAPER 400', 'KEEP HANDS CLEAR OF THE INFEED'], 1.0, 0.2, 0, 1.6, 2.0, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' }); c.sign(['DEPOT CO. PACK LINE 1'], 1.2, 0.14, -0.72, 1.7, 2.9, -Math.PI / 2, { w: 512, h: 60, bg: '#1b232c', fg: '#f5b53d' });
+    // the cabinet on a pedestal, cable trunking back to the machine
+    rbx(0.5, 1.2, 0.45, 0.03, LG, 1.05, 1.0, 2.9); c.box(0.52, 0.3, 0.47, DG, 1.05, 0.25, 2.9); c.box(0.05, 0.05, 0.25, MAT.black, 0.78, 0.5, 2.9); var scr = touchScreen({ w: 300, h: 200, pw: 0.36, ph: 0.24, x: 1.05, y: 1.3, z: 3.135, ry: 0, parent: c.group, title: 'Pack line', draw: packScreenDraw }); scr.mesh.userData.propId = 'packline';
+    eStop(c, 1.05, 0.85, 3.135); MACH.taper.lamps = lampStack(c, 1.05, 1.62, 2.9); c.cyl(0.02, 0.5, MAT.black, 1.2, 0.5, 2.7, 6);
+    c.hit(1.6, 2.4, 1.9, 0.1, 1.2, 2.9, { prompt: function () { return packPrompt(); }, use: function () { packUse(); } });
+    c.solid(-0.75, 1.35, 2.0, 3.8, 0, 2.5);
     conveyorBuild(c, 0, 3.8, 5.8, {});
-    // the gravity shelf: a sloped roller bed with an end stop, where parcels wait to be picked up
+    // the gravity shelf: a sloped roller bed on a frame with an end stop and a take-from-here plate
     for (var sz = 5.9; sz < 7.0; sz += 0.12) { var sr = c.cyl(0.025, 0.7, MAT_MACH.roller, 0, 0.66 - (sz - 5.9) * 0.06, sz, 8); sr.rotation.z = Math.PI / 2; }
-    [-0.38, 0.38].forEach(function (x) { var rail = c.box(0.04, 0.08, 1.2, DG, x, 0.64, 6.45); rail.rotation.x = 0.06; c.box(0.05, 0.55, 0.05, DG, x, 0.28, 5.95); c.box(0.05, 0.5, 0.05, DG, x, 0.25, 6.95); });
+    [-0.38, 0.38].forEach(function (x) { var rail = c.box(0.04, 0.1, 1.2, DG, x, 0.64, 6.45); rail.rotation.x = 0.06; c.box(0.05, 0.55, 0.05, DG, x, 0.28, 5.95); c.box(0.05, 0.5, 0.05, DG, x, 0.25, 6.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 5.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 6.95); }); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 5.95); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 6.95);
     c.box(0.8, 0.12, 0.03, MAT_MACH.guard, 0, 0.68, 7.02); c.sign(['PARCELS · TAKE FROM HERE'], 0.8, 0.12, 0, 0.5, 7.03, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     c.solid(-0.45, 0.45, 5.8, 7.05, 0, 0.75);
-  }
-  // parcels on the shelf: local positions in the pack line's frame
-  function shelfSlot(i) { return { lx: i % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(i / 2) * 0.26, y: 0.66 - Math.floor(i / 2) * 0.016 + 0.2 }; }
+  }  function shelfSlot(i) { return { lx: i % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(i / 2) * 0.26, y: 0.66 - Math.floor(i / 2) * 0.016 + 0.2 }; }
   // ── The moulding line prop: hopper throat, heated barrel, clamp with a moving platen between tie bars, cooling fan, control cabinet, outfeed belt
   function moulderBuild(c) {
     var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), BL = MAT_MACH.blue, CH = MAT.chrome;
@@ -379,6 +397,7 @@
   defProp('signBreak', { label: 'sign: BREAK ROOM', cat: 'wall', wall: true, abs: true, x: -22.91, z: -22.45, rot: 1, build: wallSignBuild(['BREAK ROOM'], 1.6, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
   defProp('exitNorth', { label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
   defProp('exitStaff', { label: 'exit sign (staff door)', cat: 'wall', wall: true, abs: true, x: -29.8, z: 22, rot: 1, build: exitSignBuild });
+  defProp('signPacking', { label: 'sign: PACKING', cat: 'wall', wall: true, abs: true, x: 29.83, z: 5.2, rot: 3, build: wallSignBuild(['PACKING'], 1.8, 0.5, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' }) });
   defProp('signProduction', { label: 'sign: PRODUCTION', cat: 'wall', wall: true, abs: true, x: 5.8, z: -23.83, rot: 0, build: wallSignBuild(['PRODUCTION'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#78bdf5' }) });
   defProp('signWarehouse', { label: 'sign: WAREHOUSE', cat: 'wall', wall: true, abs: true, x: 5.8, z: -24.17, rot: 2, build: wallSignBuild(['WAREHOUSE'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' }) });
   defProp('signPpe', { label: 'sign: PPE', cat: 'wall', wall: true, abs: true, x: 2.5, z: -23.83, rot: 0, build: wallSignBuild(['PPE BEYOND THIS POINT', 'ear defenders · safety boots · hi-vis'], 1.2, 0.5, 2.3, { w: 512, h: 200, bg: '#1f4e8c', fg: '#eef1f5' }) });

@@ -130,5 +130,5 @@
     else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving && !e.repeat) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
-  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); }, { passive: true });
+  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } }, { passive: true });
   window.addEventListener('blur', function () { player.keys = {}; });

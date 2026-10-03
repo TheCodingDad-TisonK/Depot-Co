@@ -357,7 +357,6 @@
     c.box(0.25, 0.12, 0.12, MAT.red, -0.3, 1.0, -1.3); c.cyl(0.07, 0.1, MAT.white, -0.3, 1.02, -1.3, 10); c.box(0.3, 0.05, 0.3, MAT.steelDark, 0.25, 0.965, -1.35); c.plane(0.2, 0.1, MAT.screen, 0.25, 1.0, -1.2, -0.6, 0); c.cyl(0.02, 0.9, MAT.steelDark, -0.4, 1.4, 1.4, 8); c.box(0.3, 0.08, 0.15, MAT.lamp, -0.3, 1.85, 1.4);
     c.box(0.22, 0.14, 0.18, MAT.white, 0.25, 1.01, 0.6); c.box(0.18, 0.01, 0.1, MAT.paper, 0.25, 1.09, 0.72); c.box(0.12, 0.02, 0.03, MAT.yellow, -0.2, 0.955, 0.2).rotation.y = 0.4;
     c.hit(1.1, 1.2, 3.2, 0, 1.4, 0, { prompt: function () { return benchPrompt(); }, use: function () { benchUse(); } });
-    c.sign(['PACKING'], 1.8, 0.5, 0.3, 2.6, 0, -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' });
     // the terminal on an arm at the near end
     c.box(0.26, 0.03, 0.2, MAT.steelDark, 0.3, 0.955, -1.3); c.cyl(0.025, 0.5, MAT.steelDark, 0.3, 1.2, -1.3, 8); c.box(0.36, 0.04, 0.04, MAT.steelDark, 0.14, 1.45, -1.3); c.box(0.04, 0.4, 0.56, MAT.black, -0.02, 1.45, -1.3);
     var scr = touchScreen({ w: 400, h: 300, pw: 0.5, ph: 0.36, x: -0.045, y: 1.45, z: -1.3, ry: -Math.PI / 2, parent: c.group, title: 'Bench terminal', draw: benchScreenDraw }); scr.mesh.userData.propId = 'bench';
