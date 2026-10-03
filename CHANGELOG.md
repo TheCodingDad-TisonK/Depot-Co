@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.10 (2026-10-03)
+
+- The rack rows moved one metre south (-17.5 to 15.5, still 6.6 m apart): 1.12.9 had left row F and its crane column 1.2 m from the office front. That corner is now 2.1 m clear, and row A still clears the break room. The suite checks both clearances.
+
 ## 1.12.9 (2026-10-03)
 
 - Wider aisles: the rack rows sit 6.6 m apart instead of 6, and every crane column stands tight against the rack face on an outrigger, so the narrowest aisle is 4.8 m clear with all cranes up (it was 2.8 m at the row ends). The pick belts follow the rows.
