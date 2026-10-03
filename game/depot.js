@@ -123,7 +123,7 @@
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
       hall: 3,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
       up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false },
-      gantries: {},
+      gantries: {}, speed: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
       slots: {},                 // "row,bay,level" -> { sku, n }
       pallets: [],               // { id, sku, n, place: 'truck'|'floor'|'jack'|'fork'|'staff', truck, idx, x, z, y, rot }
@@ -1634,7 +1634,7 @@
     for (var rz = z0 + 0.18; rz < z1 - 0.1; rz += 0.3) { var r = c.cyl(0.03, 0.66, MAT_MACH.roller, x, y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; }
     [z0 + 0.06, z1 - 0.06].forEach(function (dz) { var dr = c.cyl(0.07, 0.68, MAT_MACH.roller, x, y - 0.03, dz, 14); dr.rotation.z = Math.PI / 2; });
     var bt = beltTexBase.clone(); bt.needsUpdate = true; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; bt.repeat.set(1, len / 0.5); var bm = std({ map: bt, roughness: 0.9 }); bm.userData.noBake = true;
-    var top = c.plane(0.62, len - 0.04, bm, x, y + 0.025, zc, -Math.PI / 2, 0); BELT_PLANES.push(top); c.box(0.62, 0.012, len - 0.04, std({ color: 0x1c1f23, roughness: 0.95 }), x, y - 0.09, zc);   // the return run underneath
+    var top = c.plane(0.62, len - 0.04, bm, x, y + 0.025, zc, -Math.PI / 2, 0); top.userData.speedKey = c.group.userData.propId; BELT_PLANES.push(top); c.box(0.62, 0.012, len - 0.04, std({ color: 0x1c1f23, roughness: 0.95 }), x, y - 0.09, zc);   // the return run underneath
     // guide rails on brackets, not floating
     [-0.32, 0.32].forEach(function (gx) { c.box(0.03, 0.04, len - 0.1, MAT_MACH.guard, x + gx, y + 0.14, zc); for (var gz = z0 + 0.3; gz < z1; gz += 1.2) { c.box(0.03, 0.14, 0.03, FR, x + gx, y + 0.08, gz); c.box(0.08, 0.02, 0.03, FR, x + gx + (gx < 0 ? 0.03 : -0.03), y + 0.04, gz); } });
     // the drive: motor and gearbox hung off the far drum, a guard over the chain
@@ -1663,7 +1663,7 @@
     rbx(1.6, 0.26, 2.2, 0.03, DG, -0.2, 0.13, 0.6); [[-0.9, -0.4], [0.5, -0.4], [-0.9, 1.6], [0.5, 1.6]].forEach(function (p) { c.cyl(0.07, 0.04, DG, p[0], 0.02, p[1], 10); c.box(0.12, 0.3, 0.12, DG, p[0], 0.3, p[1]); });
     [-0.46, 0.26].forEach(function (sx) { c.box(0.04, 0.16, 1.9, LG, sx, BELT_Y - 0.06, 0.75); c.box(0.05, 0.02, 1.9, BL, sx, BELT_Y + 0.035, 0.75); });
     for (var rz = -0.1; rz < 1.6; rz += 0.3) { var r = c.cyl(0.03, 0.68, MAT_MACH.roller, -0.1, BELT_Y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; }
-    var bt = beltTexBase.clone(); bt.needsUpdate = true; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; bt.repeat.set(1, 3.8); var bm = std({ map: bt, roughness: 0.9 }); bm.userData.noBake = true; var top = c.plane(0.62, 1.86, bm, -0.1, BELT_Y + 0.025, 0.75, -Math.PI / 2, 0); BELT_PLANES.push(top);
+    var bt = beltTexBase.clone(); bt.needsUpdate = true; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; bt.repeat.set(1, 3.8); var bm = std({ map: bt, roughness: 0.9 }); bm.userData.noBake = true; var top = c.plane(0.62, 1.86, bm, -0.1, BELT_Y + 0.025, 0.75, -Math.PI / 2, 0); top.userData.speedKey = c.group.userData.propId; BELT_PLANES.push(top);
     [-0.42, 0.22].forEach(function (gx) { c.box(0.03, 0.04, 1.8, MAT_MACH.guard, gx, BELT_Y + 0.14, 0.75); [0.0, 0.8, 1.5].forEach(function (gz) { c.box(0.03, 0.14, 0.03, DG, gx, BELT_Y + 0.08, gz); }); });
     // the lifting frame: two A-frame uprights with a cross head, the pivot, the hydraulic cylinder under the boom
     [[-0.1, -0.1], [-0.1, 0.9]].forEach(function (p) { c.box(0.14, 1.9, 0.14, BL, 0.55, 0.95, p[1]); }); c.box(0.16, 0.16, 1.2, BL, 0.55, 1.9, 0.4); c.cyl(0.1, 0.9, DG, 0.55, 1.1, 0.4, 12).rotation.x = Math.PI / 2;
@@ -1678,7 +1678,7 @@
     var pusher = box(0.08, 0.34, 0.56, BL, 0.2, 0.3, 0, boom); box(0.4, 0.05, 0.05, MAT.chrome, 0.0, 0.3, 0, boom); box(0.1, 0.1, 0.1, DG, -0.2, 0.3, 0, boom);
     // canopy lamp over the boom, the operator pedestal with screen, E-stop and lamp stack, light curtain at the door side
     c.box(0.08, 0.08, 0.08, DG, 0.55, 2.0, 0.4); c.box(0.6, 0.08, 0.3, DG, 0.85, 2.05, 0.4); c.box(0.5, 0.05, 0.22, MAT.lamp, 0.9, 1.99, 0.4);
-    var ped = rbx(0.5, 1.3, 0.4, 0.03, LG, -1.1, 0.7, 1.6); c.box(0.52, 0.16, 0.42, DG, -1.1, 0.08, 1.6); var scr = touchScreen({ w: 300, h: 200, pw: 0.38, ph: 0.25, x: -1.1, y: 1.15, z: 1.81, ry: 0, parent: c.group, title: 'Dock loader ' + label, draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(cc, sc.w, 'DOCK LOADER ' + label, dockLoaderStatus().toUpperCase()); scText(cc, 16, 70, dockLoaderPrompt().split(' · ').slice(1, 2).join(''), '#eef1f5', 13); scText(cc, 16, 100, 'On the way: ' + beltItems('shipBelt').length + ' parcels', '#a0acb8', 12); } }); scr.mesh.userData.propId = id;
+    var ped = rbx(0.5, 1.3, 0.4, 0.03, LG, -1.1, 0.7, 1.6); c.box(0.52, 0.16, 0.42, DG, -1.1, 0.08, 1.6); var scr = touchScreen({ w: 300, h: 200, pw: 0.38, ph: 0.25, x: -1.1, y: 1.15, z: 1.81, ry: 0, parent: c.group, title: 'Dock loader ' + label, draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(cc, sc.w, 'DOCK LOADER ' + label, dockLoaderStatus().toUpperCase()); scText(cc, 16, 70, dockLoaderPrompt().split(' · ').slice(1, 2).join(''), '#eef1f5', 13); scText(cc, 16, 100, 'On the way: ' + beltItems('shipBelt').length + ' parcels', '#a0acb8', 12); speedButton(sc, 16, 150, 130, 'shipBelt', 'BELT'); } }); scr.mesh.userData.propId = id;
     eStop(c, -1.1, 0.6, 1.81); MACH[id].lamps = lampStack(c, -1.1, 1.4, 1.6); c.box(0.04, 1.1, 0.04, MAT.black, -1.3, 0.55, 1.4);
     [-0.2, 1.0].forEach(function (lz) { c.box(0.06, 1.7, 0.06, MAT.yellow, 1.55, 0.85, lz); c.box(0.02, 1.5, 0.02, glowMat(0xff3b2f, 0.6), 1.59, 0.85, lz); c.box(0.14, 0.03, 0.14, DG, 1.55, 0.015, lz); });
     c.sign(['DOCK LOADER', 'KEEP CLEAR OF THE BOOM'], 1.2, 0.24, -0.2, 1.0, -0.56, Math.PI, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' }); c.sign([label + ' · AUTO'], 0.6, 0.14, 0.55, 2.12, 0.4, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
@@ -1701,10 +1701,11 @@
     var grip = new THREE.Group(); grip.position.set(0, 0, 0); trolley.add(grip); box(0.5, 0.15, 0.5, DG, 0, 0.3, 0, grip); box(0.7, 0.06, 0.7, MAT.black, 0, 0.2, 0, grip); [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(function (s) { cyl(0.07, 0.06, MAT_MACH.rubber, s[0], 0.15, s[1], grip, 10); });
     var bx = new THREE.Mesh(BOX_GEO, CARD[SKUS[0].id]); bx.position.set(0, -0.05, 0); bx.visible = false; grip.add(bx);
     c.sign(['GANTRY PICKER · ROW ' + 'ABCDEF'[r], 'AUTOMATIC · KEEP CLEAR'], 2.0, 0.4, 44.5, 5.9, 1.75, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#f5b53d' });
-    c.box(0.5, 1.0, 0.3, LG, 47.2, 1.4, -2.0); c.box(0.08, 0.3, 0.3, DG, 47.2, 1.1, -1.75); eStop(c, 47.2, 1.2, -1.84); MACH['gantry' + r].lamps = lampStack(c, 47.2, 2.0, -2.0);
-    c.box(0.42, 0.3, 0.02, DG, 47.2, 1.6, -2.155); var gsc = touchScreen({ w: 300, h: 200, pw: 0.36, ph: 0.24, x: 47.2, y: 1.6, z: -2.168, ry: Math.PI, parent: c.group, title: 'Gantry ' + 'ABCDEF'[r], draw: gantryScreenDraw(r) }); gsc.mesh.userData.propId = 'gantry' + r; MACH['gantry' + r].screen = gsc;
+    // the control cabinet hangs off the south end column (at z -0.78) on two brackets; screen and e-stop face the aisle
+    c.box(0.5, 1.0, 0.3, LG, 47.2, 1.4, -1.25); c.box(0.08, 0.3, 0.2, DG, 47.2, 1.1, -1.0); c.box(0.08, 0.3, 0.2, DG, 47.2, 1.75, -1.0); eStop(c, 47.2, 1.2, -1.41); MACH['gantry' + r].lamps = lampStack(c, 47.2, 2.0, -1.25);
+    c.box(0.42, 0.3, 0.02, DG, 47.2, 1.6, -1.405); var gsc = touchScreen({ w: 300, h: 200, pw: 0.36, ph: 0.24, x: 47.2, y: 1.6, z: -1.418, ry: Math.PI, parent: c.group, title: 'Gantry ' + 'ABCDEF'[r], draw: gantryScreenDraw(r) }); gsc.mesh.userData.propId = 'gantry' + r; MACH['gantry' + r].screen = gsc;
     MACH['gantry' + r].anim = { trolley: trolley, mast: mast, grip: grip, box: bx, beacon: beacon };
-    c.hit(0.8, 1.6, 0.6, 47.2, 1.2, -2.0, { prompt: function () { return gantryPrompt(r); }, use: function () { sfx('click'); } });
+    c.hit(0.8, 1.6, 0.6, 47.2, 1.2, -1.25, { prompt: function () { return gantryPrompt(r); }, use: function () { sfx('click'); } });
     [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -0.93, -0.63, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 0.63, 0.93, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
   }; }
   function pickBeltBuild(c) { conveyorPath(c, BELTS.pickBelt.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
@@ -1935,7 +1936,7 @@
   defProp('packline', { label: 'pack line', cat: 'hall', abs: true, x: 26.6, z: 7.2, rot: 0, build: packLineBuild });
   defProp('moulder', { label: 'moulding line', cat: 'factory', abs: true, x: -4, z: -37, rot: 0, build: moulderBuild });
   defProp('beltMain', { label: 'main belt', cat: 'factory', abs: true, x: -4, z: -32.5, rot: 0, build: beltMainBuild });
-  defProp('palletiser', { label: 'palletiser', cat: 'hall', abs: true, x: -4, z: -19.5, rot: 0, build: palletiserBuild });
+  defProp('palletiser', { label: 'palletiser', cat: 'hall', abs: true, x: -4, z: -20.6, rot: 0, build: palletiserBuild });
   defProp('hopper', { label: 'raw hopper', cat: 'factory', abs: true, x: -9.5, z: -37, rot: 0, build: hopperBuild });
   defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, x: 26.6, z: 14.3, rot: 0, build: shipBeltBuild, when: function () { return !!S.up.shipbelt; } });
   defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt; } });
@@ -3193,6 +3194,12 @@
   // still touch, and stops with a pile-up at the gap if they do not.
   var MACH = {}, BELTS = {}, BELT_PLANES = [];
   var BELT_SPEED = 0.5, BELT_GAP = 0.45, BELT_Y = 0.75, REACH = 1.3;
+  // every machine has a speed dial on its screen: 50 to 200 percent, kept per machine in S.speed
+  var SPEED_STEPS = [0.5, 0.75, 1, 1.5, 2];
+  function speedOf(key) { var v = S.speed && S.speed[key]; return typeof v === 'number' ? v : 1; }
+  function speedCycle(key) { if (!S.speed) S.speed = {}; var i = SPEED_STEPS.indexOf(speedOf(key)); S.speed[key] = SPEED_STEPS[(i + 1) % SPEED_STEPS.length]; sfx('click'); screenDirtyAll(); }
+  function speedButton(sc, x, y, w, key, label) { var pct = Math.round(speedOf(key) * 100) + '%'; scButton(sc, x, y, w, 30, w < 80 ? pct : (label || 'SPD') + ' ' + pct, true, function () { speedCycle(key); }, '#78bdf5'); }
+  function beltSpeedKey(b) { return b.speedKey || b.prop; }
   function defMachine(id, m) { m.id = id; m.lamps = null; MACH[id] = m; }
   function defBelt(id, b) { b.id = id; BELTS[id] = b; }
   function propWorld(prop, lx, lz) { var P = propPlacement(prop), a = P.rot * Math.PI / 2; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a), a: a }; }
@@ -3221,7 +3228,7 @@
       var ahead = Infinity;
       for (var i = 0; i < items.length; i++) {
         var it = items[i], max = Math.min(ahead - BELT_GAP, L);
-        if (powered()) it.d = Math.min(it.d + BELT_SPEED * dt, max);
+        if (powered()) it.d = Math.min(it.d + BELT_SPEED * speedOf(beltSpeedKey(b)) * dt, max);
         if (it.d >= L - 0.001 && sink) {
           var taken = false;
           if (sink.belt) taken = beltPush(sink.belt.id, it); else if (sink.machine && sink.machine.accept) taken = sink.machine.accept(it);
@@ -3230,7 +3237,7 @@
         ahead = it.d;
       }
     }
-    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y += BELT_SPEED * dt / 0.5; });   // stripes run with the items, towards local +z
+    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y += BELT_SPEED * speedOf(pl.userData.speedKey === 'pickBelt2' ? 'pickBelt' : pl.userData.speedKey) * dt / 0.5; });   // stripes run with the items, towards local +z
   }
   // belt items are drawn with the instanced boxes and parcels, inside syncInstances
   function drawBeltItems() {
@@ -3271,7 +3278,7 @@
       // feed the next box onto the infeed every 1.3 s
       P.feedT += dt; if (j.fed < j.boxes.length && P.feedT >= 1.3 && beltPush('packIn', { kind: 'box', sku: j.boxes[j.fed] })) { j.fed++; P.feedT = 0; }
       // every box in: the taper runs 3 s, then a parcel comes out on the outfeed
-      if (j.inMach >= j.boxes.length) { j.t += dt; if (j.t >= 3 && !P.out) { if (Math.random() < 0.05) { P.jam = true; toast('The pack line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); return; } P.out = j.order; sfx('hydraulic'); P.job = null; } }
+      if (j.inMach >= j.boxes.length) { j.t += dt * speedOf('packline'); if (j.t >= 3 && !P.out) { if (Math.random() < 0.05 * speedOf('packline')) { P.jam = true; toast('The pack line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); return; } P.out = j.order; sfx('hydraulic'); P.job = null; } }
     }
     if (P.out && powered() && !P.jam && beltPush('packOut', { kind: 'parcel', order: P.out })) P.out = null;
     // the outfeed end: the parcel drops onto the shelf when there is room
@@ -3288,6 +3295,7 @@
     scText(c, 16, 94, j ? 'Boxes in: ' + j.inMach + ' / ' + j.boxes.length + (j.inMach >= j.boxes.length ? ' · taping ' + Math.max(0, 3 - j.t).toFixed(1) + ' s' : '') : S.pack.queue.length + ' in the queue', '#a0acb8', 13);
     scText(c, 16, 118, 'Parcels made: ' + S.pack.made + ' · shelf ' + S.bench.parcels.length + '/8', '#a0acb8', 13);
     if (S.pack.jam) scButton(sc, 16, 140, 150, 34, 'CLEAR JAM', true, function () { packUse(); }, '#ff6b5e');
+    speedButton(sc, 176, 142, 108, 'packline'); if (speedOf('packline') > 1) scText(c, 176, 188, 'fast: jams more', '#ff6b5e', 10);
   }
 
   // ── The moulding line: raw granulate from the hopper becomes own-brand boxes on the outfeed
@@ -3301,7 +3309,7 @@
     var F = S.factory; if (!F) return;
     if (!propInst.moulder) return;
     if (powered() && F.on && !F.jam && F.raw > 0) {
-      F.t += dt;
+      F.t += dt * speedOf('moulder');
       if (F.t >= FACTORY_RATE) { if (beltPush('moulderOut', { kind: 'box', sku: F.product })) { F.t = 0; F.raw--; F.made++; S.stats.made = (S.stats.made || 0) + 1; if (S.seenSkus.indexOf(F.product) < 0) S.seenSkus.push(F.product); if (Math.random() < 0.02) { F.jam = true; toast('The moulding line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); } } }
       if (F.raw <= 0) { F.on = false; toast('The hopper is empty: the moulding line stopped.', 'bad'); screenDirtyAll(); }
     }
@@ -3318,7 +3326,8 @@
     ownSkus().forEach(function (s, i) { scButton(sc, 16 + i * 124, 116, 118, 30, s.name.replace('Depot Co. ', ''), F.product === s.id, function () { F.product = s.id; sfx('click'); }, '#78bdf5'); });
     scButton(sc, 16, 160, 110, 34, F.on ? 'STOP' : 'START', F.on, function () { moulderUse(); }, F.on ? '#ff6b5e' : '#5fd38d');
     if (F.jam) scButton(sc, 136, 160, 120, 34, 'CLEAR JAM', true, function () { moulderUse(); }, '#ff6b5e');
-    scText(c, 16, 220, 'Made ' + F.made + ' · ' + FACTORY_RATE + ' s a box · one unit of granulate each', '#a0acb8', 12);
+    speedButton(sc, 270, 162, 110, 'moulder');
+    scText(c, 16, 220, 'Made ' + F.made + ' · ' + (FACTORY_RATE / speedOf('moulder')).toFixed(0) + ' s a box · one unit of granulate each · the dial also drives its belt', '#a0acb8', 12);
     scText(c, 16, 240, 'Boxes go down the belt to the palletiser in the hall.', '#6b7784', 11);
   }
 
@@ -3349,7 +3358,7 @@
   }
   function palletiserPrompt() { var P = S.pal; return 'Palletiser · ' + (P.n ? P.n + ' × ' + skuName(P.sku) + ' on the pallet · E ejects it' : 'waiting for boxes'); }
   function palletiserUse() { if (S.pal.n) palletiserEject(); else sfx('bad'); }
-  function palletiserScreenDraw(c, sc) { var P = S.pal; scBg(c, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(c, sc.w, 'PALLETISER', powered() ? (P.n ? 'STACKING' : 'READY') : 'OFF'); scText(c, 16, 70, P.n ? P.n + ' / 8 · ' + skuName(P.sku) : 'Empty pallet in the cradle', '#eef1f5', 16); for (var i = 0; i < 8; i++) { c.fillStyle = i < P.n ? '#5fd38d' : 'rgba(255,255,255,0.1)'; c.fillRect(16 + i * 30, 86, 24, 24); } scButton(sc, 16, 124, 120, 32, 'EJECT', P.n > 0, function () { palletiserUse(); }); scText(c, 16, 180, 'Pallets made: ' + (S.stats.palletised || 0), '#a0acb8', 12); lampSet(MACH.palletiser, powered() ? (P.n ? 'run' : 'idle') : 'off'); }
+  function palletiserScreenDraw(c, sc) { var P = S.pal; scBg(c, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(c, sc.w, 'PALLETISER', powered() ? (P.n ? 'STACKING' : 'READY') : 'OFF'); scText(c, 16, 70, P.n ? P.n + ' / 8 · ' + skuName(P.sku) : 'Empty pallet in the cradle', '#eef1f5', 16); for (var i = 0; i < 8; i++) { c.fillStyle = i < P.n ? '#5fd38d' : 'rgba(255,255,255,0.1)'; c.fillRect(16 + i * 30, 86, 24, 24); } speedButton(sc, 148, 125, 136, 'beltMain', 'BELT'); scButton(sc, 16, 124, 120, 32, 'EJECT', P.n > 0, function () { palletiserUse(); }); scText(c, 16, 180, 'Pallets made: ' + (S.stats.palletised || 0), '#a0acb8', 12); lampSet(MACH.palletiser, powered() ? (P.n ? 'run' : 'idle') : 'off'); }
 
   // ── The baler: cardboard from binned boxes and packing offcuts fills the chamber; ten units make a bale; outbound trucks take the bales away for cash
   var BALE_NEED = 10, BALE_PRICE = 18;
@@ -3360,11 +3369,11 @@
   function balerUse() { var B = S.baler; if (B.t > 0 || !powered()) { sfx('bad'); return; } if (B.card < BALE_NEED) { toast('Not enough cardboard yet: ' + B.card + ' of ' + BALE_NEED + '. Binned boxes and packing offcuts fill it.', ''); sfx('bad'); return; } B.t = 8; B.card -= BALE_NEED; sfx('hydraulic'); addXp(3); screenDirtyAll(); }
   function tickBaler(dt) {
     if (!S.baler) S.baler = { card: 0, bales: 0, t: 0, made: 0 }; var B = S.baler;
-    if (B.t > 0 && powered()) { B.t -= dt; if (B.t <= 0) { B.t = 0; B.bales++; B.made++; sfx('crate'); toast('Bale made. Outbound trucks take them away at ' + money(BALE_PRICE) + ' each.', 'good'); logEvent('The baler made a bale of cardboard'); screenDirtyAll(); } }
+    if (B.t > 0 && powered()) { B.t -= dt * speedOf('baler'); if (B.t <= 0) { B.t = 0; B.bales++; B.made++; sfx('crate'); toast('Bale made. Outbound trucks take them away at ' + money(BALE_PRICE) + ' each.', 'good'); logEvent('The baler made a bale of cardboard'); screenDirtyAll(); } }
     var a = MACH.baler.anim; if (a) { a.ram.position.y = 3.6 - (B.t > 0 ? Math.abs(Math.sin((8 - B.t) / 8 * Math.PI * 2)) * 0.5 : 0); a.bales.forEach(function (bg, i) { bg.visible = i < B.bales; }); }
     lampSet(MACH.baler, balerStatus());
   }
-  function balerScreenDraw(c, sc) { var B = S.baler; scBg(c, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(c, sc.w, 'BALER', balerStatus().toUpperCase()); c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(16, 46, sc.w - 32, 12); c.fillStyle = B.card >= BALE_NEED ? '#5fd38d' : '#f5b53d'; c.fillRect(16, 46, (sc.w - 32) * clamp(B.card / BALE_NEED, 0, 1), 12); scText(c, 16, 80, 'Chamber ' + B.card + ' / ' + BALE_NEED, '#eef1f5', 14); scText(c, 16, 100, 'Bales waiting ' + B.bales + ' · made ' + B.made, '#a0acb8', 12); scButton(sc, 16, 116, 110, 32, B.t > 0 ? Math.ceil(B.t) + ' s' : 'BALE', B.card >= BALE_NEED && !B.t, function () { balerUse(); }); scText(c, 16, 162, 'Trucks pay ' + money(BALE_PRICE) + ' a bale', '#6b7784', 11); }
+  function balerScreenDraw(c, sc) { var B = S.baler; scBg(c, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(c, sc.w, 'BALER', balerStatus().toUpperCase()); c.fillStyle = 'rgba(255,255,255,0.08)'; c.fillRect(16, 46, sc.w - 32, 12); c.fillStyle = B.card >= BALE_NEED ? '#5fd38d' : '#f5b53d'; c.fillRect(16, 46, (sc.w - 32) * clamp(B.card / BALE_NEED, 0, 1), 12); scText(c, 16, 80, 'Chamber ' + B.card + ' / ' + BALE_NEED, '#eef1f5', 14); scText(c, 16, 100, 'Bales waiting ' + B.bales + ' · made ' + B.made, '#a0acb8', 12); speedButton(sc, 134, 117, 90, 'baler'); scButton(sc, 16, 116, 110, 32, B.t > 0 ? Math.ceil(B.t) + ' s' : 'BALE', B.card >= BALE_NEED && !B.t, function () { balerUse(); }); scText(c, 16, 162, 'Trucks pay ' + money(BALE_PRICE) + ' a bale', '#6b7784', 11); }
   // the bales leave with every outbound truck
   function sellBales(t) { var B = S.baler; if (!B || !B.bales || t.dir !== 'out') return; var n = Math.min(4, B.bales); B.bales -= n; pay(n * BALE_PRICE, 'Cardboard bales collected, ' + n); logEvent(t.driver + ' took ' + n + ' bale' + (n > 1 ? 's' : '') + ' of cardboard: ' + money(n * BALE_PRICE), 'good'); screenDirtyAll(); }
 
@@ -3372,7 +3381,7 @@
   var FILM_ROLL = 20, FILM_PRICE = 30;
   defMachine('wrapper', { prop: 'wrapper' });
   function wrapperStatus() { if (!powered()) return 'off'; if (!S.wrap || S.wrap.film <= 0) return 'jam'; return wrapperBusy() ? 'run' : 'idle'; }
-  function wrapperScreenDraw(c, sc) { var W2 = S.wrap; scBg(c, sc.w, sc.h, 'rgba(120,189,245,0.18)'); scHead(c, sc.w, 'STRETCH WRAP', wrapperStatus().toUpperCase()); scText(c, 16, 70, wrapperBusy() ? 'Wrapping… ' + Math.ceil(wrapper.t) + ' s' : 'Bring a pallet on the jack', '#eef1f5', 14); scText(c, 16, 92, 'Film left: ' + W2.film + ' pallets · wrapped ' + W2.wrapped, W2.film > 3 ? '#a0acb8' : '#ff6b5e', 12); scButton(sc, 16, 110, 150, 32, 'NEW ROLL $' + FILM_PRICE, W2.film < FILM_ROLL && S.bank >= FILM_PRICE, function () { if (S.bank < FILM_PRICE) { sfx('bad'); return; } pay(-FILM_PRICE, 'Stretch film roll'); W2.film = FILM_ROLL; sfx('click'); toast('New film roll fitted', 'good'); }); }
+  function wrapperScreenDraw(c, sc) { var W2 = S.wrap; scBg(c, sc.w, sc.h, 'rgba(120,189,245,0.18)'); scHead(c, sc.w, 'STRETCH WRAP', wrapperStatus().toUpperCase()); scText(c, 16, 70, wrapperBusy() ? 'Wrapping… ' + Math.ceil(wrapper.t) + ' s' : 'Bring a pallet on the jack', '#eef1f5', 14); scText(c, 16, 92, 'Film left: ' + W2.film + ' pallets · wrapped ' + W2.wrapped, W2.film > 3 ? '#a0acb8' : '#ff6b5e', 12); speedButton(sc, 172, 111, 56, 'wrapper'); scButton(sc, 16, 110, 150, 32, 'NEW ROLL $' + FILM_PRICE, W2.film < FILM_ROLL && S.bank >= FILM_PRICE, function () { if (S.bank < FILM_PRICE) { sfx('bad'); return; } pay(-FILM_PRICE, 'Stretch film roll'); W2.film = FILM_ROLL; sfx('click'); toast('New film roll fitted', 'good'); }); }
 
   function tickMachines(dt) {
     if (!S.wrap) S.wrap = { film: FILM_ROLL, wrapped: 0 };
@@ -3425,7 +3434,7 @@
   function agvGo(to, state) { var A = agvState(); A.path = route({ x: A.x, z: A.z }, to); A.state = state; }
   function agvWalk(dt) {
     var A = agvState(); if (!A.path.length) return true;
-    var t = A.path[0], dx = t.x - A.x, dz = t.z - A.z, d = Math.sqrt(dx * dx + dz * dz), sp = AGV_SPEED * dt;
+    var t = A.path[0], dx = t.x - A.x, dz = t.z - A.z, d = Math.sqrt(dx * dx + dz * dz), sp = AGV_SPEED * speedOf('agv') * dt;
     if (d <= sp) { A.x = t.x; A.z = t.z; A.path.shift(); return !A.path.length; }
     A.x += dx / d * sp; A.z += dz / d * sp;
     var want = Math.atan2(dx, dz), diff = want - A.yaw; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; A.yaw += diff * Math.min(1, 6 * dt);
@@ -3451,8 +3460,9 @@
     scText(c, 16, 94, tp ? 'Load: ' + tp.n + ' x ' + skuName(tp.sku) : 'Forks empty', '#a0acb8', 13);
     scText(c, 16, 118, 'Put away: ' + (S.stats.agvPutaway || 0) + ' pallets · at ' + A.x.toFixed(1) + ', ' + A.z.toFixed(1), '#a0acb8', 13);
     scText(c, 16, 136, 'Pickup: set a pallet on the square, or let the palletiser drop one', '#6b7784', 11);
-    scButton(sc, 16, 150, 120, 34, A.paused ? 'RESUME' : 'PAUSE', !A.paused, function () { A.paused = !A.paused; toast('AGV-1 ' + (A.paused ? 'will hold at the dock after this run' : 'running'), A.paused ? 'bad' : 'good'); }, A.paused ? '#5fd38d' : '#f5b53d');
-    scButton(sc, 148, 150, 136, 34, 'DROP LOAD', !!tp, function () { var q = A.pallet ? palletById(A.pallet) : null; if (!q) return; q.place = 'floor'; q.x = A.x + Math.sin(A.yaw) * 0.6; q.z = A.z + Math.cos(A.yaw) * 0.6; q.y = 0; q.rot = A.yaw; A.pallet = null; A.key = null; var dk = agvDockWorld(); if (dk) agvGo(dk, 'return'); sfx('putdown'); toast('AGV-1 set its pallet down', ''); }, '#ff6b5e');
+    speedButton(sc, 208, 152, 76, 'agv');
+    scButton(sc, 16, 150, 80, 34, A.paused ? 'RESUME' : 'PAUSE', !A.paused, function () { A.paused = !A.paused; toast('AGV-1 ' + (A.paused ? 'will hold at the dock after this run' : 'running'), A.paused ? 'bad' : 'good'); }, A.paused ? '#5fd38d' : '#f5b53d');
+    scButton(sc, 102, 150, 100, 34, 'DROP LOAD', !!tp, function () { var q = A.pallet ? palletById(A.pallet) : null; if (!q) return; q.place = 'floor'; q.x = A.x + Math.sin(A.yaw) * 0.6; q.z = A.z + Math.cos(A.yaw) * 0.6; q.y = 0; q.rot = A.yaw; A.pallet = null; A.key = null; var dk = agvDockWorld(); if (dk) agvGo(dk, 'return'); sfx('putdown'); toast('AGV-1 set its pallet down', ''); }, '#ff6b5e');
   }
   function agvPrompt() { var A = agvState(); return 'AGV-1 · ' + (!powered() ? 'no power' : A.state === 'idle' ? 'waiting at its dock' : A.state === 'toPickup' ? 'fetching a pallet' : A.state === 'toSlot' ? 'putting a pallet away' : 'returning') + ' · ' + (S.stats.agvPutaway || 0) + ' pallets put away'; }
   function buildAgv() {
@@ -3482,7 +3492,7 @@
   var PB_S = (function () { var z0 = RACK.rows[0], yD = RACK.rows[3] - z0 + 0.6, yB = 4.5 - z0; return [[0, 0, PICK_H], [0, yD, PICK_H], [0, yB, 1.9], [3.7, yB, 0]]; })();
   var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yE = RACK.rows[4] - z0 - 0.6, yB = 5.7 - z0; return [[0, 0, PICK_H], [0, yE, PICK_H], [0, yB, 1.9], [3.7, yB, 0]]; })();
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
-  defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N });
+  defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
   defMachine('benchIn', { prop: 'bench', inlet: [-0.8, 0], accept: function (it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; } });
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }
@@ -3505,8 +3515,8 @@
   function tickGantryRow(r, dt) {
     var G = gantryState(r), id = 'gantry' + r, belt = gantryBeltFor(r);
     if (gantryShown[r] !== G.state + (G.paused ? 'p' : '')) { gantryShown[r] = G.state + (G.paused ? 'p' : ''); if (MACH[id].screen) MACH[id].screen.dirty = true; }
-    var toX = function (lx, speed) { var d = lx - G.x; if (Math.abs(d) <= speed * dt) { G.x = lx; return true; } G.x += Math.sign(d) * speed * dt; return false; };
-    var toLift = function (y, speed) { var d = y - G.lift; if (Math.abs(d) <= speed * dt) { G.lift = y; return true; } G.lift += Math.sign(d) * speed * dt; return false; };
+    var spd = speedOf(id); var toX = function (lx, speed) { speed *= spd; var d = lx - G.x; if (Math.abs(d) <= speed * dt) { G.x = lx; return true; } G.x += Math.sign(d) * speed * dt; return false; };
+    var toLift = function (y, speed) { speed *= spd; var d = y - G.lift; if (Math.abs(d) <= speed * dt) { G.lift = y; return true; } G.lift += Math.sign(d) * speed * dt; return false; };
     if (G.state === 'idle') { var job = G.paused ? null : gantryNeed(r); if (job) { G.sku = job.sku; G.key = job.key; var sp = slotParse(job.key); G.bayX = RACK.bayW * (sp.b + 0.5); G.level = RACK.levels[sp.l] + 0.9; G.state = 'toBay'; } else { toX(GANTRY_DROP_X, GANTRY_SPEED); toLift(5.0, GANTRY_LIFT); } }
     else if (G.state === 'toBay') { if (toX(G.bayX, GANTRY_SPEED)) G.state = 'down'; }
     else if (G.state === 'down') { if (toLift(G.level, GANTRY_LIFT)) { var s = S.slots[G.key]; if (s && s.sku === G.sku && s.n > 0) { slotTake(G.key, 1); s.wrapped = false; S.stats.picked++; G.state = 'up'; } else { G.sku = null; G.state = 'up'; } } }
@@ -3526,9 +3536,10 @@
     scText(c, 16, 70, G.sku ? 'Picking ' + skuName(G.sku) : G.paused ? 'Held: finishing nothing' : 'Watching the orders', '#eef1f5', 16);
     scText(c, 16, 94, pos + ' · trolley ' + G.x.toFixed(1) + ' m · hook ' + G.lift.toFixed(1) + ' m', '#a0acb8', 13);
     scText(c, 16, 118, 'Row ' + 'ABCDEF'[r] + ': ' + rs.n + ' boxes in ' + rs.slots + ' slots · picked ' + G.picked, '#a0acb8', 13);
-    scText(c, 16, 136, 'Belt: ' + beltItems(gantryBeltFor(r)).length + ' riding · bench ' + benchCount() + '/' + ECON.benchCap, '#a0acb8', 13);
-    scButton(sc, 16, 150, 120, 34, G.paused ? 'RESUME' : 'PAUSE', !G.paused, function () { G.paused = !G.paused; toast('Gantry ' + 'ABCDEF'[r] + (G.paused ? ' will hold after this pick' : ' running'), G.paused ? 'bad' : 'good'); }, G.paused ? '#5fd38d' : '#f5b53d');
-    scButton(sc, 148, 150, 136, 34, 'RESET JOB', G.state !== 'idle', function () { if (G.state === 'idle') return; G.sku = null; G.key = null; G.state = 'up'; sfx('hydraulic'); toast('Gantry ' + 'ABCDEF'[r] + ' dropped its job and is coming home', 'good'); }, '#ff6b5e');
+    scText(c, 16, 136, 'Belt ' + beltItems(gantryBeltFor(r)).length + ' · bench ' + benchCount() + '/' + ECON.benchCap, '#a0acb8', 13);
+    speedButton(sc, 208, 152, 76, 'gantry' + r); scText(c, 212, 148, 'crane', '#6b7784', 9); speedButton(sc, 208, 116, 76, 'pickBelt'); scText(c, 212, 112, 'pick belt', '#6b7784', 9);
+    scButton(sc, 16, 150, 80, 34, G.paused ? 'RESUME' : 'PAUSE', !G.paused, function () { G.paused = !G.paused; toast('Gantry ' + 'ABCDEF'[r] + (G.paused ? ' will hold after this pick' : ' running'), G.paused ? 'bad' : 'good'); }, G.paused ? '#5fd38d' : '#f5b53d');
+    scButton(sc, 102, 150, 100, 34, 'RESET JOB', G.state !== 'idle', function () { if (G.state === 'idle') return; G.sku = null; G.key = null; G.state = 'up'; sfx('hydraulic'); toast('Gantry ' + 'ABCDEF'[r] + ' dropped its job and is coming home', 'good'); }, '#ff6b5e');
   }; }
   function gantryPrompt(r) { var G = gantryState(r); return 'Gantry picker ' + 'ABCDEF'[r] + ' · ' + (!powered() ? 'no power' : G.state === 'idle' ? 'watching the orders' : G.sku ? 'picking ' + skuName(G.sku) : 'working') + ' · ' + G.picked + ' boxes picked'; }
   // the crane props follow the rack rows: buying the gantry upgrade builds one over every row you own, buying a row adds its crane
@@ -4106,7 +4117,7 @@
       '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
       '<h3>Drivers</h3><p>Open the dock door and the driver walks in and waits beside it. Sign the delivery note (<kbd>E</kbd> on him) before anything comes off the truck. He will nag after two hours.</p>' +
       '<h3>The pack line and the production wing</h3><p>Boxes go on the bench as before, but packing is a machine now: pick an order on the bench terminal and the line feeds its boxes onto the infeed belt, the case taper closes them into one parcel, and the parcel rolls down the outfeed onto the shelf. It jams now and then: <kbd>E</kbd> on it clears the jam.</p><p>Through the strip curtain in the north wall is the production wing. Order pallets of raw granulate on the office PC (Production app); they come with the next inbound truck. Bring one on the jack to the hopper and <kbd>E</kbd> tips it in. Start the moulding line on its screen or with <kbd>E</kbd>, pick a product, and own-brand boxes come down the main belt into the hall, where the palletiser stacks them eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your goods once they have seen them.</p>' +
-      '<h3>Automation (shop)</h3><p>The <b>shipping belt</b> (level 3) takes parcels off the pack line shelf and runs them down the east wall to OUT 2, where the <b>dock loader</b> pushes them into any docked truck with its door up. OUT 1 stays a manual dock. The <b>AGV</b> (level 4) is a driverless pallet truck: set a pallet on its pickup square by the receiving area, or let the palletiser drop one, and it puts it away on the racks and comes back to its dock. The <b>gantry pickers</b> (level 5) put a crane over every rack row you own, and a new row brings its own crane: each one watches the open orders, takes the boxes the bench still needs out of its row and sets them on the overhead pick belts, which end at the bench. A whole order can go pick, pack, ship without a hand on it. Anything riding a belt can still be lifted off by hand. All three stop in a power cut.</p>' +
+      '<h3>Automation (shop)</h3><p>The <b>shipping belt</b> (level 3) takes parcels off the pack line shelf and runs them down the east wall to OUT 2, where the <b>dock loader</b> pushes them into any docked truck with its door up. OUT 1 stays a manual dock. The <b>AGV</b> (level 4) is a driverless pallet truck: set a pallet on its pickup square by the receiving area, or let the palletiser drop one, and it puts it away on the racks and comes back to its dock. The <b>gantry pickers</b> (level 5) put a crane over every rack row you own, and a new row brings its own crane: each one watches the open orders, takes the boxes the bench still needs out of its row and sets them on the overhead pick belts, which end at the bench. A whole order can go pick, pack, ship without a hand on it. Anything riding a belt can still be lifted off by hand. Every machine screen carries a <b>speed dial</b> (50 to 200 percent): the cranes, the AGV, the pack line, the moulding line, the baler, the wrapper, and the belts through the screen of the machine they feed. A fast pack line jams more often. All three stop in a power cut.</p>' +
       '<h3>Tools</h3><p>Two pallet jacks are yours from day one: jack 1 lives by the IN docks, jack 2 by OUT. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, Shift cycles three gears (creep, normal, fast; fast drinks the battery and throws unwrapped loads on corners), lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
       '<h3>Staff and the time clock</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at 06:00. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
@@ -4439,7 +4450,7 @@
   }
   var wrapInst = null;
   function tickWrapper(dt) {
-    if (wrapper.t > 0) { wrapper.t -= dt; if (wrapper.t <= 0) { wrapper.t = 0; var p = palletById(wrapper.pallet); if (p) { p.wrapped = true; toast('Pallet wrapped', 'good'); sfx('tape'); if (dress.wrapper) burst(dress.wrapper.position.x, 1, dress.wrapper.position.z, 0xffffff, 10, 'out'); } } }
+    if (wrapper.t > 0) { wrapper.t -= dt * speedOf('wrapper'); if (wrapper.t <= 0) { wrapper.t = 0; var p = palletById(wrapper.pallet); if (p) { p.wrapped = true; toast('Pallet wrapped', 'good'); sfx('tape'); if (dress.wrapper) burst(dress.wrapper.position.x, 1, dress.wrapper.position.z, 0xffffff, 10, 'out'); } } }
     if (!wrapInst) { var filmTex = tex(128, 256, function (c, w, h) { c.fillStyle = 'rgba(235,240,245,0.55)'; c.fillRect(0, 0, w, h); for (var i = 0; i < 40; i++) { c.fillStyle = 'rgba(255,255,255,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, 0, randf(1, 4), h); } for (var y = 0; y < h; y += 34) { c.fillStyle = 'rgba(200,210,220,0.35)'; c.fillRect(0, y, w, 3); c.fillStyle = 'rgba(255,255,255,0.3)'; c.fillRect(0, y + 4, w, 1); } }, 2, 1); wrapInst = new THREE.InstancedMesh(boxGeo(1.27, 1.0, 1.07), new THREE.MeshPhysicalMaterial({ map: filmTex, transparent: true, opacity: 0.55, roughness: 0.12, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.1, depthWrite: false, side: THREE.DoubleSide }), 120); wrapInst.count = 0; wrapInst.frustumCulled = false; wrapInst.renderOrder = 1; scene.add(wrapInst); }
     var n = 0; S.pallets.forEach(function (p) { if (!p.wrapped || n >= 120) return; var w = palletWorld(p); if (!w) return; var hgt = Math.ceil(p.n / 4) * BOX.h + 0.02; _e.set(0, w.ry, 0); _q.setFromEuler(_e); _v2.set(1, hgt, 1); _m4.compose(_v.set(w.x, w.y + 0.14 + hgt / 2 - 0.01, w.z), _q, _v2); wrapInst.setMatrixAt(n++, _m4); });
     for (var wk in S.slots) { var ws = S.slots[wk]; if (!ws || !ws.wrapped || !ws.n || n >= 120) continue; var wp = slotParse(wk), wsp = rackSlotPos(wp.r, wp.b, wp.l), whg = Math.ceil(ws.n / 4) * BOX.h + 0.02; _e.set(0, wsp.ry || 0, 0); _q.setFromEuler(_e); _v2.set(1, whg, 1); _m4.compose(_v.set(wsp.x, wsp.y + 0.14 + whg / 2 - 0.01, wsp.z), _q, _v2); wrapInst.setMatrixAt(n++, _m4); }
@@ -4511,7 +4522,7 @@
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
-      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, BELTS: BELTS, MACH: MACH, inWing: inWing,
+      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

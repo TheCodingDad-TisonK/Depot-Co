@@ -39,7 +39,7 @@
   function agvGo(to, state) { var A = agvState(); A.path = route({ x: A.x, z: A.z }, to); A.state = state; }
   function agvWalk(dt) {
     var A = agvState(); if (!A.path.length) return true;
-    var t = A.path[0], dx = t.x - A.x, dz = t.z - A.z, d = Math.sqrt(dx * dx + dz * dz), sp = AGV_SPEED * dt;
+    var t = A.path[0], dx = t.x - A.x, dz = t.z - A.z, d = Math.sqrt(dx * dx + dz * dz), sp = AGV_SPEED * speedOf('agv') * dt;
     if (d <= sp) { A.x = t.x; A.z = t.z; A.path.shift(); return !A.path.length; }
     A.x += dx / d * sp; A.z += dz / d * sp;
     var want = Math.atan2(dx, dz), diff = want - A.yaw; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; A.yaw += diff * Math.min(1, 6 * dt);
@@ -65,8 +65,9 @@
     scText(c, 16, 94, tp ? 'Load: ' + tp.n + ' x ' + skuName(tp.sku) : 'Forks empty', '#a0acb8', 13);
     scText(c, 16, 118, 'Put away: ' + (S.stats.agvPutaway || 0) + ' pallets · at ' + A.x.toFixed(1) + ', ' + A.z.toFixed(1), '#a0acb8', 13);
     scText(c, 16, 136, 'Pickup: set a pallet on the square, or let the palletiser drop one', '#6b7784', 11);
-    scButton(sc, 16, 150, 120, 34, A.paused ? 'RESUME' : 'PAUSE', !A.paused, function () { A.paused = !A.paused; toast('AGV-1 ' + (A.paused ? 'will hold at the dock after this run' : 'running'), A.paused ? 'bad' : 'good'); }, A.paused ? '#5fd38d' : '#f5b53d');
-    scButton(sc, 148, 150, 136, 34, 'DROP LOAD', !!tp, function () { var q = A.pallet ? palletById(A.pallet) : null; if (!q) return; q.place = 'floor'; q.x = A.x + Math.sin(A.yaw) * 0.6; q.z = A.z + Math.cos(A.yaw) * 0.6; q.y = 0; q.rot = A.yaw; A.pallet = null; A.key = null; var dk = agvDockWorld(); if (dk) agvGo(dk, 'return'); sfx('putdown'); toast('AGV-1 set its pallet down', ''); }, '#ff6b5e');
+    speedButton(sc, 208, 152, 76, 'agv');
+    scButton(sc, 16, 150, 80, 34, A.paused ? 'RESUME' : 'PAUSE', !A.paused, function () { A.paused = !A.paused; toast('AGV-1 ' + (A.paused ? 'will hold at the dock after this run' : 'running'), A.paused ? 'bad' : 'good'); }, A.paused ? '#5fd38d' : '#f5b53d');
+    scButton(sc, 102, 150, 100, 34, 'DROP LOAD', !!tp, function () { var q = A.pallet ? palletById(A.pallet) : null; if (!q) return; q.place = 'floor'; q.x = A.x + Math.sin(A.yaw) * 0.6; q.z = A.z + Math.cos(A.yaw) * 0.6; q.y = 0; q.rot = A.yaw; A.pallet = null; A.key = null; var dk = agvDockWorld(); if (dk) agvGo(dk, 'return'); sfx('putdown'); toast('AGV-1 set its pallet down', ''); }, '#ff6b5e');
   }
   function agvPrompt() { var A = agvState(); return 'AGV-1 · ' + (!powered() ? 'no power' : A.state === 'idle' ? 'waiting at its dock' : A.state === 'toPickup' ? 'fetching a pallet' : A.state === 'toSlot' ? 'putting a pallet away' : 'returning') + ' · ' + (S.stats.agvPutaway || 0) + ' pallets put away'; }
   function buildAgv() {

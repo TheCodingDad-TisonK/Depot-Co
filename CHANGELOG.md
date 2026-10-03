@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.11 (2026-10-03)
+
+- Speed dials on every machine screen, 50 to 200 percent per machine: cranes, AGV, pack line, moulding line, baler, wrapper. Belts are set from the screen of the machine they feed (pick belts on the crane screens, the main belt on the palletiser, the shipping belt on the dock loader). A fast pack line jams more often.
+- The crane control cabinets hang off the end columns again. 1.12.9 moved the columns inward and left the cabinets, screens, e-stops and lamps standing where the old columns were.
+- The palletiser moved 1.1 m north, clear of row A after the row shift.
+
 ## 1.12.10 (2026-10-03)
 
 - The rack rows moved one metre south (-17.5 to 15.5, still 6.6 m apart): 1.12.9 had left row F and its crane column 1.2 m from the office front. That corner is now 2.1 m clear, and row A still clears the break room. The suite checks both clearances.
