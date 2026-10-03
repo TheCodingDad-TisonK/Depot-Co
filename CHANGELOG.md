@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.11.0 (2026-10-03)
+
+- The clock runs at one game hour per 75 real seconds, half the old rate: a sixteen-hour day is twenty minutes. The big hall needs the walking time.
+- An inbound truck waits four hours instead of three before it leaves with what you did not unload (first truck 07:30 to 11:30, second 13:30 to 17:30), and the driver walks in faster.
+- Trailer rear doors hang on hinges: open flat against the sides while docked, closed across the back when the truck arrives and leaves.
+
 ## 1.10.8 (2026-10-03)
 
 - A pallet on the jack can be set down on open floor: E with nothing in the crosshair lowers the forks and leaves it where the jack stands. Before, it could only go into a rack slot. The held-item label says so.

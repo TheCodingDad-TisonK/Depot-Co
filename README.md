@@ -28,7 +28,7 @@ It is one HTML page and plain JavaScript on top of [three.js](https://threejs.or
 | **The office PC** | Orders, the shop (cart, rack rows, forklift, LED high bays, a second inbound bay, a roadside sign), staff, finance with a full ledger, stock, lifetime stats. |
 | **Staff** | A receiver who empties trucks onto the racks, a picker who feeds the bench, a packer who releases orders to the pack line and loads the parcels. They arrive through the yard, clock in at the time clock, break at noon, and are paid by the hour from their timesheet with overtime after ten. They never open a dock door: that stays your job. |
 | **Trouble** | Power cuts that kill the doors and the PC until you reset the breaker. A safety inspector who fines you for boxes left on the floor. A prowler who takes stock through a dock door left open at night. |
-| **A day** | Sixteen working hours in ten minutes. Trucks on a fixed timetable, a night that runs fast, a cot that skips to morning and charges rent and wages. |
+| **A day** | Sixteen working hours in twenty minutes. Trucks on a fixed timetable, a night that runs fast, a cot that skips to morning and charges rent and wages. |
 | **Progress** | Levels unlock lines, upgrades and staff. Reputation brings more and bigger orders. A guided intro walks a new depot through its first truck and first shipment for a $400 bonus. |
 | **Three save slots** | Three depots side by side, each deleted on its own. Any save exports as text or a `.json` file and loads back from the pause menu. |
 

@@ -35,12 +35,12 @@
   var DRIVER_NAMES = ['Big Pete', 'Marta', 'Dusty', 'Kofi', 'Hal', 'Yusra'];
 
   // ── Time ──────────────────────────────────────────────────────────
-  var HOUR_SEC = 37.5;            // one game hour in real seconds, so a 16-hour working day is ten minutes
+  var HOUR_SEC = 75;              // one game hour in real seconds, so a 16-hour working day is twenty minutes (37.5 until 2026-10-03: too fast for the big hall)
   var DAY_START = 6, DAY_END = 22;
   var NIGHT_SPEED = 4;            // the clock runs faster after closing unless you sleep
   var TRUCK_IN = [7.5, 13.5];     // inbound trucks dock at these hours
   var TRUCK_OUT = [{ arrive: 10.5, leave: 12 }, { arrive: 16, leave: 18 }];   // outbound trucks wait at the dock between these hours
-  var TRUCK_WAIT = 3;             // hours an inbound truck waits before it leaves with what you did not unload
+  var TRUCK_WAIT = 4;             // hours an inbound truck waits before it leaves with what you did not unload
 
   // ── Money ─────────────────────────────────────────────────────────
   var ECON = {

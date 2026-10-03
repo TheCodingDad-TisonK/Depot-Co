@@ -45,7 +45,7 @@ const SCENARIO = `(async () => {
   T.releaseTool(); ok(T.player.tool === null, 'released the jack');
   // the rest of the load, straight to the racks
   S.pallets.filter((p) => p.place === 'truck').forEach((p) => { const k = T.findSlotFor(p.sku, p.n, 1); ok(!!k, 'slot found for ' + p.sku); if (k) { T.palletUse({ kind: 'pallet', id: p.id }); T.handSet(null); const pl = T.palletById(p.id); if (pl) { pl.place = 'floor'; T.storePallet(pl, k); } } });
-  T.run(15);
+  T.run(30);
   ok(!T.truckAtDoor(0), 'emptied truck left the dock');
   ok(T.totalStock() > 0, 'stock on the racks: ' + T.totalStock());
   // an order, picked and packed the real way
@@ -103,8 +103,8 @@ const SCENARIO = `(async () => {
   S.level = 3; S.contract = null; S.nextOffer = S.day; T.setTime(9.05); T.run(2); ok(!!S.contract && !S.contract.accepted, 'contract offered');
   S.contract.accepted = true; S.contract.need = 1; const co = T.genOrder(false); co.client = S.contract.client; co.lines = [{ sku: 'bolts', qty: 1 }]; T.benchAdd('bolts', 1); T.packOrder(co); T.run(30); if (S.pack.jam) { T.packUse(); T.run(15); } ok(co.state === 'packed', 'contract order packed by the line');
   delete S.flags['out' + S.day + '-0']; S.trucks.filter((t) => t.dir === 'out').forEach((t) => { T.truckLeave(t, 'test'); }); T.run(20); T.setTime(10.4); T.run(30); const tc = T.truckAtDoor(2); ok(!!tc, 'outbound truck for the contract test'); T.setDoor(2, true); T.shelfUse({ kind: 'shelf', order: co.id }); T.loadUse(tc.id); T.consoleUse(2); ok(S.contract.done === 1, 'contract counts the on-time ship');
-  const bank2 = S.bank; S.contract.until = T.S.day * 24 + T.S.time - 1; T.run(1); ok(S.contract === null && S.bank > bank2, 'contract paid out');
-  S.staff.forEach((st) => { st.hoursToday = 8; }); S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(8); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
+  const bank2 = S.bank; S.contract.until = T.S.day * 24 + T.S.time - 1; T.run(16); ok(S.contract === null && S.bank > bank2, 'contract paid out');
+  S.staff.forEach((st) => { st.hoursToday = 8; }); S.loan = 5000; const b3 = S.bank; T.setTime(23.9); T.run(16); ok(S.day >= 2 && S.bank < b3 - 5000 * 0.015 + 1, 'loan interest charged at the day roll');
   ok(S.staff[0].sheet && S.staff[0].sheet[0] && S.staff[0].sheet[0].h === 8 && S.staff[0].sheet[0].pay === Math.round(T.hourly(S.staff[0]) * 8), 'wages paid from the timesheet: ' + JSON.stringify(S.staff[0].sheet[0]));
   S.level = 3; T.editToggle(); const rackP = T.propInst.rack0; ok(!!rackP, 'rack row A is a prop'); const sp = T.slotKey(0, 0, 0); if (!S.slots[sp] || !S.slots[sp].n) S.slots[sp] = { sku: 'bolts', n: 2 }; T.editGrab('rack0'); rackP.g.position.set(0.5, 0, -15); T.editDrop(false); ok(Math.abs(T.propInst.rack0.P.x - 0.5) < 0.01 && S.slots[sp] && S.slots[sp].n > 0, 'rack moved with its stock'); T.editReset('rack0'); T.editToggle();
   // the production wing: a pallet of granulate on the jack tips into the hopper, the moulder fills the belt, the palletiser drops a pallet

@@ -22,7 +22,8 @@
     box(0.06, h, w + 0.12, MAT.trailer, L(len + 0.03), h / 2, 0, g); plane(w - 0.1, h - 0.1, MAT.lining, L(len - 0.005), h / 2, 0, 0, side < 0 ? Math.PI / 2 : -Math.PI / 2, g);
     box(len, 0.06, w + 0.12, MAT.trailer, L(len / 2), h + 0.03, 0, g); plane(len - 0.1, w - 0.1, MAT.lining, L(len / 2), h - 0.005, 0, Math.PI / 2, 0, g);
     box(0.1, h + 0.1, 0.1, MAT.steelDark, L(0.05), h / 2, -(w / 2 + 0.05), g); box(0.1, h + 0.1, 0.1, MAT.steelDark, L(0.05), h / 2, w / 2 + 0.05, g); box(0.1, 0.1, w + 0.2, MAT.steelDark, L(0.05), h + 0.05, 0, g);
-    [-1, 1].forEach(function (s) { var dr = box(0.05, h - 0.1, w / 2 - 0.05, MAT.trailer, L(0.9), h / 2, s * (w / 2 + 0.09 + (w / 2 - 0.05) / 2) * 0 + s * (w / 2 + 0.08), g); dr.rotation.y = 0; dr.position.set(L(0.4 + (w / 2 - 0.05) / 2), h / 2, s * (w / 2 + 0.09)); dr.rotation.y = Math.PI / 2; });   // the rear doors, swung open flat against the sides
+    // the rear doors hang on hinge pivots at the corners: open flat against the sides while docked, closed across the back on the road
+    var rearDoors = []; [-1, 1].forEach(function (s) { var piv = new THREE.Group(); piv.position.set(L(0.02), h / 2, s * (w / 2 + 0.03)); g.add(piv); var dr = box(0.05, h - 0.1, w / 2 - 0.05, MAT.trailer, 0, 0, -s * (w / 2 - 0.05) / 2, piv); box(0.02, 0.5, 0.06, MAT.steelDark, 0.03 * side, 0, -s * (w / 2 - 0.2), piv); box(0.02, h - 0.3, 0.03, MAT.steelDark, 0.03 * side, 0, -s * 0.12, piv); piv.userData.openRot = -side * s * Math.PI / 2; piv.rotation.y = piv.userData.openRot; rearDoors.push(piv); });
     box(len - 2.4, 0.5, 1.6, MAT.steelDark, L(len / 2 + 0.6), -0.45, 0, g); box(len - 3, 0.25, 0.08, MAT.hazard, L(len / 2), -0.25, -(w / 2 + 0.03), g); box(len - 3, 0.25, 0.08, MAT.hazard, L(len / 2), -0.25, w / 2 + 0.03, g);
     [1.9, 3.1].forEach(function (x) { [-1, 1].forEach(function (s) { truckWheel(g, L(x), -0.7, s * 1.0, 0.5, 0.36); }); });
     [-1, 1].forEach(function (s) { box(2.0, 0.08, 0.5, MAT.black, L(2.5), -0.14, s * 1.05, g); var f1 = box(0.5, 0.08, 0.5, MAT.black, L(1.35), -0.3, s * 1.05, g); f1.rotation.z = side * 0.6; var f2 = box(0.5, 0.08, 0.5, MAT.black, L(3.65), -0.3, s * 1.05, g); f2.rotation.z = -side * 0.6; box(0.06, 0.4, 0.06, MAT.steelDark, L(2.5), -0.35, s * 1.3, g); });
@@ -64,7 +65,7 @@
     hitBox(0.7, 1.9, 0.7, 0, 0.95, 0, { prompt: function () { return driverPrompt(t.id); }, use: function () { driverUse(t.id); } }, drv);
     g.position.set(t.x, 0, t.z); scene.add(g);
     var route = [[L(len + 1.4), YARD_Y, 2.1], [L(2.4), YARD_Y, 4.6], [L(0.9), YARD_Y, 6.1], [L(0.9), 0, 4.4], [L(0.9), 0, 3.0], [L(-0.2), 0, 1.55], [L(-2.0), 0, 2.0], [L(-2.6), 0, 3.4]];
-    truckMeshes[t.id] = { g: g, driver: drv, drvD: 0, route: route };
+    truckMeshes[t.id] = { g: g, driver: drv, drvD: 0, route: route, doors: rearDoors, doorA: t.state === 'docked' ? 1 : 0 };
     shadowDirty = true;
   }
   function removeTruckMesh(id) { var m = truckMeshes[id]; if (!m) return; scene.remove(m.g); m.g.traverse(function (o) { var k = inter.indexOf(o); if (k >= 0) inter.splice(k, 1); }); delete truckMeshes[id]; shadowDirty = true; }
@@ -116,13 +117,14 @@
         if (Math.abs(t.x) > 85) { removeTruckMesh(t.id); S.trucks.splice(i, 1); continue; }
       }
       m.g.position.x = t.x;
+      var wantOpen = t.state === 'docked' ? 1 : 0; m.doorA = lerp(m.doorA === undefined ? wantOpen : m.doorA, wantOpen, Math.min(1, dt * 1.5)); m.doors.forEach(function (pv) { pv.rotation.y = pv.userData.openRot * m.doorA; });
       if (m.driver) {
         var docked = t.state === 'docked', want = docked ? 1 : 0;
         m.driver.visible = docked; if (!docked) m.drvD = 0;
         // walk the route by distance; segment 4 (the landing) to 5 (the door) only once the dock door is open
         var R = m.route, doorOpen = doorPassable((t.dir === 'in' ? 0 : 2) + t.dock), segLen = function (k) { var a = R[k], b = R[k + 1]; return Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2])); };
         var total = 0, landing = 0; for (var sk = 0; sk < R.length - 1; sk++) { if (sk === 4) landing = total; total += segLen(sk); }
-        var cap = doorOpen ? total : landing; if (docked && m.drvD < cap) m.drvD = Math.min(cap, m.drvD + dt * 1.3);
+        var cap = doorOpen ? total : landing; if (docked && m.drvD < cap) m.drvD = Math.min(cap, m.drvD + dt * 1.8);
         var rem = m.drvD, si = 0; while (si < R.length - 2 && rem > segLen(si)) { rem -= segLen(si); si++; } var A = R[si], B = R[si + 1], sl = segLen(si), fr = sl > 0 ? Math.min(1, rem / sl) : 1;
         m.driver.position.set(lerp(A[0], B[0], fr), lerp(A[1], B[1], fr), lerp(A[2], B[2], fr)); m.driver.userData.baseY = lerp(A[1], B[1], fr);
         var moving = docked && m.drvD < cap; if (moving) m.driver.rotation.y = Math.atan2(B[0] - A[0], B[2] - A[2]); else m.driver.rotation.y = t.side < 0 ? Math.PI / 2 : -Math.PI / 2;

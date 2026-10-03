@@ -8,7 +8,7 @@ The staff door on the west wall opens into the entrance lobby: the time clock, l
 
 You clock in at 06:00 with $600, two rack rows and a pallet jack. The intro in the bottom-left corner walks you through the first day; this is the same thing in full.
 
-1. **07:30, the first truck.** Walk to dock **IN 1** on the west wall and open the door: `E` on the door itself or on the green button beside it. The truck backs in and the driver waits. It leaves at 10:30 whether you have emptied it or not, and anything still on it goes back unpaid.
+1. **07:30, the first truck.** Walk to dock **IN 1** on the west wall and open the door: `E` on the door itself or on the green button beside it. The truck backs in and the driver waits. It leaves at 11:30 whether you have emptied it or not, and anything still on it goes back unpaid.
 2. **Unload.** Walk into the trailer. `E` on a pallet takes one box; carry it to a rack and `E` on a slot puts it there. Or grab the pallet jack from the receiving square, `E` on a pallet lifts the whole thing, and `E` on a floor-level slot sets it in. You are paid $12 the moment a pallet is touched.
 3. **The racks.** A slot holds up to twelve boxes of one line. Floor and shelf levels are hand-reachable. The top level needs the forklift. The scanner (`Tab`, page 2) suggests a slot for every pallet.
 4. **The scanner.** `Tab` raises it. Page 1 is the pick list with the slot of every line, page 2 what is still on the truck and where it should go, page 3 the stock, page 4 the day. Point it at a rack slot and the bottom line reads that slot. `1`-`4` or the mouse wheel turn the pages.
