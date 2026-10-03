@@ -3315,7 +3315,9 @@
       focus = def; focusText = txt; break;
     }
   }
-  function useFocus() { if (edit.on) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; } if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } }
+  function useFocus() { if (edit.on) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; } if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } else if (player.tool === 'jack' && jackPallet()) jackSetDown(); }
+  // E on open floor with a loaded jack lowers the forks and leaves the pallet where the jack stands
+  function jackSetDown() { var p = jackPallet(); if (!p) return; var w = toolWorld('jack'); if (jackMesh && jackMesh.userData.towRy !== undefined) { w.x = jackMesh.position.x; w.z = jackMesh.position.z; w.ry = jackMesh.userData.towRy; } if (!insideHall(w.x, w.z) && floorY(w.x, w.z) < -0.5) { toast('Not out in the yard: set it down inside.', 'bad'); sfx('bad'); return; } p.place = 'floor'; p.x = w.x; p.z = w.z; p.y = floorY(w.x, w.z); p.rot = w.ry; S.jack.pallet = null; sfx('putdown'); toast('Pallet set down', ''); hudDirty = true; }
 
   // ── Input ─────────────────────────────────────────────────────────
   function lockPointer() { if (!ui.started || ui.blocked()) return; try { var r = canvas.requestPointerLock(); if (r && r.catch) r.catch(function () {}); } catch (e) {} }
@@ -3550,7 +3552,7 @@
     var ev = $('h-event'); if (S.events.power) { ev.hidden = false; ev.textContent = '⚡ Power cut: reset the breaker in the office'; } else ev.hidden = true;
     var held = $('h-held'), hl = handLabel();
     if (player.tool === 'cable') { held.hidden = false; held.innerHTML = 'Charging cable (forklift)<small>E on the forklift plugs it in · G hangs it back</small>'; }
-    else if (player.tool) { held.hidden = false; held.innerHTML = (player.tool === 'jack' ? 'Pallet jack' + (jackPallet() ? ' · ' + jackPallet().n + ' × ' + skuName(jackPallet().sku) : ' (empty)') : 'Picking cart · ' + S.cart.boxes.length + ' / ' + ECON.cartCap + ' boxes') + '<small>G lets go</small>'; }
+    else if (player.tool) { held.hidden = false; held.innerHTML = (player.tool === 'jack' ? 'Pallet jack' + (jackPallet() ? ' · ' + jackPallet().n + ' × ' + skuName(jackPallet().sku) + '<small>E on a rack slot stores it · E on open floor sets it down · G lets go of the jack</small>' : ' (empty)') : 'Picking cart · ' + S.cart.boxes.length + ' / ' + ECON.cartCap + ' boxes') + '<small>G lets go</small>'; }
     else if (hl) { held.hidden = false; held.innerHTML = esc(hl.t) + '<small>' + esc(hl.s) + '</small>'; }
     else held.hidden = true;
     $('h-objective').innerHTML = introText();

@@ -88,7 +88,9 @@
       focus = def; focusText = txt; break;
     }
   }
-  function useFocus() { if (edit.on) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; } if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } }
+  function useFocus() { if (edit.on) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; } if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } else if (player.tool === 'jack' && jackPallet()) jackSetDown(); }
+  // E on open floor with a loaded jack lowers the forks and leaves the pallet where the jack stands
+  function jackSetDown() { var p = jackPallet(); if (!p) return; var w = toolWorld('jack'); if (jackMesh && jackMesh.userData.towRy !== undefined) { w.x = jackMesh.position.x; w.z = jackMesh.position.z; w.ry = jackMesh.userData.towRy; } if (!insideHall(w.x, w.z) && floorY(w.x, w.z) < -0.5) { toast('Not out in the yard: set it down inside.', 'bad'); sfx('bad'); return; } p.place = 'floor'; p.x = w.x; p.z = w.z; p.y = floorY(w.x, w.z); p.rot = w.ry; S.jack.pallet = null; sfx('putdown'); toast('Pallet set down', ''); hudDirty = true; }
 
   // ── Input ─────────────────────────────────────────────────────────
   function lockPointer() { if (!ui.started || ui.blocked()) return; try { var r = canvas.requestPointerLock(); if (r && r.catch) r.catch(function () {}); } catch (e) {} }

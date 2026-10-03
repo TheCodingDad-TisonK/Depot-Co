@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.8 (2026-10-03)
+
+- A pallet on the jack can be set down on open floor: E with nothing in the crosshair lowers the forks and leaves it where the jack stands. Before, it could only go into a rack slot. The held-item label says so.
+
 ## 1.10.7 (2026-10-02)
 
 - A new game starts at 06:00. The main menu showed the hall at 10:30 and the clock stayed there when you started, so the 07:30 truck the intro promises had already been missed.
