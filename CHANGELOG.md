@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.19 (2026-10-04)
+
+- A drop marker: while you hold a box or a parcel, a translucent ghost of it with a ring on the floor shows exactly where G will set it down. Green on good floor, red where it would land at your feet instead. It hides on the forklift, in build mode and at the PC.
+
 ## 1.12.18 (2026-10-04)
 
 - The picking cart carries parcels. E with the cart at the parcel shelf loads a parcel, E in a docked outbound trailer unloads every parcel aboard at once, and G at the parked cart moves a parcel between the cart and your hands. Boxes and parcels share the cart's six places; the HUD and prompts show both.

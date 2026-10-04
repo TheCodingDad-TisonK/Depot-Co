@@ -28,6 +28,7 @@
     return false;
   }
   function updatePlayer(dt) {
+    updateDropMarker();
     if (pc.on) { pcCamera(); return; }
     if (driving) {
       updateFork(dt);

@@ -142,11 +142,12 @@
   }
 
   // ── The floor ─────────────────────────────────────────────────────
+  // the drop marker: while you hold a box or a parcel, a ghost of it and a ring on the floor show where G will set it down
+  var dropMarker = (function () { var g = new THREE.Group(); g.userData.dynamic = true; g.visible = false; scene.add(g); var mk = function (col) { return new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35, depthWrite: false }); }; var ok = mk(0x5fd38d), bad = mk(0xff6b5e); var box = new THREE.Mesh(BOX_GEO, ok); box.renderOrder = 3; g.add(box); var par = new THREE.Mesh(PARCEL_GEO, ok); par.renderOrder = 3; g.add(par); var ring = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.5, 28), ok); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.012; ring.renderOrder = 3; g.add(ring); return { g: g, box: box, par: par, ring: ring, ok: ok, bad: bad }; })();
+  function dropPoint() { var fx = Math.sin(player.yaw), fz = Math.cos(player.yaw), x = player.x - fx * 0.9, z = player.z - fz * 0.9, good = true; if (!insideHall(x, z) && floorY(x, z) < -0.5) { x = player.x; z = player.z; good = false; } return { x: x, z: z, y: floorY(x, z), good: good }; }
+  function updateDropMarker() { var h = S.hand, show = !!h && ui.started && !driving && !edit.on && !pc.on; dropMarker.g.visible = show; if (!show) return; var d = dropPoint(), m = d.good ? dropMarker.ok : dropMarker.bad, pulse = 0.28 + 0.12 * Math.sin(worldTime * 5); m.opacity = pulse; dropMarker.box.material = dropMarker.par.material = dropMarker.ring.material = m; dropMarker.box.visible = h.kind === 'box'; dropMarker.par.visible = h.kind === 'parcel'; dropMarker.g.position.set(d.x, d.y, d.z); dropMarker.g.rotation.y = player.yaw; dropMarker.box.position.y = BOX.h / 2; dropMarker.par.position.y = 0.2; }
   function dropAhead(item) {
-    var fx = Math.sin(player.yaw), fz = Math.cos(player.yaw);
-    var x = player.x - fx * 0.9, z = player.z - fz * 0.9;
-    if (!insideHall(x, z) && floorY(x, z) < -0.5) { x = player.x; z = player.z; }
-    item.x = x; item.z = z; item.y = floorY(x, z); item.rot = player.yaw; S.floor.push(item);
+    var d = dropPoint(); item.x = d.x; item.z = d.z; item.y = d.y; item.rot = player.yaw; S.floor.push(item);
   }
   function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'box') { if (player.tool === 'cart') return cartLoad() < ECON.cartCap && !f.damaged ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : (f.damaged ? 'Pick up the damaged box (it goes in the bin)' : 'Pick up the box of ' + skuName(f.sku)); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
   function floorUse(src) {
