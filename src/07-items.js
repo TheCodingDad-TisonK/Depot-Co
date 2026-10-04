@@ -40,6 +40,7 @@
     drawBeltItems();
     S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) { var im = boxInst[f.sku]; if (im) { var ii = counts[f.sku]++; if (ii < 1400) { _e.set(0, f.rot, 0.35); _q.setFromEuler(_e); _v2.set(1, 0.72, 1.08); _m4.compose(_v.set(f.x, f.y + BOX.h * 0.36, f.z), _q, _v2); im.setMatrixAt(ii, _m4); instSrc.box[f.sku][ii] = { kind: 'floor', idx: i }; } } } else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }); });
     var cw = toolWorld('cart'); S.cart.boxes.forEach(function (sku, i) { var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 3 - 1) * 0.42, ly = i < 3 ? 0.3 : 0.82; putBox(sku, cw.x + lx * c, ly + BOX.h / 2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
+    (S.cart.parcels || []).forEach(function (oid, j) { var i = S.cart.boxes.length + j; if (i >= ECON.cartCap) return; var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 3 - 1) * 0.42, ly = i < 3 ? 0.3 : 0.82; putParcel(cw.x + lx * c, ly + 0.2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
     S.trucks.forEach(function (t) { if (t.dir !== 'out') return; t.parcels.forEach(function (oid, i) { var pp = truckParcelPos(t, i); putParcel(pp.x, pp.y + 0.23, pp.z, 0, { kind: 'truck' }); }); });
     S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') putBox(st.carry.sku, st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); if (st.carry && st.carry.kind === 'parcel') putParcel(st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); });
     SKUS.forEach(function (s) { var im = boxInst[s.id]; im.count = Math.min(counts[s.id], 1400); im.instanceMatrix.needsUpdate = true; });
@@ -81,7 +82,7 @@
   function slotPrompt(key) {
     var p = slotParse(key), s = S.slots[key], has = s && s.n > 0, tool = player.tool;
     if (p.l === RACK.top && !driving) return has ? skuName(s.sku) + ' × ' + s.n + ' · top level: forklift only' : 'Top level: forklift only';
-    if (tool === 'cart') { if (has && S.cart.boxes.length < ECON.cartCap) return 'Pick a box of ' + skuName(s.sku) + ' onto the cart (' + s.n + ' here)'; return has ? 'Cart is full' : null; }
+    if (tool === 'cart') { if (has && cartLoad() < ECON.cartCap) return 'Pick a box of ' + skuName(s.sku) + ' onto the cart (' + s.n + ' here)'; return has ? 'Cart is full' : null; }
     if (tool === 'jack') { var jp = jackPallet(); if (jp) return p.l === 0 ? (slotSpace(key, jp.sku) >= jp.n ? 'Set the pallet into the rack' : (has ? 'Slot holds ' + skuName(s.sku) + ': no room' : null)) : 'The jack only reaches the floor level'; return has && p.l === 0 ? 'Pull the pallet out (' + Math.min(s.n, ECON.palletCap) + ' boxes)' : (s && s.pal && p.l === 0 ? 'Take the empty pallet out' : null); }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'A damaged box does not go on the rack: bin it';
     if (S.hand && S.hand.kind === 'box') return slotSpace(key, S.hand.sku) > 0 ? 'Put the box on the rack' + (has ? ' (' + s.n + ' here)' : '') : 'Slot holds ' + skuName(s.sku) + ': no room';
@@ -91,7 +92,7 @@
   function slotUse(key) {
     var p = slotParse(key), s = S.slots[key], has = s && s.n > 0, tool = player.tool;
     if (p.l === RACK.top && !driving) { toast('Too high. Use the forklift.', 'bad'); return; }
-    if (tool === 'cart') { if (has && S.cart.boxes.length < ECON.cartCap) { S.cart.boxes.push(s.sku); slotTake(key, 1); sfx('pickup'); S.stats.picked++; addXp(XP.box); introStep('pick'); } return; }
+    if (tool === 'cart') { if (has && cartLoad() < ECON.cartCap) { S.cart.boxes.push(s.sku); slotTake(key, 1); sfx('pickup'); S.stats.picked++; addXp(XP.box); introStep('pick'); } return; }
     if (isJack(tool)) {
       var jp = jackPallet(tool);
       if (jp) { if (p.l !== 0) { toast('The jack only reaches the floor level.', 'bad'); return; } if (storePallet(jp, key)) { S[tool].pallet = null; sfx('crate'); addXp(XP.pallet); toast('Pallet stored · ' + slotName(key), 'good'); introStep('putaway'); } else toast('No room in that slot.', 'bad'); return; }
@@ -120,7 +121,7 @@
     var p = palletById(src.id); if (!p || src.carried) return null;
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return null; if (!t.signed) return 'Sign the delivery note with ' + t.driver + ' first'; }
     if (isJack(player.tool)) return jackPallet() ? null : (p.n > 0 ? 'Lift the pallet with the jack (' + p.n + ' × ' + skuName(p.sku) + ')' : 'Lift the empty pallet with the jack');
-    if (player.tool === 'cart') { var cu = cartUnloadable(p); if (cu.n) return 'Unload ' + cu.n + ' × ' + skuName(cu.sku) + ' from the cart onto the pallet'; if (p.n === 0) return 'Empty pallet · boxes on the cart go onto it'; return S.cart.boxes.length < ECON.cartCap ? 'Take a box of ' + skuName(p.sku) + ' onto the cart (' + p.n + ' left)' : 'Cart is full'; }
+    if (player.tool === 'cart') { var cu = cartUnloadable(p); if (cu.n) return 'Unload ' + cu.n + ' × ' + skuName(cu.sku) + ' from the cart onto the pallet'; if (p.n === 0) return 'Empty pallet · boxes on the cart go onto it'; return cartLoad() < ECON.cartCap ? 'Take a box of ' + skuName(p.sku) + ' onto the cart (' + p.n + ' left)' : 'Cart is full'; }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return p.n === 0 ? 'A damaged box does not go on a pallet: bin it' : null;
     if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12) return p.n === 0 ? 'Put the box on the empty pallet' : 'Put the box back on the pallet';
     if (S.hand) return null;
@@ -132,7 +133,7 @@
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return; if (!t.signed) { toast('Sign the delivery note with the driver first. He is by the dock outside.', 'bad'); return; } }
     if (isJack(player.tool)) { if (!jackPallet()) { if (p.place === 'truck') { onPalletLeftTruck(p); } var jt = jackTool(); p.place = 'jack'; p.jack = jt; S[jt].pallet = p.id; sfx('jack'); introStep('unload'); } return; }
     var take = function () { if (p.place === 'truck') onPalletLeftTruck(p); p.n--; p.wrapped = false; S.stats.picked++; addXp(XP.box); if (p.n <= 0) { p.n = 0; if (p.place === 'truck') toast('That pallet is empty: take it out with the jack, or the truck takes it back', ''); } introStep('unload'); };
-    if (player.tool === 'cart') { var cu2 = cartUnloadable(p); if (cu2.n) { for (var ci = S.cart.boxes.length - 1; ci >= 0 && p.n < 12; ci--) if (S.cart.boxes[ci] === cu2.sku) { S.cart.boxes.splice(ci, 1); p.sku = cu2.sku; p.n++; } sfx('putdown'); hudDirty = true; return; } if (p.n === 0) { sfx('click'); return; } if (S.cart.boxes.length < ECON.cartCap) { S.cart.boxes.push(p.sku); take(); sfx('pickup'); } return; }
+    if (player.tool === 'cart') { var cu2 = cartUnloadable(p); if (cu2.n) { for (var ci = S.cart.boxes.length - 1; ci >= 0 && p.n < 12; ci--) if (S.cart.boxes[ci] === cu2.sku) { S.cart.boxes.splice(ci, 1); p.sku = cu2.sku; p.n++; } sfx('putdown'); hudDirty = true; return; } if (p.n === 0) { sfx('click'); return; } if (cartLoad() < ECON.cartCap) { S.cart.boxes.push(p.sku); take(); sfx('pickup'); } return; }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. The bin is by the bench.', 'bad'); return; }
     if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12) { if (p.n === 0) p.sku = S.hand.sku; p.n++; handSet(null); sfx('putdown'); return; }
     if (S.hand) return;
@@ -147,7 +148,7 @@
     if (!insideHall(x, z) && floorY(x, z) < -0.5) { x = player.x; z = player.z; }
     item.x = x; item.z = z; item.y = floorY(x, z); item.rot = player.yaw; S.floor.push(item);
   }
-  function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'box') { if (player.tool === 'cart') return S.cart.boxes.length < ECON.cartCap && !f.damaged ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : (f.damaged ? 'Pick up the damaged box (it goes in the bin)' : 'Pick up the box of ' + skuName(f.sku)); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
+  function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'box') { if (player.tool === 'cart') return cartLoad() < ECON.cartCap && !f.damaged ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : (f.damaged ? 'Pick up the damaged box (it goes in the bin)' : 'Pick up the box of ' + skuName(f.sku)); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
   function floorUse(src) {
     var f = S.floor[src.idx]; if (!f) return;
     if (f.kind === 'box') { if (player.tool === 'cart') { if (f.damaged) { toast('Damaged: carry it to the bin by hand.', 'bad'); return; } if (S.cart.boxes.length >= ECON.cartCap) return; S.cart.boxes.push(f.sku); } else if (S.hand || player.tool) return; else handSet({ kind: 'box', sku: f.sku, damaged: !!f.damaged }); }

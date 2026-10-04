@@ -175,10 +175,12 @@
   function loadPrompt(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return null;
     if (S.hand && S.hand.kind === 'parcel') { var o = orderById(S.hand.order); return 'Load parcel #' + (o ? o.num : '?') + ' into the truck'; }
+    if (player.tool === 'cart' && cartParcels().length) return 'Unload ' + cartParcels().length + ' parcel' + (cartParcels().length === 1 ? '' : 's') + ' from the cart into the truck';
     return 'Outbound trailer · ' + t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave);
   }
   function loadUse(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return;
+    if (player.tool === 'cart' && cartParcels().length) { var n = 0; cartParcels().slice().forEach(function (oid) { var oc = orderById(oid); if (oc) { t.parcels.push(oc.id); oc.state = 'loaded'; n++; addXp(XP.ship); } }); cartParcels().length = 0; sfx('crate'); introStep('load'); rebuildBoardSoon(); feedPush(n + ' parcel' + (n === 1 ? '' : 's') + ' loaded from the cart', 'good'); hudDirty = true; return; }
     if (!(S.hand && S.hand.kind === 'parcel')) return;
     var o = orderById(S.hand.order); if (!o) { handSet(null); return; }
     t.parcels.push(o.id); o.state = 'loaded'; handSet(null); sfx('crate'); addXp(XP.ship); introStep('load'); rebuildBoardSoon();

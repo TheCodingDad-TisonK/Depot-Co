@@ -138,7 +138,7 @@
       factory: { raw: 0, product: 'dccrate', on: false, made: 0, rawOrdered: 0, t: 0, jam: false },   // the moulding line and its hopper
       pal: { sku: null, n: 0 }, belts: {},
       baler: { card: 0, bales: 0, t: 0, made: 0 }, wrap: { film: 20, wrapped: 0 },                                                   // the palletiser's pallet, and what is on each belt
-      cart: { boxes: [], x: SPOT.cart.x, z: SPOT.cart.z, rot: 0 },
+      cart: { boxes: [], parcels: [], x: SPOT.cart.x, z: SPOT.cart.z, rot: 0 },
       jack: { pallet: null, x: SPOT.jack.x, z: SPOT.jack.z, rot: Math.PI / 2 },
       jack2: { pallet: null, x: SPOT.jack2.x, z: SPOT.jack2.z, rot: -Math.PI / 2 },
       fork: { x: SPOT.fork.x, z: SPOT.fork.z, yaw: Math.PI, lift: 0.1, pallet: null, batt: 1 },
@@ -2190,6 +2190,7 @@
     drawBeltItems();
     S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) { var im = boxInst[f.sku]; if (im) { var ii = counts[f.sku]++; if (ii < 1400) { _e.set(0, f.rot, 0.35); _q.setFromEuler(_e); _v2.set(1, 0.72, 1.08); _m4.compose(_v.set(f.x, f.y + BOX.h * 0.36, f.z), _q, _v2); im.setMatrixAt(ii, _m4); instSrc.box[f.sku][ii] = { kind: 'floor', idx: i }; } } } else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }); });
     var cw = toolWorld('cart'); S.cart.boxes.forEach(function (sku, i) { var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 3 - 1) * 0.42, ly = i < 3 ? 0.3 : 0.82; putBox(sku, cw.x + lx * c, ly + BOX.h / 2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
+    (S.cart.parcels || []).forEach(function (oid, j) { var i = S.cart.boxes.length + j; if (i >= ECON.cartCap) return; var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 3 - 1) * 0.42, ly = i < 3 ? 0.3 : 0.82; putParcel(cw.x + lx * c, ly + 0.2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
     S.trucks.forEach(function (t) { if (t.dir !== 'out') return; t.parcels.forEach(function (oid, i) { var pp = truckParcelPos(t, i); putParcel(pp.x, pp.y + 0.23, pp.z, 0, { kind: 'truck' }); }); });
     S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') putBox(st.carry.sku, st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); if (st.carry && st.carry.kind === 'parcel') putParcel(st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); });
     SKUS.forEach(function (s) { var im = boxInst[s.id]; im.count = Math.min(counts[s.id], 1400); im.instanceMatrix.needsUpdate = true; });
@@ -2231,7 +2232,7 @@
   function slotPrompt(key) {
     var p = slotParse(key), s = S.slots[key], has = s && s.n > 0, tool = player.tool;
     if (p.l === RACK.top && !driving) return has ? skuName(s.sku) + ' × ' + s.n + ' · top level: forklift only' : 'Top level: forklift only';
-    if (tool === 'cart') { if (has && S.cart.boxes.length < ECON.cartCap) return 'Pick a box of ' + skuName(s.sku) + ' onto the cart (' + s.n + ' here)'; return has ? 'Cart is full' : null; }
+    if (tool === 'cart') { if (has && cartLoad() < ECON.cartCap) return 'Pick a box of ' + skuName(s.sku) + ' onto the cart (' + s.n + ' here)'; return has ? 'Cart is full' : null; }
     if (tool === 'jack') { var jp = jackPallet(); if (jp) return p.l === 0 ? (slotSpace(key, jp.sku) >= jp.n ? 'Set the pallet into the rack' : (has ? 'Slot holds ' + skuName(s.sku) + ': no room' : null)) : 'The jack only reaches the floor level'; return has && p.l === 0 ? 'Pull the pallet out (' + Math.min(s.n, ECON.palletCap) + ' boxes)' : (s && s.pal && p.l === 0 ? 'Take the empty pallet out' : null); }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'A damaged box does not go on the rack: bin it';
     if (S.hand && S.hand.kind === 'box') return slotSpace(key, S.hand.sku) > 0 ? 'Put the box on the rack' + (has ? ' (' + s.n + ' here)' : '') : 'Slot holds ' + skuName(s.sku) + ': no room';
@@ -2241,7 +2242,7 @@
   function slotUse(key) {
     var p = slotParse(key), s = S.slots[key], has = s && s.n > 0, tool = player.tool;
     if (p.l === RACK.top && !driving) { toast('Too high. Use the forklift.', 'bad'); return; }
-    if (tool === 'cart') { if (has && S.cart.boxes.length < ECON.cartCap) { S.cart.boxes.push(s.sku); slotTake(key, 1); sfx('pickup'); S.stats.picked++; addXp(XP.box); introStep('pick'); } return; }
+    if (tool === 'cart') { if (has && cartLoad() < ECON.cartCap) { S.cart.boxes.push(s.sku); slotTake(key, 1); sfx('pickup'); S.stats.picked++; addXp(XP.box); introStep('pick'); } return; }
     if (isJack(tool)) {
       var jp = jackPallet(tool);
       if (jp) { if (p.l !== 0) { toast('The jack only reaches the floor level.', 'bad'); return; } if (storePallet(jp, key)) { S[tool].pallet = null; sfx('crate'); addXp(XP.pallet); toast('Pallet stored · ' + slotName(key), 'good'); introStep('putaway'); } else toast('No room in that slot.', 'bad'); return; }
@@ -2270,7 +2271,7 @@
     var p = palletById(src.id); if (!p || src.carried) return null;
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return null; if (!t.signed) return 'Sign the delivery note with ' + t.driver + ' first'; }
     if (isJack(player.tool)) return jackPallet() ? null : (p.n > 0 ? 'Lift the pallet with the jack (' + p.n + ' × ' + skuName(p.sku) + ')' : 'Lift the empty pallet with the jack');
-    if (player.tool === 'cart') { var cu = cartUnloadable(p); if (cu.n) return 'Unload ' + cu.n + ' × ' + skuName(cu.sku) + ' from the cart onto the pallet'; if (p.n === 0) return 'Empty pallet · boxes on the cart go onto it'; return S.cart.boxes.length < ECON.cartCap ? 'Take a box of ' + skuName(p.sku) + ' onto the cart (' + p.n + ' left)' : 'Cart is full'; }
+    if (player.tool === 'cart') { var cu = cartUnloadable(p); if (cu.n) return 'Unload ' + cu.n + ' × ' + skuName(cu.sku) + ' from the cart onto the pallet'; if (p.n === 0) return 'Empty pallet · boxes on the cart go onto it'; return cartLoad() < ECON.cartCap ? 'Take a box of ' + skuName(p.sku) + ' onto the cart (' + p.n + ' left)' : 'Cart is full'; }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return p.n === 0 ? 'A damaged box does not go on a pallet: bin it' : null;
     if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12) return p.n === 0 ? 'Put the box on the empty pallet' : 'Put the box back on the pallet';
     if (S.hand) return null;
@@ -2282,7 +2283,7 @@
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return; if (!t.signed) { toast('Sign the delivery note with the driver first. He is by the dock outside.', 'bad'); return; } }
     if (isJack(player.tool)) { if (!jackPallet()) { if (p.place === 'truck') { onPalletLeftTruck(p); } var jt = jackTool(); p.place = 'jack'; p.jack = jt; S[jt].pallet = p.id; sfx('jack'); introStep('unload'); } return; }
     var take = function () { if (p.place === 'truck') onPalletLeftTruck(p); p.n--; p.wrapped = false; S.stats.picked++; addXp(XP.box); if (p.n <= 0) { p.n = 0; if (p.place === 'truck') toast('That pallet is empty: take it out with the jack, or the truck takes it back', ''); } introStep('unload'); };
-    if (player.tool === 'cart') { var cu2 = cartUnloadable(p); if (cu2.n) { for (var ci = S.cart.boxes.length - 1; ci >= 0 && p.n < 12; ci--) if (S.cart.boxes[ci] === cu2.sku) { S.cart.boxes.splice(ci, 1); p.sku = cu2.sku; p.n++; } sfx('putdown'); hudDirty = true; return; } if (p.n === 0) { sfx('click'); return; } if (S.cart.boxes.length < ECON.cartCap) { S.cart.boxes.push(p.sku); take(); sfx('pickup'); } return; }
+    if (player.tool === 'cart') { var cu2 = cartUnloadable(p); if (cu2.n) { for (var ci = S.cart.boxes.length - 1; ci >= 0 && p.n < 12; ci--) if (S.cart.boxes[ci] === cu2.sku) { S.cart.boxes.splice(ci, 1); p.sku = cu2.sku; p.n++; } sfx('putdown'); hudDirty = true; return; } if (p.n === 0) { sfx('click'); return; } if (cartLoad() < ECON.cartCap) { S.cart.boxes.push(p.sku); take(); sfx('pickup'); } return; }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. The bin is by the bench.', 'bad'); return; }
     if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12) { if (p.n === 0) p.sku = S.hand.sku; p.n++; handSet(null); sfx('putdown'); return; }
     if (S.hand) return;
@@ -2297,7 +2298,7 @@
     if (!insideHall(x, z) && floorY(x, z) < -0.5) { x = player.x; z = player.z; }
     item.x = x; item.z = z; item.y = floorY(x, z); item.rot = player.yaw; S.floor.push(item);
   }
-  function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'box') { if (player.tool === 'cart') return S.cart.boxes.length < ECON.cartCap && !f.damaged ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : (f.damaged ? 'Pick up the damaged box (it goes in the bin)' : 'Pick up the box of ' + skuName(f.sku)); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
+  function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'box') { if (player.tool === 'cart') return cartLoad() < ECON.cartCap && !f.damaged ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : (f.damaged ? 'Pick up the damaged box (it goes in the bin)' : 'Pick up the box of ' + skuName(f.sku)); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
   function floorUse(src) {
     var f = S.floor[src.idx]; if (!f) return;
     if (f.kind === 'box') { if (player.tool === 'cart') { if (f.damaged) { toast('Damaged: carry it to the bin by hand.', 'bad'); return; } if (S.cart.boxes.length >= ECON.cartCap) return; S.cart.boxes.push(f.sku); } else if (S.hand || player.tool) return; else handSet({ kind: 'box', sku: f.sku, damaged: !!f.damaged }); }
@@ -2487,10 +2488,12 @@
   function loadPrompt(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return null;
     if (S.hand && S.hand.kind === 'parcel') { var o = orderById(S.hand.order); return 'Load parcel #' + (o ? o.num : '?') + ' into the truck'; }
+    if (player.tool === 'cart' && cartParcels().length) return 'Unload ' + cartParcels().length + ' parcel' + (cartParcels().length === 1 ? '' : 's') + ' from the cart into the truck';
     return 'Outbound trailer · ' + t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave);
   }
   function loadUse(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return;
+    if (player.tool === 'cart' && cartParcels().length) { var n = 0; cartParcels().slice().forEach(function (oid) { var oc = orderById(oid); if (oc) { t.parcels.push(oc.id); oc.state = 'loaded'; n++; addXp(XP.ship); } }); cartParcels().length = 0; sfx('crate'); introStep('load'); rebuildBoardSoon(); feedPush(n + ' parcel' + (n === 1 ? '' : 's') + ' loaded from the cart', 'good'); hudDirty = true; return; }
     if (!(S.hand && S.hand.kind === 'parcel')) return;
     var o = orderById(S.hand.order); if (!o) { handSet(null); return; }
     t.parcels.push(o.id); o.state = 'loaded'; handSet(null); sfx('crate'); addXp(XP.ship); introStep('load'); rebuildBoardSoon();
@@ -2594,8 +2597,8 @@
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }
   function canPackShort(o) { var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }
-  function shelfPrompt(src) { var o = orderById(src.order); if (S.hand || player.tool) return null; return 'Pick up parcel #' + (o ? o.num : '?') + (o ? ' for ' + clientName(o.client) : ''); }
-  function shelfUse(src) { if (S.hand || player.tool) return; var k = S.bench.parcels.indexOf(src.order); if (k < 0) return; S.bench.parcels.splice(k, 1); handSet({ kind: 'parcel', order: src.order }); sfx('pickup'); }
+  function shelfPrompt(src) { var o = orderById(src.order); if (player.tool === 'cart') return cartLoad() < ECON.cartCap ? 'Load parcel #' + (o ? o.num : '?') + ' onto the cart (' + cartLoadText() + ')' : 'The cart is full'; if (S.hand || player.tool) return null; return 'Pick up parcel #' + (o ? o.num : '?') + (o ? ' for ' + clientName(o.client) : ''); }
+  function shelfUse(src) { if (player.tool === 'cart') { if (cartLoad() >= ECON.cartCap) { sfx('bad'); return; } var kc = S.bench.parcels.indexOf(src.order); if (kc < 0) return; S.bench.parcels.splice(kc, 1); cartParcels().push(src.order); sfx('pickup'); hudDirty = true; return; } if (S.hand || player.tool) return; var k = S.bench.parcels.indexOf(src.order); if (k < 0) return; S.bench.parcels.splice(k, 1); handSet({ kind: 'parcel', order: src.order }); sfx('pickup'); }
 
   // ── Shipping ──────────────────────────────────────────────────────
   function shipOrder(o) {
@@ -2723,9 +2726,13 @@
     forkM = { g: f, car: car, beacon: beaconLens, wheel: wheel };
     placeTools();
   }
-  // G at the parked cart: a box in hand goes on it, empty hands take the top box off it
-  function cartHandSwap() { if (player.tool || driving) return; if (S.hand) { if (S.hand.kind !== 'box' || S.hand.damaged) { toast('Only good boxes ride the cart.', 'bad'); return; } if (S.cart.boxes.length >= ECON.cartCap) { toast('The cart is full.', 'bad'); sfx('bad'); return; } S.cart.boxes.push(S.hand.sku); handSet(null); sfx('putdown'); hudDirty = true; return; } if (!S.cart.boxes.length) { sfx('click'); return; } handSet({ kind: 'box', sku: S.cart.boxes.pop() }); sfx('pickup'); hudDirty = true; }
-  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (player.tool) return null; if (S.hand) return tool === 'cart' && S.hand.kind === 'box' && !S.hand.damaged ? (S.cart.boxes.length < ECON.cartCap ? 'G puts the box on the cart (' + S.cart.boxes.length + ' on it)' : 'The cart is full') : 'Hands full'; if (driving) return null; return isJack(tool) ? 'Grab pallet jack ' + (tool === 'jack2' ? '2 (OUT)' : '1 (IN)') : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it) · G takes one off' : ''); }
+  // the cart's load: boxes on it plus parcels on it, against one capacity
+  function cartParcels() { if (!S.cart.parcels) S.cart.parcels = []; return S.cart.parcels; }
+  function cartLoad() { return S.cart.boxes.length + cartParcels().length; }
+  function cartLoadText() { var b = S.cart.boxes.length, p = cartParcels().length; return (b ? b + (b === 1 ? ' box' : ' boxes') : '') + (b && p ? ', ' : '') + (p ? p + (p === 1 ? ' parcel' : ' parcels') : '') || 'empty'; }
+  // G at the parked cart: what you hold goes on it, empty hands take the top box (or parcel) off it
+  function cartHandSwap() { if (player.tool || driving) return; if (S.hand) { if (S.hand.kind === 'parcel') { if (cartLoad() >= ECON.cartCap) { toast('The cart is full.', 'bad'); sfx('bad'); return; } cartParcels().push(S.hand.order); handSet(null); sfx('putdown'); hudDirty = true; return; } if (S.hand.kind !== 'box' || S.hand.damaged) { toast('Only good boxes ride the cart.', 'bad'); return; } if (cartLoad() >= ECON.cartCap) { toast('The cart is full.', 'bad'); sfx('bad'); return; } S.cart.boxes.push(S.hand.sku); handSet(null); sfx('putdown'); hudDirty = true; return; } if (S.cart.boxes.length) { handSet({ kind: 'box', sku: S.cart.boxes.pop() }); sfx('pickup'); hudDirty = true; return; } if (cartParcels().length) { handSet({ kind: 'parcel', order: cartParcels().pop() }); sfx('pickup'); hudDirty = true; return; } sfx('click'); }
+  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (player.tool) return null; if (S.hand) return tool === 'cart' && ((S.hand.kind === 'box' && !S.hand.damaged) || S.hand.kind === 'parcel') ? (cartLoad() < ECON.cartCap ? 'G puts the ' + (S.hand.kind === 'parcel' ? 'parcel' : 'box') + ' on the cart (' + cartLoadText() + ')' : 'The cart is full') : 'Hands full'; if (driving) return null; return isJack(tool) ? 'Grab pallet jack ' + (tool === 'jack2' ? '2 (OUT)' : '1 (IN)') : 'Grab the picking cart' + (cartLoad() ? ' (' + cartLoadText() + ') · G takes one off' : ''); }
   function grabTool(tool) { if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
   function releaseTool() { if (!player.tool) return; if (player.tool === 'cable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool), tm = isJack(player.tool) ? jackMeshes[player.tool] : cartMesh; if (tm && tm.userData.towRy !== undefined) { w.ry = tm.userData.towRy; w.x = tm.position.x; w.z = tm.position.z; } var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
   function placeTools(dt) {
@@ -3905,7 +3912,7 @@
     var ev = $('h-event'); if (S.events.power) { ev.hidden = false; ev.textContent = '⚡ Power cut: reset the breaker in the office'; } else ev.hidden = true;
     var held = $('h-held'), hl = handLabel();
     if (player.tool === 'cable') { held.hidden = false; held.innerHTML = 'Charging cable (forklift)<small>E on the forklift plugs it in · G hangs it back</small>'; }
-    else if (player.tool) { held.hidden = false; held.innerHTML = (isJack(player.tool) ? 'Pallet jack' + (jackPallet() ? ' · ' + jackPallet().n + ' × ' + skuName(jackPallet().sku) + '<small>E on a rack slot stores it · E on open floor sets it down · G lets go of the jack</small>' : ' (empty)') : 'Picking cart · ' + S.cart.boxes.length + ' / ' + ECON.cartCap + ' boxes') + '<small>G lets go</small>'; }
+    else if (player.tool) { held.hidden = false; held.innerHTML = (isJack(player.tool) ? 'Pallet jack' + (jackPallet() ? ' · ' + jackPallet().n + ' × ' + skuName(jackPallet().sku) + '<small>E on a rack slot stores it · E on open floor sets it down · G lets go of the jack</small>' : ' (empty)') : 'Picking cart · ' + cartLoadText() + ' · ' + cartLoad() + ' / ' + ECON.cartCap) + '<small>G lets go</small>'; }
     else if (hl) { held.hidden = false; held.innerHTML = esc(hl.t) + '<small>' + esc(hl.s) + '</small>'; }
     else held.hidden = true;
     $('h-objective').innerHTML = introText();
@@ -4146,7 +4153,7 @@
       '<h3>Receiving</h3><p>Inbound trucks dock at IN 1 (and IN 2 once you buy the second bay) at 07:30 and 13:30. Open the dock door, walk into the trailer and take boxes off the pallets by hand, or grab the pallet jack and lift a whole pallet. A truck waits three hours; whatever is still on it goes back, unpaid, and the client remembers.</p>' +
       '<h3>Racks</h3><p>Every slot holds up to 12 boxes of one line. The floor and shelf levels are hand-reachable; the top level needs the forklift. Look at a slot and press E to put a box on or take one off. The jack sets a whole pallet into a floor-level slot.</p>' +
       '<h3>Orders</h3><p>Orders arrive between 08:00 and 17:00 on the office PC, the wall board and the scanner. Each one lists lines and a due time, which is the departure of an outbound truck. Pick the boxes, put them on the packing bench, press E on the bench with empty hands and pack. The parcel appears on the shelf beside the bench.</p>' +
-      '<h3>Shipping</h3><p>Outbound trucks wait at OUT 1 from 10:30 to 12:00 and OUT 2 from 16:00 to 18:00. Open the door, carry the parcel into the trailer and press E. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
+      '<h3>Shipping</h3><p>Outbound trucks wait at OUT 1 from 10:30 to 12:00 and OUT 2 from 16:00 to 18:00. Open the door, carry the parcel into the trailer and press E, or load the parcels off the shelf onto the picking cart (E with the cart at the shelf) and E in the trailer unloads them all. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
       '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
       '<h3>Drivers</h3><p>Open the dock door and the driver walks in and waits beside it. Sign the delivery note (<kbd>E</kbd> on him) before anything comes off the truck. He will nag after two hours.</p>' +
       '<h3>The pack line and the production wing</h3><p>Boxes go on the bench as before, but packing is a machine now: pick an order on the bench terminal and the line feeds its boxes onto the infeed belt, the case taper closes them into one parcel, and the parcel rolls down the outfeed onto the shelf. It jams now and then: <kbd>E</kbd> on it clears the jam.</p><p>Through the strip curtain in the north wall is the production wing. Order pallets of raw granulate on the office PC (Production app); they come with the next inbound truck. Bring one on the jack to the hopper and <kbd>E</kbd> tips it in. Start the moulding line on its screen or with <kbd>E</kbd>, pick a product, and own-brand boxes come down the main belt into the hall, where the palletiser stacks them eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your goods once they have seen them.</p>' +
@@ -4555,7 +4562,7 @@
       openPanel: openPanel, closePanel: closePanel, renderPanel: renderPanel, scanToggle: scanToggle, renderScan: renderScan, panelHtml: function () { return $('dc-panel-body').innerHTML; },
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
-      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, HALL: HALL, wallX: wallX, focusAlt: function () { if (focus && focus.alt) focus.alt(); }, BELTS: BELTS, MACH: MACH, inWing: inWing,
+      hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, HALL: HALL, wallX: wallX, focusAlt: function () { if (focus && focus.alt) focus.alt(); }, shelfPrompt: shelfPrompt, loadPrompt: loadPrompt, cartParcels: cartParcels, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

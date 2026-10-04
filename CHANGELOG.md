@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.18 (2026-10-04)
+
+- The picking cart carries parcels. E with the cart at the parcel shelf loads a parcel, E in a docked outbound trailer unloads every parcel aboard at once, and G at the parked cart moves a parcel between the cart and your hands. Boxes and parcels share the cart's six places; the HUD and prompts show both.
+
 ## 1.12.17 (2026-10-04)
 
 - The installer puts a Depot Co shortcut on the Desktop on every install, not only the first one (createDesktopShortcut: always).

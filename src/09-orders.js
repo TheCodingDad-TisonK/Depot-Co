@@ -86,8 +86,8 @@
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }
   function canPackShort(o) { var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }
-  function shelfPrompt(src) { var o = orderById(src.order); if (S.hand || player.tool) return null; return 'Pick up parcel #' + (o ? o.num : '?') + (o ? ' for ' + clientName(o.client) : ''); }
-  function shelfUse(src) { if (S.hand || player.tool) return; var k = S.bench.parcels.indexOf(src.order); if (k < 0) return; S.bench.parcels.splice(k, 1); handSet({ kind: 'parcel', order: src.order }); sfx('pickup'); }
+  function shelfPrompt(src) { var o = orderById(src.order); if (player.tool === 'cart') return cartLoad() < ECON.cartCap ? 'Load parcel #' + (o ? o.num : '?') + ' onto the cart (' + cartLoadText() + ')' : 'The cart is full'; if (S.hand || player.tool) return null; return 'Pick up parcel #' + (o ? o.num : '?') + (o ? ' for ' + clientName(o.client) : ''); }
+  function shelfUse(src) { if (player.tool === 'cart') { if (cartLoad() >= ECON.cartCap) { sfx('bad'); return; } var kc = S.bench.parcels.indexOf(src.order); if (kc < 0) return; S.bench.parcels.splice(kc, 1); cartParcels().push(src.order); sfx('pickup'); hudDirty = true; return; } if (S.hand || player.tool) return; var k = S.bench.parcels.indexOf(src.order); if (k < 0) return; S.bench.parcels.splice(k, 1); handSet({ kind: 'parcel', order: src.order }); sfx('pickup'); }
 
   // ── Shipping ──────────────────────────────────────────────────────
   function shipOrder(o) {
