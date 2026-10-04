@@ -1,7 +1,7 @@
 {
   "name": "depot-co",
   "productName": "Depot Co",
-  "version": "1.12.16",
+  "version": "1.12.17",
   "description": "Standalone hobby game, NOT a Farming Simulator product. First-person warehouse simulator: receive trucks, put stock away, pick orders, pack them and ship them, then hire a crew and buy a forklift.",
   "main": "main.js",
   "author": "TheCodingDad-TisonK",
@@ -49,7 +49,7 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Depot Co",
       "runAfterFinish": true,

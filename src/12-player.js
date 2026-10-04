@@ -129,7 +129,7 @@
     player.keys[e.code] = true;
     if (e.repeat) return;
     if (e.code === 'KeyE') useFocus();
-    else if (e.code === 'KeyG') { if (driving) stopDrive(); else putDown(); }
+    else if (e.code === 'KeyG') { if (driving) stopDrive(); else if (focus && focus.alt) focus.alt(); else putDown(); }
     else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving && !e.repeat) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });

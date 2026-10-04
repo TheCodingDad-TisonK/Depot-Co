@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.17 (2026-10-04)
+
+- The installer puts a Depot Co shortcut on the Desktop on every install, not only the first one (createDesktopShortcut: always).
+- G at the parked picking cart takes the top box into your hand; with a box in hand, G puts it on the cart.
+- Test runner: the test tick refreshes world matrices so raycasts see props where the tick put them.
+
 ## 1.12.16 (2026-10-03)
 
 - The picking cart unloads onto pallets. E with the cart at a pallet puts every box of the pallet's line from the cart onto it, up to twelve; at an empty pallet it unloads the line it carries most of. With nothing matching aboard the cart picks from the pallet as before.

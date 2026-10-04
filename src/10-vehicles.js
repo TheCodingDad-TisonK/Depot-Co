@@ -33,7 +33,7 @@
     cyl(0.018, 0.35, MAT.chrome, -0.62, 1.2, -0.3, c, 8); cyl(0.018, 0.35, MAT.chrome, 0.62, 1.2, -0.3, c, 8); cyl(0.02, 1.3, MAT.rubber, 0, 1.38, -0.3, c, 8).rotation.z = Math.PI / 2;
     box(0.22, 0.3, 0.02, MAT.plastic, 0.45, 1.1, -0.29, c); box(0.2, 0.26, 0.01, MAT.paper, 0.45, 1.1, -0.275, c);
     groundBlob(1.7, 1.1, 0, 0, c, 0);
-    hitBox(1.4, 1.4, 0.8, 0, 0.7, 0, { prompt: function () { return toolPrompt('cart'); }, use: function () { grabTool('cart'); } }, c);
+    hitBox(1.4, 1.4, 0.8, 0, 0.7, 0, { prompt: function () { return toolPrompt('cart'); }, use: function () { grabTool('cart'); }, alt: function () { cartHandSwap(); } }, c);
     // ── the forklift: a counterbalance electric truck. Rounded shells, treaded tyres, an I-section mast with chains and
     // hoses, a proper seat and column, a dashboard with gauges, the overhead guard as one bent tube, decals and plates.
     var f = new THREE.Group(); f.userData.dynamic = true; scene.add(f);
@@ -104,7 +104,9 @@
     forkM = { g: f, car: car, beacon: beaconLens, wheel: wheel };
     placeTools();
   }
-  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (player.tool) return null; if (S.hand) return 'Hands full'; if (driving) return null; return isJack(tool) ? 'Grab pallet jack ' + (tool === 'jack2' ? '2 (OUT)' : '1 (IN)') : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it)' : ''); }
+  // G at the parked cart: a box in hand goes on it, empty hands take the top box off it
+  function cartHandSwap() { if (player.tool || driving) return; if (S.hand) { if (S.hand.kind !== 'box' || S.hand.damaged) { toast('Only good boxes ride the cart.', 'bad'); return; } if (S.cart.boxes.length >= ECON.cartCap) { toast('The cart is full.', 'bad'); sfx('bad'); return; } S.cart.boxes.push(S.hand.sku); handSet(null); sfx('putdown'); hudDirty = true; return; } if (!S.cart.boxes.length) { sfx('click'); return; } handSet({ kind: 'box', sku: S.cart.boxes.pop() }); sfx('pickup'); hudDirty = true; }
+  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (player.tool) return null; if (S.hand) return tool === 'cart' && S.hand.kind === 'box' && !S.hand.damaged ? (S.cart.boxes.length < ECON.cartCap ? 'G puts the box on the cart (' + S.cart.boxes.length + ' on it)' : 'The cart is full') : 'Hands full'; if (driving) return null; return isJack(tool) ? 'Grab pallet jack ' + (tool === 'jack2' ? '2 (OUT)' : '1 (IN)') : 'Grab the picking cart' + (S.cart.boxes.length ? ' (' + S.cart.boxes.length + ' boxes on it) · G takes one off' : ''); }
   function grabTool(tool) { if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
   function releaseTool() { if (!player.tool) return; if (player.tool === 'cable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool), tm = isJack(player.tool) ? jackMeshes[player.tool] : cartMesh; if (tm && tm.userData.towRy !== undefined) { w.ry = tm.userData.towRy; w.x = tm.position.x; w.z = tm.position.z; } var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
   function placeTools(dt) {
