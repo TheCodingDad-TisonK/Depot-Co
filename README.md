@@ -6,22 +6,9 @@
 > **This is NOT a Farming Simulator product.**
 > Depot Co. has nothing to do with Farming Simulator, GIANTS Software, or any Farming Simulator mod, including the Realistic Farming mods by the same author. It is a separate, standalone hobby project, a sibling of [Grow Co.](https://github.com/TheCodingDad-TisonK/Grow-Co), built the same way.
 
-![Depot Co. main menu: three save slots in front of the racks](screenshots/dcMainMenu.jpg)
+![Depot Co. main menu: three save slots in front of the racks](gallery/dcMainMenu.jpg)
 
-| | |
-|---|---|
-| ![Jack 1 in its bay by the IN docks, the receiving square and the rack rows](screenshots/dc1.jpg) | ![The packing bench, the order board and the pick belt coming down from the cranes](screenshots/dc2.jpg) |
-| Jack 1 in its bay by the IN docks, with the receiving square and the rack rows beyond | The packing bench, the order board, the pack line and the pick belt ramping down from the cranes |
-| ![The forklift lifting a pallet onto the shelf level](screenshots/dc3.jpg) | ![AGV-1 carrying a pallet to the racks](screenshots/dc4.jpg) |
-| The forklift with a pallet on its forks at the shelf level | AGV-1 taking a pallet off the receiving square to the racks |
-| ![A docked truck at IN 1, its driver with the delivery note](screenshots/dock.jpg) | ![The east lane with the crane cabinets and the overhead pick belts](screenshots/cranes.jpg) |
-| A truck docked at IN 1, its driver waiting with the delivery note | The east lane: crane cabinets with their screens, the pick belts hung overhead, the merge belt down to the bench |
-| ![The production wing: moulding line, hoppers and the belt to the hall](screenshots/wing.jpg) | ![Stocked racks seen from the forklift bay](screenshots/racks.jpg) |
-| The production wing: the moulding line, the raw hoppers and the belt back into the hall | Stocked rack rows seen from the forklift bay |
-| ![The office: desk, PC, the week board and the breaker](screenshots/office.jpg) | ![The yard at dusk in the rain, the IN docks from outside](screenshots/yard.jpg) |
-| The office: the PC, the week board and the main breaker | The yard at dusk in the rain, the IN docks from outside |
-| ![The dev console on F8](screenshots/dc5.jpg) | |
-| The dev console on F8: money, time, weather, trucks, crew and teleports for testing | |
+More screenshots: the [gallery](gallery/README.md).
 
 ## What it is
 
