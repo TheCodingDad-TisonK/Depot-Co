@@ -18,18 +18,72 @@
   function beltLen(b) { var p = b.path, n = 0; for (var i = 1; i < p.length; i++) n += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return n; }
   function beltPoint(b, d) {   // the world point d metres along the belt
     var p = b.path, rem = d; for (var i = 1; i < p.length; i++) { var seg = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); if (rem <= seg || i === p.length - 1) { var t = seg > 0 ? clamp(rem / seg, 0, 1) : 0; var w = propWorld(b.prop, lerp(p[i - 1][0], p[i][0], t), lerp(p[i - 1][1], p[i][1], t)); w.ry = w.a + Math.atan2(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); w.y = BELT_Y + lerp(p[i - 1][2] || 0, p[i][2] || 0, t); return w; } rem -= seg; }
-    var w0 = propWorld(b.prop, p[0][0], p[0][1]); w0.y = BELT_Y + (p[0][2] || 0); return w0;
+    var w0 = propWorld(b.prop, p[0][0], p[0][1]); w0.y = BELT_Y + (p[0][2] || 0); w0.ry = w0.a + (p.length > 1 ? Math.atan2(p[1][0] - p[0][0], p[1][1] - p[0][1]) : 0); return w0;
   }
   function beltItems(id) { if (!S.belts) S.belts = {}; if (!S.belts[id]) S.belts[id] = []; return S.belts[id]; }
   function beltStartFree(id) { var it = beltItems(id); return !it.length || it[it.length - 1].d > BELT_GAP; }
   function beltPush(id, item) { if (!beltStartFree(id)) return false; item.d = 0; beltItems(id).push(item); return true; }
-  // what sits at a belt's far end: another belt whose start is within reach, or a machine whose inlet is
+  // Where a machine takes items in and lets them out, in the world: its inlet points (one or several, in its own frame), or a
+  // fixed place for a machine that is not a prop (a dock door). A machine whose prop is not built has no points.
+  function machinePoints(mc, which) {
+    var pts = [], list = which === 'in' ? (mc.inlets || (mc.inlet ? [mc.inlet] : [])) : (mc.outlets || (mc.outlet ? [mc.outlet] : []));
+    if (mc.atFn && which === 'in') { var a = mc.atFn(); if (a) pts.push({ x: a[0], z: a[1] }); }
+    if (mc.prop) { if (!PROPS[mc.prop] || !propInst[mc.prop]) return pts; list.forEach(function (p) { pts.push(propWorld(mc.prop, p[0], p[1])); }); }
+    return pts;
+  }
+  // What sits at a belt's far end: a machine whose inlet is within reach, else another belt whose start is, else a rack slot the
+  // end stops at (the box goes straight onto the rack). Worked out once and kept until a prop is built or removed, because a
+  // belt end only moves when build mode moves something.
+  var sinkCache = {}; function beltsChanged() { sinkCache = {}; }
   function beltSink(b) {
-    var end = beltPoint(b, beltLen(b));
-    // a machine inlet at the end wins over another belt's start, so a sorter or a loader placed at a belt end takes the item
-    for (var mk in MACH) { var mc = MACH[mk]; if (!mc.inlet || !PROPS[mc.prop] || !propInst[mc.prop]) continue; var w = propWorld(mc.prop, mc.inlet[0], mc.inlet[1]); if (dist2(end.x, end.z, w.x, w.z) < REACH * REACH) return { machine: mc }; }
-    for (var k in BELTS) { if (k === b.id) continue; var s = beltPoint(BELTS[k], 0); if (dist2(end.x, end.z, s.x, s.z) < REACH * REACH) return { belt: BELTS[k] }; }
+    if (sinkCache[b.id] !== undefined) return sinkCache[b.id];
+    if (b.noSink) return (sinkCache[b.id] = null);
+    var end = beltPoint(b, beltLen(b)), out = null, R2 = REACH * REACH;
+    for (var mk in MACH) { var mc = MACH[mk]; if (!mc.accept) continue; var pts = machinePoints(mc, 'in'); for (var i = 0; i < pts.length; i++) if (dist2(end.x, end.z, pts[i].x, pts[i].z) < R2) { out = { machine: mc }; break; } if (out) break; }
+    if (!out) for (var k in BELTS) { if (k === b.id) continue; var ob = BELTS[k]; if (!propInst[ob.prop]) continue; var s = beltPoint(ob, 0); if (dist2(end.x, end.z, s.x, s.z) < R2 && Math.abs(end.y - s.y) < 0.7) { out = { belt: ob }; break; } }
+    if (!out) { var best = null, bd = R2; for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < RACK.bays; bb++) for (var l = 0; l <= 1; l++) { var sp = rackSlotPos(r, bb, l), d = dist2(end.x, end.z, sp.x, sp.z); if (d < bd && Math.abs(end.y - (sp.y + 0.6)) < 1.6) { bd = d; best = slotKey(r, bb, l); } } if (best) out = { slot: best }; }
+    sinkCache[b.id] = out || null; return out;
+  }
+  // what feeds a belt at its start: a belt whose end sinks into it, a machine outlet, the parcel shelf, or an inbound dock door
+  function beltFeeder(b) {
+    var s = beltPoint(b, 0), R2 = REACH * REACH;
+    for (var k in BELTS) { if (k === b.id) continue; var ob = BELTS[k]; if (!propInst[ob.prop]) continue; var sk = beltSink(ob); if (sk && sk.belt === b) return { belt: ob }; }
+    for (var mk in MACH) { var mc = MACH[mk]; var pts = machinePoints(mc, 'out'); for (var i = 0; i < pts.length; i++) if (dist2(s.x, s.z, pts[i].x, pts[i].z) < R2) return { machine: mc }; }
+    if (propInst.packline) { var sh = propWorld('packline', 0, 7.0); if (dist2(s.x, s.z, sh.x, sh.z) < R2) return { shelf: true }; }
+    for (var i2 = 0; i2 < 2 && doors[i2]; i2++) { var at = doorInside(i2); if (dist2(s.x, s.z, at[0], at[1]) < R2 * 1.5) return { door: i2 }; }
     return null;
+  }
+  function beltLabel(b) { return propLabel(b.prop); }
+  function sinkLabel(sk) { if (!sk) return null; if (sk.belt) return 'the ' + beltLabel(sk.belt); if (sk.slot) return slotName(sk.slot); var mc = sk.machine; return mc.door !== undefined ? 'dock door ' + dockLabel(mc.door) : 'the ' + propLabel(mc.prop); }
+  function feederLabel(fd) { if (!fd) return null; if (fd.belt) return 'the ' + beltLabel(fd.belt); if (fd.shelf) return 'the parcel shelf'; if (fd.door !== undefined) return 'dock door ' + dockLabel(fd.door); return 'the ' + propLabel(fd.machine.prop); }
+  // ── The dock doors on the registry ──
+  // An outbound door with a truck in takes parcels off a belt that ends at it. An inbound door with a signed truck in feeds the
+  // boxes off its pallets onto a belt that starts at it, one every second or so. So a run of pieces from a rack bay to OUT 1 is a
+  // loading line and a run from IN 2 to a rack bay is an unloading line, with nothing bought but the pieces.
+  function doorInside(i) { var d = doors[i]; return d ? [d.side * (HALL.x - 1.2), d.z] : null; }
+  for (var dmi = 0; dmi < 4; dmi++) (function (i) {
+    defMachine('door' + i, { door: i, atFn: function () { return doorInside(i); }, accept: i < 2 ? null : function (it) {
+      if (it.kind !== 'parcel' || !powered()) return false;
+      var t = truckAtDoor(i); if (!t || !S.doors[i] || !doorPassable(i)) return false;
+      var o = orderById(it.order); if (!o) return true;
+      t.parcels.push(o.id); o.state = 'loaded'; sfx('crate'); addXp(XP.ship); rebuildBoardSoon(); S.stats.autoLoaded = (S.stats.autoLoaded || 0) + 1; return true;
+    } });
+  })(dmi);
+  var dockFeedT = {};
+  function tickDockFeed(dt) {
+    if (!powered()) return;
+    for (var i = 0; i < 2; i++) {
+      var t = truckAtDoor(i); if (!t || !t.signed || !S.doors[i] || !doorPassable(i)) continue;
+      var at = doorInside(i), fed = null; if (!at) continue;
+      for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, at[0], at[1]) < REACH * REACH * 1.5) { fed = b; break; } }
+      if (!fed) continue;
+      dockFeedT[i] = (dockFeedT[i] || 0) + dt; if (dockFeedT[i] < 1.2 / speedOf(beltSpeedKey(fed)) || !beltStartFree(fed.id)) continue;
+      var p = null; for (var q = 0; q < S.pallets.length; q++) { var pp = S.pallets[q]; if (pp.place === 'truck' && pp.truck === t.id && pp.n > 0 && !(SKU[pp.sku] && SKU[pp.sku].raw)) { p = pp; break; } }
+      if (!p) continue;
+      if (!p.received) { p.received = true; t.unloaded++; S.stats.received++; pay(ECON.receiveFee, 'Receiving fee, pallet of ' + skuName(p.sku)); addXp(XP.pallet); feedPush('Received a pallet of ' + skuName(p.sku) + ' off the belt · +' + money(ECON.receiveFee), 'good'); }   // the fee is earned when the first box comes off; the pallet stays aboard until it is empty
+      p.n--; p.wrapped = false; dockFeedT[i] = 0; beltPush(fed.id, { kind: 'box', sku: p.sku }); S.stats.picked++;
+      if (p.n <= 0) { p.n = 0; }
+    }
   }
   function machineOutBelt(m) { if (!m.outlet) return null; var w = propWorld(m.prop, m.outlet[0], m.outlet[1]); for (var k in BELTS) { var s = beltPoint(BELTS[k], 0); if (dist2(w.x, w.z, s.x, s.z) < REACH * REACH) return BELTS[k]; } return null; }
   function powered() { return !S.events.power; }
@@ -43,7 +97,7 @@
         if (powered()) it.d = Math.min(it.d + BELT_SPEED * speedOf(beltSpeedKey(b)) * dt, max);
         if (it.d >= L - 0.001 && sink) {
           var taken = false;
-          if (sink.belt) taken = beltPush(sink.belt.id, it); else if (sink.machine && sink.machine.accept) taken = sink.machine.accept(it);
+          if (sink.belt) taken = beltPush(sink.belt.id, it); else if (sink.machine && sink.machine.accept) taken = sink.machine.accept(it); else if (sink.slot && it.kind === 'box' && slotSpace(sink.slot, it.sku) > 0) { slotAdd(sink.slot, it.sku, 1); S.stats.putaway++; taken = true; }
           if (taken) { items.splice(i, 1); i--; continue; }
         }
         ahead = it.d;
@@ -63,7 +117,7 @@
 
   // ── The pack line: the bench feeds boxes onto the infeed, the case taper closes the order into one parcel, the outfeed drops it on the shelf
   defBelt('packIn', { prop: 'packline', path: [[0, 0], [0, 2.0]] });
-  defBelt('packOut', { prop: 'packline', path: [[0, 3.8], [0, 5.8]] });
+  defBelt('packOut', { prop: 'packline', path: [[0, 3.8], [0, 5.8]], noSink: true });   // its parcels drop onto the shelf, never onto a belt laid at the shelf
   defMachine('taper', { prop: 'packline', inlet: [0, 2.0], outlet: [0, 3.8],
     accept: function (it) { var j = S.pack.job; if (!j || it.kind !== 'box' || !powered() || S.pack.jam) return false; j.inMach++; sfx('click'); return true; } });
   function packStatus() { if (!powered()) return 'off'; if (S.pack.jam) return 'jam'; return S.pack.job ? 'run' : 'idle'; }
@@ -201,7 +255,7 @@
     if (!S.pack) S.pack = { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null };
     if (!S.factory) S.factory = { raw: 0, product: 'dccrate', on: false, made: 0, rawOrdered: 0, t: 0, jam: false };
     if (!S.pal) S.pal = { sku: null, n: 0 };
-    tickBelts(dt); tickPack(dt); tickFactory(dt);
+    tickBelts(dt); tickDockFeed(dt); tickPack(dt); tickFactory(dt);
     if (MACH.hopper.anim && MACH.hopper.anim.tipT > 0) { var h = MACH.hopper.anim; h.tipT -= dt; h.feeder.position.x = Math.sin(worldTime * 40) * 0.01 * (h.tipT > 0 ? 1 : 0); }
     lampSet(MACH.palletiser, powered() ? (S.pal.n ? 'run' : 'idle') : 'off');
     if (world.wingLights) world.wingLights.forEach(function (l) { l.intensity = powered() ? 0.9 : 0; });

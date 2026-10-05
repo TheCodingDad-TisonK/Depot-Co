@@ -57,20 +57,22 @@
       var sx = side * (X + 0.75); box(0.5, 0.6, DOCKS.w + 1.4, MAT.rubber, sx + side * 0.25, DOCKS.h + 0.5, d.z); box(1.0, DOCKS.h + 0.8, 0.5, MAT.rubber, sx, DOCKS.h / 2 + 0.4, d.z - DOCKS.w / 2 - 0.45); box(1.0, DOCKS.h + 0.8, 0.5, MAT.rubber, sx, DOCKS.h / 2 + 0.4, d.z + DOCKS.w / 2 + 0.45);
       plane(DOCKS.w + 1.4, 0.6, MAT.hazard, side * (X + 0.26), DOCKS.h + 0.5, d.z, 0, side > 0 ? Math.PI / 2 : -Math.PI / 2);
       box(0.08, 0.08, 0.6, MAT.steelDark, side * (X + 0.6), DOCKS.h + 1.0, d.z + DOCKS.w / 2 + 1.0); var lens = box(0.3, 0.2, 0.3, glowMat(0xfff2c0, 0.2), side * (X + 0.9), DOCKS.h + 0.95, d.z + DOCKS.w / 2 + 1.0); yard.lampLenses.push(lens);
+      var dl2 = new THREE.PointLight(0xfff2c0, 0, 16, 2); dl2.position.set(side * (X + 2.2), DOCKS.h + 0.5, d.z + 0.8); dl2.userData.k = 1.0; scene.add(dl2); yardLights.push(dl2);   // the apron under the shelter lamp is lit at night
     });
     // the fence: mesh panels between posts, with a sliding gate on each truck side and the gatehouse beside it
     var FPOST = std({ color: 0x2f5d3a, roughness: 0.5, metalness: 0.5 }), FMESH = std({ map: TEX.vmesh, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6, color: 0x3d6b48 }), FCONC = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), FWIRE = std({ color: 0x8e949a, roughness: 0.4, metalness: 0.8 });
     function fenceRun(x0, z0, x1, z1) {
-      var dx = x1 - x0, dz = z1 - z0, len = Math.sqrt(dx * dx + dz * dz), n = Math.round(len / 3), ang = Math.atan2(dx, dz), ux = dx / len, uz = dz / len, nx = uz, nz = -ux;
+      // ang turns a y-axis cylinder laid along z onto the run (the wires); rot turns an x-long box or plane onto it (panels, rails, boards). They differ by a quarter turn, and the panels used to take the wrong one and stand across the line
+      var dx = x1 - x0, dz = z1 - z0, len = Math.sqrt(dx * dx + dz * dz), n = Math.round(len / 3), ang = Math.atan2(dx, dz), ux = dx / len, uz = dz / len, nx = uz, nz = -ux, rot = Math.atan2(-uz, ux);
       for (var i = 0; i <= n; i++) {
         var t = i / n, px = x0 + dx * t, pz = z0 + dz * t;
         box(0.08, 2.5, 0.08, FPOST, px, YARD_Y + 1.25, pz); box(0.3, 0.25, 0.3, FCONC, px, YARD_Y + 0.12, pz); box(0.12, 0.03, 0.12, FPOST, px, YARD_Y + 2.52, pz);
         var arm = box(0.04, 0.6, 0.04, FPOST, px + nx * 0.2, YARD_Y + 2.72, pz + nz * 0.2); arm.rotation.set(0, ang, -0.7, 'YXZ'); arm.position.y += 0.1;
         if (i < n) {
           var mx = x0 + dx * (t + 0.5 / n), mz = z0 + dz * (t + 0.5 / n), seg = len / n;
-          var mp = plane(seg - 0.1, 2.2, FMESH, mx, YARD_Y + 1.35, mz, 0, ang); mp.receiveShadow = false;
-          [0.75, 1.65].forEach(function (vy) { var fold = box(seg - 0.1, 0.06, 0.03, FPOST, mx, YARD_Y + vy, mz); fold.rotation.y = ang; });
-          var gb = box(seg, 0.3, 0.05, FCONC, mx, YARD_Y + 0.15, mz); gb.rotation.y = ang; var tr = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 2.46, mz); tr.rotation.y = ang; var br = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 0.32, mz); br.rotation.y = ang;
+          var mp = plane(seg - 0.1, 2.2, FMESH, mx, YARD_Y + 1.35, mz, 0, rot); mp.receiveShadow = false;
+          [0.75, 1.65].forEach(function (vy) { var fold = box(seg - 0.1, 0.06, 0.03, FPOST, mx, YARD_Y + vy, mz); fold.rotation.y = rot; });
+          var gb = box(seg, 0.3, 0.05, FCONC, mx, YARD_Y + 0.15, mz); gb.rotation.y = rot; var tr = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 2.46, mz); tr.rotation.y = rot; var br = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 0.32, mz); br.rotation.y = rot;
         }
       }
       [0, 1, 2].forEach(function (k) { var wy = YARD_Y + 2.62 + k * 0.17, wo = 0.22 + k * 0.14; var wire = cyl(0.006, len, FWIRE, (x0 + x1) / 2 + nx * wo, wy, (z0 + z1) / 2 + nz * wo, null, 4); wire.rotation.x = Math.PI / 2; wire.rotation.z = 0; wire.rotation.order = 'YXZ'; wire.rotation.y = ang; });
@@ -98,6 +100,7 @@
       box(3.6, 0.16, 3.6, MAT.roof, hx, YARD_Y + 2.88, hz); box(3.4, 0.08, 3.4, MAT.steelDark, hx, YARD_Y + 2.98, hz); box(0.9, 2.1, 0.08, MAT.steelDark, hx, YARD_Y + 1.05, hz + 1.36); box(0.08, 0.03, 0.14, MAT.chrome, hx + 0.3, YARD_Y + 1.05, hz + 1.42);
       box(2.2, 0.06, 0.5, MAT.wood, hx, YARD_Y + 1.1, hz - 0.9); box(0.3, 0.25, 0.04, MAT.black, hx - side * 0.5, YARD_Y + 1.28, hz - 0.95); box(0.12, 0.2, 0.06, MAT.black, hx + side * 0.6, YARD_Y + 1.25, hz - 0.9); cyl(0.04, 0.09, MAT.white, hx, YARD_Y + 1.17, hz - 0.8, null, 10);
       box(0.9, 0.04, 0.5, MAT.hazard, hx, YARD_Y + 3.1, hz - 1.6); var gl2 = box(0.25, 0.25, 0.25, glowMat(0xffa000, 0.8), hx, YARD_Y + 3.25, hz - 1.6); yard.lampLenses.push(gl2);
+      var gll = new THREE.PointLight(0xffb040, 0, 14, 2); gll.position.set(hx, YARD_Y + 3.0, hz - 2.2); gll.userData.k = 0.9; scene.add(gll); yardLights.push(gll);
       sign(['GATE ' + (side < 0 ? 'WEST' : 'EAST')], 1.8, 0.4, hx, YARD_Y + 2.6, hz - 1.42, 0, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' });
       sign(['STOP', 'REPORT TO THE GATE'], 1.0, 1.0, gx + side * 10, YARD_Y + 2.2, -4, side > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#c8342a', fg: '#fff', size: 52 }); cyl(0.04, 2.2, MAT.steelDark, gx + side * 10, YARD_Y + 1.1, -4, null, 6);
       var guard = makeHuman({ vest: MAT.hivis, cap: true, capMat: MAT.black, shirt: MAT.jeans }); guard.position.set(hx, YARD_Y + 0.2, hz - 0.2); guard.rotation.y = Math.PI; scene.add(guard); yard.guards.push({ g: guard, side: side });
@@ -123,6 +126,24 @@
     for (var i = -120; i < 120; i += 6) plane(3, 0.2, MAT.whiteLine, i, YARD_Y + 0.02, 75, -Math.PI / 2);
     for (var lp = -110; lp <= 110; lp += 28) { cyl(0.06, 7, MAT.steelDark, lp, YARD_Y + 3.5, 81.5, null, 8, 0.09); box(0.08, 0.08, 1.4, MAT.steelDark, lp, YARD_Y + 6.9, 80.8); var ll = box(0.5, 0.14, 0.32, glowMat(0xfff2c0, 0.2), lp, YARD_Y + 6.85, 80.2); yard.lampLenses.push(ll); }
     for (var c = 0; c < 8; c++) { var cm = carMesh(pick(CAR_COLS)); var dir = c % 2 ? -1 : 1; cm.position.set(randf(-120, 120), YARD_Y, dir > 0 ? 72.5 : 77.5); cm.rotation.y = dir > 0 ? 0 : Math.PI; scene.add(cm); yard.traffic.push({ g: cm, dir: dir, v: randf(9, 14) }); }
+    // the yard, worked: tyre marks on the aprons where the trucks swing in and oil where they stand, pallets stacked by the inbound
+    // docks, a skip by the dumpster, an empty trailer dropped on the far side, weeds along every fence line
+    var yMarkTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.4)'); g.addColorStop(0.7, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
+    var yMarkMat = new THREE.MeshBasicMaterial({ map: yMarkTex, transparent: true, depthWrite: false, opacity: 0.75 }); yMarkMat.userData.noBake = true;
+    var yOilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(6,6,8,0.55)'); g.addColorStop(0.7, 'rgba(6,6,8,0.25)'); g.addColorStop(1, 'rgba(6,6,8,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
+    var yOilMat = new THREE.MeshBasicMaterial({ map: yOilTex, transparent: true, depthWrite: false }); yOilMat.userData.noBake = true;
+    doors.forEach(function (d) {
+      for (var k = 0; k < 3; k++) { var m = plane(9, 1.5, yMarkMat, d.side * (X + 6 + k * 7.5), YARD_Y + 0.014, d.z + randf(-0.6, 0.6), -Math.PI / 2, 0); m.rotation.z = randf(-0.05, 0.05); m.renderOrder = 1; m.userData.noBake = true; }
+      var o = plane(2.6, 2.6, yOilMat, d.side * (X + 9), YARD_Y + 0.015, d.z + randf(-0.8, 0.8), -Math.PI / 2, 0); o.rotation.z = randf(0, 3); o.renderOrder = 1; o.userData.noBake = true;
+    });
+    var sceneCtx = { add: function (m) { scene.add(m); return m; } };
+    [[-X - 2.6, 1.2, 5], [-X - 2.6, 2.6, 7], [X + 2.6, 1.3, 4]].forEach(function (p) { for (var i = 0; i < p[2]; i++) palletModel(sceneCtx, p[0] + randf(-0.02, 0.02), YARD_Y + i * 0.128, p[1] + randf(-0.02, 0.02), randf(-0.03, 0.03)); solid(p[0] - 0.65, p[0] + 0.65, p[1] - 0.55, p[1] + 0.55, YARD_Y, YARD_Y + 1.2); });
+    // the skip: a steel box with sloped ends, lifting lugs, hazard stripes, the hire firm's name, cardboard showing over the lip
+    (function () { var sx = X + 7, sz = 21, SK = std({ color: 0x9a8a2a, roughness: 0.6, metalness: 0.4 }); box(3.4, 1.5, 1.7, SK, sx, YARD_Y + 0.75, sz); [-1, 1].forEach(function (e) { var end = box(1.1, 1.5, 1.7, SK, sx + e * 1.95, YARD_Y + 0.75, sz); end.rotation.z = e * 0.35; [-0.6, 0.6].forEach(function (lz) { box(0.12, 0.3, 0.12, MAT.steelDark, sx + e * 1.6, YARD_Y + 1.6, sz + lz); }); }); plane(3.4, 0.25, MAT.hazard, sx, YARD_Y + 1.42, sz + 0.86, 0, 0); plane(3.4, 0.25, MAT.hazard, sx, YARD_Y + 1.42, sz - 0.86, 0, Math.PI); sign(['HILLSIDE SKIPS · 0800 300 300'], 2.2, 0.3, sx, YARD_Y + 0.95, sz + 0.86, 0, { w: 512, h: 72, bg: '#2a2d33', fg: '#eef1f5' }); for (var cb = 0; cb < 6; cb++) { var card = box(randf(0.5, 0.9), 0.1, randf(0.4, 0.7), MAT.parcel, sx + randf(-1.2, 1.2), YARD_Y + 1.45 + cb * 0.04, sz + randf(-0.5, 0.5)); card.rotation.y = randf(0, 3); card.rotation.z = randf(-0.3, 0.3); } solid(sx - 2.4, sx + 2.4, sz - 0.9, sz + 0.9, YARD_Y, YARD_Y + 1.6); })();
+    // an empty trailer dropped on its landing legs at the far side of the yard, nose to the road
+    (function () { var tx = 54, tz = 46, TR = std({ map: TEX.corrugated, color: 0xdfe3e6, roughness: 0.55, metalness: 0.25, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }); box(2.5, 2.7, 12, TR, tx, YARD_Y + 2.1, tz); box(2.5, 0.4, 12, MAT.steelDark, tx, YARD_Y + 0.6, tz); [-0.9, 0.9].forEach(function (wx) { for (var tw = 0; tw < 2; tw++) { var ty = cyl(0.5, 0.3, MAT.rubber, tx + wx, YARD_Y + 0.5, tz - 3.6 - tw * 1.3, null, 16); ty.rotation.z = Math.PI / 2; } }); cyl(0.06, 1.0, MAT.steelDark, tx - 0.9, YARD_Y + 0.5, tz + 3.8, null, 6); cyl(0.06, 1.0, MAT.steelDark, tx + 0.9, YARD_Y + 0.5, tz + 3.8, null, 6); box(2.5, 2.7, 0.08, MAT.steelDark, tx, YARD_Y + 2.1, tz + 6.0); sign(['DEPOT CO. · DROP TRAILER'], 2.0, 0.3, tx - 1.26, YARD_Y + 1.6, tz, -Math.PI / 2, { w: 512, h: 72, bg: '#1b232c', fg: '#a0acb8' }); box(0.3, 0.1, 0.3, MAT.yellow, tx - 1.0, YARD_Y + 0.05, tz - 4.9); solid(tx - 1.3, tx + 1.3, tz - 6, tz + 6.1, YARD_Y, YARD_Y + 3); })();
+    for (var wd2 = -58; wd2 <= 58; wd2 += randf(2.5, 5)) { [[-83.4, wd2], [83.4, wd2]].forEach(function (p) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(p[0] + randf(-0.3, 0.3), YARD_Y + 0.08, p[1]); wg.scale.y = 0.6; scene.add(wg); }); }
+    for (var wd3 = -82; wd3 <= 82; wd3 += randf(2.5, 5)) { var wg2 = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg2.position.set(wd3, YARD_Y + 0.08, -59.4 + randf(-0.3, 0.3)); wg2.scale.y = 0.6; scene.add(wg2); }
     // the sky: a sun, a moon, clouds; the weather: puddles, rain, snow
     var sunSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(255,244,214,1)'), transparent: true, depthWrite: false, fog: false })); sunSp.scale.set(26, 26, 1); scene.add(sunSp); yard.sunDisc = sunSp;
     var moonSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(225,230,240,0.9)'), transparent: true, depthWrite: false, fog: false })); moonSp.scale.set(12, 12, 1); scene.add(moonSp); yard.moon = moonSp;
@@ -132,7 +153,7 @@
     var streak = tex(16, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(210,225,240,0)'); g.addColorStop(0.5, 'rgba(210,225,240,0.9)'); g.addColorStop(1, 'rgba(210,225,240,0)'); c.fillStyle = g; c.fillRect(6, 0, 4, h); });
     var flake = tex(32, 32, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
     var mkPoints = function (n, size, map, range) { var geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { pos[i * 3] = randf(-range, range); pos[i * 3 + 1] = randf(0, 16); pos[i * 3 + 2] = randf(-range, range); } geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); var pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: map, size: size, transparent: true, opacity: 0.85, depthWrite: false, alphaTest: 0.05 })); pts.visible = false; pts.frustumCulled = false; scene.add(pts); return pts; };
-    yard.rain = mkPoints(6000, 0.55, streak, 24); yard.snow = mkPoints(3000, 0.22, flake, 30);
+    yard.rain = mkPoints(7000, 0.26, streak, 24); yard.rain.material.opacity = 0.5; yard.rain.material.color.setHex(0xc7d3de); yard.snow = mkPoints(3000, 0.22, flake, 30);   // a drop is a thin grey streak, not a white blob
   }
 
   function tickYard(dt) {

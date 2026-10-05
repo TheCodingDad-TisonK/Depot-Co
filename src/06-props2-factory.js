@@ -75,8 +75,8 @@
     var top = c.plane(0.62, len - 0.04, bm, x, y + 0.025, zc, -Math.PI / 2, 0); top.userData.speedKey = c.group.userData.propId; BELT_PLANES.push(top); c.box(0.62, 0.012, len - 0.04, std({ color: 0x1c1f23, roughness: 0.95 }), x, y - 0.09, zc);   // the return run underneath
     // guide rails on brackets, not floating
     [-0.32, 0.32].forEach(function (gx) { c.box(0.03, 0.04, len - 0.1, MAT_MACH.guard, x + gx, y + 0.14, zc); for (var gz = z0 + 0.3; gz < z1; gz += 1.2) { c.box(0.03, 0.14, 0.03, FR, x + gx, y + 0.08, gz); c.box(0.08, 0.02, 0.03, FR, x + gx + (gx < 0 ? 0.03 : -0.03), y + 0.04, gz); } });
-    // the drive: motor and gearbox hung off the far drum, a guard over the chain
-    var mt = c.cyl(0.085, 0.26, MAT_MACH.blue, x + 0.5, y - 0.1, z1 - 0.2, 14); mt.rotation.z = Math.PI / 2; c.cyl(0.095, 0.02, MAT.black, x + 0.64, y - 0.1, z1 - 0.2, 14).rotation.z = Math.PI / 2; c.box(0.12, 0.16, 0.16, FR, x + 0.43, y - 0.1, z1 - 0.2); c.box(0.06, 0.26, 0.2, FR, x + 0.4, y - 0.05, z1 - 0.1); c.box(0.03, 0.02, 0.4, MAT.black, x + 0.43, y - 0.2, z1 - 0.4);
+    // the drive: motor and gearbox hung off the far drum, a guard over the chain (one per run, not one per short segment of a curve)
+    if (!opt.noMotor) { var mt = c.cyl(0.085, 0.26, MAT_MACH.blue, x + 0.5, y - 0.1, z1 - 0.2, 14); mt.rotation.z = Math.PI / 2; c.cyl(0.095, 0.02, MAT.black, x + 0.64, y - 0.1, z1 - 0.2, 14).rotation.z = Math.PI / 2; c.box(0.12, 0.16, 0.16, FR, x + 0.43, y - 0.1, z1 - 0.2); c.box(0.06, 0.26, 0.2, FR, x + 0.4, y - 0.05, z1 - 0.1); c.box(0.03, 0.02, 0.4, MAT.black, x + 0.43, y - 0.2, z1 - 0.4); }
     if (!opt.noLegs) for (var lz = z0 + 0.4; lz < z1; lz += 1.5) { [-0.3, 0.3].forEach(function (lx) { c.box(0.06, y - 0.14, 0.06, FR, x + lx, (y - 0.14) / 2, lz); c.box(0.14, 0.02, 0.14, FR, x + lx, 0.01, lz); c.cyl(0.02, 0.04, MAT.chrome, x + lx, 0.03, lz, 6); }); c.box(0.66, 0.05, 0.05, FR, x, 0.2, lz); var dg = c.box(0.04, Math.hypot(0.6, y - 0.4), 0.04, FR, x, (y - 0.14) / 2 + 0.05, lz); dg.rotation.z = Math.atan2(0.6, y - 0.4); }
     if (!opt.noEye) { c.box(0.03, 0.4, 0.03, FR, x - 0.42, y + 0.2, z1 - 0.3); c.box(0.05, 0.06, 0.04, MAT.black, x - 0.42, y + 0.32, z1 - 0.3); c.box(0.02, 0.02, 0.005, glowMat(0xff3b2f, 1.2), x - 0.395, y + 0.32, z1 - 0.3); c.box(0.03, 0.3, 0.03, FR, x + 0.42, y + 0.15, z1 - 0.3); c.box(0.03, 0.03, 0.02, MAT.white, x + 0.42, y + 0.32, z1 - 0.3); }
     c.box(0.04, 0.03, len - 0.6, MAT.black, x - 0.4, y - 0.18, zc); for (var cz = z0 + 0.5; cz < z1; cz += 2) c.box(0.06, 0.08, 0.04, FR, x - 0.4, y - 0.18, cz);   // the cable run
@@ -85,12 +85,12 @@
     for (var i = 1; i < pts.length; i++) {
       var ax = pts[i - 1][0], az = pts[i - 1][1], ay = pts[i - 1][2] || 0, bx = pts[i][0], bz = pts[i][1], by = pts[i][2] || 0, run = Math.hypot(bx - ax, bz - az), ang = Math.atan2(bx - ax, bz - az), slope = Math.atan2(by - ay, run), len = Math.hypot(run, by - ay);
       var sg = new THREE.Group(); sg.position.set(ax, ay, az); sg.rotation.order = 'YXZ'; sg.rotation.y = ang; sg.rotation.x = -slope; c.group.add(sg);
-      var sc = propCtx(sg, 'seg'); conveyorBuild(sc, 0, 0, len, { noEye: i < pts.length - 1, noLegs: true });
-      // legs in the prop frame, the right height wherever the belt is, braced when tall
+      var sc = propCtx(sg, 'seg'); conveyorBuild(sc, 0, 0, len, { noEye: i < pts.length - 1, noLegs: true, noMotor: i < pts.length - 1 });
+      // legs in the prop frame, the right height wherever the belt is, braced when tall; a curve's short segments share a leg every third one
       var ux = (bx - ax) / run, uz = (bz - az) / run, px = uz, pz = -ux;
       var hang = pts[i][3] === 'hang';
       if (hang) { for (var hd = 0.6; hd < run; hd += 2.5) { var ht = BELT_Y + ay + (by - ay) * hd / run + 0.05, hx = ax + ux * hd, hz = az + uz * hd; [-0.3, 0.3].forEach(function (o) { c.cyl(0.025, HALL.h - 0.2 - ht, MAT_MACH.frame, hx + px * o, (HALL.h - 0.2 + ht) / 2, hz + pz * o, 6); }); var hb = c.box(0.8, 0.06, 0.06, MAT_MACH.frame, hx, ht, hz); hb.rotation.y = ang; var hp = c.box(0.9, 0.05, 0.3, MAT_MACH.frame, hx, HALL.h - 0.2, hz); hp.rotation.y = ang; } }
-      else for (var d = 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
+      else for (var d = run < 1 ? (i % 3 === 1 ? run / 2 : run + 1) : 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
       var lowY = BELT_Y + Math.min(ay, by) - 0.15, high = Math.min(ay, by) > 1.2;
       c.solid(Math.min(ax, bx) - 0.4, Math.max(ax, bx) + 0.4, Math.min(az, bz) - 0.4, Math.max(az, bz) + 0.4, high ? lowY : 0, high ? lowY + 1.2 : 0.82);
     }
@@ -370,8 +370,26 @@
     c.solid(-0.95, 0.95, -0.35, 0.35, 0, 2.1);
   }
   function shiftBoardBuild(c) { c.box(1.6, 1.0, 0.04, MAT.white, 0, 1.9, 0); c.box(1.64, 1.04, 0.02, MAT_MACH.frame, 0, 1.9, -0.015); var scr = touchScreen({ w: 400, h: 250, pw: 1.5, ph: 0.92, x: 0, y: 1.9, z: 0.025, ry: 0, parent: c.group, title: 'Shift board', draw: function (cc, sc) { cc.fillStyle = '#f7f7f4'; cc.fillRect(0, 0, sc.w, sc.h); cc.fillStyle = '#1b232c'; cc.font = 'bold 26px Bahnschrift, Arial'; cc.fillText('SHIFT OUTPUT · DAY ' + S.day, 16, 36); cc.font = '18px Bahnschrift, Arial'; cc.fillStyle = '#2f6b9a'; cc.fillText('Boxes moulded: ' + S.factory.made, 16, 80); cc.fillText('Pallets finished: ' + (S.stats.palletised || 0), 16, 108); cc.fillText('Hopper: ' + S.factory.raw + ' units', 16, 136); cc.fillStyle = '#b3261e'; cc.fillText('Jams: ' + (S.factory.jam ? 'LINE JAMMED' : 'none'), 16, 164); cc.fillStyle = '#6b7784'; cc.font = '14px Bahnschrift, Arial'; cc.fillText('Target 60 a day · keep the hopper above 40', 16, 220); } }); scr.mesh.userData.propId = 'shiftBoard'; c.box(0.4, 0.03, 0.06, MAT_MACH.frame, 0, 1.36, 0.03); c.cyl(0.01, 0.12, MAT.black, 0.1, 1.4, 0.05, 6).rotation.z = Math.PI / 2; }
+  // ── Conveyor pieces: belts you build from parts ──
+  // Every piece is a prop with a path in its own frame (it starts at the origin running along +z; heights are above BELT_Y, plus
+  // the height the piece was snapped at) and is put on the belt list when it is built, so items ride it like any other belt. In
+  // build mode a carried piece snaps its start to the nearest free belt end, machine outlet, parcel shelf or inbound dock door,
+  // and its end to the nearest free belt start, machine inlet, outbound dock door or rack bay, within two metres. Dropped, it
+  // says what it took from and what it feeds. A quarter turn is six short runs on a 1.5 m radius, so every joint stays square.
+  function arcPath(dir) { var R = 1.5, pts = []; for (var k = 0; k <= 6; k++) { var a = k / 6 * Math.PI / 2; pts.push([dir * (R - R * Math.cos(a)), R * Math.sin(a), 0]); } return pts; }
+  var BELT_PIECES = {
+    beltS2: { label: 'belt, 2 m', ico: '➖', price: 120, desc: 'A straight run.', path: [[0, 0, 0], [0, 2, 0]] },
+    beltS4: { label: 'belt, 4 m', ico: '➖', price: 200, desc: 'A longer straight run.', path: [[0, 0, 0], [0, 4, 0]] },
+    beltCL: { label: 'belt, curve left', ico: '↰', price: 220, desc: 'A quarter turn to the left.', path: arcPath(1) },
+    beltCR: { label: 'belt, curve right', ico: '↱', price: 220, desc: 'A quarter turn to the right.', path: arcPath(-1) },
+    beltUp: { label: 'belt, incline up', ico: '⬈', price: 260, desc: 'Climbs a metre over three.', path: [[0, 0, 0], [0, 3, 1]] },
+    beltDown: { label: 'belt, incline down', ico: '⬊', price: 260, desc: 'Drops a metre over three.', path: [[0, 0, 0], [0, 3, -1]] },
+    beltHigh: { label: 'belt, high run', ico: '⤒', price: 240, desc: 'A 4 m run hung from the roof two metres up, for crossing a lane. Two inclines reach it.', path: [[0, 0, 2.0], [0, 4, 2.0, 'hang']] }
+  };
+  function beltPieceBuild(kind) { return function (c, P) { var h = P.h || 0, pts = BELT_PIECES[kind].path.map(function (p) { return [p[0], p[1], (p[2] || 0) + h, p[3]]; }); conveyorPath(c, pts); }; }
+  Object.keys(BELT_PIECES).forEach(function (k) { var bp = BELT_PIECES[k]; defProp('x' + k.charAt(0).toUpperCase() + k.slice(1), { extra: true, label: bp.label, ico: bp.ico, cat: 'belt', price: bp.price, desc: bp.desc, beltPath: bp.path, build: beltPieceBuild(k) }); });
   // signs as props, so build mode can move them: a wall sign faces +z in its own frame, a floor painting lies flat
-  function wallSignBuild(lines, w, h, y, opt) { return function (c) { c.sign(lines, w, h, 0, y, 0.01, 0, opt); c.box(w + 0.06, h + 0.06, 0.02, MAT.steelDark, 0, y, -0.005); }; }
+  function wallSignBuild(lines, w, h, y, opt) { return function (c) { var o = {}; for (var k in opt) o[k] = opt[k]; if (o.plate === undefined) o.plate = true; c.sign(lines, w, h, 0, y, 0.012, 0, o); }; }
   function floorSignBuild(lines, w, h, opt) { return function (c) { var m = c.sign(lines, w, h, 0, 0.008, 0, 0, opt); m.rotation.x = -Math.PI / 2; }; }
   // ── Defaults
   defProp('packline', { label: 'pack line', cat: 'hall', abs: true, x: 26.6, z: 7.2, rot: 0, build: packLineBuild });

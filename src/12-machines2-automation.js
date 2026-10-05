@@ -18,8 +18,9 @@
   function dockLoaderStatus() { if (!powered()) return 'off'; var t = truckAtDoor(LOADER_DOOR); return t && S.doors[LOADER_DOOR] ? 'run' : 'idle'; }
   function dockLoaderPrompt() { var t = truckAtDoor(LOADER_DOOR); return 'Dock loader OUT 2 · ' + (!powered() ? 'no power' : t && S.doors[LOADER_DOOR] ? 'loading, ' + t.parcels.length + ' aboard' : t ? 'open the door and it loads' : 'waiting for a truck at OUT 2') + ' · ' + (S.stats.autoLoaded || 0) + ' loaded by machine so far'; }
   function tickShipping(dt) {
+    // a parcel on the shelf rolls onto whatever belt starts at the shelf's take-off: the shipping belt, or a piece laid there
+    if (powered() && S.bench.parcels.length && propInst.packline) { var sp = propWorld('packline', 0, 7.0); for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, sp.x, sp.z) < REACH * REACH && beltStartFree(k)) { beltPush(k, { kind: 'parcel', order: S.bench.parcels.shift() }); break; } } }
     if (!S.up.shipbelt || !propInst.shipBelt) return;
-    if (powered() && S.bench.parcels.length && beltStartFree('shipBelt')) { var oid = S.bench.parcels.shift(); beltPush('shipBelt', { kind: 'parcel', order: oid }); }
     var M = MACH.dockLoader2; if (M.lamps) lampSet(M, dockLoaderStatus()); var a = M.anim; if (a) { if (a.pushT > 0) a.pushT -= dt; var t = truckAtDoor(LOADER_DOOR), out = t && S.doors[LOADER_DOOR] ? 1 : 0; a.ext = lerp(a.ext || 0, out, Math.min(1, dt * 1.5)); a.boom.position.x = 0.9 + a.ext * 1.6; a.boom.scale.x = 0.6 + a.ext * 1.0; a.pusher.position.x = (a.pushT > 0 ? Math.sin(a.pushT / 1.2 * Math.PI) * 0.5 : 0); }
   }
 

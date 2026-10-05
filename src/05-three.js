@@ -40,13 +40,35 @@
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
   // nine high bays on a 20 x 15 m grid: the hall is 60 x 48 since 2026-10-02, and six lights on the old 20 x 10 grid left the edges dark
-  [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]].forEach(function (p) {   // twelve since the 72 m hall
-    var l = new THREE.PointLight(0xfff4e0, 0.55, 38, 2); l.position.set(p[0], 7.3, p[1]); scene.add(l); hallLights.push(l);
+  [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]].forEach(function (p, i) {   // twelve since the 72 m hall
+    // a shorter reach than the old 38 m: the floor under each bay is a pool and the aisle between two bays is a touch darker, the
+    // way a real hall reads. Every third lamp is a slightly cooler tube, as a hall that has had its lamps replaced piecemeal is.
+    var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l);
   });
-  var officeLight = new THREE.PointLight(0xfff8ea, 0.5, 9, 2); officeLight.position.set(16.5, 3.2, 11); scene.add(officeLight);
-  var breakLight = new THREE.PointLight(0xffe9c8, 0.35, 8, 2); breakLight.position.set(-16.5, 3.0, -12); scene.add(breakLight);
-  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.3, 7, 2); lobbyLight.position.set(-17.7, 3.0, 11.2); scene.add(lobbyLight);
+  // the three rooms' own lamps, under their troffers (they used to sit where the rooms were before the hall grew: in the open hall)
+  var officeLight = new THREE.PointLight(0xfff8ea, 0.55, 9, 2); officeLight.position.set(32.5, 2.9, 21.2); scene.add(officeLight);
+  var breakLight = new THREE.PointLight(0xffe9c8, 0.45, 8, 2); breakLight.position.set(-32.5, 2.9, -22.1); scene.add(breakLight);
+  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.4, 7, 2); lobbyLight.position.set(-33.7, 2.9, 21.2); scene.add(lobbyLight);
   var yardLights = [];   // filled by the lamp-post props
+  // Three.js lights every pixel with every visible point light, whether or not the light can reach it, so thirty lamps mean thirty
+  // evaluations per pixel. Every point light in the scene goes in one list and only the nearest few to the camera stay visible; the
+  // rest are hidden. The visible count is held constant so the shaders are not recompiled when you walk from one end of the hall
+  // to the other. A lamp inside a hidden group is left alone (the renderer skips it anyway). Lamps that are off sort last.
+  var lightBudget = { n: 12, lights: null, scanT: 0, tickT: 0, tmp: new THREE.Vector3(), cam: new THREE.Vector3() };
+  function updateLightBudget() {
+    var t = worldTime;
+    if (!lightBudget.lights || t - lightBudget.scanT > 2) { var list = []; scene.traverse(function (o) { if (o.isPointLight) list.push(o); }); lightBudget.lights = list; lightBudget.scanT = t; }
+    if (t - lightBudget.tickT < 0.1) return; lightBudget.tickT = t;
+    camera.getWorldPosition(lightBudget.cam);
+    var cand = [];
+    lightBudget.lights.forEach(function (l) {
+      for (var p = l.parent; p; p = p.parent) if (p.visible === false) return;
+      l.getWorldPosition(lightBudget.tmp); var d = lightBudget.tmp.distanceTo(lightBudget.cam);
+      l.userData.budgetScore = (l.intensity > 0 ? 0 : 1e6) + Math.max(0, d - (l.distance || 40) * 0.25); cand.push(l);
+    });
+    cand.sort(function (a, b) { return a.userData.budgetScore - b.userData.budgetScore; });
+    for (var i = 0; i < cand.length; i++) cand[i].visible = i < lightBudget.n;
+  }
 
   // ── Textures: every one is drawn on a canvas at boot ──────────────
   function tex(w, h, draw, rx, ry) {
@@ -93,7 +115,14 @@
     paper: tex(128, 128, function (c, w, h) { c.fillStyle = '#f3efe4'; c.fillRect(0, 0, w, h); grain(c, w, h, 800, 0.05); }, 1, 1),
     cork: tex(256, 256, function (c, w, h) { c.fillStyle = '#b8905c'; c.fillRect(0, 0, w, h); grain(c, w, h, 8000, 0.25); blotches(c, w, h, 60, 3, 10, true, 0.3); }, 1, 1),
     fabric: tex(128, 128, function (c, w, h) { c.fillStyle = '#2f4a73'; c.fillRect(0, 0, w, h); grain(c, w, h, 4000, 0.12); }, 1, 1),
-    rubberMat: tex(128, 128, function (c, w, h) { c.fillStyle = '#1b1d20'; c.fillRect(0, 0, w, h); c.fillStyle = '#24272b'; for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 6, 6)
+    cloth: tex(128, 128, function (c, w, h) { c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 2) for (var x = 0; x < w; x += 2) { c.fillStyle = 'rgba(0,0,0,' + (((x + y) / 2) % 2 ? 0.14 : 0.04) + ')'; c.fillRect(x, y, 2, 2); } }, 6, 6),   // a white weave that takes whatever colour a shirt is given
+    rubberMat: tex(128, 128, function (c, w, h) { c.fillStyle = '#1b1d20'; c.fillRect(0, 0, w, h); c.fillStyle = '#24272b'; for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 6, 6),
+    // painted blockwork: four courses of 400 x 200 blocks in a sheet 1.6 by 0.8 m, grey paint over grey block, a few blocks a shade off
+    block: tex(512, 256, function (c, w, h) { c.fillStyle = '#6e7276'; c.fillRect(0, 0, w, h); var bw = w / 4, bh = h / 4; for (var r = 0; r < 4; r++) for (var k = -1; k < 5; k++) { var x = k * bw + (r % 2 ? bw / 2 : 0); c.fillStyle = pick(['#9a9c9a', '#959895', '#9fa19e', '#929592', '#9c9e9b']); c.fillRect(x + 3, r * bh + 3, bw - 6, bh - 6); } grain(c, w, h, 5000, 0.08); blotches(c, w, h, 10, 20, 70, true, 0.08); for (var i = 0; i < 40; i++) { c.fillStyle = 'rgba(40,40,42,' + randf(0.05, 0.2) + ')'; c.fillRect(Math.random() * w, h * 0.7 + Math.random() * h * 0.3, randf(2, 10), randf(2, 5)); } }, 1, 1),
+    // carpet tile for the office: half-metre tiles in a blue-grey loop pile, the joints just showing, laid chequerboard
+    carpet: tex(256, 256, function (c, w, h) { c.fillStyle = '#3f4857'; c.fillRect(0, 0, w, h); for (var ty = 0; ty < 2; ty++) for (var tx = 0; tx < 2; tx++) { c.fillStyle = (tx + ty) % 2 ? '#404a5a' : '#3b4453'; c.fillRect(tx * 128 + 1, ty * 128 + 1, 126, 126); } grain(c, w, h, 14000, 0.1); for (var y = 0; y < h; y += 3) { c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(0, y, w, 1); } }, 1, 1),
+    // vinyl sheet for the lobby and the break room: a pale speckled floor with a faint weld line every 1.5 m
+    vinyl: tex(256, 256, function (c, w, h) { c.fillStyle = '#c9c6bd'; c.fillRect(0, 0, w, h); for (var i = 0; i < 9000; i++) { c.fillStyle = pick(['rgba(90,86,80,0.35)', 'rgba(255,255,255,0.3)', 'rgba(120,110,100,0.25)']); c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 3)); } blotches(c, w, h, 6, 30, 90, true, 0.05); c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(0, h / 2 - 1, w, 2); }, 1, 1)
   };
   function cardboardTex(col, name) {
     return tex(256, 256, function (c, w, h) {
@@ -109,15 +138,21 @@
       c.beginPath(); c.moveTo(w * 0.76, h * 0.62); c.quadraticCurveTo(w * 0.68, h * 0.72, w * 0.76, h * 0.76); c.quadraticCurveTo(w * 0.84, h * 0.72, w * 0.76, h * 0.62); c.fill(); c.font = '8px sans-serif'; c.fillText('KEEP DRY', w * 0.66, h * 0.72);
     });
   }
+  // a sign on the house slate (#1b232c) is an enamelled plate: the slate shades a little towards the bottom, a hairline of
+  // light sits just in from the edge and a hairline of the sign's own colour inside that. opt.plate false turns that off (paint)
+  function isPlate(opt) { return !!opt && opt.plate !== false && (opt.plate === true || opt.bg === '#1b232c'); }
   function textTex(lines, opt) {
-    opt = opt || {}; var w = opt.w || 512, h = opt.h || 128;
+    opt = opt || {}; var w = opt.w || 512, h = opt.h || 128, plate = isPlate(opt);
     return tex(w, h, function (c) {
-      c.fillStyle = opt.bg || '#1b232c'; c.fillRect(0, 0, w, h);
+      if (plate) { var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#222c38'); g.addColorStop(1, '#10161d'); c.fillStyle = g; c.fillRect(0, 0, w, h); var e = Math.max(2, Math.round(Math.min(w, h) * 0.02)); c.strokeStyle = 'rgba(255,255,255,0.14)'; c.lineWidth = e; c.strokeRect(e / 2, e / 2, w - e, h - e); c.strokeStyle = opt.fg || '#f5b53d'; c.globalAlpha = 0.5; c.lineWidth = Math.max(1, e * 0.6); c.strokeRect(e * 3, e * 3, w - e * 6, h - e * 6); c.globalAlpha = 1; }
+      else { c.fillStyle = opt.bg || '#1b232c'; c.fillRect(0, 0, w, h); }
       if (opt.border) { c.strokeStyle = opt.border; c.lineWidth = 8; c.strokeRect(4, 4, w - 8, h - 8); }
       c.fillStyle = opt.fg || '#f5b53d'; c.textAlign = 'center'; c.textBaseline = 'middle';
       var size = opt.size || Math.min(h * 0.6, w / (Math.max.apply(null, lines.map(function (l) { return l.length; })) * 0.6));
       c.font = (opt.weight || 'bold') + ' ' + Math.floor(size) + 'px ' + (opt.font || 'Bahnschrift, Arial, sans-serif');
+      if (plate) { c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = Math.max(2, size * 0.08); c.shadowOffsetY = Math.max(1, size * 0.04); }
       lines.forEach(function (l, i) { c.fillText(l, w / 2, h / 2 + (i - (lines.length - 1) / 2) * size * 1.15); });
+      c.shadowColor = 'rgba(0,0,0,0)'; c.shadowBlur = 0; c.shadowOffsetY = 0;
     });
   }
   // the safety posters and notices on the walls: each one drawn once
@@ -161,7 +196,9 @@
     wood: normalTex(256, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var i = 0; i < 70; i++) { var y = Math.random() * h; c.strokeStyle = 'rgba(40,40,40,' + randf(0.2, 0.6) + ')'; c.lineWidth = randf(1, 2); c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(w * 0.3, y + randf(-4, 4), w * 0.7, y + randf(-4, 4), w, y); c.stroke(); } c.fillStyle = '#202020'; [0.2, 0.5, 0.8].forEach(function (f) { c.fillRect(0, h * f, w, 3); }); }, 1.2, 1, 1),
     cardboard: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 2500, 30); c.fillStyle = '#505050'; c.fillRect(0, h * 0.48, w, 4); c.fillStyle = '#9a9a9a'; c.fillRect(w * 0.44, 0, w * 0.12, h); c.fillStyle = '#8c8c8c'; c.fillRect(w * 0.08, h * 0.08, w * 0.34, h * 0.3); for (var i = 0; i < h; i += 6) { c.fillStyle = 'rgba(100,100,100,0.25)'; c.fillRect(0, i, w, 1); } }, 1.0, 1, 1),
     chequer: normalTex(128, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 32) for (var x = 0; x < w; x += 32) { var d = ((x + y) / 32) % 2; c.save(); c.translate(x + 16, y + 16); c.rotate(d ? 0.5 : -0.5); c.fillStyle = '#c0c0c0'; c.fillRect(-10, -3, 20, 6); c.restore(); } }, 1.5, 3, 3),
-    rubber: normalTex(128, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.fillStyle = '#b0b0b0'; c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 1.2, 6, 6)
+    rubber: normalTex(128, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.fillStyle = '#b0b0b0'; c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 1.2, 6, 6),
+    block: normalTex(512, 256, function (c, w, h) { c.fillStyle = '#505050'; c.fillRect(0, 0, w, h); var bw = w / 4, bh = h / 4; for (var r = 0; r < 4; r++) for (var k = -1; k < 5; k++) { var x = k * bw + (r % 2 ? bw / 2 : 0); c.fillStyle = '#9a9a9a'; c.fillRect(x + 3, r * bh + 3, bw - 6, bh - 6); } heightNoise(c, w, h, 'rgba(0,0,0,0)', 3000, 30); }, 1.6, 1, 1),
+    carpet: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 6000, 50); c.fillStyle = '#606060'; c.fillRect(0, 127, w, 2); c.fillRect(127, 0, 2, h); }, 0.9, 1, 1)
   };
   function roughTex(w, h, base, amp, rx, ry) { var t = tex(w, h, function (c) { var v = Math.floor(base * 255); c.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; c.fillRect(0, 0, w, h); for (var i = 0; i < 4000; i++) { var k = Math.floor(v + (Math.random() - 0.5) * amp * 255); c.fillStyle = 'rgba(' + k + ',' + k + ',' + k + ',0.7)'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 6), randf(1, 6)); } for (var j = 0; j < 12; j++) { var r = randf(10, 50), x = Math.random() * w, y = Math.random() * h, g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(' + Math.floor(v - amp * 120) + ',' + Math.floor(v - amp * 120) + ',' + Math.floor(v - amp * 120) + ',0.8)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } }, rx, ry); t.encoding = THREE.LinearEncoding; return t; }
   var RGH = { floor: roughTex(256, 256, 0.9, 0.25, 5, 3.5), paint: roughTex(256, 256, 0.45, 0.35, 1, 1), metal: roughTex(256, 256, 0.5, 0.3, 1, 1) };
@@ -179,6 +216,10 @@
     door: std({ map: TEX.corrugatedDoor, roughness: 0.55, metalness: 0.4, normalMap: NRM.ribs, normalScale: new THREE.Vector2(1, 1) }),
     plaster: std({ map: TEX.plaster, roughness: 0.9, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.4, 0.4) }),
     brick: std({ map: TEX.brick, roughness: 0.95, normalMap: NRM.brick, normalScale: new THREE.Vector2(0.9, 0.9) }),
+    block: std({ map: TEX.block, roughness: 0.9, normalMap: NRM.block, normalScale: new THREE.Vector2(0.8, 0.8) }),
+    carpet: std({ map: TEX.carpet, roughness: 1, normalMap: NRM.carpet, normalScale: new THREE.Vector2(0.4, 0.4) }),
+    vinyl: std({ map: TEX.vinyl, roughness: 0.45, metalness: 0.02 }),
+    gunmetal: std({ color: 0x4a5058, roughness: 0.38, metalness: 0.85, map: TEX.noiseMetal }),
     rack: std({ color: 0xcf6417, roughness: 0.55, metalness: 0.3, roughnessMap: RGH.paint }),
     beam: std({ color: 0x2b5aa6, roughness: 0.5, metalness: 0.4 }),
     deck: std({ color: 0x6a737c, roughness: 0.7, metalness: 0.5 }),
@@ -238,17 +279,45 @@
   // ── Geometry helpers ──────────────────────────────────────────────
   var geoCache = {};
   function boxGeo(w, h, d) { var k = w + ',' + h + ',' + d; return geoCache[k] || (geoCache[k] = new THREE.BoxGeometry(w, h, d)); }
-  // a box with its edges rounded off: sharp edges read as cardboard, a 12 mm bevel catches the light like a real object
-  function bevelGeo(w, h, d, r) {
+  // A box with every edge eased: a dead sharp edge catches no light and reads as cardboard. The rows of vertices nearest each edge
+  // are moved onto an arc, spaced so the corner turns in equal angles, and the normals follow; the texture keeps its scale (the
+  // picture did not move, only the rows). Thinner than 30 mm or longer than 4 m stays sharp unless a radius is asked for.
+  var BEVEL = { max: 0.012, faces: [['z', 'y', -1, -1], ['z', 'y', 1, -1], ['x', 'z', 1, 1], ['x', 'z', 1, -1], ['x', 'y', 1, -1], ['x', 'y', -1, -1]] };
+  function bevelGeo(w, h, d, r, k) {
     var mn = Math.min(w, h, d), mx = Math.max(w, h, d);
-    if (r === undefined) r = (mn < 0.03 || mx > 4) ? 0 : Math.min(0.012, mn * 0.22);
-    if (!(r > 0)) return boxGeo(w, h, d);
-    var k = 'b' + w + ',' + h + ',' + d + ',' + r; if (geoCache[k]) return geoCache[k];
-    var shape = new THREE.Shape(), x0 = -w / 2 + r, y0 = -h / 2 + r, x1 = w / 2 - r, y1 = h / 2 - r;
-    shape.moveTo(x0, y0); shape.lineTo(x1, y0); shape.lineTo(x1, y1); shape.lineTo(x0, y1); shape.lineTo(x0, y0);
-    var g = new THREE.ExtrudeGeometry(shape, { depth: d - 2 * r, bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 2, curveSegments: 2 });
-    g.translate(0, 0, -(d - 2 * r) / 2); g.computeVertexNormals();
-    return (geoCache[k] = g);
+    if (r === undefined) r = (mn < 0.03 || mx > 4) ? 0 : Math.min(BEVEL.max, mn * 0.22);
+    if (!(r > 0) || !(mn > 0)) return boxGeo(w, h, d);
+    r = Math.min(r, mn * 0.499); k = Math.max(1, Math.round(k || (r > 0.03 ? 3 : r > 0.015 ? 2 : 1)));   /* a big radius needs more than one step to read as round */
+    var key = 'b' + w + ',' + h + ',' + d + ',' + r + ',' + k; if (geoCache[key]) return geoCache[key];
+    var n = 2 * k + 1, per = (n + 1) * (n + 1), g = new THREE.BoxGeometry(w, h, d, n, n, n), pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv, half = { x: w / 2, y: h / 2, z: d / 2 }, v = new THREE.Vector3(), c = new THREE.Vector3();
+    function ax(p, hf) { var i = Math.round((p + hf) / (2 * hf) * n); return i <= k ? -hf + r - r * Math.tan((k - i) / k * Math.PI / 4) : hf - r + r * Math.tan((i - (n - k)) / k * Math.PI / 4); }
+    for (var i = 0; i < pos.count; i++) {
+      v.set(ax(pos.getX(i), half.x), ax(pos.getY(i), half.y), ax(pos.getZ(i), half.z));
+      var fc = BEVEL.faces[Math.floor(i / per)]; uv.setXY(i, (v[fc[0]] * fc[2] + half[fc[0]]) / (2 * half[fc[0]]), 1 - (v[fc[1]] * fc[3] + half[fc[1]]) / (2 * half[fc[1]]));
+      c.set(clamp(v.x, -half.x + r, half.x - r), clamp(v.y, -half.y + r, half.y - r), clamp(v.z, -half.z + r, half.z - r));
+      v.sub(c); if (v.lengthSq() > 1e-12) { v.normalize(); nor.setXYZ(i, v.x, v.y, v.z); pos.setXYZ(i, c.x + v.x * r, c.y + v.y * r, c.z + v.z * r); }
+    }
+    return (geoCache[key] = g);
+  }
+  // a body part cut from an eased box: narrower at one end than the other, the way a chest runs down to a waist. Give it a fresh geometry.
+  function taperGeo(g, h, sx0, sz0) { var p = g.attributes.position; for (var i = 0; i < p.count; i++) { var t = clamp((p.getY(i) + h / 2) / h, 0, 1); p.setX(i, p.getX(i) * lerp(sx0, 1, t)); p.setZ(i, p.getZ(i) * lerp(sz0, 1, t)); } g.computeVertexNormals(); return g; }
+  // The same for anything turned: a cylinder's rims are eased and it gets enough sides to read as round. Wires and rods are left alone.
+  function roundCylGeo(rt, rb, h, seg) {
+    var rmax = Math.max(rt, rb), rmin = Math.min(rt, rb), r = (rmax < 0.025 || h < 0.02) ? 0 : Math.min(BEVEL.max, h * 0.22, rmin * 0.3);
+    seg = seg || 18; if (rmax >= 0.025) seg = Math.max(seg, rmax > 0.12 ? 32 : rmax > 0.05 ? 24 : 16);
+    var key = 'c' + rt + ',' + rb + ',' + h + ',' + seg; if (geoCache[key]) return geoCache[key];
+    if (!(r > 0.0012)) return (geoCache[key] = new THREE.CylinderGeometry(rt, rb, h, seg));
+    var g = new THREE.CylinderGeometry(rt, rb, h, seg, 3), pos = g.attributes.position, nor = g.attributes.normal, row = seg + 1, torso = 4 * row, slope = (rb - rt) / h;
+    for (var i = 0; i < pos.count; i++) {
+      var x = pos.getX(i), z = pos.getZ(i), top = pos.getY(i) > 0, len = Math.hypot(x, z) || 1, ux = x / len, uz = z / len, rad, y;
+      if (i < torso) {
+        var rw = Math.floor(i / row);
+        if (rw === 0) { rad = rt - r; y = h / 2; } else if (rw === 1) { rad = rt + slope * r; y = h / 2 - r; } else if (rw === 2) { rad = rb - slope * r; y = -h / 2 + r; } else { rad = rb - r; y = -h / 2; }
+        if (rw === 0 || rw === 3) { var ny = rw === 0 ? 0.7071 : -0.7071; nor.setXYZ(i, nor.getX(i) * 0.7071, ny, nor.getZ(i) * 0.7071); var nl = Math.hypot(nor.getX(i), nor.getY(i), nor.getZ(i)) || 1; nor.setXYZ(i, nor.getX(i) / nl, nor.getY(i) / nl, nor.getZ(i) / nl); }
+        pos.setXYZ(i, ux * rad, y, uz * rad);
+      } else if (len > 1e-6) { rad = (top ? rt : rb) - r; pos.setXYZ(i, ux * rad, pos.getY(i), uz * rad); }
+    }
+    return (geoCache[key] = g);
   }
   function box(w, h, d, mat, x, y, z, parent) {
     var m = new THREE.Mesh(mat.map ? boxGeo(w, h, d) : bevelGeo(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || scene).add(m); return m;
@@ -256,10 +325,14 @@
   function plane(w, h, mat, x, y, z, rx, ry, parent) {
     var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.x = rx || 0; m.rotation.y = ry || 0; m.receiveShadow = true; (parent || scene).add(m); return m;
   }
-  function cyl(r, h, mat, x, y, z, parent, seg, rb) { var m = new THREE.Mesh(new THREE.CylinderGeometry(r, rb === undefined ? r : rb, h, seg || 12), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || scene).add(m); return m; }
+  function cyl(r, h, mat, x, y, z, parent, seg, rb) { var m = new THREE.Mesh(roundCylGeo(r, rb === undefined ? r : rb, h, seg || 12), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || scene).add(m); return m; }
   function sphere(r, mat, x, y, z, parent) { var m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), mat); m.position.set(x, y, z); m.castShadow = true; (parent || scene).add(m); return m; }
   function sign(lines, w, h, x, y, z, ry, opt, parent) {
-    var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: textTex(lines, opt) })); m.position.set(x, y, z); m.rotation.y = ry || 0; (parent || scene).add(m); return m;
+    var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: textTex(lines, opt) })); m.position.set(x, y, z); m.rotation.y = ry || 0; (parent || scene).add(m);
+    // an enamelled plate is fixed to something: a sheet of dark metal a little bigger than the print behind it, and on a plate
+    // big enough, four studs through the corners. Hung on the sign's own mesh, so whatever moves the sign moves its plate.
+    if (isPlate(opt) && !(opt && opt.flat)) { var pl = new THREE.Mesh(bevelGeo(w + 0.03, h + 0.03, 0.014, 0.004), MAT.gunmetal); pl.position.z = -0.0085; pl.castShadow = true; m.add(pl); if (w >= 0.5 && h >= 0.12) [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (s) { var st = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.006, 10), MAT.chrome); st.rotation.x = Math.PI / 2; st.position.set(s[0] * (w / 2 - 0.028), s[1] * (h / 2 - 0.028), 0.003); m.add(st); }); }
+    return m;
   }
   function poster(kind, w, h, x, y, z, ry, parent) { var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), std({ map: posterTex(kind), roughness: 0.95 })); m.position.set(x, y, z); m.rotation.y = ry || 0; (parent || scene).add(m); return m; }
   // a soft dark blob on the ground under anything that stands on it: the contact shadow the sun map cannot give

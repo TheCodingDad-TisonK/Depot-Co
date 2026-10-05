@@ -45,7 +45,7 @@
   // ── Money ─────────────────────────────────────────────────────────
   var ECON = {
     start: 600, rent: 110, rawPrice: 120, receiveFee: 12, handling: 14, margin: 0.22, lateCut: 0.5, shortCut: 0.6,
-    wage: { receiver: 85, picker: 85, packer: 75 },
+    wage: { receiver: 85, picker: 85, packer: 75, driver: 95 },
     rowPrice: 950, cartPrice: 240, forkPrice: 2800, lightsPrice: 600, pcPrice: 0,
     jackPallet: 8, palletCap: 8, slotCap: 12, cartCap: 6, benchCap: 16
   };
@@ -66,7 +66,8 @@
   var STAFF_ROLES = {
     receiver: { name: 'Receiver', wage: ECON.wage.receiver, lvl: 3, desc: 'Walks pallets out of a docked inbound truck and puts them on the racks.' },
     picker:   { name: 'Picker',   wage: ECON.wage.picker,   lvl: 3, desc: 'Takes boxes off the racks for open orders and brings them to the bench.' },
-    packer:   { name: 'Packer',   wage: ECON.wage.packer,   lvl: 4, desc: 'Packs complete orders at the bench and loads the parcels into a docked outbound truck.' }
+    packer:   { name: 'Packer',   wage: ECON.wage.packer,   lvl: 4, desc: 'Packs complete orders at the bench and loads the parcels into a docked outbound truck.' },
+    driver:   { name: 'Forklift driver', wage: ECON.wage.driver, lvl: 5, needs: 'fork', desc: 'Drives the forklift: puts the pallets left on the hall floor away on any level, the top shelf included, and parks it back in its bay. Needs the forklift.' }
   };
   var XP_FOR = function (lvl) { return Math.round(80 * Math.pow(1.45, lvl - 1)); };
   var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };

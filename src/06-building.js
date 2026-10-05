@@ -42,8 +42,9 @@
     plane(2 * X, 2 * Z, MAT.roofIn, 0, H - 0.01, 0, Math.PI / 2);
     SKYLIGHT_Z.forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
     for (var tx = -16; tx <= 16; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }
-    // high-bay lamps under the trusses
-    hallLights.forEach(function (l) { var m = box(0.9, 0.12, 0.5, MAT.lamp, l.position.x, l.position.y + 0.3, l.position.z); world.lampMeshes.push(m); cyl(0.03, 0.4, MAT.steelDark, l.position.x, l.position.y + 0.55, l.position.z); });
+    // high-bay lamps under the trusses: a conduit drop off the truss, the ballast box, a spun reflector and the lens in its mouth
+    hallLights.forEach(function (l) { highBay(l.position.x, l.position.y + 0.3, l.position.z); });
+    buildHallLining();
     // floor markings: aisles, the walkway, the staging squares
     function lineX(x0, x1, z, w) { plane(x1 - x0, w || 0.1, MAT.yellowLine, (x0 + x1) / 2, 0.006, z, -Math.PI / 2); }
     function lineZ(z0, z1, x, w) { plane(w || 0.1, z1 - z0, MAT.yellowLine, x, 0.006, (z0 + z1) / 2, -Math.PI / 2); }
@@ -72,6 +73,47 @@
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
+  function highBay(x, y, z) {
+    cyl(0.025, HALL.h - 0.7 - y, MAT.steelDark, x, (HALL.h - 0.7 + y) / 2, z, null, 6);
+    box(0.34, 0.22, 0.26, MAT.steelDark, x, y + 0.11, z); box(0.1, 0.06, 0.06, MAT.black, x + 0.2, y + 0.12, z);
+    var refl = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.14, 0.42, 20, 1, true), std({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide })); refl.position.set(x, y - 0.21, z); scene.add(refl);
+    var lens = cyl(0.42, 0.03, MAT.lamp, x, y - 0.41, z, null, 20); lens.castShadow = false; world.lampMeshes.push(lens);
+  }
+  // a recessed troffer in a room's ceiling: a white frame and a prismatic lens that dims when the power is off
+  function troffer(x, y, z, w, d) { box(w || 1.2, 0.05, d || 0.6, MAT.trim, x, y - 0.025, z).castShadow = false; var lens = box((w || 1.2) - 0.1, 0.02, (d || 0.6) - 0.1, MAT.lamp, x, y - 0.045, z); lens.castShadow = false; world.lampMeshes.push(lens); return lens; }
+  // what a cladded hall looks like from inside: a painted blockwork dado to 2.4 m under a steel capping, I-section columns every
+  // 8 m carrying the girts the cladding hangs on, two girts above every opening, and a cable tray round every wall. The rooms
+  // have their own plaster lining, so the dado and the columns stop at their walls.
+  function buildHallLining() {
+    var X = HALL.x, Z = HALL.z, H = HALL.h, DH = 2.4, sd = SPOT.staffDoor.z;
+    var cutZ = { '-1': [[-15.8, -12.2], [-7.8, -4.2], [sd - 0.65, sd + 0.65], [18.4, Z], [-Z, -20.1]], '1': [[-15.8, -12.2], [-7.8, -4.2], [18.4, Z]] };   // the docks, the staff door, the lobby, the break room; the office
+    var cutX = { '-1': [[WING.belt.x0 - 0.1, WING.belt.x1 + 0.1], [WING.door.x0 - 0.1, WING.door.x1 + 0.1], [23.3, 24.7], [-X, -28.9]], '1': [[X - 7.6, X], [-X, -31.4]] };   // the belt opening, the wing door, the fire exit, the break room; the office, the lobby
+    function segs(a0, a1, cuts) { var out = [[a0, a1]]; cuts.forEach(function (c) { var nx = []; out.forEach(function (s) { if (c[1] <= s[0] || c[0] >= s[1]) { nx.push(s); return; } if (c[0] > s[0]) nx.push([s[0], c[0]]); if (c[1] < s[1]) nx.push([c[1], s[1]]); }); out = nx; }); return out.filter(function (s) { return s[1] - s[0] > 0.3; }); }
+    function dadoMat(len) { var m = MAT.block.clone(); m.map = MAT.block.map.clone(); m.map.needsUpdate = true; m.map.repeat.set(len / 1.6, DH / 0.8); m.normalMap = MAT.block.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set(len / 1.6, DH / 0.8); return m; }
+    function wall(axis, side) {
+      var at = (axis === 'x' ? X : Z) * side, inward = -side, cuts = axis === 'x' ? cutZ[String(side)] : cutX[String(side)], lim = axis === 'x' ? Z : X;
+      var ry = axis === 'x' ? (inward > 0 ? Math.PI / 2 : -Math.PI / 2) : (inward > 0 ? 0 : Math.PI), off = at + inward * 0.17;
+      segs(-lim + 0.3, lim - 0.3, cuts).forEach(function (s) {
+        var len = s[1] - s[0], mid = (s[0] + s[1]) / 2;
+        if (axis === 'x') { plane(len, DH, dadoMat(len), off, DH / 2, mid, 0, ry); box(0.06, 0.05, len, MAT.steelDark, off + inward * 0.02, DH + 0.025, mid); }
+        else { plane(len, DH, dadoMat(len), mid, DH / 2, off, 0, ry); box(len, 0.05, 0.06, MAT.steelDark, mid, DH + 0.025, off + inward * 0.02); }
+      });
+      // the girts and the cable tray run the whole wall; a column every 8 m, set where no door, console or sign stands
+      var full = 2 * lim - 0.6, c0 = 0, g = at + inward * 0.25;
+      [5.2, 6.8].forEach(function (gy) { if (axis === 'x') box(0.06, 0.12, full, MAT.steelDark, g, gy, c0); else box(full, 0.12, 0.06, MAT.steelDark, c0, gy, g); });
+      if (axis === 'x' || side > 0) { if (axis === 'x') { box(0.3, 0.08, full, MAT.steelDark, at + inward * 0.35, 5.6, c0); for (var ct = -lim + 1; ct < lim; ct += 2) box(0.3, 0.08, 0.04, MAT.steelDark, at + inward * 0.35, 5.6, ct); } else { box(full, 0.08, 0.3, MAT.steelDark, c0, 5.6, at + inward * 0.35); for (var ct2 = -lim + 1; ct2 < lim; ct2 += 2) box(0.04, 0.08, 0.3, MAT.steelDark, ct2, 5.6, at + inward * 0.35); } }
+      var cols = axis === 'x' ? [-18, -10, -2, 6, 14] : side > 0 ? [-28, -20, -12, -4, 4, 12, 20] : [-24, -16, -8, 0, 10, 22, 30];
+      cols.forEach(function (p) { if (cuts.some(function (c) { return p > c[0] - 0.3 && p < c[1] + 0.3; })) return; var cx = axis === 'x' ? at + inward * 0.42 : p, cz = axis === 'x' ? p : at + inward * 0.42; column(cx, cz, axis === 'x'); });
+    }
+    function column(x, z, alongZ) {
+      var h = H - 0.3; box(alongZ ? 0.26 : 0.02, h, alongZ ? 0.02 : 0.26, MAT.steelDark, x, h / 2, z);
+      [-0.12, 0.12].forEach(function (o) { box(alongZ ? 0.02 : 0.3, h, alongZ ? 0.3 : 0.02, MAT.steelDark, x + (alongZ ? o : 0), h / 2, z + (alongZ ? 0 : o)); });
+      box(0.42, 0.03, 0.42, MAT.steelDark, x, 0.015, z); [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]].forEach(function (b) { cyl(0.018, 0.03, MAT.chrome, x + b[0], 0.04, z + b[1], null, 6); });
+      box(0.46, 0.5, 0.46, MAT.hazard, x, 0.28, z).castShadow = false;   // the bump guard every forklift hall paints on
+      solid(x - 0.16, x + 0.16, z - 0.16, z + 0.16, 0, h);
+    }
+    wall('x', -1); wall('x', 1); wall('z', -1); wall('z', 1);
+  }
   function buildDoor(i, side, z) {
     var x = side * HALL.x;
     var panel = new THREE.Mesh(boxGeo(0.12, DOCKS.h, DOCKS.w), MAT.door); panel.castShadow = true; panel.receiveShadow = true;
@@ -148,7 +190,17 @@
     box(X - x0, 0.12, Z - z0, MAT.plaster, (x0 + X) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', X, z0 + 0.1, Z - 0.1, h, LINING.office, [], -1); lineWall('z', Z, x0 + 0.1, X - 0.1, h, LINING.office, [], -1);
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    var lamp = box(1.2, 0.08, 0.3, MAT.lamp, X - 3.5, h - 0.05, 21); world.officeLamp = lamp;
+    world.officeLamp = troffer(X - 3.5, h, 21); troffer(x0 + 1.9, h, 22.5, 0.6, 0.6);
+    // carpet tiles over the slab, skirting on the two plaster walls (the hall walls get theirs from lineWall), a bin by the desk
+    roomFloor(MAT.carpet, x0 + 0.08, X - 0.16, z0 + 0.08, Z - 0.16, 1.0);
+    [[z0, 19.3], [20.6, Z]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, x0 + 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X - x0, 0.12, 0.03, MAT.trim, (x0 + X) / 2, 0.06, z0 + 0.09).castShadow = false;
+    cyl(0.14, 0.3, std({ color: 0x2a2d33, roughness: 0.6 }), X - 1.2, 0.15, 19.4, null, 12, 0.12); box(0.16, 0.02, 0.16, MAT.paper, X - 1.2, 0.3, 19.4).rotation.y = 0.4;
+  }
+  // a room's own floor laid over the slab: the texture repeats in metres so a carpet tile is half a metre wherever it is
+  function roomFloor(mat, x0, x1, z0, z1, per) {
+    var m = mat.clone(); m.map = mat.map.clone(); m.map.needsUpdate = true; m.map.repeat.set((x1 - x0) / per, (z1 - z0) / per);
+    if (mat.normalMap) { m.normalMap = mat.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set((x1 - x0) / per, (z1 - z0) / per); }
+    var p = plane(x1 - x0, z1 - z0, m, (x0 + x1) / 2, 0.012, (z0 + z1) / 2, -Math.PI / 2); p.receiveShadow = true; return p;
   }
 
   function buildBench() {
@@ -167,7 +219,9 @@
     box(X + x0, h, 0.15, MAT.plaster, (-X + x0) / 2, h / 2, z0); solid(-X, x0, z0 - 0.08, z0 + 0.08);
     box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', -X, z0 + 0.1, Z - 0.1, h, LINING.lobby, [[SPOT.staffDoor.z - 0.65, SPOT.staffDoor.z + 0.65, 2.25]], 1); lineWall('z', Z, -X + 0.1, x0 - 0.1, h, LINING.lobby, [], -1); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -X + 2.3, h - 0.05, 21.2);
+    troffer(-X + 2.3, h, 21.2);
+    roomFloor(MAT.vinyl, -X + 0.16, x0 - 0.08, z0 + 0.08, Z - 0.16, 1.5);
+    [[z0, 19.3], [20.6, Z]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, x0 - 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X + x0, 0.12, 0.03, MAT.trim, (-X + x0) / 2, 0.06, z0 + 0.09).castShadow = false;
     for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 22.5);
     // the break room: x -30..-23, z -24..-20.2; its door in the east wall at z -22.95..-21.95, a window in the south wall onto the hall
     var bx = -X + 7, bz = -20.2;
@@ -178,7 +232,9 @@
     solid(-X, bx, bz - 0.08, bz + 0.08);
     box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2);
     lineWall('x', -X, -Z + 0.1, bz - 0.1, h, LINING.brk, [], 1); lineWall('z', -Z, -X + 0.1, bx - 0.1, h, LINING.brk, [], 1); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -X + 3.5, h - 0.05, -22.1);
+    troffer(-X + 3.5, h, -22.1);
+    roomFloor(MAT.vinyl, -X + 0.16, bx - 0.08, -Z + 0.16, bz - 0.08, 1.5);
+    [[-Z, -22.95], [-21.95, bz]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, bx - 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X + bx, 0.12, 0.03, MAT.trim, (-X + bx) / 2, 0.06, bz - 0.09).castShadow = false;
     for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -X + 3.6, 2.26 - bl2 * 0.08, bz - 0.09);
   }
   // the order board on the office wall: redrawn when orders change

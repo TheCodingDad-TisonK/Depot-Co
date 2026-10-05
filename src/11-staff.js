@@ -1,75 +1,166 @@
 //@ people: the rig, procedural faces, variety, walking and idling, speech bubbles, the aisle router, the three staff roles and their voices
   // ── The human model ───────────────────────────────────────────────
+  // A rigged person: hip and knee pivots, shoulder and elbow pivots, a torso that rolls with the stride and a head that turns to
+  // look at you. Every limb is an eased cylinder, the shoes have soles and laces, the shirt has a collar, buttons, a pocket and a
+  // belt, the hair is a cap with a fringe, sideburns and a nape (or long, or a bun), and the face is a 256 px decal that blinks.
+  // Built at Grow Co.'s proportions and scaled to 1.8 m, so the hit boxes, speech bubbles and the camera that were set for the
+  // old figure still fit. The API is the old one: makeHuman(opt), animateHuman(g, dt, mode, speed, look, carry), setMood, say.
   var SKINS = [0xf1d2b6, 0xe2b48f, 0xd9a98a, 0xb87b5a, 0x8d5a3c, 0x5c3a28];
   var HAIRS = [0x1d1510, 0x3a2a1c, 0x6b4a2b, 0xa8793f, 0xd9b36a, 0x8a8a8a, 0xb0352a, 0x2b2b35];
   var SHIRTS = [0x8c949c, 0x3b4b6b, 0x7b3f3f, 0x2f6f4f, 0xd9d9d9, 0x5a4b7b, 0x8a6a3a, 0x335b7b, 0x2a2d33];
   var PANTS = [0x2e3f63, 0x3a3a3a, 0x5b4b3a, 0x1f2a44, 0x6b6b6b];
+  var EYES = ['#3a5a8a', '#4a3221', '#2a6a3a', '#5a4a2a', '#6a7a8a'];
   var faceCache = {};
+  // what a face key decides, the same every time that key is drawn: eye colour, brow weight, freckles
+  function faceSpec(key) { var n = 0; for (var i = 0; i < key.length; i++) n = (n * 31 + key.charCodeAt(i)) >>> 0; return { eye: EYES[n % EYES.length], freckles: n % 5 === 0, brow: n % 3 === 0 ? '#1a1008' : '#2a1a10', thin: n % 4 === 1 }; }
   function faceTex(key, mood, skin, blink) {
-    var k = key + mood + (blink ? 'b' : '');
-    if (faceCache[k]) return faceCache[k];
-    var t = tex(128, 128, function (c, w, h) {
-      c.clearRect(0, 0, w, h);
-      var eye = function (x) { c.fillStyle = '#fff'; c.beginPath(); c.ellipse(x, 58, 11, blink ? 1.5 : 7, 0, 0, 6.3); c.fill(); if (!blink) { c.fillStyle = key.charCodeAt(1) % 2 ? '#3a5a8a' : '#4a3221'; c.beginPath(); c.arc(x + (mood === 'shifty' ? 3 : 0), 59, 4.5, 0, 6.3); c.fill(); c.fillStyle = '#111'; c.beginPath(); c.arc(x + (mood === 'shifty' ? 3 : 0), 59, 2.2, 0, 6.3); c.fill(); c.fillStyle = 'rgba(255,255,255,0.8)'; c.beginPath(); c.arc(x - 1.5, 57, 1.2, 0, 6.3); c.fill(); } };
-      eye(44); eye(84);
-      c.strokeStyle = '#2a1d14'; c.lineWidth = 3.2; c.lineCap = 'round';
-      var tilt = mood === 'angry' ? 5 : mood === 'tired' ? -3 : mood === 'happy' ? -2 : 0;
-      c.beginPath(); c.moveTo(32, 44 + tilt); c.lineTo(54, 44 - tilt); c.stroke(); c.beginPath(); c.moveTo(74, 44 - tilt); c.lineTo(96, 44 + tilt); c.stroke();
-      c.strokeStyle = 'rgba(80,40,30,0.7)'; c.lineWidth = 2.6; c.beginPath();
-      if (mood === 'happy') { c.moveTo(48, 90); c.quadraticCurveTo(64, 104, 80, 90); } else if (mood === 'tired') { c.moveTo(50, 94); c.quadraticCurveTo(64, 88, 78, 94); } else if (mood === 'talk') { c.fillStyle = '#5a2a2a'; c.ellipse(64, 93, 8, 6, 0, 0, 6.3); c.fill(); } else { c.moveTo(52, 92); c.lineTo(76, 92); }
-      c.stroke();
-      c.fillStyle = 'rgba(0,0,0,0.12)'; c.beginPath(); c.ellipse(64, 74, 5, 8, 0, 0, 6.3); c.fill();   // the nose shadow
+    var k = key + mood + (blink ? 'b' : ''); if (faceCache[k]) return faceCache[k];
+    var sp = faceSpec(key);
+    var t = tex(256, 256, function (ctx, w, h) {
+      ctx.clearRect(0, 0, w, h);
+      var eyeY = 112, iris = sp.eye, closed = blink || mood === 'tired', squint = mood === 'happy' ? 12 : mood === 'angry' ? 12.5 : 15;
+      [84, 172].forEach(function (x, i) {
+        var sd = i ? 1 : -1, px = x + (mood === 'shifty' ? 8 : 0);
+        if (closed) { ctx.strokeStyle = '#3a2a20'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - 21, eyeY + 1); ctx.quadraticCurveTo(x, eyeY + 9, x + 21, eyeY + 1); ctx.stroke(); return; }
+        ctx.save(); ctx.beginPath(); ctx.ellipse(x, eyeY, 22, squint, 0, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = '#fbf8f2'; ctx.fillRect(x - 24, eyeY - 18, 48, 36);
+        var ig = ctx.createRadialGradient(px, eyeY + 1, 2, px, eyeY + 1, 11); ig.addColorStop(0, iris); ig.addColorStop(0.75, iris); ig.addColorStop(1, 'rgba(10,15,25,.9)'); ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(px, eyeY + 1, 10.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0b0b0d'; ctx.beginPath(); ctx.arc(px, eyeY + 1, 4.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(px + 4, eyeY - 4, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(px - 4, eyeY + 5, 1.6, 0, Math.PI * 2); ctx.fill();
+        var lid = ctx.createLinearGradient(0, eyeY - squint, 0, eyeY - squint + 12); lid.addColorStop(0, 'rgba(40,20,10,.5)'); lid.addColorStop(1, 'rgba(40,20,10,0)'); ctx.fillStyle = lid; ctx.fillRect(x - 24, eyeY - squint, 48, 12);   /* the lid's shadow on the eye */
+        ctx.restore();
+        ctx.strokeStyle = '#2f2019'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.ellipse(x, eyeY, 22, squint, 0, Math.PI * 1.02, Math.PI * 1.98); ctx.stroke();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(60,35,25,.45)'; ctx.beginPath(); ctx.ellipse(x, eyeY, 22, squint, 0, Math.PI * 0.12, Math.PI * 0.88); ctx.stroke();
+        ctx.lineWidth = 2.5; ctx.strokeStyle = '#2f2019'; ctx.beginPath(); ctx.moveTo(x + sd * 21, eyeY - 3); ctx.lineTo(x + sd * 27, eyeY - 8); ctx.stroke();   /* one lash at the outer corner */
+      });
+      // brows: thick at the nose, fine at the temple; they tilt with the mood
+      ctx.fillStyle = sp.brow; var tilt = mood === 'angry' ? 12 : mood === 'tired' ? -6 : mood === 'happy' ? -3 : 0, bt = sp.thin ? 0.6 : 1;
+      [[58, 110], [198, 146]].forEach(function (b) { ctx.beginPath(); ctx.moveTo(b[0], 84 - tilt + 2); ctx.quadraticCurveTo((b[0] + b[1]) / 2, 72, b[1], 84 + tilt - 4 * bt); ctx.lineTo(b[1], 84 + tilt + 5 * bt); ctx.quadraticCurveTo((b[0] + b[1]) / 2, 80, b[0], 84 - tilt + 4); ctx.closePath(); ctx.fill(); });
+      // the nose is modelled: only the shadow under its tip is drawn
+      ctx.fillStyle = 'rgba(70,35,20,.22)'; ctx.beginPath(); ctx.ellipse(128, 166, 17, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#8a4536'; ctx.lineCap = 'round'; ctx.lineWidth = 4.5; ctx.beginPath();
+      if (mood === 'happy') { ctx.fillStyle = '#4a1a1a'; ctx.beginPath(); ctx.moveTo(96, 186); ctx.quadraticCurveTo(128, 216, 160, 186); ctx.quadraticCurveTo(128, 194, 96, 186); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(102, 188.5); ctx.quadraticCurveTo(128, 196, 154, 188.5); ctx.quadraticCurveTo(128, 203, 102, 188.5); ctx.fill(); ctx.beginPath(); ctx.moveTo(96, 186); ctx.quadraticCurveTo(128, 216, 160, 186); ctx.stroke(); }
+      else if (mood === 'tired') { ctx.moveTo(100, 198); ctx.quadraticCurveTo(128, 186, 156, 198); ctx.stroke(); }
+      else if (mood === 'angry') { ctx.moveTo(100, 196); ctx.quadraticCurveTo(128, 186, 156, 192); ctx.stroke(); }
+      else if (mood === 'talk') { ctx.fillStyle = '#3a1a1a'; ctx.beginPath(); ctx.ellipse(128, 194, 16, 12, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#c0605a'; ctx.beginPath(); ctx.ellipse(128, 200, 9, 5, 0, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.moveTo(104, 192); ctx.quadraticCurveTo(128, 199, 152, 192); ctx.stroke(); }
+      if (mood !== 'talk' && mood !== 'happy') { ctx.strokeStyle = 'rgba(90,40,30,.25)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(114, 205); ctx.quadraticCurveTo(128, 210, 142, 205); ctx.stroke(); }   /* the shade under the lower lip */
+      ctx.fillStyle = 'rgba(255,110,110,' + (mood === 'happy' ? 0.26 : 0.12) + ')'; [62, 194].forEach(function (x) { var bl = ctx.createRadialGradient(x, 152, 2, x, 152, 22); bl.addColorStop(0, ctx.fillStyle); bl.addColorStop(1, 'rgba(255,110,110,0)'); ctx.save(); ctx.fillStyle = bl; ctx.beginPath(); ctx.arc(x, 152, 22, 0, Math.PI * 2); ctx.fill(); ctx.restore(); });
+      if (sp.freckles) { ctx.fillStyle = 'rgba(120,70,40,.5)'; for (var f = 0; f < 22; f++) { ctx.beginPath(); ctx.arc(60 + Math.random() * 136, 136 + Math.random() * 30, 1.6, 0, Math.PI * 2); ctx.fill(); } }
     });
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; faceCache[k] = t; return t;
   }
+  var HUMAN_GEO = {
+    thigh: roundCylGeo(0.088, 0.068, 0.42, 18), shin: roundCylGeo(0.064, 0.046, 0.4, 18), knee: new THREE.SphereGeometry(0.068, 14, 10),
+    shoe: bevelGeo(0.12, 0.085, 0.27, 0.036, 3), sole: bevelGeo(0.128, 0.03, 0.285, 0.012, 1), lace: bevelGeo(0.1, 0.02, 0.06, 0.006, 1),
+    hips: bevelGeo(0.36, 0.18, 0.22, 0.08, 3), torso: taperGeo(bevelGeo(0.4, 0.5, 0.24, 0.1, 3).clone(), 0.5, 0.86, 0.9), chest: bevelGeo(0.44, 0.26, 0.26, 0.11, 3),
+    belt: bevelGeo(0.38, 0.05, 0.24, 0.012, 1), buckle: bevelGeo(0.05, 0.04, 0.02, 0.005, 1), placket: bevelGeo(0.12, 0.05, 0.03, 0.008, 1), button: roundCylGeo(0.008, 0.008, 0.006, 8), pocket: bevelGeo(0.1, 0.1, 0.005, 0.002, 1),
+    upperArm: roundCylGeo(0.054, 0.044, 0.3, 14), foreArm: roundCylGeo(0.044, 0.034, 0.3, 14), elbow: new THREE.SphereGeometry(0.047, 12, 10), shoulder: new THREE.SphereGeometry(0.072, 14, 10),
+    hand: bevelGeo(0.075, 0.1, 0.036, 0.016, 2), thumb: roundCylGeo(0.012, 0.012, 0.05, 8), cuff: roundCylGeo(0.043, 0.04, 0.035, 14), hem: roundCylGeo(0.058, 0.056, 0.04, 16), collar: bevelGeo(0.085, 0.036, 0.012, 0.004, 1),
+    neck: roundCylGeo(0.05, 0.062, 0.1, 14), head: new THREE.SphereGeometry(0.17, 28, 20), ear: new THREE.SphereGeometry(0.03, 10, 8), nose: new THREE.SphereGeometry(0.021, 12, 10),
+    hairCap: new THREE.SphereGeometry(0.17, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), hairLong: new THREE.SphereGeometry(0.17, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    vest: bevelGeo(0.47, 0.5, 0.29, 0.06, 3), band: bevelGeo(0.48, 0.04, 0.3, 0.012, 1), strap: bevelGeo(0.05, 0.28, 0.3, 0.012, 1),
+    peak: bevelGeo(0.2, 0.015, 0.14, 0.005, 1)
+  };
+  // a beard follows the jaw and the chin and leaves the mouth alone; long hair falls behind the shoulders as one sheet
+  HUMAN_GEO.beard = new THREE.SphereGeometry(0.17, 20, 8, -Math.PI * 0.1, Math.PI * 1.2, Math.PI * 0.7, Math.PI * 0.3); HUMAN_GEO.beard.scale(1.035, 1.15, 0.985);
+  HUMAN_GEO.hairFall = new THREE.CylinderGeometry(0.178, 0.205, 0.4, 22, 3, true, Math.PI * 0.42, Math.PI * 1.16);
+  HUMAN_GEO.ear.scale(0.5, 1.15, 0.85); HUMAN_GEO.nose.scale(0.82, 1.3, 1.05); HUMAN_GEO.head.scale(1, 1.12, 0.95);
+  HUMAN_GEO.hairCap.scale(1.07, 1.2, 1.02); HUMAN_GEO.hairLong.scale(1.08, 1.21, 1.04);
+  // curved patches that follow the skull: fringe over the forehead, sideburns, nape
+  HUMAN_GEO.fringe = new THREE.SphereGeometry(0.17, 20, 8, Math.PI * 0.15, Math.PI * 0.7, Math.PI * 0.3, Math.PI * 0.2); HUMAN_GEO.fringe.scale(1.075, 1.205, 1.03);
+  HUMAN_GEO.sideL = new THREE.SphereGeometry(0.17, 12, 8, Math.PI * 1.88, Math.PI * 0.24, Math.PI * 0.4, Math.PI * 0.22); HUMAN_GEO.sideL.scale(1.075, 1.205, 1.03);
+  HUMAN_GEO.sideR = new THREE.SphereGeometry(0.17, 12, 8, Math.PI * 0.88, Math.PI * 0.24, Math.PI * 0.4, Math.PI * 0.22); HUMAN_GEO.sideR.scale(1.075, 1.205, 1.03);
+  HUMAN_GEO.nape = new THREE.SphereGeometry(0.17, 16, 8, Math.PI * 1.2, Math.PI * 0.6, Math.PI * 0.4, Math.PI * 0.3); HUMAN_GEO.nape.scale(1.075, 1.205, 1.03);
+  var HUMAN_SCALE = 0.93, BAND_M = std({ color: 0xc9ced3, roughness: 0.3, metalness: 0.4, emissive: 0x666666, emissiveIntensity: 0.25 }), LACE_M = std({ color: 0xf2f2f2, roughness: 0.9 }), BELT_M = std({ color: 0x3a2a1a, roughness: 0.5 }), SOLE_M = std({ color: 0xd8d4cc, roughness: 0.9 });
   function makeHuman(opt) {
     opt = opt || {};
     var skinCol = opt.skin || pick(SKINS), hairCol = opt.hair || pick(HAIRS), style = opt.style || pick(['short', 'short', 'long', 'bun', 'bald', 'cap']);
-    var skin = std({ color: skinCol, roughness: 0.85 }), shirt = opt.shirt || std({ color: pick(SHIRTS), roughness: 0.95 }), pants = std({ color: pick(PANTS), roughness: 0.95 }), hair = std({ color: hairCol, roughness: 0.95 });
+    var skin = std({ color: skinCol, roughness: 0.75 }), shirt = opt.shirt || std({ map: TEX.cloth, color: pick(SHIRTS), roughness: 0.92 }), pants = std({ map: TEX.cloth, color: pick(PANTS), roughness: 0.95 }), hair = std({ color: hairCol, roughness: 0.62 }), hairSide = hair.clone(); hairSide.side = THREE.DoubleSide;
+    var shoeM = std({ color: pick([0x1e1a18, 0x3a2a1a, 0x4a3a2a, 0x2f2f33]), roughness: 0.6 }), shirtDark = shirt.clone(); if (shirtDark.color) shirtDark.color.multiplyScalar(0.85);
+    var rolled = opt.rolled !== undefined ? !!opt.rolled : Math.random() < 0.4;
     var g = new THREE.Group(), u = g.userData; u.dynamic = true;
-    u.key = 'f' + Math.floor(Math.random() * 1000); u.mood = opt.mood || 'neutral'; u.blink = 0; u.blinkIn = randf(2, 6); u.walk = 0; u.idleT = Math.random() * 10; u.lookYaw = 0; u.lookPitch = 0;
-    function leg(x) { var hip = new THREE.Group(); hip.position.set(x, 0.86, 0); cyl(0.075, 0.42, pants, 0, -0.21, 0, hip, 10); var knee = new THREE.Group(); knee.position.set(0, -0.42, 0); cyl(0.065, 0.4, pants, 0, -0.2, 0, knee, 10); var boot = new THREE.Mesh(bevelGeo(0.15, 0.1, 0.28, 0.03), MAT.black); boot.position.set(0, -0.41, 0.05); boot.castShadow = true; knee.add(boot); box(0.16, 0.03, 0.3, std({ color: 0x8a6a3a, roughness: 1 }), 0, -0.455, 0.05, knee); hip.add(knee); hip.userData.knee = knee; g.add(hip); return hip; }
-    function arm(x) { var sh = new THREE.Group(); sh.position.set(x, 1.38, 0); sphere(0.065, shirt, 0, 0, 0, sh); cyl(0.052, 0.3, shirt, 0, -0.15, 0, sh, 8); var el = new THREE.Group(); el.position.set(0, -0.3, 0); sphere(0.05, shirt, 0, 0, 0, el); cyl(0.045, 0.26, skin, 0, -0.14, 0, el, 8); var hd = sphere(0.055, skin, 0, -0.3, 0.01, el); hd.scale.set(0.8, 1.1, 0.6); sh.add(el); sh.userData.elbow = el; g.add(sh); return sh; }
-    u.legs = [leg(-0.12), leg(0.12)]; u.arms = [arm(-0.245), arm(0.245)];
-    var torso = new THREE.Mesh(bevelGeo(0.4, 0.56, 0.24, 0.06), shirt); torso.position.set(0, 1.14, 0); torso.castShadow = true; g.add(torso); sphere(0.085, shirt, -0.17, 1.4, 0, g); sphere(0.085, shirt, 0.17, 1.4, 0, g); var chest = new THREE.Mesh(bevelGeo(0.42, 0.14, 0.26, 0.05), shirt); chest.position.set(0, 1.36, 0); g.add(chest);
-    if (opt.vest) { var vest = new THREE.Mesh(bevelGeo(0.46, 0.46, 0.29, 0.05), opt.vest); vest.position.set(0, 1.15, 0); vest.castShadow = true; g.add(vest); var band = std({ color: 0xc9ced3, roughness: 0.3, metalness: 0.4 }); box(0.48, 0.035, 0.31, band, 0, 1.06, 0, g); box(0.48, 0.035, 0.31, band, 0, 1.22, 0, g); box(0.05, 0.3, 0.31, band, -0.15, 1.3, 0, g); box(0.05, 0.3, 0.31, band, 0.15, 1.3, 0, g); }
-    if (opt.name) { var tag = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.05), new THREE.MeshBasicMaterial({ map: textTex([opt.name], { w: 128, h: 48, bg: '#fff', fg: '#1b232c' }) })); tag.position.set(0.1, 1.3, 0.145); g.add(tag); }
-    cyl(0.05, 0.08, skin, 0, 1.47, 0, g, 8);
-    var head = sphere(0.135, skin, 0, 1.6, 0, g); u.head = head; u.skinKey = skinCol.toString(16);
-    var face = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: faceTex(u.key, u.mood, u.skinKey), transparent: true, alphaTest: 0.1 })); face.position.set(0, 1.6, 0.128); g.add(face); u.face = face;
-    sphere(0.025, skin, -0.13, 1.6, 0, g); sphere(0.025, skin, 0.13, 1.6, 0, g);
-    if (style !== 'bald') { var hs = sphere(0.14, hair, 0, 1.63, -0.015, g); hs.scale.set(1, 0.75, 1); }
-    if (style === 'long') { box(0.2, 0.3, 0.1, hair, 0, 1.45, -0.1, g); } if (style === 'bun') { sphere(0.06, hair, 0, 1.7, -0.12, g); }
-    if (style === 'cap' || opt.cap) { cyl(0.145, 0.07, opt.capMat || MAT.blue, 0, 1.71, 0, g, 16); box(0.18, 0.02, 0.14, opt.capMat || MAT.blue, 0, 1.69, 0.17, g); }
-    if (opt.hardhat) { var hh = sphere(0.155, opt.hardhat, 0, 1.66, 0, g); hh.scale.set(1, 0.7, 1); cyl(0.19, 0.02, opt.hardhat, 0, 1.63, 0, g, 16); }
-    if (Math.random() < 0.3 && !opt.noBeard) { var bd = sphere(0.1, hair, 0, 1.52, 0.06, g); bd.scale.set(1, 0.55, 0.8); }
-    if (Math.random() < 0.25) { [-0.05, 0.05].forEach(function (x) { var ring = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.005, 6, 12), MAT.black); ring.position.set(x, 1.61, 0.13); g.add(ring); }); box(0.03, 0.005, 0.01, MAT.black, 0, 1.61, 0.13, g); }
+    u.key = 'f' + Math.floor(Math.random() * 100000); u.mood = opt.mood || 'neutral'; u.blink = 0; u.blinkIn = randf(2, 6); u.walk = 0; u.idleT = Math.random() * 10; u.lookYaw = 0; u.lookPitch = 0; u.skinKey = skinCol.toString(16); u.phase = Math.random() * 6.28;
+    g.scale.setScalar(HUMAN_SCALE);
+    function mesh(geo, mat, x, y, z, parent) { var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; (parent || g).add(m); return m; }
+    // legs: hip pivot, thigh, knee pivot, shin, shoe on its sole
+    function leg(side) {
+      var hip = new THREE.Group(); hip.position.set(side * 0.1, 0.86, 0); g.add(hip);
+      mesh(HUMAN_GEO.thigh, pants, 0, -0.21, 0, hip);
+      var knee = new THREE.Group(); knee.position.set(0, -0.42, 0); hip.add(knee); hip.userData.knee = knee;
+      mesh(HUMAN_GEO.knee, pants, 0, 0, 0, knee); mesh(HUMAN_GEO.shin, pants, 0, -0.2, 0, knee);
+      mesh(HUMAN_GEO.shoe, shoeM, 0, -0.4, 0.05, knee); mesh(HUMAN_GEO.sole, SOLE_M, 0, -0.445, 0.05, knee); mesh(HUMAN_GEO.hem, pants, 0, -0.35, 0, knee); mesh(HUMAN_GEO.lace, LACE_M, 0, -0.36, 0.12, knee);
+      return hip;
+    }
+    u.legs = [leg(-1), leg(1)];
+    // torso: hips block, belt and buckle, shirt torso and chest, collar, placket, buttons, a pocket
+    var torso = new THREE.Group(); torso.position.y = 0.86; g.add(torso); u.torso = torso;
+    mesh(HUMAN_GEO.hips, pants, 0, 0.02, 0, torso); mesh(HUMAN_GEO.belt, BELT_M, 0, 0.1, 0, torso); mesh(HUMAN_GEO.buckle, MAT.chrome, 0, 0.1, 0.125, torso);
+    mesh(HUMAN_GEO.torso, shirt, 0, 0.36, 0, torso); u.chest = mesh(HUMAN_GEO.chest, shirt, 0, 0.52, 0, torso);
+    [-1, 1].forEach(function (sd) { var cl = mesh(HUMAN_GEO.collar, shirt, sd * 0.05, 0.648, 0.118, torso); cl.rotation.set(-0.35, sd * -0.25, sd * -0.62); });
+    mesh(HUMAN_GEO.placket, shirt, 0, 0.62, 0.13, torso); for (var b = 0; b < 4; b++) mesh(HUMAN_GEO.button, LACE_M, 0, 0.2 + b * 0.11, 0.125, torso).rotation.x = Math.PI / 2; mesh(HUMAN_GEO.pocket, shirtDark, -0.11, 0.48, 0.125, torso);
+    // the hi-vis vest over the shirt: two reflective bands round it and one over each shoulder
+    if (opt.vest) { mesh(HUMAN_GEO.vest, opt.vest, 0, 0.33, 0, torso); mesh(HUMAN_GEO.band, BAND_M, 0, 0.22, 0, torso); mesh(HUMAN_GEO.band, BAND_M, 0, 0.38, 0, torso); mesh(HUMAN_GEO.strap, BAND_M, -0.15, 0.5, 0, torso); mesh(HUMAN_GEO.strap, BAND_M, 0.15, 0.5, 0, torso); }
+    if (opt.name) { var tag = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.05), new THREE.MeshBasicMaterial({ map: textTex([opt.name], { w: 128, h: 48, bg: '#fff', fg: '#1b232c' }) })); tag.position.set(0.1, 0.46, opt.vest ? 0.152 : 0.132); torso.add(tag); }
+    // arms: shoulder pivot, upper arm, elbow pivot, forearm, a cuff unless the sleeves are rolled, a hand with its thumb
+    function arm(side) {
+      var sh = new THREE.Group(); sh.position.set(side * 0.27, 0.6, 0); torso.add(sh);
+      mesh(HUMAN_GEO.shoulder, shirt, 0, 0, 0, sh); mesh(HUMAN_GEO.upperArm, shirt, 0, -0.16, 0, sh);
+      var el = new THREE.Group(); el.position.set(0, -0.31, 0); sh.add(el); sh.userData.elbow = el;
+      mesh(HUMAN_GEO.elbow, shirt, 0, 0, 0, el); mesh(HUMAN_GEO.foreArm, rolled ? skin : shirt, 0, -0.15, 0, el);
+      if (!rolled) mesh(HUMAN_GEO.cuff, shirt, 0, -0.285, 0, el); else mesh(HUMAN_GEO.cuff, shirt, 0, -0.03, 0, el);
+      mesh(HUMAN_GEO.hand, skin, 0, -0.35, 0, el); var th = mesh(HUMAN_GEO.thumb, skin, side * 0.04, -0.33, 0.01, el); th.rotation.z = side * 0.6;
+      return sh;
+    }
+    u.arms = [arm(-1), arm(1)];
+    // head: neck, skull, nose, ears, hair, beard, the face decal, glasses, a cap or a hard hat
+    var head = new THREE.Group(); head.position.set(0, 0.66, 0); torso.add(head); u.head = head;
+    mesh(HUMAN_GEO.neck, skin, 0, 0.04, 0, head); mesh(HUMAN_GEO.head, skin, 0, 0.24, 0, head); mesh(HUMAN_GEO.nose, skin, 0, 0.222, 0.164, head);
+    [-1, 1].forEach(function (s) { mesh(HUMAN_GEO.ear, skin, s * 0.165, 0.24, -0.01, head); });
+    var hy = 0.24, capOn = style === 'cap' || !!opt.cap;
+    if (style !== 'bald') {
+      if (style === 'long') { mesh(HUMAN_GEO.hairLong, hair, 0, hy, 0, head); mesh(HUMAN_GEO.hairFall, hairSide, 0, hy - 0.16, -0.012, head); }
+      else { mesh(HUMAN_GEO.hairCap, hair, 0, hy, 0, head); mesh(HUMAN_GEO.nape, hair, 0, hy, 0, head); }
+      if (style === 'bun') mesh(new THREE.SphereGeometry(0.075, 12, 10), hair, 0, hy + 0.14, -0.14, head);
+      mesh(HUMAN_GEO.fringe, hair, 0, hy, 0, head); mesh(HUMAN_GEO.sideL, hair, 0, hy, 0, head); mesh(HUMAN_GEO.sideR, hair, 0, hy, 0, head);
+    }
+    if (Math.random() < 0.3 && !opt.noBeard) mesh(HUMAN_GEO.beard, hairSide, 0, hy, 0, head);
+    var face = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.28), new THREE.MeshBasicMaterial({ map: faceTex(u.key, u.mood, u.skinKey), transparent: true, depthWrite: false })); face.position.set(0, 0.245, 0.17); head.add(face); u.face = face;
+    if (Math.random() < 0.22) { var fr = std({ color: 0x222222, roughness: 0.4, metalness: 0.5 }); [-0.06, 0.06].forEach(function (x) { mesh(new THREE.TorusGeometry(0.038, 0.006, 6, 16), fr, x, 0.255, 0.178, head); }); mesh(bevelGeo(0.03, 0.006, 0.006, 0.002, 1), fr, 0, 0.26, 0.178, head); [-1, 1].forEach(function (s) { mesh(bevelGeo(0.006, 0.006, 0.16, 0.002, 1), fr, s * 0.1, 0.255, 0.085, head); }); }
+    // hats sit on the brows (the eye line is at 0.26 in the head's frame, the brows at 0.29), never over the eyes
+    if (capOn && !opt.hardhat) { var capM = opt.capMat || MAT.blue; mesh(new THREE.SphereGeometry(0.184, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), capM, 0, 0.29, 0, head); var peak = mesh(HUMAN_GEO.peak, capM, 0, 0.3, 0.2, head); peak.rotation.x = 0.15; mesh(new THREE.SphereGeometry(0.02, 8, 6), capM, 0, 0.47, 0, head); }
+    if (opt.hardhat) { mesh(new THREE.SphereGeometry(0.19, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), opt.hardhat, 0, 0.3, 0, head); mesh(roundCylGeo(0.212, 0.212, 0.016, 24), opt.hardhat, 0, 0.3, 0.0, head); var pk = mesh(bevelGeo(0.16, 0.012, 0.08, 0.004, 1), opt.hardhat, 0, 0.3, 0.245, head); pk.rotation.x = 0.12; }
     groundBlob(0.9, 0.9, 0, 0, g, 0.002);
-    g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; } });
     return g;
   }
   function setMood(g, mood) { var u = g.userData; if (u.mood === mood) return; u.mood = mood; u.face.material.map = faceTex(u.key, mood, u.skinKey, u.blink > 0); }
-  // mode: 'walk' | 'idle' | 'wait' | 'work'. look: a world point the head turns to, within reason. carry: arms forward.
+  // mode: 'walk' | 'idle' | 'wait' | 'work'. look: a world point the head turns to, within reason. carry: arms out in front.
+  // The feet stay planted: the torso rises and falls with the stride and rolls a little, and the head stays level over it.
   function animateHuman(g, dt, mode, speed, look, carry) {
     var u = g.userData; if (!u.legs) return;
     u.idleT += dt;
     if (mode === 'walk') u.walk += dt * (6 + speed * 1.5); else { var ph = u.walk % Math.PI; u.walk += (ph < Math.PI / 2 ? -ph : Math.PI - ph) * Math.min(1, 10 * dt); }
-    var t = u.walk, sw = mode === 'walk' ? 0.55 : 0;
-    u.legs[0].rotation.x = Math.sin(t) * sw; u.legs[1].rotation.x = -Math.sin(t) * sw;
-    u.legs[0].userData.knee.rotation.x = Math.max(0, -Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0); u.legs[1].userData.knee.rotation.x = Math.max(0, Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0);
-    if (carry) { u.arms[0].rotation.x = -0.9; u.arms[1].rotation.x = -0.9; u.arms[0].userData.elbow.rotation.x = -0.9; u.arms[1].userData.elbow.rotation.x = -0.9; u.arms[0].rotation.z = 0.25; u.arms[1].rotation.z = -0.25; }
-    else if (mode === 'work') { u.arms[0].rotation.x = -0.6 + Math.sin(u.idleT * 6) * 0.25; u.arms[1].rotation.x = -0.6 - Math.sin(u.idleT * 6) * 0.25; u.arms[0].userData.elbow.rotation.x = -0.8; u.arms[1].userData.elbow.rotation.x = -0.8; u.arms[0].rotation.z = 0.1; u.arms[1].rotation.z = -0.1; }
-    else { var drift = Math.sin(u.idleT * 1.1) * 0.05; u.arms[0].rotation.x = -Math.sin(t) * sw * 0.8 + drift; u.arms[1].rotation.x = Math.sin(t) * sw * 0.8 - drift; u.arms[0].userData.elbow.rotation.x = -Math.max(0, Math.sin(t)) * sw * 0.6 - 0.15; u.arms[1].userData.elbow.rotation.x = -Math.max(0, -Math.sin(t)) * sw * 0.6 - 0.15; u.arms[0].rotation.z = 0.08; u.arms[1].rotation.z = -0.08; }
-    if (mode === 'wait') { u.legs[1].position.y = 0.86 + Math.max(0, Math.sin(u.idleT * 2.4)) * 0.04; } else u.legs[1].position.y = 0.86;
-    g.children.forEach(function (c) { if (c === u.head || c === u.face) return; });
-    var bob = mode === 'walk' ? Math.abs(Math.cos(t)) * 0.03 : Math.sin(u.idleT * 0.31) * 0.004;
-    g.position.y = (g.userData.baseY || 0) + bob; g.rotation.z = mode === 'walk' ? Math.sin(t) * 0.03 : Math.sin(u.idleT * 0.31) * 0.007;
+    var t = u.walk, sw = mode === 'walk' ? 0.55 : 0, s = Math.sin(t), L = u.legs[0], R = u.legs[1], lk = L.userData.knee, rk = R.userData.knee, la = u.arms[0], ra = u.arms[1], le = la.userData.elbow, re = ra.userData.elbow, T = u.torso;
+    if (mode === 'sit') {   // on the forklift seat: thighs forward, shins down, hands on the wheel
+      L.rotation.x = -1.45; R.rotation.x = -1.45; lk.rotation.x = 1.45; rk.rotation.x = 1.45; R.position.y = 0.86; la.rotation.x = -0.85; ra.rotation.x = -0.85; le.rotation.x = -0.55; re.rotation.x = -0.55; la.rotation.z = 0.2; ra.rotation.z = -0.2; T.position.set(0, 0.86, 0); T.rotation.set(0, 0, 0); u.head.rotation.z = 0;
+    } else {
+    L.rotation.x = s * sw; R.rotation.x = -s * sw;
+    lk.rotation.x = Math.max(0, -Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0); rk.rotation.x = Math.max(0, Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0);
+    if (carry) { la.rotation.x = -0.9; ra.rotation.x = -0.9; le.rotation.x = -0.9; re.rotation.x = -0.9; la.rotation.z = 0.25; ra.rotation.z = -0.25; }
+    else if (mode === 'work') { la.rotation.x = -0.6 + Math.sin(u.idleT * 6) * 0.25; ra.rotation.x = -0.6 - Math.sin(u.idleT * 6) * 0.25; le.rotation.x = -0.8; re.rotation.x = -0.8; la.rotation.z = 0.1; ra.rotation.z = -0.1; }
+    else { var drift = Math.sin(u.idleT * 1.1) * 0.05; la.rotation.x = -s * sw * 0.8 + drift; ra.rotation.x = s * sw * 0.8 - drift; le.rotation.x = -Math.max(0, s) * sw * 0.6 - 0.15; re.rotation.x = -Math.max(0, -s) * sw * 0.6 - 0.15; la.rotation.z = 0.08 + Math.sin(u.idleT * 0.7) * 0.03; ra.rotation.z = -0.08 - Math.sin(u.idleT * 0.7) * 0.03; }
+    if (mode === 'wait') { R.position.y = 0.86 + Math.max(0, Math.sin(u.idleT * 2.4)) * 0.04; } else R.position.y = 0.86;
+    if (mode === 'walk') { T.position.y = 0.86 + Math.abs(Math.cos(t)) * 0.03; T.position.x = 0; T.rotation.z = s * 0.03; T.rotation.y = s * 0.06; u.head.rotation.z = -s * 0.025; }
+    else { T.position.y = 0.86 + Math.sin(u.idleT * 0.31) * 0.006; T.position.x = Math.sin(u.idleT * 0.31) * 0.007; T.rotation.z = Math.sin(u.idleT * 0.31) * 0.014; T.rotation.y = mode === 'wait' ? Math.sin(u.idleT * 0.35) * 0.12 : lerp(T.rotation.y, 0, Math.min(1, 4 * dt)); u.head.rotation.z = 0; }   /* the weight goes from one foot to the other */
+    }
+    if (u.chest) u.chest.scale.z = 1 + Math.sin(worldTime * 1.6 + u.phase) * 0.018;   /* breathing */
+    g.position.y = u.baseY || 0;
     // the head: looks at what it is given, else drifts; blinks now and then
     var wantYaw = 0, wantPitch = 0;
     if (look) { var dx = look.x - g.position.x, dz = look.z - g.position.z, d = Math.sqrt(dx * dx + dz * dz); if (d < 9) { var a = Math.atan2(dx, dz) - g.rotation.y; while (a > Math.PI) a -= 6.283; while (a < -Math.PI) a += 6.283; wantYaw = clamp(a, -1.3, 1.3); wantPitch = clamp(Math.atan2((look.y || 1.6) - 1.6, d), -0.3, 0.3); } }
     else wantYaw = Math.sin(u.idleT * 0.4) * 0.15;
     u.lookYaw += (wantYaw - u.lookYaw) * Math.min(1, 6 * dt); u.lookPitch += (wantPitch - u.lookPitch) * Math.min(1, 6 * dt);
-    u.head.rotation.y = u.lookYaw; u.face.rotation.y = u.lookYaw; u.face.position.x = Math.sin(u.lookYaw) * 0.128; u.face.position.z = Math.cos(u.lookYaw) * 0.128; u.face.position.y = 1.6 - Math.sin(u.lookPitch) * 0.05;
+    u.head.rotation.y = u.lookYaw - (mode === 'walk' ? T.rotation.y : 0); u.head.rotation.x = -u.lookPitch;
     u.blinkIn -= dt; if (u.blinkIn <= 0 && u.blink <= 0) { u.blink = 0.12; u.face.material.map = faceTex(u.key, u.mood, u.skinKey, true); } if (u.blink > 0) { u.blink -= dt; if (u.blink <= 0) { u.blinkIn = randf(2, 6.5); u.face.material.map = faceTex(u.key, u.mood, u.skinKey, false); } }
     if (u.bubble) { u.bubble.t -= dt; if (u.bubble.t <= 0) { g.remove(u.bubble.sp); u.bubble = null; } }
   }
@@ -163,21 +254,31 @@
   function onBreak() { return S.time >= 12 && S.time < 12.5; }
   function hireStaff(role) {
     var def = STAFF_ROLES[role]; if (!def) return;
+    if (def.needs && !S.up[def.needs]) { toast('Buy the forklift first: a driver needs something to drive.', 'bad'); return; }
     var name = STAFF_NAMES[S.nextStaffName++ % STAFF_NAMES.length];
     var st = { id: uid('st'), name: name, role: role, x: SPOT.spawn.x, z: SPOT.spawn.z, yaw: 0, state: 'home', path: [], timer: 0, carry: null, task: null, hiredDay: S.day, look: { skin: pick(SKINS), hair: pick(HAIRS), style: pick(['short', 'long', 'bun', 'bald', 'short']) }, said: 0, punct: randf(0.2, 1), arriveOff: 0, hoursToday: 0, sheet: [] };
     S.staff.push(st); buildStaffMesh(st); logEvent('Hired ' + name + ' as ' + def.name.toLowerCase() + '. Paid ' + money(def.wage / 10) + ' an hour from the time clock, time and a half past ten hours.', 'good'); hudDirty = true; if (S.time < 17 && !isSunday()) { st.state = 'home'; st.arriveOff = Math.round((S.time + 0.15 - SHIFT_START) * 60); }
   }
   function fireStaff(id) {
     var st = staffById(id); if (!st) return;
-    staffDropAll(st); var m = staffMeshes[id]; if (m) { scene.remove(m); delete staffMeshes[id]; }
+    staffDropAll(st); var m = staffMeshes[id]; if (m) { if (m.userData.jack) scene.remove(m.userData.jack); scene.remove(m); delete staffMeshes[id]; }
     S.staff.splice(S.staff.indexOf(st), 1); logEvent(st.name + ' let go'); hudDirty = true;
   }
   function buildStaffMesh(st) {
-    var vest = st.role === 'receiver' ? MAT.hivisOrange : st.role === 'picker' ? MAT.hivis : MAT.green;
+    var vest = st.role === 'receiver' ? MAT.hivisOrange : st.role === 'picker' ? MAT.hivis : st.role === 'driver' ? MAT.hivis : MAT.green;
     var look = st.look || {};
-    var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' ? MAT.white : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
+    var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' || st.role === 'driver' ? (st.role === 'driver' ? MAT.yellow : MAT.white) : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
+    if (st.role === 'receiver' && jackModel) g.userData.jack = jackModel('staffjack', true);   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
   }
+  // the receiver's jack: under the pallet ahead of them while they carry one, towed behind them the rest of the time
+  function jackFollow(st, m, onJack) {
+    var j = m.userData.jack; if (!j) return; j.visible = m.visible;
+    if (onJack) { j.position.set(st.x + Math.sin(st.yaw) * 0.95, floorY(st.x, st.z), st.z + Math.cos(st.yaw) * 0.95); j.rotation.y = st.yaw; }
+    else { j.position.set(st.x - Math.sin(st.yaw) * 1.15, floorY(st.x, st.z), st.z - Math.cos(st.yaw) * 1.15); j.rotation.y = st.yaw + Math.PI; }
+  }
+  function staffDriving() { for (var i = 0; i < S.staff.length; i++) if (S.staff[i].state === 'drive') return S.staff[i]; return null; }
   function staffDropAll(st) {
+    if (st.state === 'drive') driverDismount(st);
     if (st.carry) { if (st.carry.kind === 'box') S.floor.push({ kind: 'box', sku: st.carry.sku, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); else S.floor.push({ kind: 'parcel', order: st.carry.order, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); st.carry = null; }
     S.pallets.forEach(function (p) { if (p.place === 'staff' && p.staff === st.id) { p.place = 'floor'; p.x = st.x + Math.sin(st.yaw) * 0.95; p.z = st.z + Math.cos(st.yaw) * 0.95; p.y = floorY(p.x, p.z); p.rot = st.yaw; } });
     st.task = null; st.state = 'idle'; st.path = [];
@@ -217,18 +318,85 @@
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && !st.leaving;
-      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -HALL.x + 3.7 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
+      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait' && st.state !== 'drive') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -HALL.x + 3.7 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
       if (!brk && st.state === 'break') st.state = 'idle';
+      // the driver: at the forklift, climbs on; on it, the forklift does the walking and the figure sits on the seat
+      if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st)) { st.state = 'idle'; st.task = null; } else { st.state = 'drive'; st.drive = { phase: 'toPallet', path: null }; sfx('forklift'); } }
+      if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false); return; }
       var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
       else if (st.state === 'wait') { st.timer -= dt; if (st.timer <= 0) { st.state = 'idle'; st.working = false; if (st.after) { var f = st.after; st.after = null; f(); } } }
       else if (st.state === 'break') { /* standing in the break room */ }
-      else if (st.state === 'idle' && working) { if (st.role === 'receiver') receiverThink(st); else if (st.role === 'picker') pickerThink(st); else packerThink(st); }
+      else if (st.state === 'idle' && working) { if (st.role === 'receiver') receiverThink(st); else if (st.role === 'picker') pickerThink(st); else if (st.role === 'driver') driverThink(st); else packerThink(st); }
       if ((st.state === 'idle' || st.state === 'break') && Math.random() < dt / 22 && S.time - (st.said || 0) > 0.4) { st.said = S.time; staffSay(st, pick(voice(st).idle), '#a0acb8'); }
       m.position.set(st.x, floorY(st.x, st.z), st.z); m.rotation.y = st.yaw;
       var near = dist2(st.x, st.z, player.x, player.z) < 36;
       animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, carrying);
+      jackFollow(st, m, S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; }));
     });
+  }
+  // ── The forklift driver ───────────────────────────────────────────
+  // Takes the pallets left on the hall floor (receiving, the palletiser drop, wherever you set one down) to a rack slot on any
+  // level, the top shelf included, which nobody on foot can reach. Keeps clear of the AGV's square and of you: a pallet you are
+  // standing by is yours, and the forklift is never taken while you are next to it or on it.
+  function driverSpot() { return { x: SPOT.fork.x + 2.2, z: SPOT.fork.z + 1.2 }; }
+  function driverJob() {
+    var A = S.agv, pu = propInst.agvDock ? propWorld('agvDock', 0, 2.6) : null, wr = propInst.wrapper ? propWorld('wrapper', 0, 0) : null, best = null, bd = 1e9;
+    S.pallets.forEach(function (p) {
+      if (p.place !== 'floor' || p.n <= 0 || !insideHall(p.x, p.z) || (SKU[p.sku] && SKU[p.sku].raw)) return;
+      if (A && A.target === p.id && A.state !== 'idle') return; if (pu && dist2(p.x, p.z, pu.x, pu.z) < 2.6) return; if (wr && dist2(p.x, p.z, wr.x, wr.z) < 2.6) return; if (dist2(p.x, p.z, player.x, player.z) < 9) return;
+      if (S.staff.some(function (o) { return o.task && o.task.pallet === p.id; })) return;
+      var key = findSlotFor(p.sku, p.n, 2); if (!key) return;
+      var d = dist2(p.x, p.z, S.fork.x, S.fork.z); if (d < bd) { bd = d; best = { pallet: p, key: key }; }
+    });
+    return best;
+  }
+  function driverThink(st) {
+    if (!S.up.fork) { if (Math.random() < 0.004) staffSay(st, 'Nothing to drive yet.', '#a0acb8'); idleAt(st, driverSpot()); return; }
+    if (driving || staffDriving() || dist2(player.x, player.z, S.fork.x, S.fork.z) < 6.5) { idleAt(st, driverSpot()); return; }
+    var job = driverJob(); if (!job) { idleAt(st, driverSpot()); return; }
+    st.task = { kind: 'drive', pallet: job.pallet.id, key: job.key }; if (Math.random() < 0.5) staffSay(st, voice(st).onit, '#5fd38d');
+    staffGo(st, { x: S.fork.x - Math.sin(S.fork.yaw) * 1.6, z: S.fork.z - Math.cos(S.fork.yaw) * 1.6 }, 'mountFork');
+  }
+  function forkFollow(D, dt) {
+    if (!D.path || !D.path.length) return true;
+    var t = D.path[0], dx = t.x - S.fork.x, dz = t.z - S.fork.z, d = Math.hypot(dx, dz), want = Math.atan2(dx, dz), diff = Math.atan2(Math.sin(want - S.fork.yaw), Math.cos(want - S.fork.yaw));
+    S.fork.yaw = Math.atan2(Math.sin(S.fork.yaw + clamp(diff, -2.2 * dt, 2.2 * dt)), Math.cos(S.fork.yaw + clamp(diff, -2.2 * dt, 2.2 * dt))); if (Math.abs(diff) > 0.5) return false;   // turns on the spot before it moves off, the way a counterbalance truck is driven; the heading is kept wrapped
+    var sp = 2.4 * dt; if (d <= sp) { S.fork.x = t.x; S.fork.z = t.z; D.path.shift(); return !D.path.length; }
+    S.fork.x += dx / d * sp; S.fork.z += dz / d * sp; return false;
+  }
+  function forkTurnTo(want, dt) { var diff = Math.atan2(Math.sin(want - S.fork.yaw), Math.cos(want - S.fork.yaw)); if (Math.abs(diff) < 0.04) { S.fork.yaw = want; return true; } S.fork.yaw += clamp(diff, -2.2 * dt, 2.2 * dt); return false; }
+  function driveTick(st, dt) {
+    var D = st.drive, p = st.task ? palletById(st.task.pallet) : null;
+    if (!D) { driverDismount(st); return; }
+    if (D.phase === 'toPallet') {
+      if (!p || p.place !== 'floor') { D.phase = 'park'; D.path = null; return; }
+      if (!D.path) { var dx = p.x - S.fork.x, dz = p.z - S.fork.z, dl = Math.hypot(dx, dz) || 1; D.path = route({ x: S.fork.x, z: S.fork.z }, { x: p.x - dx / dl * 1.7, z: p.z - dz / dl * 1.7 }); }
+      if (forkFollow(D, dt) && forkTurnTo(Math.atan2(p.x - S.fork.x, p.z - S.fork.z), dt)) { p.place = 'fork'; S.fork.pallet = p.id; S.fork.lift = 0.3; sfx('jack'); D.phase = 'toSlot'; D.path = null; }
+    } else if (D.phase === 'toSlot') {
+      if (!p || p.place !== 'fork') { D.phase = 'park'; D.path = null; return; }
+      if (!D.path) D.path = route({ x: S.fork.x, z: S.fork.z }, slotStand(st.task.key));
+      if (forkFollow(D, dt)) { var sp = slotParse(st.task.key), spos = rackSlotPos(sp.r, sp.b, sp.l); if (forkTurnTo(Math.atan2(spos.x - S.fork.x, spos.z - S.fork.z), dt)) { D.phase = 'lift'; D.liftTo = RACK.levels[sp.l] + 0.15; } }
+    } else if (D.phase === 'lift') {
+      S.fork.lift = Math.min(D.liftTo, S.fork.lift + 0.9 * dt);
+      if (S.fork.lift >= D.liftTo - 0.001) {
+        var ok = p && storePallet(p, st.task.key); if (!ok && p) { var k2 = findSlotFor(p.sku, p.n, 2); ok = k2 && storePallet(p, k2); }
+        if (ok) { S.stats.putaway++; sfx('crate'); addXp(XP.pallet); } else if (p) { var ft = forkTip(); p.place = 'floor'; p.x = ft.x; p.z = ft.z; p.y = 0; p.rot = S.fork.yaw; staffSay(st, voice(st).nospace, '#ff6b5e'); }
+        S.fork.pallet = null; D.phase = 'lower';
+      }
+    } else if (D.phase === 'lower') {
+      S.fork.lift = Math.max(0.1, S.fork.lift - 0.9 * dt);
+      if (S.fork.lift <= 0.1001) { st.task = null; var job = !driving && dist2(player.x, player.z, S.fork.x, S.fork.z) > 6.5 ? driverJob() : null; if (job) { st.task = { kind: 'drive', pallet: job.pallet.id, key: job.key }; D.phase = 'toPallet'; D.path = null; } else { D.phase = 'park'; D.path = null; } }
+    } else if (D.phase === 'park') {
+      if (!D.path) D.path = route({ x: S.fork.x, z: S.fork.z }, { x: SPOT.fork.x, z: SPOT.fork.z });
+      if (forkFollow(D, dt) && forkTurnTo(Math.PI, dt)) driverDismount(st);
+    } else driverDismount(st);
+  }
+  function driverDismount(st) {
+    var p = S.fork.pallet ? palletById(S.fork.pallet) : null;
+    if (p && st.task && st.task.pallet === p.id) { var ft = forkTip(); p.place = 'floor'; p.x = ft.x; p.z = ft.z; p.y = 0; p.rot = S.fork.yaw; S.fork.pallet = null; }
+    if (!S.fork.pallet) S.fork.lift = Math.min(S.fork.lift, 0.3);
+    st.drive = null; st.task = null; st.state = 'idle'; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw;
   }
   function benchSide(lz) { var P = PROPS.bench ? propPlacement('bench') : { x: SPOT.bench.x, z: SPOT.bench.z, rot: 0 }, a = P.rot * Math.PI / 2, lx = -1.0; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a) }; }
   function clockStand() { var P = propPlacement('timeclock'), a = P.rot * Math.PI / 2; return { x: P.x + Math.sin(a) * 1.0, z: P.z + Math.cos(a) * 1.0 }; }
@@ -253,6 +421,13 @@
     st.after = function () { var p = palletById(pickP.id); if (!p || p.place !== 'truck') { st.task = null; return; } onPalletLeftTruck(p); p.place = 'staff'; p.staff = st.id; sfx('jack'); st.task = null; };
   }
   function pickerThink(st) {
+    // a box being taken back: to the slot chosen for it, and onto the rack
+    if (st.carry && st.carry.back) {
+      var bk = st.carry.back, bsku = st.carry.sku;
+      staffGo(st, slotStand(bk), 'wait'); st.timer = 1.0; st.working = true;
+      st.after = function () { if (!st.carry) return; var k = slotSpace(bk, bsku) > 0 ? bk : findSlotFor(bsku, 1, 1); if (k) { slotAdd(k, bsku, 1); st.carry = null; sfx('putdown'); S.stats.putaway++; } else { S.floor.push({ kind: 'box', sku: bsku, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); st.carry = null; staffSay(st, voice(st).nospace, '#ff6b5e'); } st.task = null; };
+      return;
+    }
     if (st.carry) {
       staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true;
       st.after = function () { if (!st.carry) return; if (benchCount() < ECON.benchCap) { benchAdd(st.carry.sku, 1); st.carry = null; sfx('putdown'); addXp(XP.box); } else { staffSay(st, voice(st).full, '#ff6b5e'); staffWait(st, 3); } st.task = null; };
@@ -261,7 +436,13 @@
     var want = null;
     var orders = openOrders().slice().sort(function (a, b) { return (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due; });
     for (var i = 0; i < orders.length && !want; i++) orders[i].lines.forEach(function (l) { if (want) return; if (skuDemand(l.sku) > 0) { var keys = slotsWith(l.sku).filter(function (k) { return slotParse(k).l < RACK.top; }); if (keys.length) want = { sku: l.sku, key: keys[0] }; } });
-    if (!want) { idleAt(st, { x: SPOT.bench.x - 2.0, z: 2.6 }); return; }
+    if (!want) {
+      // nothing to pick: a box on the bench that no open order wants goes back on the racks, one at a time
+      var sur = benchSurplus(), rsku = null; for (var sk in sur) if (sur[sk] > 0) { rsku = sk; break; }
+      var rkey = rsku ? findSlotFor(rsku, 1, 1) : null;
+      if (rkey && !S.staff.some(function (o) { return o !== st && o.task && o.task.kind === 'return'; })) { st.task = { kind: 'return', sku: rsku, key: rkey }; staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true; st.after = function () { if (benchTake(rsku, 1)) { st.carry = { kind: 'box', sku: rsku, back: rkey }; sfx('pickup'); } else st.task = null; }; return; }
+      idleAt(st, { x: SPOT.bench.x - 2.0, z: 2.6 }); return;
+    }
     st.task = { kind: 'pick', sku: want.sku, key: want.key };
     staffGo(st, slotStand(want.key), 'wait'); st.timer = 1.0; st.working = true;
     st.after = function () { var s = S.slots[want.key]; if (s && s.sku === want.sku && s.n > 0) { slotTake(want.key, 1); st.carry = { kind: 'box', sku: want.sku }; S.stats.picked++; sfx('pickup'); } st.task = null; };

@@ -9,19 +9,35 @@
     for (var d = 0; d < 3; d++) for (var k = 0; k < TRUCK_OUT.length; k++) { var abs = (S.day + d) * 24 + TRUCK_OUT[k].leave; if (abs >= minAbs) return abs; }
     return minAbs + 24;
   }
+  // What an order may ask for: stock on site (the racks, the bench, the floor, the cart, and the pallets on a signed truck) less
+  // what the open orders already claim. An order is never written for boxes that are not here, and never for boxes another
+  // order is still waiting on, so two orders cannot want the same six tins and a pick is never surplus the moment it is made.
+  function freeStock() {
+    var free = {}; function add(sku, n) { free[sku] = (free[sku] || 0) + n; }
+    for (var k in S.slots) if (S.slots[k].n) add(S.slots[k].sku, S.slots[k].n);
+    for (var b in S.bench.boxes) add(b, S.bench.boxes[b]);
+    S.pallets.forEach(function (p) { if (p.n <= 0 || !p.sku || (SKU[p.sku] && SKU[p.sku].raw)) return; if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked' || !t.signed) return; } add(p.sku, p.n); });
+    S.floor.forEach(function (f) { if (f.kind === 'box' && !f.damaged) add(f.sku, 1); });
+    (S.cart && S.cart.boxes || []).forEach(function (s) { add(s, 1); });
+    S.orders.forEach(function (o) { if (o.state === 'open' || o.state === 'packing') o.lines.forEach(function (l) { add(l.sku, -(l.qty - (l.packed || 0))); }); });
+    return free;
+  }
+  // what the open orders still want that is not on the bench yet, and what sits on the bench that no open order wants
+  function benchNeed() { var need = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); }); for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k]; for (var q in need) if (need[q] <= 0) delete need[q]; return need; }
+  function benchSurplus() { var want = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); var sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
   function genOrder(rush) {
-    var avail = unlockedSkus().filter(function (s) { return S.seenSkus.indexOf(s) >= 0; }); if (!avail.length) avail = unlockedSkus();
-    var inStock = avail.filter(function (s) { return stockCount(s) > 0; });
+    var free = freeStock(), avail = unlockedSkus().filter(function (s) { return (free[s] || 0) > 0; }); if (!avail.length) return null;
     var client = S.contract && S.contract.accepted && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === S.contract.client; })[0] : pick(CLIENTS), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
     var nLines = randi(1, Math.min(3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));
     var lines = [], used = {};
     for (var i = 0; i < nLines; i++) {
-      // what the client likes and you stock, else anything you stock, else (rarely, and never for the first line) what the client likes
-      var likedStocked = pool.filter(function (s) { return inStock.indexOf(s) >= 0 && !used[s]; }), anyStocked = inStock.filter(function (s) { return !used[s]; }), liked = pool.filter(function (s) { return !used[s]; });
-      var from = likedStocked.length ? likedStocked : anyStocked.length && (i === 0 || Math.random() < 0.85) ? anyStocked : liked;
+      // what the client likes and you have free, else anything you have free; never more of a line than is free
+      var liked = pool.filter(function (s) { return !used[s] && free[s] > 0; }), any = avail.filter(function (s) { return !used[s] && free[s] > 0; });
+      var from = liked.length && (i === 0 || Math.random() < 0.85) ? liked : any;
       if (!from.length) break;
       var sku = pick(from); used[sku] = 1;
-      lines.push({ sku: sku, qty: clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, 6) });
+      var qty = clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, Math.min(6, free[sku])); free[sku] -= qty;
+      lines.push({ sku: sku, qty: qty });
     }
     if (!lines.length) return null;
     var value = 0; lines.forEach(function (l) { value += l.qty * SKU[l.sku].val; });
@@ -53,7 +69,8 @@
     if (S.time >= 8 && S.time < 17 && !S.events.power && !isSunday()) {
       var openN = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }).length;
       var maxOpen = 3 + S.level, gap = Math.max(0.8, 2.3 - S.level * 0.12);
-      if (S.day === 1 && !S.flags.firstOrder && S.time >= 8.5) { S.flags.firstOrder = 1; S.lastOrderAt = n; genOrder(false); }
+      // the first order waits for stock: until something is on site and signed for there is nothing a client can order
+      if (S.day === 1 && !S.flags.firstOrder) { if (S.time >= 8.5 && n - (S.flags.firstTry || 0) >= 0.1) { S.flags.firstTry = n; if (genOrder(false)) { S.flags.firstOrder = 1; S.lastOrderAt = n; } } }
       else if (openN < maxOpen && n - S.lastOrderAt >= gap && !S.flags.noOrders) { S.lastOrderAt = n + randf(-0.3, 0.3); genOrder(Math.random() < 0.12 && S.level >= 3); }
     }
     for (var i = S.orders.length - 1; i >= 0; i--) {
@@ -67,21 +84,48 @@
   function benchCount() { var n = 0; for (var k in S.bench.boxes) n += S.bench.boxes[k]; return n; }
   function benchAdd(sku, n) { S.bench.boxes[sku] = (S.bench.boxes[sku] || 0) + n; }
   function benchTake(sku, n) { var k = Math.min(n, S.bench.boxes[sku] || 0); S.bench.boxes[sku] -= k; if (S.bench.boxes[sku] <= 0) delete S.bench.boxes[sku]; return k; }
+  // what the cart would do at the bench: the boxes the orders still want come off it, and the bench's surplus goes onto it
+  function cartAtBench() { var need = benchNeed(), off = 0, on = 0, room = ECON.benchCap - benchCount(); S.cart.boxes.forEach(function (sku) { if ((need[sku] || 0) > 0 && off < room) { need[sku]--; off++; } }); var sur = benchSurplus(); for (var k in sur) on += sur[k]; on = Math.min(on, ECON.cartCap - (cartLoad() - off)); return { off: off, on: Math.max(0, on) }; }
   function benchPrompt() {
-    if (player.tool === 'cart') return S.cart.boxes.length ? 'Unload the cart onto the bench (' + S.cart.boxes.length + ' boxes)' : 'Packing bench';
+    if (player.tool === 'cart') { var c = cartAtBench(); return (c.off ? 'Unload ' + c.off + ' wanted ' + (c.off === 1 ? 'box' : 'boxes') : '') + (c.off && c.on ? ', ' : '') + (c.on ? 'take ' + c.on + ' surplus back on the cart' : '') || 'Packing bench · nothing on the cart the orders want'; }
     if (isJack(player.tool)) return null;
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Damaged boxes do not ship: bin it';
     if (S.hand && S.hand.kind === 'box') return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
     if (S.hand) return null;
-    return 'Packing bench · ' + benchCount() + ' boxes · ' + openOrders().length + ' open orders';
+    var sur = benchSurplus(), sn = 0; for (var k in sur) sn += sur[k];
+    return 'Packing bench · ' + benchCount() + ' boxes · ' + openOrders().length + ' open orders' + (sn ? ' · ' + sn + ' surplus (look at a box to take it back)' : '');
   }
   function benchUse() {
-    if (player.tool === 'cart') { var moved = 0; while (S.cart.boxes.length && benchCount() < ECON.benchCap) { benchAdd(S.cart.boxes.pop(), 1); moved++; } if (moved) { sfx('putdown'); introStep('bench'); } else if (S.cart.boxes.length) toast('The bench is full.', 'bad'); return; }
+    if (player.tool === 'cart') {
+      // the boxes the open orders still want come off the cart; the surplus on the bench goes onto the cart, to go back on the racks
+      var need = benchNeed(), off = 0, on = 0;
+      for (var i = S.cart.boxes.length - 1; i >= 0; i--) { var sku = S.cart.boxes[i]; if ((need[sku] || 0) > 0 && benchCount() < ECON.benchCap) { S.cart.boxes.splice(i, 1); benchAdd(sku, 1); need[sku]--; off++; } }
+      var sur = benchSurplus(); for (var k in sur) while (sur[k] > 0 && cartLoad() < ECON.cartCap) { benchTake(k, 1); S.cart.boxes.push(k); sur[k]--; on++; }
+      if (off || on) { sfx('putdown'); introStep('bench'); toast((off ? off + ' onto the bench' : '') + (off && on ? ' · ' : '') + (on ? on + ' surplus onto the cart' : ''), 'good'); hudDirty = true; }
+      else if (S.cart.boxes.length) toast(benchCount() >= ECON.benchCap ? 'The bench is full.' : 'No open order wants what is on the cart. Put it back on the racks.', 'bad');
+      else toast('Nothing surplus on the bench.', '');
+      return;
+    }
     if (isJack(player.tool)) return;
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. Bin it.', 'bad'); return; }
     if (S.hand && S.hand.kind === 'box') { if (benchCount() >= ECON.benchCap) { toast('The bench is full.', 'bad'); return; } benchAdd(S.hand.sku, 1); handSet(null); sfx('putdown'); introStep('bench'); return; }
     if (S.hand) return;
-    openPanel('bench');
+    sfx('click'); toast('Look at a box on the bench and press E to take it back. The terminal at the end packs the orders.', '');
+  }
+  // a box on the bench is a thing you look at: E takes it back into your hand (or onto the cart)
+  function benchBoxPrompt(src) {
+    var sku = src.sku, sur = benchSurplus()[sku] || 0, tag = sur ? ' · surplus, no order wants it' : ' · an open order wants it';
+    if (player.tool === 'cart') return cartLoad() < ECON.cartCap ? 'Put the box of ' + skuName(sku) + ' on the cart' + tag : 'The cart is full';
+    if (S.hand && S.hand.kind === 'box' && !S.hand.damaged) return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
+    if (S.hand || player.tool) return null;
+    return 'Take the box of ' + skuName(sku) + ' off the bench' + tag;
+  }
+  function benchBoxUse(src) {
+    var sku = src.sku;
+    if (player.tool === 'cart') { if (cartLoad() >= ECON.cartCap) { sfx('bad'); return; } if (benchTake(sku, 1)) { S.cart.boxes.push(sku); sfx('pickup'); hudDirty = true; } return; }
+    if (S.hand && S.hand.kind === 'box' && !S.hand.damaged) { benchUse(); return; }
+    if (S.hand || player.tool) return;
+    if (benchTake(sku, 1)) { handSet({ kind: 'box', sku: sku }); sfx('pickup'); }
   }
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }

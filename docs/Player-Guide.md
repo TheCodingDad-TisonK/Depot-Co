@@ -14,7 +14,7 @@ You clock in at 06:00 with $600, two rack rows and a pallet jack. The intro in t
 4. **The scanner.** `Tab` raises it. Page 1 is the pick list with the slot of every line, page 2 what is still on the truck and where it should go, page 3 the stock, page 4 the day. Point it at a rack slot and the bottom line reads that slot. `1`-`4` or the mouse wheel turn the pages.
 5. **08:30, the first order.** It shows on the office PC, the wall board above the office, and the scanner (page 1), with the lines, the due time and the pay. The due time is the departure of an outbound truck.
 6. **Pick.** Walk to the slot the scanner names and `E` takes a box. Carry it to the **packing bench** on the east side and `E` puts it down. One box per trip until you buy the cart.
-7. **Pack.** With empty hands, `E` on the bench opens it. Pick the order and release it to the pack line: its boxes ride the infeed belt into the case taper, and the parcel rolls down the outfeed onto the gravity shelf at the end of the line. An order with at least half its boxes can be released short for 60% of the pay.
+7. **Pack.** The terminal at the end of the bench lists the orders. Pick one and release it to the pack line: its boxes ride the infeed belt into the case taper, and the parcel rolls down the outfeed onto the gravity shelf at the end of the line. An order with at least half its boxes can be released short for 60% of the pay.
 8. **Ship.** The outbound truck is at **OUT 1** from 10:30 to 12:00 (and OUT 2 from 16:00 to 18:00). Open the door, pick the parcel up, walk into the trailer and `E` loads it. `E` on the dock console sends the truck now; otherwise it leaves on time. You are paid when it goes.
 9. **13:30, the second truck.** Same again. By 17:00 you can sleep on the cot in the break room, which skips to 06:00 and charges rent ($110) and wages.
 
@@ -95,8 +95,17 @@ The crew come in from the yard through the staff door and clock in at the reader
 | Receiver | $85 | 3 | Empties a docked inbound truck onto the racks, if its door is open |
 | Picker | $85 | 3 | Takes boxes for open orders to the bench |
 | Packer | $75 | 4 | Packs complete orders and loads parcels into a docked outbound truck, if its door is open |
+| Forklift driver | $95 | 5 | Needs the forklift. Puts the pallets left on the hall floor away on any level, the top shelf included, and parks the forklift back in its bay. Will not take the forklift while you are on it or beside it |
 
-They work 08:00 to 18:00 and go home with nothing in their hands. Up to five at once.
+They work 08:00 to 18:00 and go home with nothing in their hands. Up to five at once. A receiver pushes a pallet jack of their own. A picker with nothing to pick walks surplus boxes back from the bench to the racks.
+
+## The bench, without a menu
+
+A box on the bench is a thing you look at: `E` takes it back into your hand, or onto the cart, and the prompt says whether an open order wants it. The cart at the bench unloads only the boxes the open orders still want and, in the same press, takes the bench's surplus onto the cart to go back on the racks. The scanner's orders page ends with one pick list for every open order together, less what the bench already holds. An order only ever asks for stock that is on site (racks, bench, floor, cart, and the pallets on a signed truck) and not already claimed by another order.
+
+## Conveyors from parts
+
+Build mode (`F2`), then `C`: the Conveyors group sells belts by the piece, straights of 2 and 4 m, quarter-turn curves left and right, inclines up and down a metre, and a 4 m high run hung from the roof two metres up (two inclines reach it). A carried piece snaps to the nearest free belt end, machine outlet, parcel shelf or inbound dock door (its start goes there), or to the nearest free belt start, machine inlet, outbound dock door or rack bay (its end goes there), turning and climbing to match; when you drop it, it says what it takes from and what it feeds. A belt that ends at a rack bay puts its boxes on the rack. One that ends at an outbound door with a truck in loads the parcels. One that starts at an inbound door with a signed truck in takes the boxes off its pallets, a box a second. The parcel shelf feeds any belt laid at its take-off, and the bench takes boxes from any side. Remove a piece and whatever rode it is set down on the floor where it was.
 
 ## Lines and when they arrive
 

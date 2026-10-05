@@ -24,8 +24,7 @@
 
   function buildDressing() {
     var X = HALL.x, Z = HALL.z, H = HALL.h;
-    // pilasters on the long walls, and bollards guarding every dock door
-    [-12, -4, 4, 12].forEach(function (x) { box(0.4, H, 0.4, MAT.steelDark, x, H / 2, Z - 0.35); }); [-20, -12, 12, 20].forEach(function (x) { box(0.4, H, 0.4, MAT.steelDark, x, H / 2, -Z + 0.35); });   // the north wall's stand clear of the belt opening and the wing doorway
+    // bollards guarding every dock door (the columns along the walls are the hall lining's, in 06-building)
     doors.forEach(function (d) { [-1, 1].forEach(function (s) { var bx = d.side * (X - 1.0), bz = d.z + s * (DOCKS.w / 2 + 0.5); cyl(0.11, 1.0, MAT.yellow, bx, 0.5, bz, null, 10); cyl(0.14, 0.05, MAT.black, bx, 0.025, bz, null, 10); }); });
     // the north wall: cable tray, sprinkler main, extractor fans, the exit sign, the painted name
     box(2 * X - 1, 0.08, 0.3, MAT.steelDark, 0, 5.6, -Z + 0.35); for (var cx = -18; cx <= 18; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, 5.6, -Z + 0.35);
@@ -44,7 +43,8 @@
     // dock lights beside every door, wheel chocks inside, guide rails and a chain hoist
     doors.forEach(function (d) {
       var x = d.side * (X - 0.3), z = d.z - DOCKS.w / 2 - 0.5;
-      box(0.5, 0.06, 0.06, MAT.steelDark, x + d.side * -0.2, 4.6, z); var lamp = box(0.18, 0.18, 0.18, glowMat(0xffb020, 0.4), x - d.side * 0.5, 4.5, z); dress.dockLamps.push({ m: lamp, door: d.i });
+      box(0.5, 0.06, 0.06, MAT.steelDark, x + d.side * -0.2, 4.6, z); var lamp = box(0.18, 0.18, 0.18, glowMat(0xffb020, 0.4), x - d.side * 0.5, 4.5, z);
+      var dl = new THREE.PointLight(0xffb020, 0, 9, 2); dl.position.set(x - d.side * 0.9, 4.3, z); scene.add(dl); dress.dockLamps.push({ m: lamp, l: dl, door: d.i });   // the beacon throws real amber on the apron while a truck is on its way
       box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.3); box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.6);
       var rx = d.side * (X - 0.15); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z - DOCKS.w / 2 - 0.05); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z + DOCKS.w / 2 + 0.05); cyl(0.1, 0.3, MAT.steelDark, rx - d.side * 0.15, DOCKS.h + 0.3, d.z + DOCKS.w / 2 + 0.35, null, 10).rotation.x = Math.PI / 2; cyl(0.006, DOCKS.h - 0.6, MAT.chrome, rx - d.side * 0.15, DOCKS.h / 2 + 0.2, d.z + DOCKS.w / 2 + 0.35, null, 4);
     });
@@ -114,7 +114,7 @@
     dress.fans.forEach(function (f) { f.rotation.z += dt * (power ? 9 : 0.5); });
     if (dress.turntable) dress.turntable.rotation.y += dt * (wrapperBusy() ? 1.4 : 0);
     if (dress.wrapCarriage) dress.wrapCarriage.position.y = wrapperBusy() ? 0.5 + Math.abs(Math.sin(worldTime * 0.9)) * 1.0 : 1.0;
-    dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return (t.dir === 'in' ? t.dock : 2 + t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); l.m.material.emissiveIntensity = coming ? (Math.sin(worldTime * 8) > 0 ? 2.2 : 0.2) : (S.doors[d.i] ? 1.2 : 0.2); });
+    dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return (t.dir === 'in' ? t.dock : 2 + t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); var on = coming ? (Math.sin(worldTime * 8) > 0 ? 1 : 0.1) : (S.doors[d.i] ? 0.55 : 0.1); l.m.material.emissiveIntensity = 0.2 + on * 2.0; if (l.l) l.l.intensity = power ? on * 1.3 : 0; });
     if (dress.charger && dress.charger.material) dress.charger.material.emissiveIntensity = power ? (forkCharging() ? (Math.sin(worldTime * 3) > 0 ? 1.5 : 0.4) : 1) : 0;
     tickClocks();
     if (dress.dust) { var dpa = dress.dust.geometry.attributes.position.array; for (var di = 0; di < dpa.length; di += 3) { dpa[di] += Math.sin(worldTime * 0.3 + di) * 0.004; dpa[di + 1] -= 0.02 * dt; if (dpa[di + 1] < 0.4) dpa[di + 1] = HALL.h - 0.2; } dress.dust.geometry.attributes.position.needsUpdate = true; }

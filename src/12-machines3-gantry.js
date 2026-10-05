@@ -20,7 +20,7 @@
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
   defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
   function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
-  defMachine('benchIn', { prop: 'bench', inlet: [-1.8, -3.2], accept: benchAccept });   // where the merge belt lands, at bench height
+  defMachine('benchIn', { prop: 'bench', inlets: [[-1.8, -3.2], [0, 2.3], [-1.1, 0], [1.1, 0.6], [1.1, -0.6]], accept: benchAccept });   // where the merge belt lands, and the bench's own ends and sides, so a run of pieces can feed it from any side
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }
   function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); return out; }

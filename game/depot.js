@@ -76,7 +76,7 @@
   // ── Money ─────────────────────────────────────────────────────────
   var ECON = {
     start: 600, rent: 110, rawPrice: 120, receiveFee: 12, handling: 14, margin: 0.22, lateCut: 0.5, shortCut: 0.6,
-    wage: { receiver: 85, picker: 85, packer: 75 },
+    wage: { receiver: 85, picker: 85, packer: 75, driver: 95 },
     rowPrice: 950, cartPrice: 240, forkPrice: 2800, lightsPrice: 600, pcPrice: 0,
     jackPallet: 8, palletCap: 8, slotCap: 12, cartCap: 6, benchCap: 16
   };
@@ -97,7 +97,8 @@
   var STAFF_ROLES = {
     receiver: { name: 'Receiver', wage: ECON.wage.receiver, lvl: 3, desc: 'Walks pallets out of a docked inbound truck and puts them on the racks.' },
     picker:   { name: 'Picker',   wage: ECON.wage.picker,   lvl: 3, desc: 'Takes boxes off the racks for open orders and brings them to the bench.' },
-    packer:   { name: 'Packer',   wage: ECON.wage.packer,   lvl: 4, desc: 'Packs complete orders at the bench and loads the parcels into a docked outbound truck.' }
+    packer:   { name: 'Packer',   wage: ECON.wage.packer,   lvl: 4, desc: 'Packs complete orders at the bench and loads the parcels into a docked outbound truck.' },
+    driver:   { name: 'Forklift driver', wage: ECON.wage.driver, lvl: 5, needs: 'fork', desc: 'Drives the forklift: puts the pallets left on the hall floor away on any level, the top shelf included, and parks it back in its bay. Needs the forklift.' }
   };
   var XP_FOR = function (lvl) { return Math.round(80 * Math.pow(1.45, lvl - 1)); };
   var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
@@ -336,13 +337,35 @@
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
   // nine high bays on a 20 x 15 m grid: the hall is 60 x 48 since 2026-10-02, and six lights on the old 20 x 10 grid left the edges dark
-  [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]].forEach(function (p) {   // twelve since the 72 m hall
-    var l = new THREE.PointLight(0xfff4e0, 0.55, 38, 2); l.position.set(p[0], 7.3, p[1]); scene.add(l); hallLights.push(l);
+  [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]].forEach(function (p, i) {   // twelve since the 72 m hall
+    // a shorter reach than the old 38 m: the floor under each bay is a pool and the aisle between two bays is a touch darker, the
+    // way a real hall reads. Every third lamp is a slightly cooler tube, as a hall that has had its lamps replaced piecemeal is.
+    var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l);
   });
-  var officeLight = new THREE.PointLight(0xfff8ea, 0.5, 9, 2); officeLight.position.set(16.5, 3.2, 11); scene.add(officeLight);
-  var breakLight = new THREE.PointLight(0xffe9c8, 0.35, 8, 2); breakLight.position.set(-16.5, 3.0, -12); scene.add(breakLight);
-  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.3, 7, 2); lobbyLight.position.set(-17.7, 3.0, 11.2); scene.add(lobbyLight);
+  // the three rooms' own lamps, under their troffers (they used to sit where the rooms were before the hall grew: in the open hall)
+  var officeLight = new THREE.PointLight(0xfff8ea, 0.55, 9, 2); officeLight.position.set(32.5, 2.9, 21.2); scene.add(officeLight);
+  var breakLight = new THREE.PointLight(0xffe9c8, 0.45, 8, 2); breakLight.position.set(-32.5, 2.9, -22.1); scene.add(breakLight);
+  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.4, 7, 2); lobbyLight.position.set(-33.7, 2.9, 21.2); scene.add(lobbyLight);
   var yardLights = [];   // filled by the lamp-post props
+  // Three.js lights every pixel with every visible point light, whether or not the light can reach it, so thirty lamps mean thirty
+  // evaluations per pixel. Every point light in the scene goes in one list and only the nearest few to the camera stay visible; the
+  // rest are hidden. The visible count is held constant so the shaders are not recompiled when you walk from one end of the hall
+  // to the other. A lamp inside a hidden group is left alone (the renderer skips it anyway). Lamps that are off sort last.
+  var lightBudget = { n: 12, lights: null, scanT: 0, tickT: 0, tmp: new THREE.Vector3(), cam: new THREE.Vector3() };
+  function updateLightBudget() {
+    var t = worldTime;
+    if (!lightBudget.lights || t - lightBudget.scanT > 2) { var list = []; scene.traverse(function (o) { if (o.isPointLight) list.push(o); }); lightBudget.lights = list; lightBudget.scanT = t; }
+    if (t - lightBudget.tickT < 0.1) return; lightBudget.tickT = t;
+    camera.getWorldPosition(lightBudget.cam);
+    var cand = [];
+    lightBudget.lights.forEach(function (l) {
+      for (var p = l.parent; p; p = p.parent) if (p.visible === false) return;
+      l.getWorldPosition(lightBudget.tmp); var d = lightBudget.tmp.distanceTo(lightBudget.cam);
+      l.userData.budgetScore = (l.intensity > 0 ? 0 : 1e6) + Math.max(0, d - (l.distance || 40) * 0.25); cand.push(l);
+    });
+    cand.sort(function (a, b) { return a.userData.budgetScore - b.userData.budgetScore; });
+    for (var i = 0; i < cand.length; i++) cand[i].visible = i < lightBudget.n;
+  }
 
   // ── Textures: every one is drawn on a canvas at boot ──────────────
   function tex(w, h, draw, rx, ry) {
@@ -389,7 +412,14 @@
     paper: tex(128, 128, function (c, w, h) { c.fillStyle = '#f3efe4'; c.fillRect(0, 0, w, h); grain(c, w, h, 800, 0.05); }, 1, 1),
     cork: tex(256, 256, function (c, w, h) { c.fillStyle = '#b8905c'; c.fillRect(0, 0, w, h); grain(c, w, h, 8000, 0.25); blotches(c, w, h, 60, 3, 10, true, 0.3); }, 1, 1),
     fabric: tex(128, 128, function (c, w, h) { c.fillStyle = '#2f4a73'; c.fillRect(0, 0, w, h); grain(c, w, h, 4000, 0.12); }, 1, 1),
-    rubberMat: tex(128, 128, function (c, w, h) { c.fillStyle = '#1b1d20'; c.fillRect(0, 0, w, h); c.fillStyle = '#24272b'; for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 6, 6)
+    cloth: tex(128, 128, function (c, w, h) { c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 2) for (var x = 0; x < w; x += 2) { c.fillStyle = 'rgba(0,0,0,' + (((x + y) / 2) % 2 ? 0.14 : 0.04) + ')'; c.fillRect(x, y, 2, 2); } }, 6, 6),   // a white weave that takes whatever colour a shirt is given
+    rubberMat: tex(128, 128, function (c, w, h) { c.fillStyle = '#1b1d20'; c.fillRect(0, 0, w, h); c.fillStyle = '#24272b'; for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 6, 6),
+    // painted blockwork: four courses of 400 x 200 blocks in a sheet 1.6 by 0.8 m, grey paint over grey block, a few blocks a shade off
+    block: tex(512, 256, function (c, w, h) { c.fillStyle = '#6e7276'; c.fillRect(0, 0, w, h); var bw = w / 4, bh = h / 4; for (var r = 0; r < 4; r++) for (var k = -1; k < 5; k++) { var x = k * bw + (r % 2 ? bw / 2 : 0); c.fillStyle = pick(['#9a9c9a', '#959895', '#9fa19e', '#929592', '#9c9e9b']); c.fillRect(x + 3, r * bh + 3, bw - 6, bh - 6); } grain(c, w, h, 5000, 0.08); blotches(c, w, h, 10, 20, 70, true, 0.08); for (var i = 0; i < 40; i++) { c.fillStyle = 'rgba(40,40,42,' + randf(0.05, 0.2) + ')'; c.fillRect(Math.random() * w, h * 0.7 + Math.random() * h * 0.3, randf(2, 10), randf(2, 5)); } }, 1, 1),
+    // carpet tile for the office: half-metre tiles in a blue-grey loop pile, the joints just showing, laid chequerboard
+    carpet: tex(256, 256, function (c, w, h) { c.fillStyle = '#3f4857'; c.fillRect(0, 0, w, h); for (var ty = 0; ty < 2; ty++) for (var tx = 0; tx < 2; tx++) { c.fillStyle = (tx + ty) % 2 ? '#404a5a' : '#3b4453'; c.fillRect(tx * 128 + 1, ty * 128 + 1, 126, 126); } grain(c, w, h, 14000, 0.1); for (var y = 0; y < h; y += 3) { c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(0, y, w, 1); } }, 1, 1),
+    // vinyl sheet for the lobby and the break room: a pale speckled floor with a faint weld line every 1.5 m
+    vinyl: tex(256, 256, function (c, w, h) { c.fillStyle = '#c9c6bd'; c.fillRect(0, 0, w, h); for (var i = 0; i < 9000; i++) { c.fillStyle = pick(['rgba(90,86,80,0.35)', 'rgba(255,255,255,0.3)', 'rgba(120,110,100,0.25)']); c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 3)); } blotches(c, w, h, 6, 30, 90, true, 0.05); c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(0, h / 2 - 1, w, 2); }, 1, 1)
   };
   function cardboardTex(col, name) {
     return tex(256, 256, function (c, w, h) {
@@ -405,15 +435,21 @@
       c.beginPath(); c.moveTo(w * 0.76, h * 0.62); c.quadraticCurveTo(w * 0.68, h * 0.72, w * 0.76, h * 0.76); c.quadraticCurveTo(w * 0.84, h * 0.72, w * 0.76, h * 0.62); c.fill(); c.font = '8px sans-serif'; c.fillText('KEEP DRY', w * 0.66, h * 0.72);
     });
   }
+  // a sign on the house slate (#1b232c) is an enamelled plate: the slate shades a little towards the bottom, a hairline of
+  // light sits just in from the edge and a hairline of the sign's own colour inside that. opt.plate false turns that off (paint)
+  function isPlate(opt) { return !!opt && opt.plate !== false && (opt.plate === true || opt.bg === '#1b232c'); }
   function textTex(lines, opt) {
-    opt = opt || {}; var w = opt.w || 512, h = opt.h || 128;
+    opt = opt || {}; var w = opt.w || 512, h = opt.h || 128, plate = isPlate(opt);
     return tex(w, h, function (c) {
-      c.fillStyle = opt.bg || '#1b232c'; c.fillRect(0, 0, w, h);
+      if (plate) { var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#222c38'); g.addColorStop(1, '#10161d'); c.fillStyle = g; c.fillRect(0, 0, w, h); var e = Math.max(2, Math.round(Math.min(w, h) * 0.02)); c.strokeStyle = 'rgba(255,255,255,0.14)'; c.lineWidth = e; c.strokeRect(e / 2, e / 2, w - e, h - e); c.strokeStyle = opt.fg || '#f5b53d'; c.globalAlpha = 0.5; c.lineWidth = Math.max(1, e * 0.6); c.strokeRect(e * 3, e * 3, w - e * 6, h - e * 6); c.globalAlpha = 1; }
+      else { c.fillStyle = opt.bg || '#1b232c'; c.fillRect(0, 0, w, h); }
       if (opt.border) { c.strokeStyle = opt.border; c.lineWidth = 8; c.strokeRect(4, 4, w - 8, h - 8); }
       c.fillStyle = opt.fg || '#f5b53d'; c.textAlign = 'center'; c.textBaseline = 'middle';
       var size = opt.size || Math.min(h * 0.6, w / (Math.max.apply(null, lines.map(function (l) { return l.length; })) * 0.6));
       c.font = (opt.weight || 'bold') + ' ' + Math.floor(size) + 'px ' + (opt.font || 'Bahnschrift, Arial, sans-serif');
+      if (plate) { c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = Math.max(2, size * 0.08); c.shadowOffsetY = Math.max(1, size * 0.04); }
       lines.forEach(function (l, i) { c.fillText(l, w / 2, h / 2 + (i - (lines.length - 1) / 2) * size * 1.15); });
+      c.shadowColor = 'rgba(0,0,0,0)'; c.shadowBlur = 0; c.shadowOffsetY = 0;
     });
   }
   // the safety posters and notices on the walls: each one drawn once
@@ -457,7 +493,9 @@
     wood: normalTex(256, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var i = 0; i < 70; i++) { var y = Math.random() * h; c.strokeStyle = 'rgba(40,40,40,' + randf(0.2, 0.6) + ')'; c.lineWidth = randf(1, 2); c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(w * 0.3, y + randf(-4, 4), w * 0.7, y + randf(-4, 4), w, y); c.stroke(); } c.fillStyle = '#202020'; [0.2, 0.5, 0.8].forEach(function (f) { c.fillRect(0, h * f, w, 3); }); }, 1.2, 1, 1),
     cardboard: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 2500, 30); c.fillStyle = '#505050'; c.fillRect(0, h * 0.48, w, 4); c.fillStyle = '#9a9a9a'; c.fillRect(w * 0.44, 0, w * 0.12, h); c.fillStyle = '#8c8c8c'; c.fillRect(w * 0.08, h * 0.08, w * 0.34, h * 0.3); for (var i = 0; i < h; i += 6) { c.fillStyle = 'rgba(100,100,100,0.25)'; c.fillRect(0, i, w, 1); } }, 1.0, 1, 1),
     chequer: normalTex(128, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 32) for (var x = 0; x < w; x += 32) { var d = ((x + y) / 32) % 2; c.save(); c.translate(x + 16, y + 16); c.rotate(d ? 0.5 : -0.5); c.fillStyle = '#c0c0c0'; c.fillRect(-10, -3, 20, 6); c.restore(); } }, 1.5, 3, 3),
-    rubber: normalTex(128, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.fillStyle = '#b0b0b0'; c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 1.2, 6, 6)
+    rubber: normalTex(128, 128, function (c, w, h) { c.fillStyle = '#808080'; c.fillRect(0, 0, w, h); for (var y = 0; y < h; y += 16) for (var x = 0; x < w; x += 16) { c.fillStyle = '#b0b0b0'; c.beginPath(); c.arc(x + 8, y + 8, 5, 0, 6.3); c.fill(); } }, 1.2, 6, 6),
+    block: normalTex(512, 256, function (c, w, h) { c.fillStyle = '#505050'; c.fillRect(0, 0, w, h); var bw = w / 4, bh = h / 4; for (var r = 0; r < 4; r++) for (var k = -1; k < 5; k++) { var x = k * bw + (r % 2 ? bw / 2 : 0); c.fillStyle = '#9a9a9a'; c.fillRect(x + 3, r * bh + 3, bw - 6, bh - 6); } heightNoise(c, w, h, 'rgba(0,0,0,0)', 3000, 30); }, 1.6, 1, 1),
+    carpet: normalTex(256, 256, function (c, w, h) { heightNoise(c, w, h, '#808080', 6000, 50); c.fillStyle = '#606060'; c.fillRect(0, 127, w, 2); c.fillRect(127, 0, 2, h); }, 0.9, 1, 1)
   };
   function roughTex(w, h, base, amp, rx, ry) { var t = tex(w, h, function (c) { var v = Math.floor(base * 255); c.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; c.fillRect(0, 0, w, h); for (var i = 0; i < 4000; i++) { var k = Math.floor(v + (Math.random() - 0.5) * amp * 255); c.fillStyle = 'rgba(' + k + ',' + k + ',' + k + ',0.7)'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 6), randf(1, 6)); } for (var j = 0; j < 12; j++) { var r = randf(10, 50), x = Math.random() * w, y = Math.random() * h, g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(' + Math.floor(v - amp * 120) + ',' + Math.floor(v - amp * 120) + ',' + Math.floor(v - amp * 120) + ',0.8)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } }, rx, ry); t.encoding = THREE.LinearEncoding; return t; }
   var RGH = { floor: roughTex(256, 256, 0.9, 0.25, 5, 3.5), paint: roughTex(256, 256, 0.45, 0.35, 1, 1), metal: roughTex(256, 256, 0.5, 0.3, 1, 1) };
@@ -475,6 +513,10 @@
     door: std({ map: TEX.corrugatedDoor, roughness: 0.55, metalness: 0.4, normalMap: NRM.ribs, normalScale: new THREE.Vector2(1, 1) }),
     plaster: std({ map: TEX.plaster, roughness: 0.9, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.4, 0.4) }),
     brick: std({ map: TEX.brick, roughness: 0.95, normalMap: NRM.brick, normalScale: new THREE.Vector2(0.9, 0.9) }),
+    block: std({ map: TEX.block, roughness: 0.9, normalMap: NRM.block, normalScale: new THREE.Vector2(0.8, 0.8) }),
+    carpet: std({ map: TEX.carpet, roughness: 1, normalMap: NRM.carpet, normalScale: new THREE.Vector2(0.4, 0.4) }),
+    vinyl: std({ map: TEX.vinyl, roughness: 0.45, metalness: 0.02 }),
+    gunmetal: std({ color: 0x4a5058, roughness: 0.38, metalness: 0.85, map: TEX.noiseMetal }),
     rack: std({ color: 0xcf6417, roughness: 0.55, metalness: 0.3, roughnessMap: RGH.paint }),
     beam: std({ color: 0x2b5aa6, roughness: 0.5, metalness: 0.4 }),
     deck: std({ color: 0x6a737c, roughness: 0.7, metalness: 0.5 }),
@@ -534,17 +576,45 @@
   // ── Geometry helpers ──────────────────────────────────────────────
   var geoCache = {};
   function boxGeo(w, h, d) { var k = w + ',' + h + ',' + d; return geoCache[k] || (geoCache[k] = new THREE.BoxGeometry(w, h, d)); }
-  // a box with its edges rounded off: sharp edges read as cardboard, a 12 mm bevel catches the light like a real object
-  function bevelGeo(w, h, d, r) {
+  // A box with every edge eased: a dead sharp edge catches no light and reads as cardboard. The rows of vertices nearest each edge
+  // are moved onto an arc, spaced so the corner turns in equal angles, and the normals follow; the texture keeps its scale (the
+  // picture did not move, only the rows). Thinner than 30 mm or longer than 4 m stays sharp unless a radius is asked for.
+  var BEVEL = { max: 0.012, faces: [['z', 'y', -1, -1], ['z', 'y', 1, -1], ['x', 'z', 1, 1], ['x', 'z', 1, -1], ['x', 'y', 1, -1], ['x', 'y', -1, -1]] };
+  function bevelGeo(w, h, d, r, k) {
     var mn = Math.min(w, h, d), mx = Math.max(w, h, d);
-    if (r === undefined) r = (mn < 0.03 || mx > 4) ? 0 : Math.min(0.012, mn * 0.22);
-    if (!(r > 0)) return boxGeo(w, h, d);
-    var k = 'b' + w + ',' + h + ',' + d + ',' + r; if (geoCache[k]) return geoCache[k];
-    var shape = new THREE.Shape(), x0 = -w / 2 + r, y0 = -h / 2 + r, x1 = w / 2 - r, y1 = h / 2 - r;
-    shape.moveTo(x0, y0); shape.lineTo(x1, y0); shape.lineTo(x1, y1); shape.lineTo(x0, y1); shape.lineTo(x0, y0);
-    var g = new THREE.ExtrudeGeometry(shape, { depth: d - 2 * r, bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 2, curveSegments: 2 });
-    g.translate(0, 0, -(d - 2 * r) / 2); g.computeVertexNormals();
-    return (geoCache[k] = g);
+    if (r === undefined) r = (mn < 0.03 || mx > 4) ? 0 : Math.min(BEVEL.max, mn * 0.22);
+    if (!(r > 0) || !(mn > 0)) return boxGeo(w, h, d);
+    r = Math.min(r, mn * 0.499); k = Math.max(1, Math.round(k || (r > 0.03 ? 3 : r > 0.015 ? 2 : 1)));   /* a big radius needs more than one step to read as round */
+    var key = 'b' + w + ',' + h + ',' + d + ',' + r + ',' + k; if (geoCache[key]) return geoCache[key];
+    var n = 2 * k + 1, per = (n + 1) * (n + 1), g = new THREE.BoxGeometry(w, h, d, n, n, n), pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv, half = { x: w / 2, y: h / 2, z: d / 2 }, v = new THREE.Vector3(), c = new THREE.Vector3();
+    function ax(p, hf) { var i = Math.round((p + hf) / (2 * hf) * n); return i <= k ? -hf + r - r * Math.tan((k - i) / k * Math.PI / 4) : hf - r + r * Math.tan((i - (n - k)) / k * Math.PI / 4); }
+    for (var i = 0; i < pos.count; i++) {
+      v.set(ax(pos.getX(i), half.x), ax(pos.getY(i), half.y), ax(pos.getZ(i), half.z));
+      var fc = BEVEL.faces[Math.floor(i / per)]; uv.setXY(i, (v[fc[0]] * fc[2] + half[fc[0]]) / (2 * half[fc[0]]), 1 - (v[fc[1]] * fc[3] + half[fc[1]]) / (2 * half[fc[1]]));
+      c.set(clamp(v.x, -half.x + r, half.x - r), clamp(v.y, -half.y + r, half.y - r), clamp(v.z, -half.z + r, half.z - r));
+      v.sub(c); if (v.lengthSq() > 1e-12) { v.normalize(); nor.setXYZ(i, v.x, v.y, v.z); pos.setXYZ(i, c.x + v.x * r, c.y + v.y * r, c.z + v.z * r); }
+    }
+    return (geoCache[key] = g);
+  }
+  // a body part cut from an eased box: narrower at one end than the other, the way a chest runs down to a waist. Give it a fresh geometry.
+  function taperGeo(g, h, sx0, sz0) { var p = g.attributes.position; for (var i = 0; i < p.count; i++) { var t = clamp((p.getY(i) + h / 2) / h, 0, 1); p.setX(i, p.getX(i) * lerp(sx0, 1, t)); p.setZ(i, p.getZ(i) * lerp(sz0, 1, t)); } g.computeVertexNormals(); return g; }
+  // The same for anything turned: a cylinder's rims are eased and it gets enough sides to read as round. Wires and rods are left alone.
+  function roundCylGeo(rt, rb, h, seg) {
+    var rmax = Math.max(rt, rb), rmin = Math.min(rt, rb), r = (rmax < 0.025 || h < 0.02) ? 0 : Math.min(BEVEL.max, h * 0.22, rmin * 0.3);
+    seg = seg || 18; if (rmax >= 0.025) seg = Math.max(seg, rmax > 0.12 ? 32 : rmax > 0.05 ? 24 : 16);
+    var key = 'c' + rt + ',' + rb + ',' + h + ',' + seg; if (geoCache[key]) return geoCache[key];
+    if (!(r > 0.0012)) return (geoCache[key] = new THREE.CylinderGeometry(rt, rb, h, seg));
+    var g = new THREE.CylinderGeometry(rt, rb, h, seg, 3), pos = g.attributes.position, nor = g.attributes.normal, row = seg + 1, torso = 4 * row, slope = (rb - rt) / h;
+    for (var i = 0; i < pos.count; i++) {
+      var x = pos.getX(i), z = pos.getZ(i), top = pos.getY(i) > 0, len = Math.hypot(x, z) || 1, ux = x / len, uz = z / len, rad, y;
+      if (i < torso) {
+        var rw = Math.floor(i / row);
+        if (rw === 0) { rad = rt - r; y = h / 2; } else if (rw === 1) { rad = rt + slope * r; y = h / 2 - r; } else if (rw === 2) { rad = rb - slope * r; y = -h / 2 + r; } else { rad = rb - r; y = -h / 2; }
+        if (rw === 0 || rw === 3) { var ny = rw === 0 ? 0.7071 : -0.7071; nor.setXYZ(i, nor.getX(i) * 0.7071, ny, nor.getZ(i) * 0.7071); var nl = Math.hypot(nor.getX(i), nor.getY(i), nor.getZ(i)) || 1; nor.setXYZ(i, nor.getX(i) / nl, nor.getY(i) / nl, nor.getZ(i) / nl); }
+        pos.setXYZ(i, ux * rad, y, uz * rad);
+      } else if (len > 1e-6) { rad = (top ? rt : rb) - r; pos.setXYZ(i, ux * rad, pos.getY(i), uz * rad); }
+    }
+    return (geoCache[key] = g);
   }
   function box(w, h, d, mat, x, y, z, parent) {
     var m = new THREE.Mesh(mat.map ? boxGeo(w, h, d) : bevelGeo(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || scene).add(m); return m;
@@ -552,10 +622,14 @@
   function plane(w, h, mat, x, y, z, rx, ry, parent) {
     var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.x = rx || 0; m.rotation.y = ry || 0; m.receiveShadow = true; (parent || scene).add(m); return m;
   }
-  function cyl(r, h, mat, x, y, z, parent, seg, rb) { var m = new THREE.Mesh(new THREE.CylinderGeometry(r, rb === undefined ? r : rb, h, seg || 12), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || scene).add(m); return m; }
+  function cyl(r, h, mat, x, y, z, parent, seg, rb) { var m = new THREE.Mesh(roundCylGeo(r, rb === undefined ? r : rb, h, seg || 12), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; (parent || scene).add(m); return m; }
   function sphere(r, mat, x, y, z, parent) { var m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), mat); m.position.set(x, y, z); m.castShadow = true; (parent || scene).add(m); return m; }
   function sign(lines, w, h, x, y, z, ry, opt, parent) {
-    var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: textTex(lines, opt) })); m.position.set(x, y, z); m.rotation.y = ry || 0; (parent || scene).add(m); return m;
+    var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: textTex(lines, opt) })); m.position.set(x, y, z); m.rotation.y = ry || 0; (parent || scene).add(m);
+    // an enamelled plate is fixed to something: a sheet of dark metal a little bigger than the print behind it, and on a plate
+    // big enough, four studs through the corners. Hung on the sign's own mesh, so whatever moves the sign moves its plate.
+    if (isPlate(opt) && !(opt && opt.flat)) { var pl = new THREE.Mesh(bevelGeo(w + 0.03, h + 0.03, 0.014, 0.004), MAT.gunmetal); pl.position.z = -0.0085; pl.castShadow = true; m.add(pl); if (w >= 0.5 && h >= 0.12) [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (s) { var st = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.006, 10), MAT.chrome); st.rotation.x = Math.PI / 2; st.position.set(s[0] * (w / 2 - 0.028), s[1] * (h / 2 - 0.028), 0.003); m.add(st); }); }
+    return m;
   }
   function poster(kind, w, h, x, y, z, ry, parent) { var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), std({ map: posterTex(kind), roughness: 0.95 })); m.position.set(x, y, z); m.rotation.y = ry || 0; (parent || scene).add(m); return m; }
   // a soft dark blob on the ground under anything that stands on it: the contact shadow the sun map cannot give
@@ -634,8 +708,9 @@
     plane(2 * X, 2 * Z, MAT.roofIn, 0, H - 0.01, 0, Math.PI / 2);
     SKYLIGHT_Z.forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
     for (var tx = -16; tx <= 16; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }
-    // high-bay lamps under the trusses
-    hallLights.forEach(function (l) { var m = box(0.9, 0.12, 0.5, MAT.lamp, l.position.x, l.position.y + 0.3, l.position.z); world.lampMeshes.push(m); cyl(0.03, 0.4, MAT.steelDark, l.position.x, l.position.y + 0.55, l.position.z); });
+    // high-bay lamps under the trusses: a conduit drop off the truss, the ballast box, a spun reflector and the lens in its mouth
+    hallLights.forEach(function (l) { highBay(l.position.x, l.position.y + 0.3, l.position.z); });
+    buildHallLining();
     // floor markings: aisles, the walkway, the staging squares
     function lineX(x0, x1, z, w) { plane(x1 - x0, w || 0.1, MAT.yellowLine, (x0 + x1) / 2, 0.006, z, -Math.PI / 2); }
     function lineZ(z0, z1, x, w) { plane(w || 0.1, z1 - z0, MAT.yellowLine, x, 0.006, (z0 + z1) / 2, -Math.PI / 2); }
@@ -664,6 +739,47 @@
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
+  function highBay(x, y, z) {
+    cyl(0.025, HALL.h - 0.7 - y, MAT.steelDark, x, (HALL.h - 0.7 + y) / 2, z, null, 6);
+    box(0.34, 0.22, 0.26, MAT.steelDark, x, y + 0.11, z); box(0.1, 0.06, 0.06, MAT.black, x + 0.2, y + 0.12, z);
+    var refl = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.14, 0.42, 20, 1, true), std({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide })); refl.position.set(x, y - 0.21, z); scene.add(refl);
+    var lens = cyl(0.42, 0.03, MAT.lamp, x, y - 0.41, z, null, 20); lens.castShadow = false; world.lampMeshes.push(lens);
+  }
+  // a recessed troffer in a room's ceiling: a white frame and a prismatic lens that dims when the power is off
+  function troffer(x, y, z, w, d) { box(w || 1.2, 0.05, d || 0.6, MAT.trim, x, y - 0.025, z).castShadow = false; var lens = box((w || 1.2) - 0.1, 0.02, (d || 0.6) - 0.1, MAT.lamp, x, y - 0.045, z); lens.castShadow = false; world.lampMeshes.push(lens); return lens; }
+  // what a cladded hall looks like from inside: a painted blockwork dado to 2.4 m under a steel capping, I-section columns every
+  // 8 m carrying the girts the cladding hangs on, two girts above every opening, and a cable tray round every wall. The rooms
+  // have their own plaster lining, so the dado and the columns stop at their walls.
+  function buildHallLining() {
+    var X = HALL.x, Z = HALL.z, H = HALL.h, DH = 2.4, sd = SPOT.staffDoor.z;
+    var cutZ = { '-1': [[-15.8, -12.2], [-7.8, -4.2], [sd - 0.65, sd + 0.65], [18.4, Z], [-Z, -20.1]], '1': [[-15.8, -12.2], [-7.8, -4.2], [18.4, Z]] };   // the docks, the staff door, the lobby, the break room; the office
+    var cutX = { '-1': [[WING.belt.x0 - 0.1, WING.belt.x1 + 0.1], [WING.door.x0 - 0.1, WING.door.x1 + 0.1], [23.3, 24.7], [-X, -28.9]], '1': [[X - 7.6, X], [-X, -31.4]] };   // the belt opening, the wing door, the fire exit, the break room; the office, the lobby
+    function segs(a0, a1, cuts) { var out = [[a0, a1]]; cuts.forEach(function (c) { var nx = []; out.forEach(function (s) { if (c[1] <= s[0] || c[0] >= s[1]) { nx.push(s); return; } if (c[0] > s[0]) nx.push([s[0], c[0]]); if (c[1] < s[1]) nx.push([c[1], s[1]]); }); out = nx; }); return out.filter(function (s) { return s[1] - s[0] > 0.3; }); }
+    function dadoMat(len) { var m = MAT.block.clone(); m.map = MAT.block.map.clone(); m.map.needsUpdate = true; m.map.repeat.set(len / 1.6, DH / 0.8); m.normalMap = MAT.block.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set(len / 1.6, DH / 0.8); return m; }
+    function wall(axis, side) {
+      var at = (axis === 'x' ? X : Z) * side, inward = -side, cuts = axis === 'x' ? cutZ[String(side)] : cutX[String(side)], lim = axis === 'x' ? Z : X;
+      var ry = axis === 'x' ? (inward > 0 ? Math.PI / 2 : -Math.PI / 2) : (inward > 0 ? 0 : Math.PI), off = at + inward * 0.17;
+      segs(-lim + 0.3, lim - 0.3, cuts).forEach(function (s) {
+        var len = s[1] - s[0], mid = (s[0] + s[1]) / 2;
+        if (axis === 'x') { plane(len, DH, dadoMat(len), off, DH / 2, mid, 0, ry); box(0.06, 0.05, len, MAT.steelDark, off + inward * 0.02, DH + 0.025, mid); }
+        else { plane(len, DH, dadoMat(len), mid, DH / 2, off, 0, ry); box(len, 0.05, 0.06, MAT.steelDark, mid, DH + 0.025, off + inward * 0.02); }
+      });
+      // the girts and the cable tray run the whole wall; a column every 8 m, set where no door, console or sign stands
+      var full = 2 * lim - 0.6, c0 = 0, g = at + inward * 0.25;
+      [5.2, 6.8].forEach(function (gy) { if (axis === 'x') box(0.06, 0.12, full, MAT.steelDark, g, gy, c0); else box(full, 0.12, 0.06, MAT.steelDark, c0, gy, g); });
+      if (axis === 'x' || side > 0) { if (axis === 'x') { box(0.3, 0.08, full, MAT.steelDark, at + inward * 0.35, 5.6, c0); for (var ct = -lim + 1; ct < lim; ct += 2) box(0.3, 0.08, 0.04, MAT.steelDark, at + inward * 0.35, 5.6, ct); } else { box(full, 0.08, 0.3, MAT.steelDark, c0, 5.6, at + inward * 0.35); for (var ct2 = -lim + 1; ct2 < lim; ct2 += 2) box(0.04, 0.08, 0.3, MAT.steelDark, ct2, 5.6, at + inward * 0.35); } }
+      var cols = axis === 'x' ? [-18, -10, -2, 6, 14] : side > 0 ? [-28, -20, -12, -4, 4, 12, 20] : [-24, -16, -8, 0, 10, 22, 30];
+      cols.forEach(function (p) { if (cuts.some(function (c) { return p > c[0] - 0.3 && p < c[1] + 0.3; })) return; var cx = axis === 'x' ? at + inward * 0.42 : p, cz = axis === 'x' ? p : at + inward * 0.42; column(cx, cz, axis === 'x'); });
+    }
+    function column(x, z, alongZ) {
+      var h = H - 0.3; box(alongZ ? 0.26 : 0.02, h, alongZ ? 0.02 : 0.26, MAT.steelDark, x, h / 2, z);
+      [-0.12, 0.12].forEach(function (o) { box(alongZ ? 0.02 : 0.3, h, alongZ ? 0.3 : 0.02, MAT.steelDark, x + (alongZ ? o : 0), h / 2, z + (alongZ ? 0 : o)); });
+      box(0.42, 0.03, 0.42, MAT.steelDark, x, 0.015, z); [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]].forEach(function (b) { cyl(0.018, 0.03, MAT.chrome, x + b[0], 0.04, z + b[1], null, 6); });
+      box(0.46, 0.5, 0.46, MAT.hazard, x, 0.28, z).castShadow = false;   // the bump guard every forklift hall paints on
+      solid(x - 0.16, x + 0.16, z - 0.16, z + 0.16, 0, h);
+    }
+    wall('x', -1); wall('x', 1); wall('z', -1); wall('z', 1);
+  }
   function buildDoor(i, side, z) {
     var x = side * HALL.x;
     var panel = new THREE.Mesh(boxGeo(0.12, DOCKS.h, DOCKS.w), MAT.door); panel.castShadow = true; panel.receiveShadow = true;
@@ -740,7 +856,17 @@
     box(X - x0, 0.12, Z - z0, MAT.plaster, (x0 + X) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', X, z0 + 0.1, Z - 0.1, h, LINING.office, [], -1); lineWall('z', Z, x0 + 0.1, X - 0.1, h, LINING.office, [], -1);
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    var lamp = box(1.2, 0.08, 0.3, MAT.lamp, X - 3.5, h - 0.05, 21); world.officeLamp = lamp;
+    world.officeLamp = troffer(X - 3.5, h, 21); troffer(x0 + 1.9, h, 22.5, 0.6, 0.6);
+    // carpet tiles over the slab, skirting on the two plaster walls (the hall walls get theirs from lineWall), a bin by the desk
+    roomFloor(MAT.carpet, x0 + 0.08, X - 0.16, z0 + 0.08, Z - 0.16, 1.0);
+    [[z0, 19.3], [20.6, Z]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, x0 + 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X - x0, 0.12, 0.03, MAT.trim, (x0 + X) / 2, 0.06, z0 + 0.09).castShadow = false;
+    cyl(0.14, 0.3, std({ color: 0x2a2d33, roughness: 0.6 }), X - 1.2, 0.15, 19.4, null, 12, 0.12); box(0.16, 0.02, 0.16, MAT.paper, X - 1.2, 0.3, 19.4).rotation.y = 0.4;
+  }
+  // a room's own floor laid over the slab: the texture repeats in metres so a carpet tile is half a metre wherever it is
+  function roomFloor(mat, x0, x1, z0, z1, per) {
+    var m = mat.clone(); m.map = mat.map.clone(); m.map.needsUpdate = true; m.map.repeat.set((x1 - x0) / per, (z1 - z0) / per);
+    if (mat.normalMap) { m.normalMap = mat.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set((x1 - x0) / per, (z1 - z0) / per); }
+    var p = plane(x1 - x0, z1 - z0, m, (x0 + x1) / 2, 0.012, (z0 + z1) / 2, -Math.PI / 2); p.receiveShadow = true; return p;
   }
 
   function buildBench() {
@@ -759,7 +885,9 @@
     box(X + x0, h, 0.15, MAT.plaster, (-X + x0) / 2, h / 2, z0); solid(-X, x0, z0 - 0.08, z0 + 0.08);
     box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', -X, z0 + 0.1, Z - 0.1, h, LINING.lobby, [[SPOT.staffDoor.z - 0.65, SPOT.staffDoor.z + 0.65, 2.25]], 1); lineWall('z', Z, -X + 0.1, x0 - 0.1, h, LINING.lobby, [], -1); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -X + 2.3, h - 0.05, 21.2);
+    troffer(-X + 2.3, h, 21.2);
+    roomFloor(MAT.vinyl, -X + 0.16, x0 - 0.08, z0 + 0.08, Z - 0.16, 1.5);
+    [[z0, 19.3], [20.6, Z]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, x0 - 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X + x0, 0.12, 0.03, MAT.trim, (-X + x0) / 2, 0.06, z0 + 0.09).castShadow = false;
     for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 + 0.09, 2.26 - bl * 0.08, 22.5);
     // the break room: x -30..-23, z -24..-20.2; its door in the east wall at z -22.95..-21.95, a window in the south wall onto the hall
     var bx = -X + 7, bz = -20.2;
@@ -770,7 +898,9 @@
     solid(-X, bx, bz - 0.08, bz + 0.08);
     box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2);
     lineWall('x', -X, -Z + 0.1, bz - 0.1, h, LINING.brk, [], 1); lineWall('z', -Z, -X + 0.1, bx - 0.1, h, LINING.brk, [], 1); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
-    box(1.2, 0.08, 0.3, MAT.lamp, -X + 3.5, h - 0.05, -22.1);
+    troffer(-X + 3.5, h, -22.1);
+    roomFloor(MAT.vinyl, -X + 0.16, bx - 0.08, -Z + 0.16, bz - 0.08, 1.5);
+    [[-Z, -22.95], [-21.95, bz]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, bx - 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X + bx, 0.12, 0.03, MAT.trim, (-X + bx) / 2, 0.06, bz - 0.09).castShadow = false;
     for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -X + 3.6, 2.26 - bl2 * 0.08, bz - 0.09);
   }
   // the order board on the office wall: redrawn when orders change
@@ -911,8 +1041,7 @@
 
   function buildDressing() {
     var X = HALL.x, Z = HALL.z, H = HALL.h;
-    // pilasters on the long walls, and bollards guarding every dock door
-    [-12, -4, 4, 12].forEach(function (x) { box(0.4, H, 0.4, MAT.steelDark, x, H / 2, Z - 0.35); }); [-20, -12, 12, 20].forEach(function (x) { box(0.4, H, 0.4, MAT.steelDark, x, H / 2, -Z + 0.35); });   // the north wall's stand clear of the belt opening and the wing doorway
+    // bollards guarding every dock door (the columns along the walls are the hall lining's, in 06-building)
     doors.forEach(function (d) { [-1, 1].forEach(function (s) { var bx = d.side * (X - 1.0), bz = d.z + s * (DOCKS.w / 2 + 0.5); cyl(0.11, 1.0, MAT.yellow, bx, 0.5, bz, null, 10); cyl(0.14, 0.05, MAT.black, bx, 0.025, bz, null, 10); }); });
     // the north wall: cable tray, sprinkler main, extractor fans, the exit sign, the painted name
     box(2 * X - 1, 0.08, 0.3, MAT.steelDark, 0, 5.6, -Z + 0.35); for (var cx = -18; cx <= 18; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, 5.6, -Z + 0.35);
@@ -931,7 +1060,8 @@
     // dock lights beside every door, wheel chocks inside, guide rails and a chain hoist
     doors.forEach(function (d) {
       var x = d.side * (X - 0.3), z = d.z - DOCKS.w / 2 - 0.5;
-      box(0.5, 0.06, 0.06, MAT.steelDark, x + d.side * -0.2, 4.6, z); var lamp = box(0.18, 0.18, 0.18, glowMat(0xffb020, 0.4), x - d.side * 0.5, 4.5, z); dress.dockLamps.push({ m: lamp, door: d.i });
+      box(0.5, 0.06, 0.06, MAT.steelDark, x + d.side * -0.2, 4.6, z); var lamp = box(0.18, 0.18, 0.18, glowMat(0xffb020, 0.4), x - d.side * 0.5, 4.5, z);
+      var dl = new THREE.PointLight(0xffb020, 0, 9, 2); dl.position.set(x - d.side * 0.9, 4.3, z); scene.add(dl); dress.dockLamps.push({ m: lamp, l: dl, door: d.i });   // the beacon throws real amber on the apron while a truck is on its way
       box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.3); box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.6);
       var rx = d.side * (X - 0.15); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z - DOCKS.w / 2 - 0.05); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z + DOCKS.w / 2 + 0.05); cyl(0.1, 0.3, MAT.steelDark, rx - d.side * 0.15, DOCKS.h + 0.3, d.z + DOCKS.w / 2 + 0.35, null, 10).rotation.x = Math.PI / 2; cyl(0.006, DOCKS.h - 0.6, MAT.chrome, rx - d.side * 0.15, DOCKS.h / 2 + 0.2, d.z + DOCKS.w / 2 + 0.35, null, 4);
     });
@@ -1001,7 +1131,7 @@
     dress.fans.forEach(function (f) { f.rotation.z += dt * (power ? 9 : 0.5); });
     if (dress.turntable) dress.turntable.rotation.y += dt * (wrapperBusy() ? 1.4 : 0);
     if (dress.wrapCarriage) dress.wrapCarriage.position.y = wrapperBusy() ? 0.5 + Math.abs(Math.sin(worldTime * 0.9)) * 1.0 : 1.0;
-    dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return (t.dir === 'in' ? t.dock : 2 + t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); l.m.material.emissiveIntensity = coming ? (Math.sin(worldTime * 8) > 0 ? 2.2 : 0.2) : (S.doors[d.i] ? 1.2 : 0.2); });
+    dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return (t.dir === 'in' ? t.dock : 2 + t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); var on = coming ? (Math.sin(worldTime * 8) > 0 ? 1 : 0.1) : (S.doors[d.i] ? 0.55 : 0.1); l.m.material.emissiveIntensity = 0.2 + on * 2.0; if (l.l) l.l.intensity = power ? on * 1.3 : 0; });
     if (dress.charger && dress.charger.material) dress.charger.material.emissiveIntensity = power ? (forkCharging() ? (Math.sin(worldTime * 3) > 0 ? 1.5 : 0.4) : 1) : 0;
     tickClocks();
     if (dress.dust) { var dpa = dress.dust.geometry.attributes.position.array; for (var di = 0; di < dpa.length; di += 3) { dpa[di] += Math.sin(worldTime * 0.3 + di) * 0.004; dpa[di + 1] -= 0.02 * dt; if (dpa[di + 1] < 0.4) dpa[di + 1] = HALL.h - 0.2; } dress.dust.geometry.attributes.position.needsUpdate = true; }
@@ -1022,8 +1152,8 @@
   function customById(id) { return (S.custom || []).filter(function (c) { return c.id === id; })[0] || null; }
   function propPlacement(id) {
     var d = PROPS[id], c = customById(id), o = (S.layout && S.layout[id]) || {};
-    if (c) return { x: typeof o.x === 'number' ? o.x : c.x, z: typeof o.z === 'number' ? o.z : c.z, rot: typeof o.rot === 'number' ? o.rot : (c.rot || 0), hidden: !!o.hidden, custom: true };
-    return { x: typeof o.x === 'number' ? o.x : d.x, z: typeof o.z === 'number' ? o.z : d.z, rot: typeof o.rot === 'number' ? o.rot : (d.rot || 0), hidden: !!o.hidden, custom: false };
+    if (c) return { x: typeof o.x === 'number' ? o.x : c.x, z: typeof o.z === 'number' ? o.z : c.z, rot: typeof o.rot === 'number' ? o.rot : (c.rot || 0), h: typeof o.h === 'number' ? o.h : (c.h || 0), hidden: !!o.hidden, custom: true };
+    return { x: typeof o.x === 'number' ? o.x : d.x, z: typeof o.z === 'number' ? o.z : d.z, rot: typeof o.rot === 'number' ? o.rot : (d.rot || 0), h: o.h || 0, hidden: !!o.hidden, custom: false };
   }
   function propLabel(id) { var d = propDef(id); return d ? d.label : id; }
   function rotAABB(o, rot) {
@@ -1054,8 +1184,14 @@
     var inGroup = function (o) { for (var p = o; p; p = p.parent) if (p === inst.g) return true; return false; };
     yard.lampLenses = yard.lampLenses.filter(function (l) { return !inGroup(l); }); for (var yl = yardLights.length - 1; yl >= 0; yl--) if (inGroup(yardLights[yl])) yardLights.splice(yl, 1);
     dress.clocks = dress.clocks.filter(function (c) { return !c.group || !inGroup(c.group); }); screens.forEach(function (s, k) { if (inGroup(s.mesh)) screens.splice(k, 1); });
+    BELT_PLANES = BELT_PLANES.filter(function (p) { return !inGroup(p); });
     for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1);
-    delete propInst[id]; NAV.dirty = true;
+    delete propInst[id]; NAV.dirty = true; beltsChanged();
+  }
+  // a belt piece that is going for good: whatever rides it is set down on the floor where it was
+  function beltSpill(id) {
+    var b = BELTS[id]; if (!b) return; beltItems(id).forEach(function (it) { var w = beltPoint(b, it.d); if (it.kind === 'box') S.floor.push({ kind: 'box', sku: it.sku, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); else if (it.kind === 'parcel' && it.order) S.floor.push({ kind: 'parcel', order: it.order, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); });
+    delete S.belts[id]; delete BELTS[id]; beltsChanged();
   }
   function buildProp(id) {
     removePropInst(id);
@@ -1065,12 +1201,13 @@
     propInst[id] = inst;
     if (!P.hidden) {
       def.build(ctx, P, inst);
+      if (def.beltPath) { var bh = P.h || 0; BELTS[id] = { id: id, prop: id, path: def.beltPath.map(function (p) { return [p[0], p[1], (p[2] || 0) + bh, p[3]]; }), speedKey: 'belts', piece: true }; }
       g.traverse(function (o) { if (o.isMesh) o.userData.propId = id; });
       ctx.obstacles.forEach(function (o) { var r = rotAABB(o, P.rot); solids.push({ x0: P.x + r.x0, x1: P.x + r.x1, z0: P.z + r.z0, z1: P.z + r.z1, y0: o.y0, y1: o.y1, prop: id }); });
       if (def.after) def.after(ctx, P, inst);
       if (!def.wall && ctx.obstacles.length) { var fx0 = 1e9, fx1 = -1e9, fz0 = 1e9, fz1 = -1e9; ctx.obstacles.forEach(function (o) { fx0 = Math.min(fx0, o.x0); fx1 = Math.max(fx1, o.x1); fz0 = Math.min(fz0, o.z0); fz1 = Math.max(fz1, o.z1); }); groundBlob((fx1 - fx0) * 1.5 + 0.3, (fz1 - fz0) * 1.5 + 0.3, (fx0 + fx1) / 2, (fz0 + fz1) / 2, g, 0); }
     }
-    scene.add(g); NAV.dirty = true; shadowDirty = true;
+    scene.add(g); NAV.dirty = true; shadowDirty = true; beltsChanged();
     return inst;
   }
   function buildProps() { PROP_ORDER.forEach(function (id) { if (!PROPS[id].extra && (!PROPS[id].when || PROPS[id].when())) buildProp(id); }); (S.custom || []).forEach(function (c) { if (PROPS[c.type]) buildProp(c.id); }); }
@@ -1111,6 +1248,7 @@
     if (dir.y < -0.05 && t > 0 && t < 10) pt = o.clone().add(dir.clone().multiplyScalar(t));
     else { var flat = dir.clone(); flat.y = 0; flat.normalize(); pt = o.clone().add(flat.multiplyScalar(2.6)); pt.y = y; }
     var sn = function (v) { return edit.snap ? Math.round(v * 20) / 20 : v; };
+    if (def.beltPath) { var bs = beltSnap(def, pt, edit.grabbed); edit.snapText = bs ? bs.text : ''; if (bs) return bs; }
     if (def.wall) {
       var best = null, bd = 2.5;
       wallPlanes().forEach(function (w) { var d = w.a === 'x' ? Math.abs(pt.x - w.v) : Math.abs(pt.z - w.v); var within = w.a === 'x' ? (pt.z > w.z0 && pt.z < w.z1) : (pt.x > w.x0 && pt.x < w.x1); if (within && d < bd) { bd = d; best = w; } });
@@ -1119,12 +1257,34 @@
     var lim = def.yard ? 80 : HALL.x - 0.4, limz = def.yard ? 60 : HALL.z - 0.4;
     return { x: clamp(sn(pt.x), -lim, lim), z: clamp(sn(pt.z), -limz, limz), rot: null, wall: false };
   }
+  // Where a carried belt piece snaps. Anchors are gathered fresh each time: free belt ends, machine outlets, the parcel shelf
+  // and the inbound doors feed a piece (its start goes there); free belt starts, machine inlets, the outbound doors and the
+  // rack bays take from a piece (its end goes there). The nearest anchor within two metres of the aim wins; the piece turns
+  // to run with it, and climbs or drops to its height. A belt end that already feeds something, or a start already fed, is skipped.
+  function beltSnap(def, pt, selfId) {
+    var R2 = REACH * REACH, A = [], X = HALL.x, Z = HALL.z;
+    for (var k in BELTS) { var b = BELTS[k]; if (k === selfId || !propInst[b.prop]) continue; var e = beltPoint(b, beltLen(b)), s = beltPoint(b, 0); if (!b.noSink && !beltSink(b)) A.push({ x: e.x, z: e.z, y: e.y, dir: e.ry, feeds: true, what: 'the ' + beltLabel(b) }); if (!beltFeeder(b)) A.push({ x: s.x, z: s.z, y: s.y, dir: s.ry, feeds: false, what: 'the ' + beltLabel(b) }); }
+    for (var mk in MACH) { var mc = MACH[mk]; if (mc.door !== undefined) continue; machinePoints(mc, 'out').forEach(function (p) { A.push({ x: p.x, z: p.z, y: BELT_Y, dir: null, feeds: true, what: 'the ' + propLabel(mc.prop) }); }); if (mc.accept) machinePoints(mc, 'in').forEach(function (p) { A.push({ x: p.x, z: p.z, y: BELT_Y, dir: null, feeds: false, what: 'the ' + propLabel(mc.prop) }); }); }
+    if (propInst.packline) { var sh = propWorld('packline', 0, 7.0); A.push({ x: sh.x, z: sh.z, y: BELT_Y, dir: sh.a, feeds: true, what: 'the parcel shelf' }); }
+    for (var di = 0; di < 4 && doors[di]; di++) { var at = doorInside(di); A.push({ x: at[0], z: at[1], y: BELT_Y, dir: Math.PI / 2, feeds: di < 2, what: 'dock door ' + dockLabel(di) }); }
+    for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < RACK.bays; bb++) { var sp = rackSlotPos(r, bb, 0), a = sp.ry || 0; [-1, 1].forEach(function (f) { A.push({ x: sp.x + Math.sin(a) * f * 1.1, z: sp.z + Math.cos(a) * f * 1.1, y: BELT_Y, dir: f > 0 ? a + Math.PI : a, feeds: false, what: slotName(slotKey(r, bb, 0)) }); }); }
+    var best = null, bd = 2.2 * 2.2; A.forEach(function (an) { var d = dist2(pt.x, pt.z, an.x, an.z); if (d < bd) { bd = d; best = an; } });
+    if (!best) return null;
+    var path = def.beltPath, last = path[path.length - 1], prev = path[path.length - 2], endDir = Math.atan2(last[0] - prev[0], last[1] - prev[1]), cur = propInst[selfId] ? propInst[selfId].P.rot : 0, q = Math.PI / 2;
+    function wrap4(n) { return ((Math.round(n) % 4) + 4) % 4; }
+    if (best.feeds) { var rot = best.dir === null ? cur : wrap4(best.dir / q); return { x: best.x, z: best.z, rot: rot, h: Math.round((best.y - BELT_Y) * 100) / 100, wall: false, text: 'Snapped: takes from ' + best.what + ' · E places · R turns' }; }
+    var rot2 = best.dir === null ? cur : wrap4((best.dir - endDir) / q), a2 = rot2 * q, ex = last[0] * Math.cos(a2) + last[1] * Math.sin(a2), ez = -last[0] * Math.sin(a2) + last[1] * Math.cos(a2);
+    return { x: best.x - ex, z: best.z - ez, rot: rot2, h: Math.round((best.y - BELT_Y - (last[2] || 0)) * 100) / 100, wall: false, text: 'Snapped: feeds ' + best.what + ' · E places · R turns' };
+  }
+  function ghostProp(id) { propInst[id].g.traverse(function (o) { if (o.isMesh && o.material && o.material.clone && !o.userData.ghosted) { o.userData.origMat = o.material; o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; o.material.depthWrite = false; o.castShadow = false; o.userData.ghosted = true; } }); }
   function editTick() {
     if (!edit.on) return;
     if (edit.grabbed) {
       var inst = propInst[edit.grabbed]; if (!inst) { edit.grabbed = null; return; }
       var def = propDef(edit.grabbed), aim = editAim(def);
-      inst.g.position.set(aim.x, propGroundY(aim.x, aim.z), aim.z); if (aim.rot !== null && def.wall) { inst.P.rot = aim.rot; inst.g.rotation.y = aim.rot * Math.PI / 2; }
+      // a belt piece snapped at another height is rebuilt at that height, legs and all, while it is still being carried
+      if (def.beltPath && typeof aim.h === 'number' && Math.abs((inst.P.h || 0) - aim.h) > 0.01) { var cc = customById(edit.grabbed); if (cc) cc.h = aim.h; if (S.layout && S.layout[edit.grabbed]) S.layout[edit.grabbed].h = aim.h; buildProp(edit.grabbed); inst = propInst[edit.grabbed]; inst.P.h = aim.h; for (var si = solids.length - 1; si >= 0; si--) if (solids[si].prop === edit.grabbed) solids.splice(si, 1); ghostProp(edit.grabbed); }
+      inst.g.position.set(aim.x, propGroundY(aim.x, aim.z), aim.z); if (aim.rot !== null && (def.wall || def.beltPath)) { inst.P.rot = aim.rot; inst.g.rotation.y = aim.rot * Math.PI / 2; }
       editHelper(inst.g, 0xf5b53d);
     } else if (focus && focus.editId && propInst[focus.editId]) editHelper(propInst[focus.editId].g, 0x5fd38d);
     else editHelper(null);
@@ -1132,15 +1292,16 @@
   function editGrab(id) {
     if (edit.grabbed || !propInst[id]) return;
     var def = propDef(id); if (def.fixed) { toast('That one stays where it is.', 'bad'); return; }
-    edit.grabbed = id; for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1); NAV.dirty = true;
-    propInst[id].g.traverse(function (o) { if (o.isMesh && o.material && o.material.clone && !o.userData.ghosted) { o.userData.origMat = o.material; o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; o.material.depthWrite = false; o.castShadow = false; o.userData.ghosted = true; } });
-    sfx('pickup'); toast('Carrying the ' + propLabel(id) + ' · E places · R turns · Esc drops it back', '');
+    edit.grabbed = id; edit.snapText = ''; for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1); NAV.dirty = true;
+    ghostProp(id);
+    sfx('pickup'); toast('Carrying the ' + propLabel(id) + ' · E places · R turns · Esc drops it back' + (def.beltPath ? ' · it snaps to belt ends, machines, doors and rack bays' : ''), '');
   }
   function editDrop(cancel) {
-    var id = edit.grabbed; if (!id) return; edit.grabbed = null;
-    var inst = propInst[id];
-    if (!cancel && inst) { if (!S.layout) S.layout = {}; S.layout[id] = { x: Math.round(inst.g.position.x * 100) / 100, z: Math.round(inst.g.position.z * 100) / 100, rot: inst.P.rot }; sfx('putdown'); toast('Placed the ' + propLabel(id), 'good'); }
+    var id = edit.grabbed; if (!id) return; edit.grabbed = null; edit.snapText = '';
+    var inst = propInst[id], def = propDef(id);
+    if (!cancel && inst) { if (!S.layout) S.layout = {}; S.layout[id] = { x: Math.round(inst.g.position.x * 100) / 100, z: Math.round(inst.g.position.z * 100) / 100, rot: inst.P.rot, h: inst.P.h || 0 }; sfx('putdown'); }
     buildProp(id); editHelper(null); save();
+    if (!cancel && inst) { if (def && def.beltPath && BELTS[id]) { var fd = feederLabel(beltFeeder(BELTS[id])), sk = sinkLabel(beltSink(BELTS[id])); toast('Placed the ' + propLabel(id) + (fd ? ' · takes from ' + fd : ' · nothing feeds it yet') + (sk ? ' · feeds ' + sk : ' · ends in the open'), fd || sk ? 'good' : ''); } else toast('Placed the ' + propLabel(id), 'good'); }
   }
   function editRotate(pid) {
     var id = pid || edit.grabbed || (focus && focus.editId); if (!id || !propInst[id]) return;
@@ -1157,7 +1318,7 @@
     var id = pid || edit.grabbed || (focus && focus.editId); if (!id) return;
     var c = customById(id);
     if (edit.grabbed) edit.grabbed = null;
-    if (c) { var def = PROPS[c.type]; S.custom.splice(S.custom.indexOf(c), 1); removePropInst(id); if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
+    if (c) { var def = PROPS[c.type]; S.custom.splice(S.custom.indexOf(c), 1); if (def && def.beltPath) beltSpill(id); removePropInst(id); if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
     else { if (!S.layout) S.layout = {}; S.layout[id] = S.layout[id] || {}; S.layout[id].hidden = true; buildProp(id); toast('Removed the ' + propLabel(id) + ' (the catalogue brings it back)', ''); }
     editHelper(null); sfx('bad'); save();
   }
@@ -1167,11 +1328,11 @@
     if (def.price && S.bank < def.price) { toast('That costs ' + money(def.price) + ' and you have ' + money(S.bank), 'bad'); return; }
     if (def.price) pay(-def.price, 'Bought: ' + def.label);
     if (!S.custom) S.custom = [];
-    var aim = editAim(def), c = { id: uid('cp'), type: type, x: aim.x, z: aim.z, rot: aim.rot || 0 }; S.custom.push(c);
+    var aim = editAim(def), c = { id: uid('cp'), type: type, x: aim.x, z: aim.z, rot: aim.rot || 0, h: aim.h || 0 }; S.custom.push(c);
     buildProp(c.id); closePanel(); editGrab(c.id); toast('Carrying the ' + def.label + ' · aim and press E', '');
   }
   // the catalogue (C): removed props to bring back, and extras to buy
-  var CAT_GROUPS = [['room', '🛋 Break room and office'], ['hall', '🏭 The hall'], ['wall', '🖼 On the wall'], ['yard', '🌳 The yard']];
+  var CAT_GROUPS = [['belt', '🛤 Conveyors: lay a line from parts. A piece snaps to belt ends, machines, dock doors and rack bays as you carry it.'], ['room', '🛋 Break room and office'], ['hall', '🏭 The hall'], ['wall', '🖼 On the wall'], ['yard', '🌳 The yard']];
   function catalogueHtml() {
     var h = '<p>Build mode. Press <kbd>E</kbd> on a prop to carry it, <kbd>R</kbd> to turn it, <kbd>Backspace</kbd> to put it back where it started, <kbd>Del</kbd> to remove it. Bought extras sell back for half.</p>';
     var hidden = PROP_ORDER.filter(function (id) { return !PROPS[id].extra && propPlacement(id).hidden; });
@@ -1268,7 +1429,8 @@
   function noticeBuild(c) { c.box(1.6, 1.0, 0.04, MAT.wood, 0, 1.9, 0); c.plane(1.5, 0.9, MAT.cork, 0, 1.9, 0.025, 0, 0); c.sign(['TRUCKS', 'IN 07:30 · 13:30', 'OUT 10:30-12 · 16-18'], 0.9, 0.5, -0.25, 2.05, 0.03, 0, { w: 512, h: 320, bg: '#f5f1e6', fg: '#1b232c', size: 56 }); [[0.45, 1.75, -0.1], [-0.1, 1.6, 0.15], [0.55, 1.65, 0.05]].forEach(function (n) { var nb = c.box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], 0.03); nb.rotation.z = n[2]; c.cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, 0.035, 8).rotation.x = Math.PI / 2; }); }
   function calendarBuild(c) { c.box(0.4, 0.5, 0.02, MAT.paper, 0, 2.6, 0); c.sign(['OCTOBER', '', '1  2  3  4  5  6  7', '8  9 10 11 12 13 14'], 0.36, 0.44, 0, 2.6, 0.012, 0, { w: 256, h: 320, bg: '#f3efe4', fg: '#1b232c', size: 34 }); }
   function clockBuild(r) { return function (c) { var g = new THREE.Group(); g.position.set(0, 2.7, 0.02); c.add(g); var face = cyl(r, 0.03, MAT.white, 0, 0, 0, g, 32); face.rotation.x = Math.PI / 2; var rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 32), MAT.steelDark); g.add(rim); for (var i = 0; i < 12; i++) { var t = box(i % 3 ? 0.015 : 0.03, i % 3 ? 0.04 : 0.07, 0.01, MAT.black, Math.sin(i / 12 * 6.283) * (r - 0.07), Math.cos(i / 12 * 6.283) * (r - 0.07), 0.02, g); t.rotation.z = -i / 12 * 6.283; } var hh = new THREE.Group(), mh = new THREE.Group(); hh.position.z = 0.025; mh.position.z = 0.03; g.add(hh); g.add(mh); box(0.035, r * 0.55, 0.01, MAT.black, 0, r * 0.22, 0, hh); box(0.025, r * 0.85, 0.01, MAT.black, 0, r * 0.37, 0, mh); cyl(0.03, 0.02, MAT.red, 0, 0, 0.035, g, 10).rotation.x = Math.PI / 2; g.userData.dynamic = true; dress.clocks.push({ h: hh, m: mh, group: c.group }); }; }
-  function posterBuild(kind, w, h) { return function (c) { c.poster(kind, w, h, 0, 2.0, 0.01, 0); var fw = w + 0.06, fh = h + 0.06; c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 + fh / 2, 0); c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 - fh / 2, 0); c.box(0.03, fh, 0.03, MAT.black, -fw / 2, 2.0, 0); c.box(0.03, fh, 0.03, MAT.black, fw / 2, 2.0, 0); }; }
+  // a framed poster: the print on a white mount, a sheet of glass over it that catches the lamps at an angle, a black frame round the lot
+  function posterBuild(kind, w, h) { return function (c) { c.box(w + 0.05, h + 0.05, 0.012, MAT.white, 0, 2.0, 0.002).castShadow = false; c.poster(kind, w - 0.04, h - 0.04, 0, 2.0, 0.01, 0); var gl = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.05, h + 0.05), MAT.screenGlass); gl.position.set(0, 2.0, 0.016); gl.renderOrder = 2; c.add(gl); var fw = w + 0.08, fh = h + 0.08; c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 + fh / 2, 0.004); c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 - fh / 2, 0.004); c.box(0.03, fh, 0.03, MAT.black, -fw / 2, 2.0, 0.004); c.box(0.03, fh, 0.03, MAT.black, fw / 2, 2.0, 0.004); }; }
   function extinguisherBuild(c) { c.cyl(0.08, 0.5, MAT.red, 0, 1.0, 0.12, 12); c.cyl(0.05, 0.08, MAT.black, 0, 1.28, 0.12, 10); c.box(0.03, 0.12, 0.1, MAT.black, 0, 1.36, 0.14); c.cyl(0.012, 0.42, MAT.black, 0.08, 1.0, 0.15, 6).rotation.z = 0.15; c.cyl(0.02, 0.07, MAT.black, 0.11, 0.79, 0.17, 8, 0.03); c.cyl(0.025, 0.02, MAT.white, 0.0, 1.3, 0.21, 10).rotation.x = Math.PI / 2; c.box(0.1, 0.1, 0.002, MAT.paper, 0, 1.0, 0.202); c.box(0.2, 0.04, 0.1, MAT.steelDark, 0, 0.72, 0.05); c.sign(['FIRE'], 0.3, 0.12, 0, 1.6, 0.04, 0, { w: 128, h: 48, bg: '#c8342a', fg: '#fff' }); }
   function firstAidBuild(c) { c.box(0.3, 0.3, 0.1, MAT.white, 0, 1.7, 0.05); c.box(0.18, 0.05, 0.02, MAT.green, 0, 1.7, 0.11); c.box(0.05, 0.18, 0.02, MAT.green, 0, 1.7, 0.11); c.box(0.12, 0.02, 0.02, MAT.chrome, 0, 1.87, 0.05); }
   function binPrompt() { var bp = isJack(player.tool) ? jackPallet() : null; if (bp && bp.n > 0) return 'Write off the whole pallet (' + bp.n + ' × ' + skuName(bp.sku) + ', ' + money(Math.round(SKU[bp.sku].val * 0.5 * bp.n)) + ')'; if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Bin the damaged box'; if (S.hand && S.hand.kind === 'box') return 'That box is fine: it belongs on a rack'; return 'The bin · ' + (S.binned || 0) + ' damaged boxes written off'; }
@@ -1339,6 +1501,7 @@
     var mouse = new THREE.Mesh(bevelGeo(0.06, 0.03, 0.1, 0.012), MAT.black); mouse.position.set(0.5, 0.8, -0.18); c.group.add(mouse); c.box(0.2, 0.06, 0.16, MAT.black, -0.75, 0.81, 0.26); c.cyl(0.012, 0.18, MAT.black, -0.75, 0.9, 0.26, 6).rotation.z = Math.PI / 2;
     c.cyl(0.03, 0.09, MAT.black, 0.9, 0.82, -0.05, 8); c.cyl(0.004, 0.14, MAT.blue, 0.9, 0.9, -0.05, 4).rotation.z = 0.2; c.cyl(0.04, 0.09, MAT.white, 0.7, 0.82, -0.1, 10); c.box(0.2, 0.01, 0.28, MAT.paper, -0.75, 0.785, -0.1); c.box(0.18, 0.012, 0.26, MAT.paper, -0.72, 0.795, -0.08).rotation.y = 0.1;
     c.cyl(0.02, 0.4, MAT_MACH.frame, 0.95, 0.98, 0.25, 8).rotation.z = -0.3; c.cyl(0.07, 0.1, MAT_MACH.frame, 0.84, 1.17, 0.25, 12, 0.03); c.cyl(0.05, 0.02, glowMat(0xfff2c0, 0.6), 0.84, 1.12, 0.25, 12);
+    var dl = new THREE.PointLight(0xfff2c0, 0.3, 3.5, 2); dl.position.set(0.84, 1.05, 0.25); c.add(dl);   // the desk lamp's pool on the desk
     c.sign(['DEPOT CO. · OFFICE'], 0.5, 0.06, -0.75, 0.56, 0.32, 0, { w: 512, h: 64, bg: '#eef1f5', fg: '#1b232c' });
     c.hit(1.2, 0.9, 0.5, 0, 0.5, -0.1, { prompt: function () { return pc.on ? null : (S.events.power ? 'The PC is off: no power' : 'Sit down at the PC'); }, use: function () { openPc(); } });
     c.solid(-1.1, 1.1, -0.4, 0.4, 0, 0.8);
@@ -1367,6 +1530,7 @@
     c.box(1.0, 0.08, 3.2, MAT.wood, 0, 0.9, 0); [[-0.45, -1.5], [0.45, -1.5], [-0.45, 1.5], [0.45, 1.5]].forEach(function (o) { c.box(0.06, 0.9, 0.06, MAT.steelDark, o[0], 0.45, o[1]); }); c.box(0.9, 0.04, 3.0, MAT.steelDark, 0, 0.3, 0); c.solid(-0.5, 0.5, -1.6, 1.6, 0, 1);
     c.box(0.25, 0.12, 0.12, MAT.red, -0.3, 1.0, -1.3); c.cyl(0.07, 0.1, MAT.white, -0.3, 1.02, -1.3, 10); c.box(0.3, 0.05, 0.3, MAT.steelDark, 0.25, 0.965, -1.35); c.plane(0.2, 0.1, MAT.screen, 0.25, 1.0, -1.2, -0.6, 0); c.cyl(0.02, 0.9, MAT.steelDark, -0.4, 1.4, 1.4, 8); c.box(0.3, 0.08, 0.15, MAT.lamp, -0.3, 1.85, 1.4);
     c.box(0.22, 0.14, 0.18, MAT.white, 0.25, 1.01, 0.6); c.box(0.18, 0.01, 0.1, MAT.paper, 0.25, 1.09, 0.72); c.box(0.12, 0.02, 0.03, MAT.yellow, -0.2, 0.955, 0.2).rotation.y = 0.4;
+    var tl = new THREE.PointLight(0xfff0d0, 0.45, 5, 2); tl.position.set(-0.3, 1.7, 1.4); c.add(tl);   // the task lamp lights the far end of the bench
     c.hit(1.1, 1.2, 3.2, 0, 1.4, 0, { prompt: function () { return benchPrompt(); }, use: function () { benchUse(); } });
     // the terminal on an arm at the near end
     c.box(0.26, 0.03, 0.2, MAT.steelDark, 0.3, 0.955, -1.3); c.cyl(0.025, 0.5, MAT.steelDark, 0.3, 1.2, -1.3, 8); c.box(0.36, 0.04, 0.04, MAT.steelDark, 0.14, 1.45, -1.3); c.box(0.04, 0.4, 0.56, MAT.black, -0.02, 1.45, -1.3);
@@ -1381,7 +1545,7 @@
     if (!os.length) scText(c, 16, 76, 'No open orders.', '#a0acb8', 14);
     os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
     if (sc.scrollMax > 0) { scText(c, 16, 290, 'Orders ' + (sc.scroll + 1) + ' to ' + Math.min(allO.length, sc.scroll + 4) + ' of ' + allO.length + ' · wheel scrolls', '#6b7784', 10); scButton(sc, 300, 262, 40, 26, 'UP', sc.scroll > 0, function () { sc.scroll = Math.max(0, sc.scroll - 1); }, '#f5b53d'); scButton(sc, 346, 262, 40, 26, 'DOWN', sc.scroll < sc.scrollMax, function () { sc.scroll = Math.min(sc.scrollMax, sc.scroll + 1); }, '#f5b53d'); }
-    else scText(c, 16, 290, 'E on the bench with empty hands opens the full list', '#6b7784', 10);
+    else scText(c, 16, 290, 'Look at a box on the bench to take it back · the cart takes surplus', '#6b7784', 10);
   }
   // yard props (the shelter, dumpster, flag and parking sign)
   function shelterBuild(c) {
@@ -1468,9 +1632,9 @@
     touchScreen({ w: 200, h: 80, pw: 0.4, ph: 0.16, x: 0.05, y: 1.3, z: 0.035, ry: 0, parent: c.group, title: 'Charger display', draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.2)'); var b = Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100); scText(cc, 10, 30, S.fork.plugged ? (b >= 100 ? 'FORKLIFT · FULL' : 'CHARGING · ' + b + '%') : 'FORKLIFT · ' + b + '% · unplugged', S.fork.plugged ? '#5fd38d' : '#f5b53d', 18); cc.fillStyle = 'rgba(255,255,255,0.12)'; cc.fillRect(10, 48, 180, 14); cc.fillStyle = b < 20 ? '#ff6b5e' : '#5fd38d'; cc.fillRect(10, 48, 1.8 * b, 14); } });
     var w = 2.6, d = 3.6, cz = 2.8; [[0, cz - d / 2, w, 0.08], [0, cz + d / 2, w, 0.08], [-w / 2, cz, 0.08, d], [w / 2, cz, 0.08, d]].forEach(function (ln) { c.plane(ln[2], ln[3], MAT.yellowLine, ln[0], 0.0062, ln[1], -Math.PI / 2, 0); }); c.plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex(['FORKLIFT'], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), 0, 0.0066, cz - d / 2 + 0.3, -Math.PI / 2, 0);
   }
-  function lampPostBuild(c) { c.cyl(0.08, 7.5, MAT.steelDark, 0, 3.75, 0, 8, 0.11); c.box(0.6, 0.2, 0.3, MAT.steelDark, 0, 7.65, 0); var lens = c.box(0.5, 0.04, 0.24, glowMat(0xffd9a0, 0.2), 0, 7.53, 0); yard.lampLenses.push(lens); var l = new THREE.PointLight(0xffd9a0, 0.0, 30, 2); l.position.set(0, 7.7, 0); c.add(l); yardLights.push(l); c.box(0.3, 0.2, 0.3, MAT.grey, 0, 0.1, 0); c.solid(-0.15, 0.15, -0.15, 0.15, -2, 2); }
+  function lampPostBuild(c) { c.cyl(0.08, 7.5, MAT.steelDark, 0, 3.75, 0, 8, 0.11); c.box(0.6, 0.2, 0.3, MAT.steelDark, 0, 7.65, 0); var lens = c.box(0.5, 0.04, 0.24, glowMat(0xffd9a0, 0.2), 0, 7.53, 0); yard.lampLenses.push(lens); var l = new THREE.PointLight(0xffd9a0, 0.0, 36, 2); l.position.set(0, 7.4, 0); l.userData.k = 1.4; c.add(l); yardLights.push(l); c.box(0.3, 0.2, 0.3, MAT.grey, 0, 0.1, 0); c.solid(-0.15, 0.15, -0.15, 0.15, -2, 2); }
   function carBuild(k) { return function (c) { c.add(carMesh(typeof k === "number" ? CAR_COLS[k % CAR_COLS.length] : k)); c.solid(-2.2, 2.2, -1.0, 1.0, -2, 1.5); }; }
-  function paintedBuild(c) { c.sign(['DEPOT CO.'], 9, 1.6, 0, 4.4, 0.01, 0, { w: 1024, h: 192, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['RECEIVE · STORE · PICK · SHIP'], 7, 0.5, 0, 3.3, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); }
+  function paintedBuild(c) { c.sign(['DEPOT CO.'], 9, 1.6, 0, 4.4, 0.01, 0, { w: 1024, h: 192, bg: '#1b232c', fg: '#f5b53d', plate: false }); c.sign(['RECEIVE · STORE · PICK · SHIP'], 7, 0.5, 0, 3.3, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8', plate: false }); }
   function aisleSignBuild(text) { return function (c) { c.sign([text], 2.2, 0.5, 0, 5.4, 0, 0, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.sign([text], 2.2, 0.5, 0, 5.4, 0, Math.PI, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.cyl(0.006, 1.3, MAT.steelDark, -0.9, 6.3, 0, 4); c.cyl(0.006, 1.3, MAT.steelDark, 0.9, 6.3, 0, 4); }; }
 
   // ── Default layout ────────────────────────────────────────────────
@@ -1648,8 +1812,8 @@
     var top = c.plane(0.62, len - 0.04, bm, x, y + 0.025, zc, -Math.PI / 2, 0); top.userData.speedKey = c.group.userData.propId; BELT_PLANES.push(top); c.box(0.62, 0.012, len - 0.04, std({ color: 0x1c1f23, roughness: 0.95 }), x, y - 0.09, zc);   // the return run underneath
     // guide rails on brackets, not floating
     [-0.32, 0.32].forEach(function (gx) { c.box(0.03, 0.04, len - 0.1, MAT_MACH.guard, x + gx, y + 0.14, zc); for (var gz = z0 + 0.3; gz < z1; gz += 1.2) { c.box(0.03, 0.14, 0.03, FR, x + gx, y + 0.08, gz); c.box(0.08, 0.02, 0.03, FR, x + gx + (gx < 0 ? 0.03 : -0.03), y + 0.04, gz); } });
-    // the drive: motor and gearbox hung off the far drum, a guard over the chain
-    var mt = c.cyl(0.085, 0.26, MAT_MACH.blue, x + 0.5, y - 0.1, z1 - 0.2, 14); mt.rotation.z = Math.PI / 2; c.cyl(0.095, 0.02, MAT.black, x + 0.64, y - 0.1, z1 - 0.2, 14).rotation.z = Math.PI / 2; c.box(0.12, 0.16, 0.16, FR, x + 0.43, y - 0.1, z1 - 0.2); c.box(0.06, 0.26, 0.2, FR, x + 0.4, y - 0.05, z1 - 0.1); c.box(0.03, 0.02, 0.4, MAT.black, x + 0.43, y - 0.2, z1 - 0.4);
+    // the drive: motor and gearbox hung off the far drum, a guard over the chain (one per run, not one per short segment of a curve)
+    if (!opt.noMotor) { var mt = c.cyl(0.085, 0.26, MAT_MACH.blue, x + 0.5, y - 0.1, z1 - 0.2, 14); mt.rotation.z = Math.PI / 2; c.cyl(0.095, 0.02, MAT.black, x + 0.64, y - 0.1, z1 - 0.2, 14).rotation.z = Math.PI / 2; c.box(0.12, 0.16, 0.16, FR, x + 0.43, y - 0.1, z1 - 0.2); c.box(0.06, 0.26, 0.2, FR, x + 0.4, y - 0.05, z1 - 0.1); c.box(0.03, 0.02, 0.4, MAT.black, x + 0.43, y - 0.2, z1 - 0.4); }
     if (!opt.noLegs) for (var lz = z0 + 0.4; lz < z1; lz += 1.5) { [-0.3, 0.3].forEach(function (lx) { c.box(0.06, y - 0.14, 0.06, FR, x + lx, (y - 0.14) / 2, lz); c.box(0.14, 0.02, 0.14, FR, x + lx, 0.01, lz); c.cyl(0.02, 0.04, MAT.chrome, x + lx, 0.03, lz, 6); }); c.box(0.66, 0.05, 0.05, FR, x, 0.2, lz); var dg = c.box(0.04, Math.hypot(0.6, y - 0.4), 0.04, FR, x, (y - 0.14) / 2 + 0.05, lz); dg.rotation.z = Math.atan2(0.6, y - 0.4); }
     if (!opt.noEye) { c.box(0.03, 0.4, 0.03, FR, x - 0.42, y + 0.2, z1 - 0.3); c.box(0.05, 0.06, 0.04, MAT.black, x - 0.42, y + 0.32, z1 - 0.3); c.box(0.02, 0.02, 0.005, glowMat(0xff3b2f, 1.2), x - 0.395, y + 0.32, z1 - 0.3); c.box(0.03, 0.3, 0.03, FR, x + 0.42, y + 0.15, z1 - 0.3); c.box(0.03, 0.03, 0.02, MAT.white, x + 0.42, y + 0.32, z1 - 0.3); }
     c.box(0.04, 0.03, len - 0.6, MAT.black, x - 0.4, y - 0.18, zc); for (var cz = z0 + 0.5; cz < z1; cz += 2) c.box(0.06, 0.08, 0.04, FR, x - 0.4, y - 0.18, cz);   // the cable run
@@ -1658,12 +1822,12 @@
     for (var i = 1; i < pts.length; i++) {
       var ax = pts[i - 1][0], az = pts[i - 1][1], ay = pts[i - 1][2] || 0, bx = pts[i][0], bz = pts[i][1], by = pts[i][2] || 0, run = Math.hypot(bx - ax, bz - az), ang = Math.atan2(bx - ax, bz - az), slope = Math.atan2(by - ay, run), len = Math.hypot(run, by - ay);
       var sg = new THREE.Group(); sg.position.set(ax, ay, az); sg.rotation.order = 'YXZ'; sg.rotation.y = ang; sg.rotation.x = -slope; c.group.add(sg);
-      var sc = propCtx(sg, 'seg'); conveyorBuild(sc, 0, 0, len, { noEye: i < pts.length - 1, noLegs: true });
-      // legs in the prop frame, the right height wherever the belt is, braced when tall
+      var sc = propCtx(sg, 'seg'); conveyorBuild(sc, 0, 0, len, { noEye: i < pts.length - 1, noLegs: true, noMotor: i < pts.length - 1 });
+      // legs in the prop frame, the right height wherever the belt is, braced when tall; a curve's short segments share a leg every third one
       var ux = (bx - ax) / run, uz = (bz - az) / run, px = uz, pz = -ux;
       var hang = pts[i][3] === 'hang';
       if (hang) { for (var hd = 0.6; hd < run; hd += 2.5) { var ht = BELT_Y + ay + (by - ay) * hd / run + 0.05, hx = ax + ux * hd, hz = az + uz * hd; [-0.3, 0.3].forEach(function (o) { c.cyl(0.025, HALL.h - 0.2 - ht, MAT_MACH.frame, hx + px * o, (HALL.h - 0.2 + ht) / 2, hz + pz * o, 6); }); var hb = c.box(0.8, 0.06, 0.06, MAT_MACH.frame, hx, ht, hz); hb.rotation.y = ang; var hp = c.box(0.9, 0.05, 0.3, MAT_MACH.frame, hx, HALL.h - 0.2, hz); hp.rotation.y = ang; } }
-      else for (var d = 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
+      else for (var d = run < 1 ? (i % 3 === 1 ? run / 2 : run + 1) : 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
       var lowY = BELT_Y + Math.min(ay, by) - 0.15, high = Math.min(ay, by) > 1.2;
       c.solid(Math.min(ax, bx) - 0.4, Math.max(ax, bx) + 0.4, Math.min(az, bz) - 0.4, Math.max(az, bz) + 0.4, high ? lowY : 0, high ? lowY + 1.2 : 0.82);
     }
@@ -1943,8 +2107,26 @@
     c.solid(-0.95, 0.95, -0.35, 0.35, 0, 2.1);
   }
   function shiftBoardBuild(c) { c.box(1.6, 1.0, 0.04, MAT.white, 0, 1.9, 0); c.box(1.64, 1.04, 0.02, MAT_MACH.frame, 0, 1.9, -0.015); var scr = touchScreen({ w: 400, h: 250, pw: 1.5, ph: 0.92, x: 0, y: 1.9, z: 0.025, ry: 0, parent: c.group, title: 'Shift board', draw: function (cc, sc) { cc.fillStyle = '#f7f7f4'; cc.fillRect(0, 0, sc.w, sc.h); cc.fillStyle = '#1b232c'; cc.font = 'bold 26px Bahnschrift, Arial'; cc.fillText('SHIFT OUTPUT · DAY ' + S.day, 16, 36); cc.font = '18px Bahnschrift, Arial'; cc.fillStyle = '#2f6b9a'; cc.fillText('Boxes moulded: ' + S.factory.made, 16, 80); cc.fillText('Pallets finished: ' + (S.stats.palletised || 0), 16, 108); cc.fillText('Hopper: ' + S.factory.raw + ' units', 16, 136); cc.fillStyle = '#b3261e'; cc.fillText('Jams: ' + (S.factory.jam ? 'LINE JAMMED' : 'none'), 16, 164); cc.fillStyle = '#6b7784'; cc.font = '14px Bahnschrift, Arial'; cc.fillText('Target 60 a day · keep the hopper above 40', 16, 220); } }); scr.mesh.userData.propId = 'shiftBoard'; c.box(0.4, 0.03, 0.06, MAT_MACH.frame, 0, 1.36, 0.03); c.cyl(0.01, 0.12, MAT.black, 0.1, 1.4, 0.05, 6).rotation.z = Math.PI / 2; }
+  // ── Conveyor pieces: belts you build from parts ──
+  // Every piece is a prop with a path in its own frame (it starts at the origin running along +z; heights are above BELT_Y, plus
+  // the height the piece was snapped at) and is put on the belt list when it is built, so items ride it like any other belt. In
+  // build mode a carried piece snaps its start to the nearest free belt end, machine outlet, parcel shelf or inbound dock door,
+  // and its end to the nearest free belt start, machine inlet, outbound dock door or rack bay, within two metres. Dropped, it
+  // says what it took from and what it feeds. A quarter turn is six short runs on a 1.5 m radius, so every joint stays square.
+  function arcPath(dir) { var R = 1.5, pts = []; for (var k = 0; k <= 6; k++) { var a = k / 6 * Math.PI / 2; pts.push([dir * (R - R * Math.cos(a)), R * Math.sin(a), 0]); } return pts; }
+  var BELT_PIECES = {
+    beltS2: { label: 'belt, 2 m', ico: '➖', price: 120, desc: 'A straight run.', path: [[0, 0, 0], [0, 2, 0]] },
+    beltS4: { label: 'belt, 4 m', ico: '➖', price: 200, desc: 'A longer straight run.', path: [[0, 0, 0], [0, 4, 0]] },
+    beltCL: { label: 'belt, curve left', ico: '↰', price: 220, desc: 'A quarter turn to the left.', path: arcPath(1) },
+    beltCR: { label: 'belt, curve right', ico: '↱', price: 220, desc: 'A quarter turn to the right.', path: arcPath(-1) },
+    beltUp: { label: 'belt, incline up', ico: '⬈', price: 260, desc: 'Climbs a metre over three.', path: [[0, 0, 0], [0, 3, 1]] },
+    beltDown: { label: 'belt, incline down', ico: '⬊', price: 260, desc: 'Drops a metre over three.', path: [[0, 0, 0], [0, 3, -1]] },
+    beltHigh: { label: 'belt, high run', ico: '⤒', price: 240, desc: 'A 4 m run hung from the roof two metres up, for crossing a lane. Two inclines reach it.', path: [[0, 0, 2.0], [0, 4, 2.0, 'hang']] }
+  };
+  function beltPieceBuild(kind) { return function (c, P) { var h = P.h || 0, pts = BELT_PIECES[kind].path.map(function (p) { return [p[0], p[1], (p[2] || 0) + h, p[3]]; }); conveyorPath(c, pts); }; }
+  Object.keys(BELT_PIECES).forEach(function (k) { var bp = BELT_PIECES[k]; defProp('x' + k.charAt(0).toUpperCase() + k.slice(1), { extra: true, label: bp.label, ico: bp.ico, cat: 'belt', price: bp.price, desc: bp.desc, beltPath: bp.path, build: beltPieceBuild(k) }); });
   // signs as props, so build mode can move them: a wall sign faces +z in its own frame, a floor painting lies flat
-  function wallSignBuild(lines, w, h, y, opt) { return function (c) { c.sign(lines, w, h, 0, y, 0.01, 0, opt); c.box(w + 0.06, h + 0.06, 0.02, MAT.steelDark, 0, y, -0.005); }; }
+  function wallSignBuild(lines, w, h, y, opt) { return function (c) { var o = {}; for (var k in opt) o[k] = opt[k]; if (o.plate === undefined) o.plate = true; c.sign(lines, w, h, 0, y, 0.012, 0, o); }; }
   function floorSignBuild(lines, w, h, opt) { return function (c) { var m = c.sign(lines, w, h, 0, 0.008, 0, 0, opt); m.rotation.x = -Math.PI / 2; }; }
   // ── Defaults
   defProp('packline', { label: 'pack line', cat: 'hall', abs: true, x: 26.6, z: 7.2, rot: 0, build: packLineBuild });
@@ -2049,20 +2231,22 @@
       var sx = side * (X + 0.75); box(0.5, 0.6, DOCKS.w + 1.4, MAT.rubber, sx + side * 0.25, DOCKS.h + 0.5, d.z); box(1.0, DOCKS.h + 0.8, 0.5, MAT.rubber, sx, DOCKS.h / 2 + 0.4, d.z - DOCKS.w / 2 - 0.45); box(1.0, DOCKS.h + 0.8, 0.5, MAT.rubber, sx, DOCKS.h / 2 + 0.4, d.z + DOCKS.w / 2 + 0.45);
       plane(DOCKS.w + 1.4, 0.6, MAT.hazard, side * (X + 0.26), DOCKS.h + 0.5, d.z, 0, side > 0 ? Math.PI / 2 : -Math.PI / 2);
       box(0.08, 0.08, 0.6, MAT.steelDark, side * (X + 0.6), DOCKS.h + 1.0, d.z + DOCKS.w / 2 + 1.0); var lens = box(0.3, 0.2, 0.3, glowMat(0xfff2c0, 0.2), side * (X + 0.9), DOCKS.h + 0.95, d.z + DOCKS.w / 2 + 1.0); yard.lampLenses.push(lens);
+      var dl2 = new THREE.PointLight(0xfff2c0, 0, 16, 2); dl2.position.set(side * (X + 2.2), DOCKS.h + 0.5, d.z + 0.8); dl2.userData.k = 1.0; scene.add(dl2); yardLights.push(dl2);   // the apron under the shelter lamp is lit at night
     });
     // the fence: mesh panels between posts, with a sliding gate on each truck side and the gatehouse beside it
     var FPOST = std({ color: 0x2f5d3a, roughness: 0.5, metalness: 0.5 }), FMESH = std({ map: TEX.vmesh, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6, color: 0x3d6b48 }), FCONC = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), FWIRE = std({ color: 0x8e949a, roughness: 0.4, metalness: 0.8 });
     function fenceRun(x0, z0, x1, z1) {
-      var dx = x1 - x0, dz = z1 - z0, len = Math.sqrt(dx * dx + dz * dz), n = Math.round(len / 3), ang = Math.atan2(dx, dz), ux = dx / len, uz = dz / len, nx = uz, nz = -ux;
+      // ang turns a y-axis cylinder laid along z onto the run (the wires); rot turns an x-long box or plane onto it (panels, rails, boards). They differ by a quarter turn, and the panels used to take the wrong one and stand across the line
+      var dx = x1 - x0, dz = z1 - z0, len = Math.sqrt(dx * dx + dz * dz), n = Math.round(len / 3), ang = Math.atan2(dx, dz), ux = dx / len, uz = dz / len, nx = uz, nz = -ux, rot = Math.atan2(-uz, ux);
       for (var i = 0; i <= n; i++) {
         var t = i / n, px = x0 + dx * t, pz = z0 + dz * t;
         box(0.08, 2.5, 0.08, FPOST, px, YARD_Y + 1.25, pz); box(0.3, 0.25, 0.3, FCONC, px, YARD_Y + 0.12, pz); box(0.12, 0.03, 0.12, FPOST, px, YARD_Y + 2.52, pz);
         var arm = box(0.04, 0.6, 0.04, FPOST, px + nx * 0.2, YARD_Y + 2.72, pz + nz * 0.2); arm.rotation.set(0, ang, -0.7, 'YXZ'); arm.position.y += 0.1;
         if (i < n) {
           var mx = x0 + dx * (t + 0.5 / n), mz = z0 + dz * (t + 0.5 / n), seg = len / n;
-          var mp = plane(seg - 0.1, 2.2, FMESH, mx, YARD_Y + 1.35, mz, 0, ang); mp.receiveShadow = false;
-          [0.75, 1.65].forEach(function (vy) { var fold = box(seg - 0.1, 0.06, 0.03, FPOST, mx, YARD_Y + vy, mz); fold.rotation.y = ang; });
-          var gb = box(seg, 0.3, 0.05, FCONC, mx, YARD_Y + 0.15, mz); gb.rotation.y = ang; var tr = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 2.46, mz); tr.rotation.y = ang; var br = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 0.32, mz); br.rotation.y = ang;
+          var mp = plane(seg - 0.1, 2.2, FMESH, mx, YARD_Y + 1.35, mz, 0, rot); mp.receiveShadow = false;
+          [0.75, 1.65].forEach(function (vy) { var fold = box(seg - 0.1, 0.06, 0.03, FPOST, mx, YARD_Y + vy, mz); fold.rotation.y = rot; });
+          var gb = box(seg, 0.3, 0.05, FCONC, mx, YARD_Y + 0.15, mz); gb.rotation.y = rot; var tr = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 2.46, mz); tr.rotation.y = rot; var br = box(seg, 0.03, 0.03, FPOST, mx, YARD_Y + 0.32, mz); br.rotation.y = rot;
         }
       }
       [0, 1, 2].forEach(function (k) { var wy = YARD_Y + 2.62 + k * 0.17, wo = 0.22 + k * 0.14; var wire = cyl(0.006, len, FWIRE, (x0 + x1) / 2 + nx * wo, wy, (z0 + z1) / 2 + nz * wo, null, 4); wire.rotation.x = Math.PI / 2; wire.rotation.z = 0; wire.rotation.order = 'YXZ'; wire.rotation.y = ang; });
@@ -2090,6 +2274,7 @@
       box(3.6, 0.16, 3.6, MAT.roof, hx, YARD_Y + 2.88, hz); box(3.4, 0.08, 3.4, MAT.steelDark, hx, YARD_Y + 2.98, hz); box(0.9, 2.1, 0.08, MAT.steelDark, hx, YARD_Y + 1.05, hz + 1.36); box(0.08, 0.03, 0.14, MAT.chrome, hx + 0.3, YARD_Y + 1.05, hz + 1.42);
       box(2.2, 0.06, 0.5, MAT.wood, hx, YARD_Y + 1.1, hz - 0.9); box(0.3, 0.25, 0.04, MAT.black, hx - side * 0.5, YARD_Y + 1.28, hz - 0.95); box(0.12, 0.2, 0.06, MAT.black, hx + side * 0.6, YARD_Y + 1.25, hz - 0.9); cyl(0.04, 0.09, MAT.white, hx, YARD_Y + 1.17, hz - 0.8, null, 10);
       box(0.9, 0.04, 0.5, MAT.hazard, hx, YARD_Y + 3.1, hz - 1.6); var gl2 = box(0.25, 0.25, 0.25, glowMat(0xffa000, 0.8), hx, YARD_Y + 3.25, hz - 1.6); yard.lampLenses.push(gl2);
+      var gll = new THREE.PointLight(0xffb040, 0, 14, 2); gll.position.set(hx, YARD_Y + 3.0, hz - 2.2); gll.userData.k = 0.9; scene.add(gll); yardLights.push(gll);
       sign(['GATE ' + (side < 0 ? 'WEST' : 'EAST')], 1.8, 0.4, hx, YARD_Y + 2.6, hz - 1.42, 0, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' });
       sign(['STOP', 'REPORT TO THE GATE'], 1.0, 1.0, gx + side * 10, YARD_Y + 2.2, -4, side > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#c8342a', fg: '#fff', size: 52 }); cyl(0.04, 2.2, MAT.steelDark, gx + side * 10, YARD_Y + 1.1, -4, null, 6);
       var guard = makeHuman({ vest: MAT.hivis, cap: true, capMat: MAT.black, shirt: MAT.jeans }); guard.position.set(hx, YARD_Y + 0.2, hz - 0.2); guard.rotation.y = Math.PI; scene.add(guard); yard.guards.push({ g: guard, side: side });
@@ -2115,6 +2300,24 @@
     for (var i = -120; i < 120; i += 6) plane(3, 0.2, MAT.whiteLine, i, YARD_Y + 0.02, 75, -Math.PI / 2);
     for (var lp = -110; lp <= 110; lp += 28) { cyl(0.06, 7, MAT.steelDark, lp, YARD_Y + 3.5, 81.5, null, 8, 0.09); box(0.08, 0.08, 1.4, MAT.steelDark, lp, YARD_Y + 6.9, 80.8); var ll = box(0.5, 0.14, 0.32, glowMat(0xfff2c0, 0.2), lp, YARD_Y + 6.85, 80.2); yard.lampLenses.push(ll); }
     for (var c = 0; c < 8; c++) { var cm = carMesh(pick(CAR_COLS)); var dir = c % 2 ? -1 : 1; cm.position.set(randf(-120, 120), YARD_Y, dir > 0 ? 72.5 : 77.5); cm.rotation.y = dir > 0 ? 0 : Math.PI; scene.add(cm); yard.traffic.push({ g: cm, dir: dir, v: randf(9, 14) }); }
+    // the yard, worked: tyre marks on the aprons where the trucks swing in and oil where they stand, pallets stacked by the inbound
+    // docks, a skip by the dumpster, an empty trailer dropped on the far side, weeds along every fence line
+    var yMarkTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.4)'); g.addColorStop(0.7, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
+    var yMarkMat = new THREE.MeshBasicMaterial({ map: yMarkTex, transparent: true, depthWrite: false, opacity: 0.75 }); yMarkMat.userData.noBake = true;
+    var yOilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(6,6,8,0.55)'); g.addColorStop(0.7, 'rgba(6,6,8,0.25)'); g.addColorStop(1, 'rgba(6,6,8,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
+    var yOilMat = new THREE.MeshBasicMaterial({ map: yOilTex, transparent: true, depthWrite: false }); yOilMat.userData.noBake = true;
+    doors.forEach(function (d) {
+      for (var k = 0; k < 3; k++) { var m = plane(9, 1.5, yMarkMat, d.side * (X + 6 + k * 7.5), YARD_Y + 0.014, d.z + randf(-0.6, 0.6), -Math.PI / 2, 0); m.rotation.z = randf(-0.05, 0.05); m.renderOrder = 1; m.userData.noBake = true; }
+      var o = plane(2.6, 2.6, yOilMat, d.side * (X + 9), YARD_Y + 0.015, d.z + randf(-0.8, 0.8), -Math.PI / 2, 0); o.rotation.z = randf(0, 3); o.renderOrder = 1; o.userData.noBake = true;
+    });
+    var sceneCtx = { add: function (m) { scene.add(m); return m; } };
+    [[-X - 2.6, 1.2, 5], [-X - 2.6, 2.6, 7], [X + 2.6, 1.3, 4]].forEach(function (p) { for (var i = 0; i < p[2]; i++) palletModel(sceneCtx, p[0] + randf(-0.02, 0.02), YARD_Y + i * 0.128, p[1] + randf(-0.02, 0.02), randf(-0.03, 0.03)); solid(p[0] - 0.65, p[0] + 0.65, p[1] - 0.55, p[1] + 0.55, YARD_Y, YARD_Y + 1.2); });
+    // the skip: a steel box with sloped ends, lifting lugs, hazard stripes, the hire firm's name, cardboard showing over the lip
+    (function () { var sx = X + 7, sz = 21, SK = std({ color: 0x9a8a2a, roughness: 0.6, metalness: 0.4 }); box(3.4, 1.5, 1.7, SK, sx, YARD_Y + 0.75, sz); [-1, 1].forEach(function (e) { var end = box(1.1, 1.5, 1.7, SK, sx + e * 1.95, YARD_Y + 0.75, sz); end.rotation.z = e * 0.35; [-0.6, 0.6].forEach(function (lz) { box(0.12, 0.3, 0.12, MAT.steelDark, sx + e * 1.6, YARD_Y + 1.6, sz + lz); }); }); plane(3.4, 0.25, MAT.hazard, sx, YARD_Y + 1.42, sz + 0.86, 0, 0); plane(3.4, 0.25, MAT.hazard, sx, YARD_Y + 1.42, sz - 0.86, 0, Math.PI); sign(['HILLSIDE SKIPS · 0800 300 300'], 2.2, 0.3, sx, YARD_Y + 0.95, sz + 0.86, 0, { w: 512, h: 72, bg: '#2a2d33', fg: '#eef1f5' }); for (var cb = 0; cb < 6; cb++) { var card = box(randf(0.5, 0.9), 0.1, randf(0.4, 0.7), MAT.parcel, sx + randf(-1.2, 1.2), YARD_Y + 1.45 + cb * 0.04, sz + randf(-0.5, 0.5)); card.rotation.y = randf(0, 3); card.rotation.z = randf(-0.3, 0.3); } solid(sx - 2.4, sx + 2.4, sz - 0.9, sz + 0.9, YARD_Y, YARD_Y + 1.6); })();
+    // an empty trailer dropped on its landing legs at the far side of the yard, nose to the road
+    (function () { var tx = 54, tz = 46, TR = std({ map: TEX.corrugated, color: 0xdfe3e6, roughness: 0.55, metalness: 0.25, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }); box(2.5, 2.7, 12, TR, tx, YARD_Y + 2.1, tz); box(2.5, 0.4, 12, MAT.steelDark, tx, YARD_Y + 0.6, tz); [-0.9, 0.9].forEach(function (wx) { for (var tw = 0; tw < 2; tw++) { var ty = cyl(0.5, 0.3, MAT.rubber, tx + wx, YARD_Y + 0.5, tz - 3.6 - tw * 1.3, null, 16); ty.rotation.z = Math.PI / 2; } }); cyl(0.06, 1.0, MAT.steelDark, tx - 0.9, YARD_Y + 0.5, tz + 3.8, null, 6); cyl(0.06, 1.0, MAT.steelDark, tx + 0.9, YARD_Y + 0.5, tz + 3.8, null, 6); box(2.5, 2.7, 0.08, MAT.steelDark, tx, YARD_Y + 2.1, tz + 6.0); sign(['DEPOT CO. · DROP TRAILER'], 2.0, 0.3, tx - 1.26, YARD_Y + 1.6, tz, -Math.PI / 2, { w: 512, h: 72, bg: '#1b232c', fg: '#a0acb8' }); box(0.3, 0.1, 0.3, MAT.yellow, tx - 1.0, YARD_Y + 0.05, tz - 4.9); solid(tx - 1.3, tx + 1.3, tz - 6, tz + 6.1, YARD_Y, YARD_Y + 3); })();
+    for (var wd2 = -58; wd2 <= 58; wd2 += randf(2.5, 5)) { [[-83.4, wd2], [83.4, wd2]].forEach(function (p) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(p[0] + randf(-0.3, 0.3), YARD_Y + 0.08, p[1]); wg.scale.y = 0.6; scene.add(wg); }); }
+    for (var wd3 = -82; wd3 <= 82; wd3 += randf(2.5, 5)) { var wg2 = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg2.position.set(wd3, YARD_Y + 0.08, -59.4 + randf(-0.3, 0.3)); wg2.scale.y = 0.6; scene.add(wg2); }
     // the sky: a sun, a moon, clouds; the weather: puddles, rain, snow
     var sunSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(255,244,214,1)'), transparent: true, depthWrite: false, fog: false })); sunSp.scale.set(26, 26, 1); scene.add(sunSp); yard.sunDisc = sunSp;
     var moonSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(225,230,240,0.9)'), transparent: true, depthWrite: false, fog: false })); moonSp.scale.set(12, 12, 1); scene.add(moonSp); yard.moon = moonSp;
@@ -2124,7 +2327,7 @@
     var streak = tex(16, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(210,225,240,0)'); g.addColorStop(0.5, 'rgba(210,225,240,0.9)'); g.addColorStop(1, 'rgba(210,225,240,0)'); c.fillStyle = g; c.fillRect(6, 0, 4, h); });
     var flake = tex(32, 32, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
     var mkPoints = function (n, size, map, range) { var geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { pos[i * 3] = randf(-range, range); pos[i * 3 + 1] = randf(0, 16); pos[i * 3 + 2] = randf(-range, range); } geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); var pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: map, size: size, transparent: true, opacity: 0.85, depthWrite: false, alphaTest: 0.05 })); pts.visible = false; pts.frustumCulled = false; scene.add(pts); return pts; };
-    yard.rain = mkPoints(6000, 0.55, streak, 24); yard.snow = mkPoints(3000, 0.22, flake, 30);
+    yard.rain = mkPoints(7000, 0.26, streak, 24); yard.rain.material.opacity = 0.5; yard.rain.material.color.setHex(0xc7d3de); yard.snow = mkPoints(3000, 0.22, flake, 30);   // a drop is a thin grey streak, not a white blob
   }
 
   function tickYard(dt) {
@@ -2521,19 +2724,35 @@
     for (var d = 0; d < 3; d++) for (var k = 0; k < TRUCK_OUT.length; k++) { var abs = (S.day + d) * 24 + TRUCK_OUT[k].leave; if (abs >= minAbs) return abs; }
     return minAbs + 24;
   }
+  // What an order may ask for: stock on site (the racks, the bench, the floor, the cart, and the pallets on a signed truck) less
+  // what the open orders already claim. An order is never written for boxes that are not here, and never for boxes another
+  // order is still waiting on, so two orders cannot want the same six tins and a pick is never surplus the moment it is made.
+  function freeStock() {
+    var free = {}; function add(sku, n) { free[sku] = (free[sku] || 0) + n; }
+    for (var k in S.slots) if (S.slots[k].n) add(S.slots[k].sku, S.slots[k].n);
+    for (var b in S.bench.boxes) add(b, S.bench.boxes[b]);
+    S.pallets.forEach(function (p) { if (p.n <= 0 || !p.sku || (SKU[p.sku] && SKU[p.sku].raw)) return; if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked' || !t.signed) return; } add(p.sku, p.n); });
+    S.floor.forEach(function (f) { if (f.kind === 'box' && !f.damaged) add(f.sku, 1); });
+    (S.cart && S.cart.boxes || []).forEach(function (s) { add(s, 1); });
+    S.orders.forEach(function (o) { if (o.state === 'open' || o.state === 'packing') o.lines.forEach(function (l) { add(l.sku, -(l.qty - (l.packed || 0))); }); });
+    return free;
+  }
+  // what the open orders still want that is not on the bench yet, and what sits on the bench that no open order wants
+  function benchNeed() { var need = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); }); for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k]; for (var q in need) if (need[q] <= 0) delete need[q]; return need; }
+  function benchSurplus() { var want = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); var sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
   function genOrder(rush) {
-    var avail = unlockedSkus().filter(function (s) { return S.seenSkus.indexOf(s) >= 0; }); if (!avail.length) avail = unlockedSkus();
-    var inStock = avail.filter(function (s) { return stockCount(s) > 0; });
+    var free = freeStock(), avail = unlockedSkus().filter(function (s) { return (free[s] || 0) > 0; }); if (!avail.length) return null;
     var client = S.contract && S.contract.accepted && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === S.contract.client; })[0] : pick(CLIENTS), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
     var nLines = randi(1, Math.min(3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));
     var lines = [], used = {};
     for (var i = 0; i < nLines; i++) {
-      // what the client likes and you stock, else anything you stock, else (rarely, and never for the first line) what the client likes
-      var likedStocked = pool.filter(function (s) { return inStock.indexOf(s) >= 0 && !used[s]; }), anyStocked = inStock.filter(function (s) { return !used[s]; }), liked = pool.filter(function (s) { return !used[s]; });
-      var from = likedStocked.length ? likedStocked : anyStocked.length && (i === 0 || Math.random() < 0.85) ? anyStocked : liked;
+      // what the client likes and you have free, else anything you have free; never more of a line than is free
+      var liked = pool.filter(function (s) { return !used[s] && free[s] > 0; }), any = avail.filter(function (s) { return !used[s] && free[s] > 0; });
+      var from = liked.length && (i === 0 || Math.random() < 0.85) ? liked : any;
       if (!from.length) break;
       var sku = pick(from); used[sku] = 1;
-      lines.push({ sku: sku, qty: clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, 6) });
+      var qty = clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, Math.min(6, free[sku])); free[sku] -= qty;
+      lines.push({ sku: sku, qty: qty });
     }
     if (!lines.length) return null;
     var value = 0; lines.forEach(function (l) { value += l.qty * SKU[l.sku].val; });
@@ -2565,7 +2784,8 @@
     if (S.time >= 8 && S.time < 17 && !S.events.power && !isSunday()) {
       var openN = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }).length;
       var maxOpen = 3 + S.level, gap = Math.max(0.8, 2.3 - S.level * 0.12);
-      if (S.day === 1 && !S.flags.firstOrder && S.time >= 8.5) { S.flags.firstOrder = 1; S.lastOrderAt = n; genOrder(false); }
+      // the first order waits for stock: until something is on site and signed for there is nothing a client can order
+      if (S.day === 1 && !S.flags.firstOrder) { if (S.time >= 8.5 && n - (S.flags.firstTry || 0) >= 0.1) { S.flags.firstTry = n; if (genOrder(false)) { S.flags.firstOrder = 1; S.lastOrderAt = n; } } }
       else if (openN < maxOpen && n - S.lastOrderAt >= gap && !S.flags.noOrders) { S.lastOrderAt = n + randf(-0.3, 0.3); genOrder(Math.random() < 0.12 && S.level >= 3); }
     }
     for (var i = S.orders.length - 1; i >= 0; i--) {
@@ -2579,21 +2799,48 @@
   function benchCount() { var n = 0; for (var k in S.bench.boxes) n += S.bench.boxes[k]; return n; }
   function benchAdd(sku, n) { S.bench.boxes[sku] = (S.bench.boxes[sku] || 0) + n; }
   function benchTake(sku, n) { var k = Math.min(n, S.bench.boxes[sku] || 0); S.bench.boxes[sku] -= k; if (S.bench.boxes[sku] <= 0) delete S.bench.boxes[sku]; return k; }
+  // what the cart would do at the bench: the boxes the orders still want come off it, and the bench's surplus goes onto it
+  function cartAtBench() { var need = benchNeed(), off = 0, on = 0, room = ECON.benchCap - benchCount(); S.cart.boxes.forEach(function (sku) { if ((need[sku] || 0) > 0 && off < room) { need[sku]--; off++; } }); var sur = benchSurplus(); for (var k in sur) on += sur[k]; on = Math.min(on, ECON.cartCap - (cartLoad() - off)); return { off: off, on: Math.max(0, on) }; }
   function benchPrompt() {
-    if (player.tool === 'cart') return S.cart.boxes.length ? 'Unload the cart onto the bench (' + S.cart.boxes.length + ' boxes)' : 'Packing bench';
+    if (player.tool === 'cart') { var c = cartAtBench(); return (c.off ? 'Unload ' + c.off + ' wanted ' + (c.off === 1 ? 'box' : 'boxes') : '') + (c.off && c.on ? ', ' : '') + (c.on ? 'take ' + c.on + ' surplus back on the cart' : '') || 'Packing bench · nothing on the cart the orders want'; }
     if (isJack(player.tool)) return null;
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Damaged boxes do not ship: bin it';
     if (S.hand && S.hand.kind === 'box') return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
     if (S.hand) return null;
-    return 'Packing bench · ' + benchCount() + ' boxes · ' + openOrders().length + ' open orders';
+    var sur = benchSurplus(), sn = 0; for (var k in sur) sn += sur[k];
+    return 'Packing bench · ' + benchCount() + ' boxes · ' + openOrders().length + ' open orders' + (sn ? ' · ' + sn + ' surplus (look at a box to take it back)' : '');
   }
   function benchUse() {
-    if (player.tool === 'cart') { var moved = 0; while (S.cart.boxes.length && benchCount() < ECON.benchCap) { benchAdd(S.cart.boxes.pop(), 1); moved++; } if (moved) { sfx('putdown'); introStep('bench'); } else if (S.cart.boxes.length) toast('The bench is full.', 'bad'); return; }
+    if (player.tool === 'cart') {
+      // the boxes the open orders still want come off the cart; the surplus on the bench goes onto the cart, to go back on the racks
+      var need = benchNeed(), off = 0, on = 0;
+      for (var i = S.cart.boxes.length - 1; i >= 0; i--) { var sku = S.cart.boxes[i]; if ((need[sku] || 0) > 0 && benchCount() < ECON.benchCap) { S.cart.boxes.splice(i, 1); benchAdd(sku, 1); need[sku]--; off++; } }
+      var sur = benchSurplus(); for (var k in sur) while (sur[k] > 0 && cartLoad() < ECON.cartCap) { benchTake(k, 1); S.cart.boxes.push(k); sur[k]--; on++; }
+      if (off || on) { sfx('putdown'); introStep('bench'); toast((off ? off + ' onto the bench' : '') + (off && on ? ' · ' : '') + (on ? on + ' surplus onto the cart' : ''), 'good'); hudDirty = true; }
+      else if (S.cart.boxes.length) toast(benchCount() >= ECON.benchCap ? 'The bench is full.' : 'No open order wants what is on the cart. Put it back on the racks.', 'bad');
+      else toast('Nothing surplus on the bench.', '');
+      return;
+    }
     if (isJack(player.tool)) return;
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. Bin it.', 'bad'); return; }
     if (S.hand && S.hand.kind === 'box') { if (benchCount() >= ECON.benchCap) { toast('The bench is full.', 'bad'); return; } benchAdd(S.hand.sku, 1); handSet(null); sfx('putdown'); introStep('bench'); return; }
     if (S.hand) return;
-    openPanel('bench');
+    sfx('click'); toast('Look at a box on the bench and press E to take it back. The terminal at the end packs the orders.', '');
+  }
+  // a box on the bench is a thing you look at: E takes it back into your hand (or onto the cart)
+  function benchBoxPrompt(src) {
+    var sku = src.sku, sur = benchSurplus()[sku] || 0, tag = sur ? ' · surplus, no order wants it' : ' · an open order wants it';
+    if (player.tool === 'cart') return cartLoad() < ECON.cartCap ? 'Put the box of ' + skuName(sku) + ' on the cart' + tag : 'The cart is full';
+    if (S.hand && S.hand.kind === 'box' && !S.hand.damaged) return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
+    if (S.hand || player.tool) return null;
+    return 'Take the box of ' + skuName(sku) + ' off the bench' + tag;
+  }
+  function benchBoxUse(src) {
+    var sku = src.sku;
+    if (player.tool === 'cart') { if (cartLoad() >= ECON.cartCap) { sfx('bad'); return; } if (benchTake(sku, 1)) { S.cart.boxes.push(sku); sfx('pickup'); hudDirty = true; } return; }
+    if (S.hand && S.hand.kind === 'box' && !S.hand.damaged) { benchUse(); return; }
+    if (S.hand || player.tool) return;
+    if (benchTake(sku, 1)) { handSet({ kind: 'box', sku: sku }); sfx('pickup'); }
   }
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }
@@ -2623,7 +2870,7 @@
     return false;
   }
   // ── Tools you push: the jack and the cart ─────────────────────────
-  var jackMesh = null, jackMeshes = {}, cartMesh = null, forkM = null, driving = false, forkSpeed = 0, forkLook = { yaw: 0, pitch: 0 };
+  var jackMesh = null, jackMeshes = {}, cartMesh = null, forkM = null, driving = false, forkSpeed = 0, forkLook = { yaw: 0, pitch: 0 }, jackModel = null;
   function isJack(t) { return t === 'jack' || t === 'jack2'; }
   function jackTool() { return isJack(player.tool) ? player.tool : 'jack'; }
   function toolWorld(tool) {
@@ -2632,7 +2879,7 @@
   }
   function buildTools() {
     // ── the pallet jack: forks either side of the origin (where the pallet sits), the pump body and the tiller behind (local -z)
-    var buildJack = function (tool) { var j = new THREE.Group(); j.userData.dynamic = true; scene.add(j); jackMeshes[tool] = j;
+    var buildJack = function (tool, noHit) { var j = new THREE.Group(); j.userData.dynamic = true; scene.add(j); if (!noHit) jackMeshes[tool] = j;   /* noHit: a jack a receiver pushes, not one you can grab */
     var JO = std({ color: 0xe8701a, roughness: 0.45, metalness: 0.35 });
     [-0.3, 0.3].forEach(function (x) {
       box(0.16, 0.06, 1.1, JO, x, 0.095, 0.0, j); var tip = box(0.16, 0.06, 0.16, JO, x, 0.075, 0.62, j); tip.rotation.x = 0.35;
@@ -2647,8 +2894,8 @@
     box(0.08, 0.03, 0.1, MAT.red, 0, 0.95, 0.06, tiller); cyl(0.04, 0.08, MAT.steelDark, 0, 0.0, 0, tiller, 10);
     sign(['2500 kg'], 0.3, 0.1, 0, 0.3, -0.5, 0, { w: 256, h: 80, bg: '#1b232c', fg: '#f5b53d' }, j);
     groundBlob(0.9, 1.7, 0, -0.1, j, 0);
-    hitBox(1.0, 1.3, 1.9, 0, 0.6, -0.25, { prompt: function () { return toolPrompt(tool); }, use: function () { grabTool(tool); } }, j); return j; };
-    jackMesh = buildJack('jack'); buildJack('jack2');
+    if (!noHit) hitBox(1.0, 1.3, 1.9, 0, 0.6, -0.25, { prompt: function () { return toolPrompt(tool); }, use: function () { grabTool(tool); } }, j); return j; };
+    jackModel = buildJack; jackMesh = buildJack('jack'); buildJack('jack2');
     // ── the picking cart: a tubular frame, two mesh shelves, a push loop, four casters and a clipboard
     var c = new THREE.Group(); c.userData.dynamic = true; scene.add(c); cartMesh = c;
     [[-0.62, -0.3], [0.62, -0.3], [-0.62, 0.3], [0.62, 0.3]].forEach(function (o) { cyl(0.018, 0.96, MAT.chrome, o[0], 0.56, o[1], c, 8); box(0.05, 0.08, 0.05, MAT.steelDark, o[0], 0.1, o[1], c); var cw = cyl(0.045, 0.03, MAT.rubber, o[0], 0.045, o[1] + 0.03, c, 12); cw.rotation.z = Math.PI / 2; });
@@ -2741,13 +2988,14 @@
     // a towed tool trails the player: its heading eases toward the player's, so a look round does not whip it about
     var towed = function (tool, mesh) { var w = toolWorld(tool); if (player.tool === tool) { var cur = mesh.userData.towRy === undefined ? w.ry : mesh.userData.towRy, d = Math.atan2(Math.sin(w.ry - cur), Math.cos(w.ry - cur)); cur += d * ease; mesh.userData.towRy = cur; w.ry = cur; w.x = player.x + Math.sin(cur) * 1.15; w.z = player.z + Math.cos(cur) * 1.15; } else mesh.userData.towRy = undefined; mesh.position.set(w.x, floorY(w.x, w.z), w.z); mesh.rotation.y = w.ry; };
     towed('jack', jackMesh); towed('jack2', jackMeshes.jack2); towed('cart', cartMesh); cartMesh.visible = !!S.up.cart;
-    forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving; forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, ease * 2); }
+    forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving || !!staffDriving(); forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, ease * 2); }
   }
 
   // ── The forklift ──────────────────────────────────────────────────
   function forkTip() { return { x: S.fork.x + Math.sin(S.fork.yaw) * 1.5, y: S.fork.lift, z: S.fork.z + Math.cos(S.fork.yaw) * 1.5 }; }
   function startDrive() {
     if (!S.up.fork || S.hand || player.tool || driving) return;
+    var drv = staffDriving(); if (drv) { toast(drv.name + ' is on the forklift. They park it when the job is done.', 'bad'); sfx('bad'); return; }
     if (S.fork.plugged) cableUnplugFork('You drove off with the charger plugged in. The plug came out.');
     driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = -0.14; sfx('forklift'); introStep('fork'); hudDirty = true;
     $('h-drive').hidden = false;
@@ -2819,76 +3067,167 @@
     return best;
   }
   // ── The human model ───────────────────────────────────────────────
+  // A rigged person: hip and knee pivots, shoulder and elbow pivots, a torso that rolls with the stride and a head that turns to
+  // look at you. Every limb is an eased cylinder, the shoes have soles and laces, the shirt has a collar, buttons, a pocket and a
+  // belt, the hair is a cap with a fringe, sideburns and a nape (or long, or a bun), and the face is a 256 px decal that blinks.
+  // Built at Grow Co.'s proportions and scaled to 1.8 m, so the hit boxes, speech bubbles and the camera that were set for the
+  // old figure still fit. The API is the old one: makeHuman(opt), animateHuman(g, dt, mode, speed, look, carry), setMood, say.
   var SKINS = [0xf1d2b6, 0xe2b48f, 0xd9a98a, 0xb87b5a, 0x8d5a3c, 0x5c3a28];
   var HAIRS = [0x1d1510, 0x3a2a1c, 0x6b4a2b, 0xa8793f, 0xd9b36a, 0x8a8a8a, 0xb0352a, 0x2b2b35];
   var SHIRTS = [0x8c949c, 0x3b4b6b, 0x7b3f3f, 0x2f6f4f, 0xd9d9d9, 0x5a4b7b, 0x8a6a3a, 0x335b7b, 0x2a2d33];
   var PANTS = [0x2e3f63, 0x3a3a3a, 0x5b4b3a, 0x1f2a44, 0x6b6b6b];
+  var EYES = ['#3a5a8a', '#4a3221', '#2a6a3a', '#5a4a2a', '#6a7a8a'];
   var faceCache = {};
+  // what a face key decides, the same every time that key is drawn: eye colour, brow weight, freckles
+  function faceSpec(key) { var n = 0; for (var i = 0; i < key.length; i++) n = (n * 31 + key.charCodeAt(i)) >>> 0; return { eye: EYES[n % EYES.length], freckles: n % 5 === 0, brow: n % 3 === 0 ? '#1a1008' : '#2a1a10', thin: n % 4 === 1 }; }
   function faceTex(key, mood, skin, blink) {
-    var k = key + mood + (blink ? 'b' : '');
-    if (faceCache[k]) return faceCache[k];
-    var t = tex(128, 128, function (c, w, h) {
-      c.clearRect(0, 0, w, h);
-      var eye = function (x) { c.fillStyle = '#fff'; c.beginPath(); c.ellipse(x, 58, 11, blink ? 1.5 : 7, 0, 0, 6.3); c.fill(); if (!blink) { c.fillStyle = key.charCodeAt(1) % 2 ? '#3a5a8a' : '#4a3221'; c.beginPath(); c.arc(x + (mood === 'shifty' ? 3 : 0), 59, 4.5, 0, 6.3); c.fill(); c.fillStyle = '#111'; c.beginPath(); c.arc(x + (mood === 'shifty' ? 3 : 0), 59, 2.2, 0, 6.3); c.fill(); c.fillStyle = 'rgba(255,255,255,0.8)'; c.beginPath(); c.arc(x - 1.5, 57, 1.2, 0, 6.3); c.fill(); } };
-      eye(44); eye(84);
-      c.strokeStyle = '#2a1d14'; c.lineWidth = 3.2; c.lineCap = 'round';
-      var tilt = mood === 'angry' ? 5 : mood === 'tired' ? -3 : mood === 'happy' ? -2 : 0;
-      c.beginPath(); c.moveTo(32, 44 + tilt); c.lineTo(54, 44 - tilt); c.stroke(); c.beginPath(); c.moveTo(74, 44 - tilt); c.lineTo(96, 44 + tilt); c.stroke();
-      c.strokeStyle = 'rgba(80,40,30,0.7)'; c.lineWidth = 2.6; c.beginPath();
-      if (mood === 'happy') { c.moveTo(48, 90); c.quadraticCurveTo(64, 104, 80, 90); } else if (mood === 'tired') { c.moveTo(50, 94); c.quadraticCurveTo(64, 88, 78, 94); } else if (mood === 'talk') { c.fillStyle = '#5a2a2a'; c.ellipse(64, 93, 8, 6, 0, 0, 6.3); c.fill(); } else { c.moveTo(52, 92); c.lineTo(76, 92); }
-      c.stroke();
-      c.fillStyle = 'rgba(0,0,0,0.12)'; c.beginPath(); c.ellipse(64, 74, 5, 8, 0, 0, 6.3); c.fill();   // the nose shadow
+    var k = key + mood + (blink ? 'b' : ''); if (faceCache[k]) return faceCache[k];
+    var sp = faceSpec(key);
+    var t = tex(256, 256, function (ctx, w, h) {
+      ctx.clearRect(0, 0, w, h);
+      var eyeY = 112, iris = sp.eye, closed = blink || mood === 'tired', squint = mood === 'happy' ? 12 : mood === 'angry' ? 12.5 : 15;
+      [84, 172].forEach(function (x, i) {
+        var sd = i ? 1 : -1, px = x + (mood === 'shifty' ? 8 : 0);
+        if (closed) { ctx.strokeStyle = '#3a2a20'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - 21, eyeY + 1); ctx.quadraticCurveTo(x, eyeY + 9, x + 21, eyeY + 1); ctx.stroke(); return; }
+        ctx.save(); ctx.beginPath(); ctx.ellipse(x, eyeY, 22, squint, 0, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = '#fbf8f2'; ctx.fillRect(x - 24, eyeY - 18, 48, 36);
+        var ig = ctx.createRadialGradient(px, eyeY + 1, 2, px, eyeY + 1, 11); ig.addColorStop(0, iris); ig.addColorStop(0.75, iris); ig.addColorStop(1, 'rgba(10,15,25,.9)'); ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(px, eyeY + 1, 10.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0b0b0d'; ctx.beginPath(); ctx.arc(px, eyeY + 1, 4.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(px + 4, eyeY - 4, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(px - 4, eyeY + 5, 1.6, 0, Math.PI * 2); ctx.fill();
+        var lid = ctx.createLinearGradient(0, eyeY - squint, 0, eyeY - squint + 12); lid.addColorStop(0, 'rgba(40,20,10,.5)'); lid.addColorStop(1, 'rgba(40,20,10,0)'); ctx.fillStyle = lid; ctx.fillRect(x - 24, eyeY - squint, 48, 12);   /* the lid's shadow on the eye */
+        ctx.restore();
+        ctx.strokeStyle = '#2f2019'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.ellipse(x, eyeY, 22, squint, 0, Math.PI * 1.02, Math.PI * 1.98); ctx.stroke();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(60,35,25,.45)'; ctx.beginPath(); ctx.ellipse(x, eyeY, 22, squint, 0, Math.PI * 0.12, Math.PI * 0.88); ctx.stroke();
+        ctx.lineWidth = 2.5; ctx.strokeStyle = '#2f2019'; ctx.beginPath(); ctx.moveTo(x + sd * 21, eyeY - 3); ctx.lineTo(x + sd * 27, eyeY - 8); ctx.stroke();   /* one lash at the outer corner */
+      });
+      // brows: thick at the nose, fine at the temple; they tilt with the mood
+      ctx.fillStyle = sp.brow; var tilt = mood === 'angry' ? 12 : mood === 'tired' ? -6 : mood === 'happy' ? -3 : 0, bt = sp.thin ? 0.6 : 1;
+      [[58, 110], [198, 146]].forEach(function (b) { ctx.beginPath(); ctx.moveTo(b[0], 84 - tilt + 2); ctx.quadraticCurveTo((b[0] + b[1]) / 2, 72, b[1], 84 + tilt - 4 * bt); ctx.lineTo(b[1], 84 + tilt + 5 * bt); ctx.quadraticCurveTo((b[0] + b[1]) / 2, 80, b[0], 84 - tilt + 4); ctx.closePath(); ctx.fill(); });
+      // the nose is modelled: only the shadow under its tip is drawn
+      ctx.fillStyle = 'rgba(70,35,20,.22)'; ctx.beginPath(); ctx.ellipse(128, 166, 17, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#8a4536'; ctx.lineCap = 'round'; ctx.lineWidth = 4.5; ctx.beginPath();
+      if (mood === 'happy') { ctx.fillStyle = '#4a1a1a'; ctx.beginPath(); ctx.moveTo(96, 186); ctx.quadraticCurveTo(128, 216, 160, 186); ctx.quadraticCurveTo(128, 194, 96, 186); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(102, 188.5); ctx.quadraticCurveTo(128, 196, 154, 188.5); ctx.quadraticCurveTo(128, 203, 102, 188.5); ctx.fill(); ctx.beginPath(); ctx.moveTo(96, 186); ctx.quadraticCurveTo(128, 216, 160, 186); ctx.stroke(); }
+      else if (mood === 'tired') { ctx.moveTo(100, 198); ctx.quadraticCurveTo(128, 186, 156, 198); ctx.stroke(); }
+      else if (mood === 'angry') { ctx.moveTo(100, 196); ctx.quadraticCurveTo(128, 186, 156, 192); ctx.stroke(); }
+      else if (mood === 'talk') { ctx.fillStyle = '#3a1a1a'; ctx.beginPath(); ctx.ellipse(128, 194, 16, 12, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#c0605a'; ctx.beginPath(); ctx.ellipse(128, 200, 9, 5, 0, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.moveTo(104, 192); ctx.quadraticCurveTo(128, 199, 152, 192); ctx.stroke(); }
+      if (mood !== 'talk' && mood !== 'happy') { ctx.strokeStyle = 'rgba(90,40,30,.25)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(114, 205); ctx.quadraticCurveTo(128, 210, 142, 205); ctx.stroke(); }   /* the shade under the lower lip */
+      ctx.fillStyle = 'rgba(255,110,110,' + (mood === 'happy' ? 0.26 : 0.12) + ')'; [62, 194].forEach(function (x) { var bl = ctx.createRadialGradient(x, 152, 2, x, 152, 22); bl.addColorStop(0, ctx.fillStyle); bl.addColorStop(1, 'rgba(255,110,110,0)'); ctx.save(); ctx.fillStyle = bl; ctx.beginPath(); ctx.arc(x, 152, 22, 0, Math.PI * 2); ctx.fill(); ctx.restore(); });
+      if (sp.freckles) { ctx.fillStyle = 'rgba(120,70,40,.5)'; for (var f = 0; f < 22; f++) { ctx.beginPath(); ctx.arc(60 + Math.random() * 136, 136 + Math.random() * 30, 1.6, 0, Math.PI * 2); ctx.fill(); } }
     });
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; faceCache[k] = t; return t;
   }
+  var HUMAN_GEO = {
+    thigh: roundCylGeo(0.088, 0.068, 0.42, 18), shin: roundCylGeo(0.064, 0.046, 0.4, 18), knee: new THREE.SphereGeometry(0.068, 14, 10),
+    shoe: bevelGeo(0.12, 0.085, 0.27, 0.036, 3), sole: bevelGeo(0.128, 0.03, 0.285, 0.012, 1), lace: bevelGeo(0.1, 0.02, 0.06, 0.006, 1),
+    hips: bevelGeo(0.36, 0.18, 0.22, 0.08, 3), torso: taperGeo(bevelGeo(0.4, 0.5, 0.24, 0.1, 3).clone(), 0.5, 0.86, 0.9), chest: bevelGeo(0.44, 0.26, 0.26, 0.11, 3),
+    belt: bevelGeo(0.38, 0.05, 0.24, 0.012, 1), buckle: bevelGeo(0.05, 0.04, 0.02, 0.005, 1), placket: bevelGeo(0.12, 0.05, 0.03, 0.008, 1), button: roundCylGeo(0.008, 0.008, 0.006, 8), pocket: bevelGeo(0.1, 0.1, 0.005, 0.002, 1),
+    upperArm: roundCylGeo(0.054, 0.044, 0.3, 14), foreArm: roundCylGeo(0.044, 0.034, 0.3, 14), elbow: new THREE.SphereGeometry(0.047, 12, 10), shoulder: new THREE.SphereGeometry(0.072, 14, 10),
+    hand: bevelGeo(0.075, 0.1, 0.036, 0.016, 2), thumb: roundCylGeo(0.012, 0.012, 0.05, 8), cuff: roundCylGeo(0.043, 0.04, 0.035, 14), hem: roundCylGeo(0.058, 0.056, 0.04, 16), collar: bevelGeo(0.085, 0.036, 0.012, 0.004, 1),
+    neck: roundCylGeo(0.05, 0.062, 0.1, 14), head: new THREE.SphereGeometry(0.17, 28, 20), ear: new THREE.SphereGeometry(0.03, 10, 8), nose: new THREE.SphereGeometry(0.021, 12, 10),
+    hairCap: new THREE.SphereGeometry(0.17, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), hairLong: new THREE.SphereGeometry(0.17, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    vest: bevelGeo(0.47, 0.5, 0.29, 0.06, 3), band: bevelGeo(0.48, 0.04, 0.3, 0.012, 1), strap: bevelGeo(0.05, 0.28, 0.3, 0.012, 1),
+    peak: bevelGeo(0.2, 0.015, 0.14, 0.005, 1)
+  };
+  // a beard follows the jaw and the chin and leaves the mouth alone; long hair falls behind the shoulders as one sheet
+  HUMAN_GEO.beard = new THREE.SphereGeometry(0.17, 20, 8, -Math.PI * 0.1, Math.PI * 1.2, Math.PI * 0.7, Math.PI * 0.3); HUMAN_GEO.beard.scale(1.035, 1.15, 0.985);
+  HUMAN_GEO.hairFall = new THREE.CylinderGeometry(0.178, 0.205, 0.4, 22, 3, true, Math.PI * 0.42, Math.PI * 1.16);
+  HUMAN_GEO.ear.scale(0.5, 1.15, 0.85); HUMAN_GEO.nose.scale(0.82, 1.3, 1.05); HUMAN_GEO.head.scale(1, 1.12, 0.95);
+  HUMAN_GEO.hairCap.scale(1.07, 1.2, 1.02); HUMAN_GEO.hairLong.scale(1.08, 1.21, 1.04);
+  // curved patches that follow the skull: fringe over the forehead, sideburns, nape
+  HUMAN_GEO.fringe = new THREE.SphereGeometry(0.17, 20, 8, Math.PI * 0.15, Math.PI * 0.7, Math.PI * 0.3, Math.PI * 0.2); HUMAN_GEO.fringe.scale(1.075, 1.205, 1.03);
+  HUMAN_GEO.sideL = new THREE.SphereGeometry(0.17, 12, 8, Math.PI * 1.88, Math.PI * 0.24, Math.PI * 0.4, Math.PI * 0.22); HUMAN_GEO.sideL.scale(1.075, 1.205, 1.03);
+  HUMAN_GEO.sideR = new THREE.SphereGeometry(0.17, 12, 8, Math.PI * 0.88, Math.PI * 0.24, Math.PI * 0.4, Math.PI * 0.22); HUMAN_GEO.sideR.scale(1.075, 1.205, 1.03);
+  HUMAN_GEO.nape = new THREE.SphereGeometry(0.17, 16, 8, Math.PI * 1.2, Math.PI * 0.6, Math.PI * 0.4, Math.PI * 0.3); HUMAN_GEO.nape.scale(1.075, 1.205, 1.03);
+  var HUMAN_SCALE = 0.93, BAND_M = std({ color: 0xc9ced3, roughness: 0.3, metalness: 0.4, emissive: 0x666666, emissiveIntensity: 0.25 }), LACE_M = std({ color: 0xf2f2f2, roughness: 0.9 }), BELT_M = std({ color: 0x3a2a1a, roughness: 0.5 }), SOLE_M = std({ color: 0xd8d4cc, roughness: 0.9 });
   function makeHuman(opt) {
     opt = opt || {};
     var skinCol = opt.skin || pick(SKINS), hairCol = opt.hair || pick(HAIRS), style = opt.style || pick(['short', 'short', 'long', 'bun', 'bald', 'cap']);
-    var skin = std({ color: skinCol, roughness: 0.85 }), shirt = opt.shirt || std({ color: pick(SHIRTS), roughness: 0.95 }), pants = std({ color: pick(PANTS), roughness: 0.95 }), hair = std({ color: hairCol, roughness: 0.95 });
+    var skin = std({ color: skinCol, roughness: 0.75 }), shirt = opt.shirt || std({ map: TEX.cloth, color: pick(SHIRTS), roughness: 0.92 }), pants = std({ map: TEX.cloth, color: pick(PANTS), roughness: 0.95 }), hair = std({ color: hairCol, roughness: 0.62 }), hairSide = hair.clone(); hairSide.side = THREE.DoubleSide;
+    var shoeM = std({ color: pick([0x1e1a18, 0x3a2a1a, 0x4a3a2a, 0x2f2f33]), roughness: 0.6 }), shirtDark = shirt.clone(); if (shirtDark.color) shirtDark.color.multiplyScalar(0.85);
+    var rolled = opt.rolled !== undefined ? !!opt.rolled : Math.random() < 0.4;
     var g = new THREE.Group(), u = g.userData; u.dynamic = true;
-    u.key = 'f' + Math.floor(Math.random() * 1000); u.mood = opt.mood || 'neutral'; u.blink = 0; u.blinkIn = randf(2, 6); u.walk = 0; u.idleT = Math.random() * 10; u.lookYaw = 0; u.lookPitch = 0;
-    function leg(x) { var hip = new THREE.Group(); hip.position.set(x, 0.86, 0); cyl(0.075, 0.42, pants, 0, -0.21, 0, hip, 10); var knee = new THREE.Group(); knee.position.set(0, -0.42, 0); cyl(0.065, 0.4, pants, 0, -0.2, 0, knee, 10); var boot = new THREE.Mesh(bevelGeo(0.15, 0.1, 0.28, 0.03), MAT.black); boot.position.set(0, -0.41, 0.05); boot.castShadow = true; knee.add(boot); box(0.16, 0.03, 0.3, std({ color: 0x8a6a3a, roughness: 1 }), 0, -0.455, 0.05, knee); hip.add(knee); hip.userData.knee = knee; g.add(hip); return hip; }
-    function arm(x) { var sh = new THREE.Group(); sh.position.set(x, 1.38, 0); sphere(0.065, shirt, 0, 0, 0, sh); cyl(0.052, 0.3, shirt, 0, -0.15, 0, sh, 8); var el = new THREE.Group(); el.position.set(0, -0.3, 0); sphere(0.05, shirt, 0, 0, 0, el); cyl(0.045, 0.26, skin, 0, -0.14, 0, el, 8); var hd = sphere(0.055, skin, 0, -0.3, 0.01, el); hd.scale.set(0.8, 1.1, 0.6); sh.add(el); sh.userData.elbow = el; g.add(sh); return sh; }
-    u.legs = [leg(-0.12), leg(0.12)]; u.arms = [arm(-0.245), arm(0.245)];
-    var torso = new THREE.Mesh(bevelGeo(0.4, 0.56, 0.24, 0.06), shirt); torso.position.set(0, 1.14, 0); torso.castShadow = true; g.add(torso); sphere(0.085, shirt, -0.17, 1.4, 0, g); sphere(0.085, shirt, 0.17, 1.4, 0, g); var chest = new THREE.Mesh(bevelGeo(0.42, 0.14, 0.26, 0.05), shirt); chest.position.set(0, 1.36, 0); g.add(chest);
-    if (opt.vest) { var vest = new THREE.Mesh(bevelGeo(0.46, 0.46, 0.29, 0.05), opt.vest); vest.position.set(0, 1.15, 0); vest.castShadow = true; g.add(vest); var band = std({ color: 0xc9ced3, roughness: 0.3, metalness: 0.4 }); box(0.48, 0.035, 0.31, band, 0, 1.06, 0, g); box(0.48, 0.035, 0.31, band, 0, 1.22, 0, g); box(0.05, 0.3, 0.31, band, -0.15, 1.3, 0, g); box(0.05, 0.3, 0.31, band, 0.15, 1.3, 0, g); }
-    if (opt.name) { var tag = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.05), new THREE.MeshBasicMaterial({ map: textTex([opt.name], { w: 128, h: 48, bg: '#fff', fg: '#1b232c' }) })); tag.position.set(0.1, 1.3, 0.145); g.add(tag); }
-    cyl(0.05, 0.08, skin, 0, 1.47, 0, g, 8);
-    var head = sphere(0.135, skin, 0, 1.6, 0, g); u.head = head; u.skinKey = skinCol.toString(16);
-    var face = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: faceTex(u.key, u.mood, u.skinKey), transparent: true, alphaTest: 0.1 })); face.position.set(0, 1.6, 0.128); g.add(face); u.face = face;
-    sphere(0.025, skin, -0.13, 1.6, 0, g); sphere(0.025, skin, 0.13, 1.6, 0, g);
-    if (style !== 'bald') { var hs = sphere(0.14, hair, 0, 1.63, -0.015, g); hs.scale.set(1, 0.75, 1); }
-    if (style === 'long') { box(0.2, 0.3, 0.1, hair, 0, 1.45, -0.1, g); } if (style === 'bun') { sphere(0.06, hair, 0, 1.7, -0.12, g); }
-    if (style === 'cap' || opt.cap) { cyl(0.145, 0.07, opt.capMat || MAT.blue, 0, 1.71, 0, g, 16); box(0.18, 0.02, 0.14, opt.capMat || MAT.blue, 0, 1.69, 0.17, g); }
-    if (opt.hardhat) { var hh = sphere(0.155, opt.hardhat, 0, 1.66, 0, g); hh.scale.set(1, 0.7, 1); cyl(0.19, 0.02, opt.hardhat, 0, 1.63, 0, g, 16); }
-    if (Math.random() < 0.3 && !opt.noBeard) { var bd = sphere(0.1, hair, 0, 1.52, 0.06, g); bd.scale.set(1, 0.55, 0.8); }
-    if (Math.random() < 0.25) { [-0.05, 0.05].forEach(function (x) { var ring = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.005, 6, 12), MAT.black); ring.position.set(x, 1.61, 0.13); g.add(ring); }); box(0.03, 0.005, 0.01, MAT.black, 0, 1.61, 0.13, g); }
+    u.key = 'f' + Math.floor(Math.random() * 100000); u.mood = opt.mood || 'neutral'; u.blink = 0; u.blinkIn = randf(2, 6); u.walk = 0; u.idleT = Math.random() * 10; u.lookYaw = 0; u.lookPitch = 0; u.skinKey = skinCol.toString(16); u.phase = Math.random() * 6.28;
+    g.scale.setScalar(HUMAN_SCALE);
+    function mesh(geo, mat, x, y, z, parent) { var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; (parent || g).add(m); return m; }
+    // legs: hip pivot, thigh, knee pivot, shin, shoe on its sole
+    function leg(side) {
+      var hip = new THREE.Group(); hip.position.set(side * 0.1, 0.86, 0); g.add(hip);
+      mesh(HUMAN_GEO.thigh, pants, 0, -0.21, 0, hip);
+      var knee = new THREE.Group(); knee.position.set(0, -0.42, 0); hip.add(knee); hip.userData.knee = knee;
+      mesh(HUMAN_GEO.knee, pants, 0, 0, 0, knee); mesh(HUMAN_GEO.shin, pants, 0, -0.2, 0, knee);
+      mesh(HUMAN_GEO.shoe, shoeM, 0, -0.4, 0.05, knee); mesh(HUMAN_GEO.sole, SOLE_M, 0, -0.445, 0.05, knee); mesh(HUMAN_GEO.hem, pants, 0, -0.35, 0, knee); mesh(HUMAN_GEO.lace, LACE_M, 0, -0.36, 0.12, knee);
+      return hip;
+    }
+    u.legs = [leg(-1), leg(1)];
+    // torso: hips block, belt and buckle, shirt torso and chest, collar, placket, buttons, a pocket
+    var torso = new THREE.Group(); torso.position.y = 0.86; g.add(torso); u.torso = torso;
+    mesh(HUMAN_GEO.hips, pants, 0, 0.02, 0, torso); mesh(HUMAN_GEO.belt, BELT_M, 0, 0.1, 0, torso); mesh(HUMAN_GEO.buckle, MAT.chrome, 0, 0.1, 0.125, torso);
+    mesh(HUMAN_GEO.torso, shirt, 0, 0.36, 0, torso); u.chest = mesh(HUMAN_GEO.chest, shirt, 0, 0.52, 0, torso);
+    [-1, 1].forEach(function (sd) { var cl = mesh(HUMAN_GEO.collar, shirt, sd * 0.05, 0.648, 0.118, torso); cl.rotation.set(-0.35, sd * -0.25, sd * -0.62); });
+    mesh(HUMAN_GEO.placket, shirt, 0, 0.62, 0.13, torso); for (var b = 0; b < 4; b++) mesh(HUMAN_GEO.button, LACE_M, 0, 0.2 + b * 0.11, 0.125, torso).rotation.x = Math.PI / 2; mesh(HUMAN_GEO.pocket, shirtDark, -0.11, 0.48, 0.125, torso);
+    // the hi-vis vest over the shirt: two reflective bands round it and one over each shoulder
+    if (opt.vest) { mesh(HUMAN_GEO.vest, opt.vest, 0, 0.33, 0, torso); mesh(HUMAN_GEO.band, BAND_M, 0, 0.22, 0, torso); mesh(HUMAN_GEO.band, BAND_M, 0, 0.38, 0, torso); mesh(HUMAN_GEO.strap, BAND_M, -0.15, 0.5, 0, torso); mesh(HUMAN_GEO.strap, BAND_M, 0.15, 0.5, 0, torso); }
+    if (opt.name) { var tag = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.05), new THREE.MeshBasicMaterial({ map: textTex([opt.name], { w: 128, h: 48, bg: '#fff', fg: '#1b232c' }) })); tag.position.set(0.1, 0.46, opt.vest ? 0.152 : 0.132); torso.add(tag); }
+    // arms: shoulder pivot, upper arm, elbow pivot, forearm, a cuff unless the sleeves are rolled, a hand with its thumb
+    function arm(side) {
+      var sh = new THREE.Group(); sh.position.set(side * 0.27, 0.6, 0); torso.add(sh);
+      mesh(HUMAN_GEO.shoulder, shirt, 0, 0, 0, sh); mesh(HUMAN_GEO.upperArm, shirt, 0, -0.16, 0, sh);
+      var el = new THREE.Group(); el.position.set(0, -0.31, 0); sh.add(el); sh.userData.elbow = el;
+      mesh(HUMAN_GEO.elbow, shirt, 0, 0, 0, el); mesh(HUMAN_GEO.foreArm, rolled ? skin : shirt, 0, -0.15, 0, el);
+      if (!rolled) mesh(HUMAN_GEO.cuff, shirt, 0, -0.285, 0, el); else mesh(HUMAN_GEO.cuff, shirt, 0, -0.03, 0, el);
+      mesh(HUMAN_GEO.hand, skin, 0, -0.35, 0, el); var th = mesh(HUMAN_GEO.thumb, skin, side * 0.04, -0.33, 0.01, el); th.rotation.z = side * 0.6;
+      return sh;
+    }
+    u.arms = [arm(-1), arm(1)];
+    // head: neck, skull, nose, ears, hair, beard, the face decal, glasses, a cap or a hard hat
+    var head = new THREE.Group(); head.position.set(0, 0.66, 0); torso.add(head); u.head = head;
+    mesh(HUMAN_GEO.neck, skin, 0, 0.04, 0, head); mesh(HUMAN_GEO.head, skin, 0, 0.24, 0, head); mesh(HUMAN_GEO.nose, skin, 0, 0.222, 0.164, head);
+    [-1, 1].forEach(function (s) { mesh(HUMAN_GEO.ear, skin, s * 0.165, 0.24, -0.01, head); });
+    var hy = 0.24, capOn = style === 'cap' || !!opt.cap;
+    if (style !== 'bald') {
+      if (style === 'long') { mesh(HUMAN_GEO.hairLong, hair, 0, hy, 0, head); mesh(HUMAN_GEO.hairFall, hairSide, 0, hy - 0.16, -0.012, head); }
+      else { mesh(HUMAN_GEO.hairCap, hair, 0, hy, 0, head); mesh(HUMAN_GEO.nape, hair, 0, hy, 0, head); }
+      if (style === 'bun') mesh(new THREE.SphereGeometry(0.075, 12, 10), hair, 0, hy + 0.14, -0.14, head);
+      mesh(HUMAN_GEO.fringe, hair, 0, hy, 0, head); mesh(HUMAN_GEO.sideL, hair, 0, hy, 0, head); mesh(HUMAN_GEO.sideR, hair, 0, hy, 0, head);
+    }
+    if (Math.random() < 0.3 && !opt.noBeard) mesh(HUMAN_GEO.beard, hairSide, 0, hy, 0, head);
+    var face = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.28), new THREE.MeshBasicMaterial({ map: faceTex(u.key, u.mood, u.skinKey), transparent: true, depthWrite: false })); face.position.set(0, 0.245, 0.17); head.add(face); u.face = face;
+    if (Math.random() < 0.22) { var fr = std({ color: 0x222222, roughness: 0.4, metalness: 0.5 }); [-0.06, 0.06].forEach(function (x) { mesh(new THREE.TorusGeometry(0.038, 0.006, 6, 16), fr, x, 0.255, 0.178, head); }); mesh(bevelGeo(0.03, 0.006, 0.006, 0.002, 1), fr, 0, 0.26, 0.178, head); [-1, 1].forEach(function (s) { mesh(bevelGeo(0.006, 0.006, 0.16, 0.002, 1), fr, s * 0.1, 0.255, 0.085, head); }); }
+    // hats sit on the brows (the eye line is at 0.26 in the head's frame, the brows at 0.29), never over the eyes
+    if (capOn && !opt.hardhat) { var capM = opt.capMat || MAT.blue; mesh(new THREE.SphereGeometry(0.184, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), capM, 0, 0.29, 0, head); var peak = mesh(HUMAN_GEO.peak, capM, 0, 0.3, 0.2, head); peak.rotation.x = 0.15; mesh(new THREE.SphereGeometry(0.02, 8, 6), capM, 0, 0.47, 0, head); }
+    if (opt.hardhat) { mesh(new THREE.SphereGeometry(0.19, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), opt.hardhat, 0, 0.3, 0, head); mesh(roundCylGeo(0.212, 0.212, 0.016, 24), opt.hardhat, 0, 0.3, 0.0, head); var pk = mesh(bevelGeo(0.16, 0.012, 0.08, 0.004, 1), opt.hardhat, 0, 0.3, 0.245, head); pk.rotation.x = 0.12; }
     groundBlob(0.9, 0.9, 0, 0, g, 0.002);
-    g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; } });
     return g;
   }
   function setMood(g, mood) { var u = g.userData; if (u.mood === mood) return; u.mood = mood; u.face.material.map = faceTex(u.key, mood, u.skinKey, u.blink > 0); }
-  // mode: 'walk' | 'idle' | 'wait' | 'work'. look: a world point the head turns to, within reason. carry: arms forward.
+  // mode: 'walk' | 'idle' | 'wait' | 'work'. look: a world point the head turns to, within reason. carry: arms out in front.
+  // The feet stay planted: the torso rises and falls with the stride and rolls a little, and the head stays level over it.
   function animateHuman(g, dt, mode, speed, look, carry) {
     var u = g.userData; if (!u.legs) return;
     u.idleT += dt;
     if (mode === 'walk') u.walk += dt * (6 + speed * 1.5); else { var ph = u.walk % Math.PI; u.walk += (ph < Math.PI / 2 ? -ph : Math.PI - ph) * Math.min(1, 10 * dt); }
-    var t = u.walk, sw = mode === 'walk' ? 0.55 : 0;
-    u.legs[0].rotation.x = Math.sin(t) * sw; u.legs[1].rotation.x = -Math.sin(t) * sw;
-    u.legs[0].userData.knee.rotation.x = Math.max(0, -Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0); u.legs[1].userData.knee.rotation.x = Math.max(0, Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0);
-    if (carry) { u.arms[0].rotation.x = -0.9; u.arms[1].rotation.x = -0.9; u.arms[0].userData.elbow.rotation.x = -0.9; u.arms[1].userData.elbow.rotation.x = -0.9; u.arms[0].rotation.z = 0.25; u.arms[1].rotation.z = -0.25; }
-    else if (mode === 'work') { u.arms[0].rotation.x = -0.6 + Math.sin(u.idleT * 6) * 0.25; u.arms[1].rotation.x = -0.6 - Math.sin(u.idleT * 6) * 0.25; u.arms[0].userData.elbow.rotation.x = -0.8; u.arms[1].userData.elbow.rotation.x = -0.8; u.arms[0].rotation.z = 0.1; u.arms[1].rotation.z = -0.1; }
-    else { var drift = Math.sin(u.idleT * 1.1) * 0.05; u.arms[0].rotation.x = -Math.sin(t) * sw * 0.8 + drift; u.arms[1].rotation.x = Math.sin(t) * sw * 0.8 - drift; u.arms[0].userData.elbow.rotation.x = -Math.max(0, Math.sin(t)) * sw * 0.6 - 0.15; u.arms[1].userData.elbow.rotation.x = -Math.max(0, -Math.sin(t)) * sw * 0.6 - 0.15; u.arms[0].rotation.z = 0.08; u.arms[1].rotation.z = -0.08; }
-    if (mode === 'wait') { u.legs[1].position.y = 0.86 + Math.max(0, Math.sin(u.idleT * 2.4)) * 0.04; } else u.legs[1].position.y = 0.86;
-    g.children.forEach(function (c) { if (c === u.head || c === u.face) return; });
-    var bob = mode === 'walk' ? Math.abs(Math.cos(t)) * 0.03 : Math.sin(u.idleT * 0.31) * 0.004;
-    g.position.y = (g.userData.baseY || 0) + bob; g.rotation.z = mode === 'walk' ? Math.sin(t) * 0.03 : Math.sin(u.idleT * 0.31) * 0.007;
+    var t = u.walk, sw = mode === 'walk' ? 0.55 : 0, s = Math.sin(t), L = u.legs[0], R = u.legs[1], lk = L.userData.knee, rk = R.userData.knee, la = u.arms[0], ra = u.arms[1], le = la.userData.elbow, re = ra.userData.elbow, T = u.torso;
+    if (mode === 'sit') {   // on the forklift seat: thighs forward, shins down, hands on the wheel
+      L.rotation.x = -1.45; R.rotation.x = -1.45; lk.rotation.x = 1.45; rk.rotation.x = 1.45; R.position.y = 0.86; la.rotation.x = -0.85; ra.rotation.x = -0.85; le.rotation.x = -0.55; re.rotation.x = -0.55; la.rotation.z = 0.2; ra.rotation.z = -0.2; T.position.set(0, 0.86, 0); T.rotation.set(0, 0, 0); u.head.rotation.z = 0;
+    } else {
+    L.rotation.x = s * sw; R.rotation.x = -s * sw;
+    lk.rotation.x = Math.max(0, -Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0); rk.rotation.x = Math.max(0, Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0);
+    if (carry) { la.rotation.x = -0.9; ra.rotation.x = -0.9; le.rotation.x = -0.9; re.rotation.x = -0.9; la.rotation.z = 0.25; ra.rotation.z = -0.25; }
+    else if (mode === 'work') { la.rotation.x = -0.6 + Math.sin(u.idleT * 6) * 0.25; ra.rotation.x = -0.6 - Math.sin(u.idleT * 6) * 0.25; le.rotation.x = -0.8; re.rotation.x = -0.8; la.rotation.z = 0.1; ra.rotation.z = -0.1; }
+    else { var drift = Math.sin(u.idleT * 1.1) * 0.05; la.rotation.x = -s * sw * 0.8 + drift; ra.rotation.x = s * sw * 0.8 - drift; le.rotation.x = -Math.max(0, s) * sw * 0.6 - 0.15; re.rotation.x = -Math.max(0, -s) * sw * 0.6 - 0.15; la.rotation.z = 0.08 + Math.sin(u.idleT * 0.7) * 0.03; ra.rotation.z = -0.08 - Math.sin(u.idleT * 0.7) * 0.03; }
+    if (mode === 'wait') { R.position.y = 0.86 + Math.max(0, Math.sin(u.idleT * 2.4)) * 0.04; } else R.position.y = 0.86;
+    if (mode === 'walk') { T.position.y = 0.86 + Math.abs(Math.cos(t)) * 0.03; T.position.x = 0; T.rotation.z = s * 0.03; T.rotation.y = s * 0.06; u.head.rotation.z = -s * 0.025; }
+    else { T.position.y = 0.86 + Math.sin(u.idleT * 0.31) * 0.006; T.position.x = Math.sin(u.idleT * 0.31) * 0.007; T.rotation.z = Math.sin(u.idleT * 0.31) * 0.014; T.rotation.y = mode === 'wait' ? Math.sin(u.idleT * 0.35) * 0.12 : lerp(T.rotation.y, 0, Math.min(1, 4 * dt)); u.head.rotation.z = 0; }   /* the weight goes from one foot to the other */
+    }
+    if (u.chest) u.chest.scale.z = 1 + Math.sin(worldTime * 1.6 + u.phase) * 0.018;   /* breathing */
+    g.position.y = u.baseY || 0;
     // the head: looks at what it is given, else drifts; blinks now and then
     var wantYaw = 0, wantPitch = 0;
     if (look) { var dx = look.x - g.position.x, dz = look.z - g.position.z, d = Math.sqrt(dx * dx + dz * dz); if (d < 9) { var a = Math.atan2(dx, dz) - g.rotation.y; while (a > Math.PI) a -= 6.283; while (a < -Math.PI) a += 6.283; wantYaw = clamp(a, -1.3, 1.3); wantPitch = clamp(Math.atan2((look.y || 1.6) - 1.6, d), -0.3, 0.3); } }
     else wantYaw = Math.sin(u.idleT * 0.4) * 0.15;
     u.lookYaw += (wantYaw - u.lookYaw) * Math.min(1, 6 * dt); u.lookPitch += (wantPitch - u.lookPitch) * Math.min(1, 6 * dt);
-    u.head.rotation.y = u.lookYaw; u.face.rotation.y = u.lookYaw; u.face.position.x = Math.sin(u.lookYaw) * 0.128; u.face.position.z = Math.cos(u.lookYaw) * 0.128; u.face.position.y = 1.6 - Math.sin(u.lookPitch) * 0.05;
+    u.head.rotation.y = u.lookYaw - (mode === 'walk' ? T.rotation.y : 0); u.head.rotation.x = -u.lookPitch;
     u.blinkIn -= dt; if (u.blinkIn <= 0 && u.blink <= 0) { u.blink = 0.12; u.face.material.map = faceTex(u.key, u.mood, u.skinKey, true); } if (u.blink > 0) { u.blink -= dt; if (u.blink <= 0) { u.blinkIn = randf(2, 6.5); u.face.material.map = faceTex(u.key, u.mood, u.skinKey, false); } }
     if (u.bubble) { u.bubble.t -= dt; if (u.bubble.t <= 0) { g.remove(u.bubble.sp); u.bubble = null; } }
   }
@@ -2982,21 +3321,31 @@
   function onBreak() { return S.time >= 12 && S.time < 12.5; }
   function hireStaff(role) {
     var def = STAFF_ROLES[role]; if (!def) return;
+    if (def.needs && !S.up[def.needs]) { toast('Buy the forklift first: a driver needs something to drive.', 'bad'); return; }
     var name = STAFF_NAMES[S.nextStaffName++ % STAFF_NAMES.length];
     var st = { id: uid('st'), name: name, role: role, x: SPOT.spawn.x, z: SPOT.spawn.z, yaw: 0, state: 'home', path: [], timer: 0, carry: null, task: null, hiredDay: S.day, look: { skin: pick(SKINS), hair: pick(HAIRS), style: pick(['short', 'long', 'bun', 'bald', 'short']) }, said: 0, punct: randf(0.2, 1), arriveOff: 0, hoursToday: 0, sheet: [] };
     S.staff.push(st); buildStaffMesh(st); logEvent('Hired ' + name + ' as ' + def.name.toLowerCase() + '. Paid ' + money(def.wage / 10) + ' an hour from the time clock, time and a half past ten hours.', 'good'); hudDirty = true; if (S.time < 17 && !isSunday()) { st.state = 'home'; st.arriveOff = Math.round((S.time + 0.15 - SHIFT_START) * 60); }
   }
   function fireStaff(id) {
     var st = staffById(id); if (!st) return;
-    staffDropAll(st); var m = staffMeshes[id]; if (m) { scene.remove(m); delete staffMeshes[id]; }
+    staffDropAll(st); var m = staffMeshes[id]; if (m) { if (m.userData.jack) scene.remove(m.userData.jack); scene.remove(m); delete staffMeshes[id]; }
     S.staff.splice(S.staff.indexOf(st), 1); logEvent(st.name + ' let go'); hudDirty = true;
   }
   function buildStaffMesh(st) {
-    var vest = st.role === 'receiver' ? MAT.hivisOrange : st.role === 'picker' ? MAT.hivis : MAT.green;
+    var vest = st.role === 'receiver' ? MAT.hivisOrange : st.role === 'picker' ? MAT.hivis : st.role === 'driver' ? MAT.hivis : MAT.green;
     var look = st.look || {};
-    var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' ? MAT.white : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
+    var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' || st.role === 'driver' ? (st.role === 'driver' ? MAT.yellow : MAT.white) : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
+    if (st.role === 'receiver' && jackModel) g.userData.jack = jackModel('staffjack', true);   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
   }
+  // the receiver's jack: under the pallet ahead of them while they carry one, towed behind them the rest of the time
+  function jackFollow(st, m, onJack) {
+    var j = m.userData.jack; if (!j) return; j.visible = m.visible;
+    if (onJack) { j.position.set(st.x + Math.sin(st.yaw) * 0.95, floorY(st.x, st.z), st.z + Math.cos(st.yaw) * 0.95); j.rotation.y = st.yaw; }
+    else { j.position.set(st.x - Math.sin(st.yaw) * 1.15, floorY(st.x, st.z), st.z - Math.cos(st.yaw) * 1.15); j.rotation.y = st.yaw + Math.PI; }
+  }
+  function staffDriving() { for (var i = 0; i < S.staff.length; i++) if (S.staff[i].state === 'drive') return S.staff[i]; return null; }
   function staffDropAll(st) {
+    if (st.state === 'drive') driverDismount(st);
     if (st.carry) { if (st.carry.kind === 'box') S.floor.push({ kind: 'box', sku: st.carry.sku, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); else S.floor.push({ kind: 'parcel', order: st.carry.order, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); st.carry = null; }
     S.pallets.forEach(function (p) { if (p.place === 'staff' && p.staff === st.id) { p.place = 'floor'; p.x = st.x + Math.sin(st.yaw) * 0.95; p.z = st.z + Math.cos(st.yaw) * 0.95; p.y = floorY(p.x, p.z); p.rot = st.yaw; } });
     st.task = null; st.state = 'idle'; st.path = [];
@@ -3036,18 +3385,85 @@
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && !st.leaving;
-      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -HALL.x + 3.7 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
+      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait' && st.state !== 'drive') { st.task = null; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -HALL.x + 3.7 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
       if (!brk && st.state === 'break') st.state = 'idle';
+      // the driver: at the forklift, climbs on; on it, the forklift does the walking and the figure sits on the seat
+      if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st)) { st.state = 'idle'; st.task = null; } else { st.state = 'drive'; st.drive = { phase: 'toPallet', path: null }; sfx('forklift'); } }
+      if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false); return; }
       var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
       else if (st.state === 'wait') { st.timer -= dt; if (st.timer <= 0) { st.state = 'idle'; st.working = false; if (st.after) { var f = st.after; st.after = null; f(); } } }
       else if (st.state === 'break') { /* standing in the break room */ }
-      else if (st.state === 'idle' && working) { if (st.role === 'receiver') receiverThink(st); else if (st.role === 'picker') pickerThink(st); else packerThink(st); }
+      else if (st.state === 'idle' && working) { if (st.role === 'receiver') receiverThink(st); else if (st.role === 'picker') pickerThink(st); else if (st.role === 'driver') driverThink(st); else packerThink(st); }
       if ((st.state === 'idle' || st.state === 'break') && Math.random() < dt / 22 && S.time - (st.said || 0) > 0.4) { st.said = S.time; staffSay(st, pick(voice(st).idle), '#a0acb8'); }
       m.position.set(st.x, floorY(st.x, st.z), st.z); m.rotation.y = st.yaw;
       var near = dist2(st.x, st.z, player.x, player.z) < 36;
       animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, carrying);
+      jackFollow(st, m, S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; }));
     });
+  }
+  // ── The forklift driver ───────────────────────────────────────────
+  // Takes the pallets left on the hall floor (receiving, the palletiser drop, wherever you set one down) to a rack slot on any
+  // level, the top shelf included, which nobody on foot can reach. Keeps clear of the AGV's square and of you: a pallet you are
+  // standing by is yours, and the forklift is never taken while you are next to it or on it.
+  function driverSpot() { return { x: SPOT.fork.x + 2.2, z: SPOT.fork.z + 1.2 }; }
+  function driverJob() {
+    var A = S.agv, pu = propInst.agvDock ? propWorld('agvDock', 0, 2.6) : null, wr = propInst.wrapper ? propWorld('wrapper', 0, 0) : null, best = null, bd = 1e9;
+    S.pallets.forEach(function (p) {
+      if (p.place !== 'floor' || p.n <= 0 || !insideHall(p.x, p.z) || (SKU[p.sku] && SKU[p.sku].raw)) return;
+      if (A && A.target === p.id && A.state !== 'idle') return; if (pu && dist2(p.x, p.z, pu.x, pu.z) < 2.6) return; if (wr && dist2(p.x, p.z, wr.x, wr.z) < 2.6) return; if (dist2(p.x, p.z, player.x, player.z) < 9) return;
+      if (S.staff.some(function (o) { return o.task && o.task.pallet === p.id; })) return;
+      var key = findSlotFor(p.sku, p.n, 2); if (!key) return;
+      var d = dist2(p.x, p.z, S.fork.x, S.fork.z); if (d < bd) { bd = d; best = { pallet: p, key: key }; }
+    });
+    return best;
+  }
+  function driverThink(st) {
+    if (!S.up.fork) { if (Math.random() < 0.004) staffSay(st, 'Nothing to drive yet.', '#a0acb8'); idleAt(st, driverSpot()); return; }
+    if (driving || staffDriving() || dist2(player.x, player.z, S.fork.x, S.fork.z) < 6.5) { idleAt(st, driverSpot()); return; }
+    var job = driverJob(); if (!job) { idleAt(st, driverSpot()); return; }
+    st.task = { kind: 'drive', pallet: job.pallet.id, key: job.key }; if (Math.random() < 0.5) staffSay(st, voice(st).onit, '#5fd38d');
+    staffGo(st, { x: S.fork.x - Math.sin(S.fork.yaw) * 1.6, z: S.fork.z - Math.cos(S.fork.yaw) * 1.6 }, 'mountFork');
+  }
+  function forkFollow(D, dt) {
+    if (!D.path || !D.path.length) return true;
+    var t = D.path[0], dx = t.x - S.fork.x, dz = t.z - S.fork.z, d = Math.hypot(dx, dz), want = Math.atan2(dx, dz), diff = Math.atan2(Math.sin(want - S.fork.yaw), Math.cos(want - S.fork.yaw));
+    S.fork.yaw = Math.atan2(Math.sin(S.fork.yaw + clamp(diff, -2.2 * dt, 2.2 * dt)), Math.cos(S.fork.yaw + clamp(diff, -2.2 * dt, 2.2 * dt))); if (Math.abs(diff) > 0.5) return false;   // turns on the spot before it moves off, the way a counterbalance truck is driven; the heading is kept wrapped
+    var sp = 2.4 * dt; if (d <= sp) { S.fork.x = t.x; S.fork.z = t.z; D.path.shift(); return !D.path.length; }
+    S.fork.x += dx / d * sp; S.fork.z += dz / d * sp; return false;
+  }
+  function forkTurnTo(want, dt) { var diff = Math.atan2(Math.sin(want - S.fork.yaw), Math.cos(want - S.fork.yaw)); if (Math.abs(diff) < 0.04) { S.fork.yaw = want; return true; } S.fork.yaw += clamp(diff, -2.2 * dt, 2.2 * dt); return false; }
+  function driveTick(st, dt) {
+    var D = st.drive, p = st.task ? palletById(st.task.pallet) : null;
+    if (!D) { driverDismount(st); return; }
+    if (D.phase === 'toPallet') {
+      if (!p || p.place !== 'floor') { D.phase = 'park'; D.path = null; return; }
+      if (!D.path) { var dx = p.x - S.fork.x, dz = p.z - S.fork.z, dl = Math.hypot(dx, dz) || 1; D.path = route({ x: S.fork.x, z: S.fork.z }, { x: p.x - dx / dl * 1.7, z: p.z - dz / dl * 1.7 }); }
+      if (forkFollow(D, dt) && forkTurnTo(Math.atan2(p.x - S.fork.x, p.z - S.fork.z), dt)) { p.place = 'fork'; S.fork.pallet = p.id; S.fork.lift = 0.3; sfx('jack'); D.phase = 'toSlot'; D.path = null; }
+    } else if (D.phase === 'toSlot') {
+      if (!p || p.place !== 'fork') { D.phase = 'park'; D.path = null; return; }
+      if (!D.path) D.path = route({ x: S.fork.x, z: S.fork.z }, slotStand(st.task.key));
+      if (forkFollow(D, dt)) { var sp = slotParse(st.task.key), spos = rackSlotPos(sp.r, sp.b, sp.l); if (forkTurnTo(Math.atan2(spos.x - S.fork.x, spos.z - S.fork.z), dt)) { D.phase = 'lift'; D.liftTo = RACK.levels[sp.l] + 0.15; } }
+    } else if (D.phase === 'lift') {
+      S.fork.lift = Math.min(D.liftTo, S.fork.lift + 0.9 * dt);
+      if (S.fork.lift >= D.liftTo - 0.001) {
+        var ok = p && storePallet(p, st.task.key); if (!ok && p) { var k2 = findSlotFor(p.sku, p.n, 2); ok = k2 && storePallet(p, k2); }
+        if (ok) { S.stats.putaway++; sfx('crate'); addXp(XP.pallet); } else if (p) { var ft = forkTip(); p.place = 'floor'; p.x = ft.x; p.z = ft.z; p.y = 0; p.rot = S.fork.yaw; staffSay(st, voice(st).nospace, '#ff6b5e'); }
+        S.fork.pallet = null; D.phase = 'lower';
+      }
+    } else if (D.phase === 'lower') {
+      S.fork.lift = Math.max(0.1, S.fork.lift - 0.9 * dt);
+      if (S.fork.lift <= 0.1001) { st.task = null; var job = !driving && dist2(player.x, player.z, S.fork.x, S.fork.z) > 6.5 ? driverJob() : null; if (job) { st.task = { kind: 'drive', pallet: job.pallet.id, key: job.key }; D.phase = 'toPallet'; D.path = null; } else { D.phase = 'park'; D.path = null; } }
+    } else if (D.phase === 'park') {
+      if (!D.path) D.path = route({ x: S.fork.x, z: S.fork.z }, { x: SPOT.fork.x, z: SPOT.fork.z });
+      if (forkFollow(D, dt) && forkTurnTo(Math.PI, dt)) driverDismount(st);
+    } else driverDismount(st);
+  }
+  function driverDismount(st) {
+    var p = S.fork.pallet ? palletById(S.fork.pallet) : null;
+    if (p && st.task && st.task.pallet === p.id) { var ft = forkTip(); p.place = 'floor'; p.x = ft.x; p.z = ft.z; p.y = 0; p.rot = S.fork.yaw; S.fork.pallet = null; }
+    if (!S.fork.pallet) S.fork.lift = Math.min(S.fork.lift, 0.3);
+    st.drive = null; st.task = null; st.state = 'idle'; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw;
   }
   function benchSide(lz) { var P = PROPS.bench ? propPlacement('bench') : { x: SPOT.bench.x, z: SPOT.bench.z, rot: 0 }, a = P.rot * Math.PI / 2, lx = -1.0; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a) }; }
   function clockStand() { var P = propPlacement('timeclock'), a = P.rot * Math.PI / 2; return { x: P.x + Math.sin(a) * 1.0, z: P.z + Math.cos(a) * 1.0 }; }
@@ -3072,6 +3488,13 @@
     st.after = function () { var p = palletById(pickP.id); if (!p || p.place !== 'truck') { st.task = null; return; } onPalletLeftTruck(p); p.place = 'staff'; p.staff = st.id; sfx('jack'); st.task = null; };
   }
   function pickerThink(st) {
+    // a box being taken back: to the slot chosen for it, and onto the rack
+    if (st.carry && st.carry.back) {
+      var bk = st.carry.back, bsku = st.carry.sku;
+      staffGo(st, slotStand(bk), 'wait'); st.timer = 1.0; st.working = true;
+      st.after = function () { if (!st.carry) return; var k = slotSpace(bk, bsku) > 0 ? bk : findSlotFor(bsku, 1, 1); if (k) { slotAdd(k, bsku, 1); st.carry = null; sfx('putdown'); S.stats.putaway++; } else { S.floor.push({ kind: 'box', sku: bsku, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); st.carry = null; staffSay(st, voice(st).nospace, '#ff6b5e'); } st.task = null; };
+      return;
+    }
     if (st.carry) {
       staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true;
       st.after = function () { if (!st.carry) return; if (benchCount() < ECON.benchCap) { benchAdd(st.carry.sku, 1); st.carry = null; sfx('putdown'); addXp(XP.box); } else { staffSay(st, voice(st).full, '#ff6b5e'); staffWait(st, 3); } st.task = null; };
@@ -3080,7 +3503,13 @@
     var want = null;
     var orders = openOrders().slice().sort(function (a, b) { return (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due; });
     for (var i = 0; i < orders.length && !want; i++) orders[i].lines.forEach(function (l) { if (want) return; if (skuDemand(l.sku) > 0) { var keys = slotsWith(l.sku).filter(function (k) { return slotParse(k).l < RACK.top; }); if (keys.length) want = { sku: l.sku, key: keys[0] }; } });
-    if (!want) { idleAt(st, { x: SPOT.bench.x - 2.0, z: 2.6 }); return; }
+    if (!want) {
+      // nothing to pick: a box on the bench that no open order wants goes back on the racks, one at a time
+      var sur = benchSurplus(), rsku = null; for (var sk in sur) if (sur[sk] > 0) { rsku = sk; break; }
+      var rkey = rsku ? findSlotFor(rsku, 1, 1) : null;
+      if (rkey && !S.staff.some(function (o) { return o !== st && o.task && o.task.kind === 'return'; })) { st.task = { kind: 'return', sku: rsku, key: rkey }; staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true; st.after = function () { if (benchTake(rsku, 1)) { st.carry = { kind: 'box', sku: rsku, back: rkey }; sfx('pickup'); } else st.task = null; }; return; }
+      idleAt(st, { x: SPOT.bench.x - 2.0, z: 2.6 }); return;
+    }
     st.task = { kind: 'pick', sku: want.sku, key: want.key };
     staffGo(st, slotStand(want.key), 'wait'); st.timer = 1.0; st.working = true;
     st.after = function () { var s = S.slots[want.key]; if (s && s.sku === want.sku && s.n > 0) { slotTake(want.key, 1); st.carry = { kind: 'box', sku: want.sku }; S.stats.picked++; sfx('pickup'); } st.task = null; };
@@ -3237,18 +3666,72 @@
   function beltLen(b) { var p = b.path, n = 0; for (var i = 1; i < p.length; i++) n += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return n; }
   function beltPoint(b, d) {   // the world point d metres along the belt
     var p = b.path, rem = d; for (var i = 1; i < p.length; i++) { var seg = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); if (rem <= seg || i === p.length - 1) { var t = seg > 0 ? clamp(rem / seg, 0, 1) : 0; var w = propWorld(b.prop, lerp(p[i - 1][0], p[i][0], t), lerp(p[i - 1][1], p[i][1], t)); w.ry = w.a + Math.atan2(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); w.y = BELT_Y + lerp(p[i - 1][2] || 0, p[i][2] || 0, t); return w; } rem -= seg; }
-    var w0 = propWorld(b.prop, p[0][0], p[0][1]); w0.y = BELT_Y + (p[0][2] || 0); return w0;
+    var w0 = propWorld(b.prop, p[0][0], p[0][1]); w0.y = BELT_Y + (p[0][2] || 0); w0.ry = w0.a + (p.length > 1 ? Math.atan2(p[1][0] - p[0][0], p[1][1] - p[0][1]) : 0); return w0;
   }
   function beltItems(id) { if (!S.belts) S.belts = {}; if (!S.belts[id]) S.belts[id] = []; return S.belts[id]; }
   function beltStartFree(id) { var it = beltItems(id); return !it.length || it[it.length - 1].d > BELT_GAP; }
   function beltPush(id, item) { if (!beltStartFree(id)) return false; item.d = 0; beltItems(id).push(item); return true; }
-  // what sits at a belt's far end: another belt whose start is within reach, or a machine whose inlet is
+  // Where a machine takes items in and lets them out, in the world: its inlet points (one or several, in its own frame), or a
+  // fixed place for a machine that is not a prop (a dock door). A machine whose prop is not built has no points.
+  function machinePoints(mc, which) {
+    var pts = [], list = which === 'in' ? (mc.inlets || (mc.inlet ? [mc.inlet] : [])) : (mc.outlets || (mc.outlet ? [mc.outlet] : []));
+    if (mc.atFn && which === 'in') { var a = mc.atFn(); if (a) pts.push({ x: a[0], z: a[1] }); }
+    if (mc.prop) { if (!PROPS[mc.prop] || !propInst[mc.prop]) return pts; list.forEach(function (p) { pts.push(propWorld(mc.prop, p[0], p[1])); }); }
+    return pts;
+  }
+  // What sits at a belt's far end: a machine whose inlet is within reach, else another belt whose start is, else a rack slot the
+  // end stops at (the box goes straight onto the rack). Worked out once and kept until a prop is built or removed, because a
+  // belt end only moves when build mode moves something.
+  var sinkCache = {}; function beltsChanged() { sinkCache = {}; }
   function beltSink(b) {
-    var end = beltPoint(b, beltLen(b));
-    // a machine inlet at the end wins over another belt's start, so a sorter or a loader placed at a belt end takes the item
-    for (var mk in MACH) { var mc = MACH[mk]; if (!mc.inlet || !PROPS[mc.prop] || !propInst[mc.prop]) continue; var w = propWorld(mc.prop, mc.inlet[0], mc.inlet[1]); if (dist2(end.x, end.z, w.x, w.z) < REACH * REACH) return { machine: mc }; }
-    for (var k in BELTS) { if (k === b.id) continue; var s = beltPoint(BELTS[k], 0); if (dist2(end.x, end.z, s.x, s.z) < REACH * REACH) return { belt: BELTS[k] }; }
+    if (sinkCache[b.id] !== undefined) return sinkCache[b.id];
+    if (b.noSink) return (sinkCache[b.id] = null);
+    var end = beltPoint(b, beltLen(b)), out = null, R2 = REACH * REACH;
+    for (var mk in MACH) { var mc = MACH[mk]; if (!mc.accept) continue; var pts = machinePoints(mc, 'in'); for (var i = 0; i < pts.length; i++) if (dist2(end.x, end.z, pts[i].x, pts[i].z) < R2) { out = { machine: mc }; break; } if (out) break; }
+    if (!out) for (var k in BELTS) { if (k === b.id) continue; var ob = BELTS[k]; if (!propInst[ob.prop]) continue; var s = beltPoint(ob, 0); if (dist2(end.x, end.z, s.x, s.z) < R2 && Math.abs(end.y - s.y) < 0.7) { out = { belt: ob }; break; } }
+    if (!out) { var best = null, bd = R2; for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < RACK.bays; bb++) for (var l = 0; l <= 1; l++) { var sp = rackSlotPos(r, bb, l), d = dist2(end.x, end.z, sp.x, sp.z); if (d < bd && Math.abs(end.y - (sp.y + 0.6)) < 1.6) { bd = d; best = slotKey(r, bb, l); } } if (best) out = { slot: best }; }
+    sinkCache[b.id] = out || null; return out;
+  }
+  // what feeds a belt at its start: a belt whose end sinks into it, a machine outlet, the parcel shelf, or an inbound dock door
+  function beltFeeder(b) {
+    var s = beltPoint(b, 0), R2 = REACH * REACH;
+    for (var k in BELTS) { if (k === b.id) continue; var ob = BELTS[k]; if (!propInst[ob.prop]) continue; var sk = beltSink(ob); if (sk && sk.belt === b) return { belt: ob }; }
+    for (var mk in MACH) { var mc = MACH[mk]; var pts = machinePoints(mc, 'out'); for (var i = 0; i < pts.length; i++) if (dist2(s.x, s.z, pts[i].x, pts[i].z) < R2) return { machine: mc }; }
+    if (propInst.packline) { var sh = propWorld('packline', 0, 7.0); if (dist2(s.x, s.z, sh.x, sh.z) < R2) return { shelf: true }; }
+    for (var i2 = 0; i2 < 2 && doors[i2]; i2++) { var at = doorInside(i2); if (dist2(s.x, s.z, at[0], at[1]) < R2 * 1.5) return { door: i2 }; }
     return null;
+  }
+  function beltLabel(b) { return propLabel(b.prop); }
+  function sinkLabel(sk) { if (!sk) return null; if (sk.belt) return 'the ' + beltLabel(sk.belt); if (sk.slot) return slotName(sk.slot); var mc = sk.machine; return mc.door !== undefined ? 'dock door ' + dockLabel(mc.door) : 'the ' + propLabel(mc.prop); }
+  function feederLabel(fd) { if (!fd) return null; if (fd.belt) return 'the ' + beltLabel(fd.belt); if (fd.shelf) return 'the parcel shelf'; if (fd.door !== undefined) return 'dock door ' + dockLabel(fd.door); return 'the ' + propLabel(fd.machine.prop); }
+  // ── The dock doors on the registry ──
+  // An outbound door with a truck in takes parcels off a belt that ends at it. An inbound door with a signed truck in feeds the
+  // boxes off its pallets onto a belt that starts at it, one every second or so. So a run of pieces from a rack bay to OUT 1 is a
+  // loading line and a run from IN 2 to a rack bay is an unloading line, with nothing bought but the pieces.
+  function doorInside(i) { var d = doors[i]; return d ? [d.side * (HALL.x - 1.2), d.z] : null; }
+  for (var dmi = 0; dmi < 4; dmi++) (function (i) {
+    defMachine('door' + i, { door: i, atFn: function () { return doorInside(i); }, accept: i < 2 ? null : function (it) {
+      if (it.kind !== 'parcel' || !powered()) return false;
+      var t = truckAtDoor(i); if (!t || !S.doors[i] || !doorPassable(i)) return false;
+      var o = orderById(it.order); if (!o) return true;
+      t.parcels.push(o.id); o.state = 'loaded'; sfx('crate'); addXp(XP.ship); rebuildBoardSoon(); S.stats.autoLoaded = (S.stats.autoLoaded || 0) + 1; return true;
+    } });
+  })(dmi);
+  var dockFeedT = {};
+  function tickDockFeed(dt) {
+    if (!powered()) return;
+    for (var i = 0; i < 2; i++) {
+      var t = truckAtDoor(i); if (!t || !t.signed || !S.doors[i] || !doorPassable(i)) continue;
+      var at = doorInside(i), fed = null; if (!at) continue;
+      for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, at[0], at[1]) < REACH * REACH * 1.5) { fed = b; break; } }
+      if (!fed) continue;
+      dockFeedT[i] = (dockFeedT[i] || 0) + dt; if (dockFeedT[i] < 1.2 / speedOf(beltSpeedKey(fed)) || !beltStartFree(fed.id)) continue;
+      var p = null; for (var q = 0; q < S.pallets.length; q++) { var pp = S.pallets[q]; if (pp.place === 'truck' && pp.truck === t.id && pp.n > 0 && !(SKU[pp.sku] && SKU[pp.sku].raw)) { p = pp; break; } }
+      if (!p) continue;
+      if (!p.received) { p.received = true; t.unloaded++; S.stats.received++; pay(ECON.receiveFee, 'Receiving fee, pallet of ' + skuName(p.sku)); addXp(XP.pallet); feedPush('Received a pallet of ' + skuName(p.sku) + ' off the belt · +' + money(ECON.receiveFee), 'good'); }   // the fee is earned when the first box comes off; the pallet stays aboard until it is empty
+      p.n--; p.wrapped = false; dockFeedT[i] = 0; beltPush(fed.id, { kind: 'box', sku: p.sku }); S.stats.picked++;
+      if (p.n <= 0) { p.n = 0; }
+    }
   }
   function machineOutBelt(m) { if (!m.outlet) return null; var w = propWorld(m.prop, m.outlet[0], m.outlet[1]); for (var k in BELTS) { var s = beltPoint(BELTS[k], 0); if (dist2(w.x, w.z, s.x, s.z) < REACH * REACH) return BELTS[k]; } return null; }
   function powered() { return !S.events.power; }
@@ -3262,7 +3745,7 @@
         if (powered()) it.d = Math.min(it.d + BELT_SPEED * speedOf(beltSpeedKey(b)) * dt, max);
         if (it.d >= L - 0.001 && sink) {
           var taken = false;
-          if (sink.belt) taken = beltPush(sink.belt.id, it); else if (sink.machine && sink.machine.accept) taken = sink.machine.accept(it);
+          if (sink.belt) taken = beltPush(sink.belt.id, it); else if (sink.machine && sink.machine.accept) taken = sink.machine.accept(it); else if (sink.slot && it.kind === 'box' && slotSpace(sink.slot, it.sku) > 0) { slotAdd(sink.slot, it.sku, 1); S.stats.putaway++; taken = true; }
           if (taken) { items.splice(i, 1); i--; continue; }
         }
         ahead = it.d;
@@ -3282,7 +3765,7 @@
 
   // ── The pack line: the bench feeds boxes onto the infeed, the case taper closes the order into one parcel, the outfeed drops it on the shelf
   defBelt('packIn', { prop: 'packline', path: [[0, 0], [0, 2.0]] });
-  defBelt('packOut', { prop: 'packline', path: [[0, 3.8], [0, 5.8]] });
+  defBelt('packOut', { prop: 'packline', path: [[0, 3.8], [0, 5.8]], noSink: true });   // its parcels drop onto the shelf, never onto a belt laid at the shelf
   defMachine('taper', { prop: 'packline', inlet: [0, 2.0], outlet: [0, 3.8],
     accept: function (it) { var j = S.pack.job; if (!j || it.kind !== 'box' || !powered() || S.pack.jam) return false; j.inMach++; sfx('click'); return true; } });
   function packStatus() { if (!powered()) return 'off'; if (S.pack.jam) return 'jam'; return S.pack.job ? 'run' : 'idle'; }
@@ -3420,7 +3903,7 @@
     if (!S.pack) S.pack = { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null };
     if (!S.factory) S.factory = { raw: 0, product: 'dccrate', on: false, made: 0, rawOrdered: 0, t: 0, jam: false };
     if (!S.pal) S.pal = { sku: null, n: 0 };
-    tickBelts(dt); tickPack(dt); tickFactory(dt);
+    tickBelts(dt); tickDockFeed(dt); tickPack(dt); tickFactory(dt);
     if (MACH.hopper.anim && MACH.hopper.anim.tipT > 0) { var h = MACH.hopper.anim; h.tipT -= dt; h.feeder.position.x = Math.sin(worldTime * 40) * 0.01 * (h.tipT > 0 ? 1 : 0); }
     lampSet(MACH.palletiser, powered() ? (S.pal.n ? 'run' : 'idle') : 'off');
     if (world.wingLights) world.wingLights.forEach(function (l) { l.intensity = powered() ? 0.9 : 0; });
@@ -3444,8 +3927,9 @@
   function dockLoaderStatus() { if (!powered()) return 'off'; var t = truckAtDoor(LOADER_DOOR); return t && S.doors[LOADER_DOOR] ? 'run' : 'idle'; }
   function dockLoaderPrompt() { var t = truckAtDoor(LOADER_DOOR); return 'Dock loader OUT 2 · ' + (!powered() ? 'no power' : t && S.doors[LOADER_DOOR] ? 'loading, ' + t.parcels.length + ' aboard' : t ? 'open the door and it loads' : 'waiting for a truck at OUT 2') + ' · ' + (S.stats.autoLoaded || 0) + ' loaded by machine so far'; }
   function tickShipping(dt) {
+    // a parcel on the shelf rolls onto whatever belt starts at the shelf's take-off: the shipping belt, or a piece laid there
+    if (powered() && S.bench.parcels.length && propInst.packline) { var sp = propWorld('packline', 0, 7.0); for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, sp.x, sp.z) < REACH * REACH && beltStartFree(k)) { beltPush(k, { kind: 'parcel', order: S.bench.parcels.shift() }); break; } } }
     if (!S.up.shipbelt || !propInst.shipBelt) return;
-    if (powered() && S.bench.parcels.length && beltStartFree('shipBelt')) { var oid = S.bench.parcels.shift(); beltPush('shipBelt', { kind: 'parcel', order: oid }); }
     var M = MACH.dockLoader2; if (M.lamps) lampSet(M, dockLoaderStatus()); var a = M.anim; if (a) { if (a.pushT > 0) a.pushT -= dt; var t = truckAtDoor(LOADER_DOOR), out = t && S.doors[LOADER_DOOR] ? 1 : 0; a.ext = lerp(a.ext || 0, out, Math.min(1, dt * 1.5)); a.boom.position.x = 0.9 + a.ext * 1.6; a.boom.scale.x = 0.6 + a.ext * 1.0; a.pusher.position.x = (a.pushT > 0 ? Math.sin(a.pushT / 1.2 * Math.PI) * 0.5 : 0); }
   }
 
@@ -3532,7 +4016,7 @@
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
   defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
   function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
-  defMachine('benchIn', { prop: 'bench', inlet: [-1.8, -3.2], accept: benchAccept });   // where the merge belt lands, at bench height
+  defMachine('benchIn', { prop: 'bench', inlets: [[-1.8, -3.2], [0, 2.3], [-1.1, 0], [1.1, 0.6], [1.1, -0.6]], accept: benchAccept });   // where the merge belt lands, and the bench's own ends and sides, so a run of pieces can feed it from any side
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }
   function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); return out; }
@@ -3654,6 +4138,7 @@
     if (src.kind === 'shelf') return { prompt: function () { return shelfPrompt(src); }, use: function () { shelfUse(src); } };
     if (src.kind === 'floor') return { prompt: function () { return floorPrompt(src); }, use: function () { floorUse(src); } };
     if (src.kind === 'belt') return { prompt: function () { return beltItemPrompt(src); }, use: function () { beltItemUse(src); } };
+    if (src.kind === 'bench') return { prompt: function () { return benchBoxPrompt(src); }, use: function () { benchBoxUse(src); } };
     return null;
   }
   function interact() {
@@ -3661,14 +4146,15 @@
     if (!ui.started || ui.blocked() || driving) return;
     ray.setFromCamera(centre, camera);
     if (edit.on) {
-      if (edit.grabbed) return;
+      if (edit.grabbed) { if (edit.snapText) { focus = { prompt: function () { return edit.snapText; }, use: function () {} }; focusText = edit.snapText; } return; }
       ray.far = 7; var ph = ray.intersectObjects(scene.children, true); ray.far = 3.4;
       for (var q = 0; q < ph.length; q++) { var pid = propIdOf(ph[q].object); if (!pid) continue; if (ph[q].object.userData.baked || !ph[q].object.visible) continue; var pdef = propDef(pid); if (!pdef) continue; focus = { editId: pid, prompt: function () { return ''; }, use: function () {} }; focusText = 'Grab the ' + pdef.label + '  ·  R turn · Backspace put back · Del remove'; return; }
       return;
     }
     var hits = ray.intersectObjects(inter.concat(instList), false);
-    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins
-    for (var si = 1; si < hits.length; si++) { if (hits[si].object.userData.screen && hits[si].distance - hits[0].distance < 0.5) { var sh = hits.splice(si, 1)[0]; hits.unshift(sh); break; } }
+    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins.
+    // The boxes on the bench sit inside the bench's own hit box the same way: within 0.8 m a box wins over the bench.
+    for (var si = 1; si < hits.length; si++) { var hs = hits[si], isrc = hs.object.isInstancedMesh ? instSource(hs) : null; if ((hs.object.userData.screen && hs.distance - hits[0].distance < 0.5) || (isrc && isrc.kind === 'bench' && hs.distance - hits[0].distance < 0.8)) { var sh = hits.splice(si, 1)[0]; hits.unshift(sh); break; } }
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i], def = h.object.userData.it || srcDef(instSource(h));
       if (!def) continue;
@@ -3783,7 +4269,7 @@
       pcRows(sc, rows3, 60, 50);
     } else if (app === 'staff') {
       scHead(c, w, 'STAFF', S.staff.length + ' of 5');
-      var rows4 = Object.keys(STAFF_ROLES).map(function (r) { var d = STAFF_ROLES[r], locked = S.level < d.lvl; return { text: 'Hire a ' + d.name.toLowerCase() + '  ·  ' + money(d.wage / 10) + '/h', sub: d.desc, btn: { label: locked ? 'LEVEL ' + d.lvl : S.staff.length >= 5 ? 'FULL' : 'HIRE', on: !locked && S.staff.length < 5, act: function () { if (!locked && S.staff.length < 5) { hireStaff(r); toast('Hired a ' + d.name.toLowerCase(), 'good'); } }, col: '#5fd38d' } }; });
+      var rows4 = Object.keys(STAFF_ROLES).map(function (r) { var d = STAFF_ROLES[r], locked = S.level < d.lvl || (d.needs && !S.up[d.needs]); return { text: 'Hire a ' + d.name.toLowerCase() + '  ·  ' + money(d.wage / 10) + '/h', sub: d.desc, btn: { label: locked ? (S.level < d.lvl ? 'LEVEL ' + d.lvl : 'NEEDS THE FORKLIFT') : S.staff.length >= 5 ? 'FULL' : 'HIRE', on: !locked && S.staff.length < 5, act: function () { if (!locked && S.staff.length < 5) { hireStaff(r); toast('Hired a ' + d.name.toLowerCase(), 'good'); } }, col: '#5fd38d' } }; });
       S.staff.forEach(function (st) { var sheet = st.sheet || [], hrs = sheet.reduce(function (a, r) { return a + r.h; }, 0), paid = sheet.reduce(function (a, r) { return a + r.pay; }, 0); rows4.push({ text: st.name + '  ·  ' + STAFF_ROLES[st.role].name + '  ·  ' + staffStatus(st), sub: 'today ' + (Math.round((st.hoursToday || 0) * 10) / 10) + ' h · last 7 days ' + (Math.round(hrs * 10) / 10) + ' h, ' + money(paid) + ' · punctuality ' + Math.round((st.punct || 0.5) * 100) + '%' + (st.lateToday ? ' · late today' : ''), hi: !!st.clocked, btn: { label: 'LET GO', on: false, act: function () { fireStaff(st.id); }, col: '#ff6b5e' } }); });
       pcRows(sc, rows4, 60, 50);
     } else if (app === 'bank') {
@@ -3862,6 +4348,9 @@
         if (o.state === 'open') o.lines.forEach(function (l) { if (y > h - 20) return; var have = Math.min(l.qty, S.bench.boxes[l.sku] || 0), where = slotsWith(l.sku).filter(function (k) { return slotParse(k).l < RACK.top; })[0]; y = scanRow(c, y, SKU[l.sku].col, skuName(l.sku), where ? slotName(where) : (stockCount(l.sku) ? 'top level only' : 'not in stock'), have + '/' + l.qty, have >= l.qty); });
         y += 4;
       });
+      // one pick list for every open order together, less what the bench already holds, and the surplus the bench carries
+      var need = benchNeed(), nk = Object.keys(need), sur = benchSurplus(), sn = 0; for (var sk in sur) sn += sur[sk];
+      if ((nk.length || sn) && y < h - 34) { c.fillStyle = '#5fd38d'; c.font = 'bold 11px Bahnschrift, Arial'; c.fillText('STILL TO PICK', 12, y + 4); y += 16; nk.slice(0, 3).forEach(function (k) { if (y > h - 20) return; var where = slotsWith(k).filter(function (q) { return slotParse(q).l < RACK.top; })[0]; y = scanRow(c, y, SKU[k].col, need[k] + ' × ' + skuName(k), where ? slotName(where) : 'not on the racks'); }); if (!nk.length) y = scanRow(c, y, null, 'Nothing: the bench has every box', ''); if (sn && y <= h - 20) y = scanRow(c, y, null, sn + ' surplus on the bench', 'E on the bench with the cart'); }
     } else if (scan.page === 1) {
       var any = false;
       S.trucks.forEach(function (t) { if (t.dir !== 'in' || t.state !== 'docked') return; var ps = S.pallets.filter(function (p) { return p.place === 'truck' && p.truck === t.id; }); any = true; c.fillStyle = '#f5b53d'; c.font = 'bold 11px Bahnschrift, Arial'; c.fillText(dockLabel(t.dock) + ' · ' + ps.length + ' pallets · leaves ' + fmtTime(t.leave), 12, y); y += 14; if (!t.signed) { c.fillStyle = '#ff6b5e'; c.font = '9px Bahnschrift, Arial'; c.fillText('Delivery note not signed', 12, y); y += 12; } ps.slice(0, 5).forEach(function (p) { if (y > h - 20) return; var k = findSlotFor(p.sku, p.n, 1); y = scanRow(c, y, SKU[p.sku].col, p.n + ' × ' + skuName(p.sku), k ? '→ ' + slotName(k) : 'no rack space', undefined, false); }); });
@@ -4015,7 +4504,7 @@
       h += '</div>';
     } else if (tab === 'staff') {
       h += '<p>Staff clock in at 08:00 and out at 18:00 (20:00 on overtime) and are paid at 06:00 for the hours on the clock, time and a half past ten. They need the dock doors opened for them: that stays your job.</p>';
-      h += '<div class="dc-grid">' + Object.keys(STAFF_ROLES).map(function (r) { var d = STAFF_ROLES[r], locked = S.level < d.lvl, n = S.staff.filter(function (s) { return s.role === r; }).length; return '<div class="dc-card"><div class="body"><b>' + d.name + '</b>' + (n ? '<span class="dc-tag good">' + n + ' hired</span>' : '') + '<small>' + esc(d.desc) + '</small></div><div style="text-align:right"><div class="price">' + money(d.wage) + '/day</div>' + btn('hire', r, 'Hire', 'primary', locked || S.staff.length >= 5) + (locked ? '<small style="display:block;color:var(--muted)">Level ' + d.lvl + '</small>' : '') + '</div></div>'; }).join('') + '</div>';
+      h += '<div class="dc-grid">' + Object.keys(STAFF_ROLES).map(function (r) { var d = STAFF_ROLES[r], locked = S.level < d.lvl || (d.needs && !S.up[d.needs]), n = S.staff.filter(function (s) { return s.role === r; }).length; return '<div class="dc-card"><div class="body"><b>' + d.name + '</b>' + (n ? '<span class="dc-tag good">' + n + ' hired</span>' : '') + '<small>' + esc(d.desc) + '</small></div><div style="text-align:right"><div class="price">' + money(d.wage) + '/day</div>' + btn('hire', r, 'Hire', 'primary', locked || S.staff.length >= 5) + (locked ? '<small style="display:block;color:var(--muted)">Level ' + d.lvl + '</small>' : '') + '</div></div>'; }).join('') + '</div>';
       if (S.staff.length) h += '<h3>Your crew</h3>' + S.staff.map(function (st) { var sheet = st.sheet || [], hrs = sheet.reduce(function (a, r) { return a + r.h; }, 0), paid = sheet.reduce(function (a, r) { return a + r.pay; }, 0), lates = sheet.filter(function (r) { return r.late; }).length; return '<div class="dc-card"><div class="body"><b>' + esc(st.name) + '</b> · ' + STAFF_ROLES[st.role].name + ' · ' + money(hourly(st)) + '/h' + (st.lateToday ? ' <span class="dc-tag bad">late today</span>' : '') + (st.overtime ? ' <span class="dc-tag warn">overtime</span>' : '') + '<small>' + staffStatus(st) + ' · today ' + (Math.round((st.hoursToday || 0) * 10) / 10) + ' h · last 7 days ' + (Math.round(hrs * 10) / 10) + ' h, ' + money(paid) + (lates ? ', late ×' + lates : '') + ' · punctuality ' + Math.round((st.punct || 0.5) * 100) + '%</small></div>' + btn('fire', st.id, 'Let go', 'danger') + '</div>'; }).join('');
       h += '<p>Hours come from the time clock by the staff door: nobody is paid for a day they did not clock in. Overtime, days off and a word about lateness are on the clock itself.</p>';
     } else if (tab === 'finance') {
@@ -4140,7 +4629,7 @@
   function applySettings() {
     camera.fov = SET.fov; camera.updateProjectionMatrix(); post.on = SET.film !== false;
     var pr = SET.quality === 'high' ? Math.min(window.devicePixelRatio || 1, 2) : SET.quality === 'medium' ? 1 : 0.75;
-    renderer.setPixelRatio(pr); renderer.shadowMap.enabled = SET.quality !== 'low'; sun.castShadow = SET.quality !== 'low';
+    renderer.setPixelRatio(pr); renderer.shadowMap.enabled = SET.quality !== 'low'; sun.castShadow = SET.quality !== 'low'; lightBudget.n = SET.quality === 'high' ? 16 : SET.quality === 'medium' ? 10 : 6;
     scene.traverse(function (o) { if (o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; });
     shadowDirty = true; $('h-fps').hidden = !SET.fps; if (sfxBus) sfxBus.gain.value = SET.vol;
   }
@@ -4154,14 +4643,15 @@
       '<h3>Controls</h3><p><kbd>WASD</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> jump · <kbd>E</kbd> use, pick up, put on · <kbd>G</kbd> put down or let go · <kbd>Tab</kbd> the hand scanner · <kbd>1</kbd>-<kbd>4</kbd> scanner pages · <kbd>Esc</kbd> pause · <kbd>F3</kbd> FPS · <kbd>F12</kbd> screenshot · <kbd>F11</kbd> fullscreen.</p>' +
       '<h3>Receiving</h3><p>Inbound trucks dock at IN 1 (and IN 2 once you buy the second bay) at 07:30 and 13:30. Open the dock door, walk into the trailer and take boxes off the pallets by hand, or grab the pallet jack and lift a whole pallet. A truck waits three hours; whatever is still on it goes back, unpaid, and the client remembers.</p>' +
       '<h3>Racks</h3><p>Every slot holds up to 12 boxes of one line. The floor and shelf levels are hand-reachable; the top level needs the forklift. Look at a slot and press E to put a box on or take one off. The jack sets a whole pallet into a floor-level slot.</p>' +
-      '<h3>Orders</h3><p>Orders arrive between 08:00 and 17:00 on the office PC, the wall board and the scanner. Each one lists lines and a due time, which is the departure of an outbound truck. Pick the boxes, put them on the packing bench, press E on the bench with empty hands and pack. The parcel appears on the shelf beside the bench.</p>' +
+      '<h3>Orders</h3><p>Orders arrive between 08:00 and 17:00 on the office PC, the wall board and the scanner. Each one lists lines and a due time, which is the departure of an outbound truck. Pick the boxes and put them on the packing bench; the terminal at the end of the bench releases an order to the pack line, and the parcel rolls onto the shelf beside it. A box on the bench is a thing you look at: E takes it back, and the prompt says whether an order wants it. The cart at the bench unloads only what the orders want and takes the surplus back in the same press. An order only ever asks for stock that is on site and not already spoken for.</p>' +
+      '<h3>Conveyors</h3><p>Build mode (F2), then C: the Conveyors group sells belts by the piece, straights, curves, inclines and a high run hung from the roof. A carried piece snaps to the nearest free belt end, machine outlet, parcel shelf or inbound dock door, or to the nearest belt start, machine inlet, outbound dock door or rack bay, and says what it connects when you drop it. A belt that ends at a rack bay racks the boxes; one that ends at an outbound door with a truck in loads the parcels; one that starts at an inbound door with a signed truck in takes the boxes off its pallets.</p>' +
       '<h3>Shipping</h3><p>Outbound trucks wait at OUT 1 from 10:30 to 12:00 and OUT 2 from 16:00 to 18:00. Open the door, carry the parcel into the trailer and press E, or load the parcels off the shelf onto the picking cart (E with the cart at the shelf) and E in the trailer unloads them all. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
       '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
       '<h3>Drivers</h3><p>Open the dock door and the driver walks in and waits beside it. Sign the delivery note (<kbd>E</kbd> on him) before anything comes off the truck. He will nag after two hours.</p>' +
       '<h3>The pack line and the production wing</h3><p>Boxes go on the bench as before, but packing is a machine now: pick an order on the bench terminal and the line feeds its boxes onto the infeed belt, the case taper closes them into one parcel, and the parcel rolls down the outfeed onto the shelf. It jams now and then: <kbd>E</kbd> on it clears the jam.</p><p>Through the strip curtain in the north wall is the production wing. Order pallets of raw granulate on the office PC (Production app); they come with the next inbound truck. Bring one on the jack to the hopper and <kbd>E</kbd> tips it in. Start the moulding line on its screen or with <kbd>E</kbd>, pick a product, and own-brand boxes come down the main belt into the hall, where the palletiser stacks them eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your goods once they have seen them.</p>' +
       '<h3>Automation (shop)</h3><p>The <b>shipping belt</b> (level 3) takes parcels off the pack line shelf and runs them down the east wall to OUT 2, where the <b>dock loader</b> pushes them into any docked truck with its door up. OUT 1 stays a manual dock. The <b>AGV</b> (level 4) is a driverless pallet truck: set a pallet on its pickup square by the receiving area, or let the palletiser drop one, and it puts it away on the racks and comes back to its dock. The <b>gantry pickers</b> (level 5) put a crane over every rack row you own, and a new row brings its own crane: each one watches the open orders, takes the boxes the bench still needs out of its row and sets them on the overhead pick belts, which end at the bench. A whole order can go pick, pack, ship without a hand on it. Anything riding a belt can still be lifted off by hand. Every machine screen carries a <b>speed dial</b> (50 to 200 percent): the cranes, the AGV, the pack line, the moulding line, the baler, the wrapper, and the belts through the screen of the machine they feed. A fast pack line jams more often. All three stop in a power cut.</p>' +
       '<h3>Tools</h3><p>While you hold a box or a parcel, a green ghost of it with a ring on the floor shows where G will set it down; it turns red where there is no floor to drop onto.</p><p>Two pallet jacks are yours from day one: jack 1 lives by the IN docks, jack 2 by OUT. With an empty jack, E on the empty pallet stack takes a pallet; loose boxes of one line go on it by hand or off the picking cart (E with the cart at a pallet unloads the matching line; at the parked cart, G takes one box off into your hand or puts the box you hold onto it), and the pallet then goes on a rack like any other, or on the jack to the bin by the bench to write the whole load off. The picking cart (shop) holds six boxes and picks straight off the racks. The forklift (shop, level 2) drives with WASD, Shift cycles three gears (creep, normal, fast; fast drinks the battery and throws unwrapped loads on corners), lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
-      '<h3>Staff and the time clock</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at 06:00. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
+      '<h3>Staff and the time clock</h3><p>From level 3 you can hire a receiver, a picker and a packer on the office PC, and from level 5, once you own the forklift, a forklift driver who puts the pallets left on the hall floor away on any level and parks the forklift back in its bay. A receiver pushes a pallet jack of their own; a picker with nothing to pick walks surplus boxes back off the bench. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at 06:00. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
       '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
       '<h3>Contracts and the bank</h3><p>From level 3 a client offers a contract now and then: a number of their orders on time inside a window, for a bonus; miss it and there is a penalty. The bank lends $5,000 at 1.5% a day from level 2, and theft insurance at $40 a day pays most of what walks off at night.</p>' +
@@ -4251,7 +4741,7 @@
 
   // ── Lighting by the hour ──────────────────────────────────────────
   var skyNight = new THREE.Color(0x0b1020), skyDawn = new THREE.Color(0xd9916b), skyDay = new THREE.Color(0x8fb0d4), skyTmp = new THREE.Color();
-  var lightT = 0;
+  var lightT = 0, lightT2 = null;
   function lighting(dt) {
     lightT += dt; if (lightT < 0.1) return; lightT = 0;
     var t = S.time, day = clamp((t - 5.5) / 1.5, 0, 1) * clamp((21.5 - t) / 1.5, 0, 1), dawn = Math.max(0, 1 - Math.abs(t - 6.5) / 1.5) + Math.max(0, 1 - Math.abs(t - 20.5) / 1.5);
@@ -4265,13 +4755,22 @@
     hemi.intensity = 0.12 + day * 0.35 * (1 - overcast * 0.5) + weatherFlash;
     if (dress.shaftMat) { dress.shaftMat.opacity = 0.16 * day * (1 - overcast * 0.9); if (dress.dust) dress.dust.material.opacity = 0.15 + 0.4 * day * (1 - overcast * 0.6); }
     yard.lampLenses.forEach(function (l) { l.material.emissiveIntensity = day < 0.5 && !S.events.power && !S.flags.yardOff ? 1.6 : 0.15; });
-    var power = !S.events.power, lamps = power && !S.flags.lightsOff ? (S.up.lights ? 0.8 : 0.55) : 0;
-    hallLights.forEach(function (l) { l.intensity = lamps; });
-    officeLight.intensity = power ? 0.5 : 0;
+    var power = !S.events.power, lamps = power && !S.flags.lightsOff ? (S.up.lights ? 1.05 : 0.8) : 0;
+    // the tubes do not come on at once: when the power returns or the hall is switched on they flicker up over a couple of seconds, each on its own clock
+    if (!lightT2) lightT2 = {}; hallLights.forEach(function (l, i) { var want = lamps; if (want > 0) { var k = lightT2[i] = Math.min(1, (lightT2[i] || 0) + 0.1 / (1.6 + (i % 4) * 0.5)); if (k < 1) want = lamps * (k < 0.3 ? (Math.random() < 0.5 ? 0.15 : 0.7) * k * 3 : k); } else lightT2[i] = 0; l.intensity = want; });
+    officeLight.intensity = power ? 0.55 : 0; breakLight.intensity = power ? 0.45 : 0; lobbyLight.intensity = power ? 0.4 : 0;
     MAT.lamp.color.setHex(power ? 0xfff6e4 : 0x3a3a3a); MAT.skylight.color.setHex(0xffffff); MAT.skylight.color.multiplyScalar(0.25 + day * 0.75);
-    yardLights.forEach(function (l) { l.intensity = day < 0.5 && power && !S.flags.yardOff ? 0.6 : 0; });
+    yardLights.forEach(function (l) { l.intensity = day < 0.5 && power && !S.flags.yardOff ? (l.userData.k || 1.3) : 0; });
     if (world.pcScreen) world.pcScreen.visible = power;
-    shadowT += 0.1; if (shadowDirty || shadowT > 4) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; shadowT = 0; }
+  }
+  // The sun's shadow map is a second full pass over every caster, so it is not redrawn every frame. It is redrawn four times a
+  // second (a walking picker's shadow keeps up with their feet), at once when something flagged it dirty (a door moved, a prop
+  // was placed), and every frame while something big is moving near you: the forklift under you, a truck on the apron, the AGV.
+  function shadowTick(dt) {
+    if (!renderer.shadowMap.enabled) return;
+    shadowT += dt;
+    var live = driving || (S.agv && S.agv.state !== 'idle' && S.up.agv) || S.trucks.some(function (t) { return (t.state === 'coming' || t.state === 'leaving') && dist2(t.x, t.z, player.x, player.z) < 60 * 60; });
+    if (shadowDirty || live || shadowT > 0.25) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; shadowT = 0; }
   }
 
   // ── Events ────────────────────────────────────────────────────────
@@ -4536,7 +5035,7 @@
     if (!ui.started) { var ma = worldTime * 0.07; camera.position.set(Math.cos(ma) * 12, 3.6 + Math.sin(ma * 1.7) * 0.6, Math.sin(ma) * 9.5); camera.lookAt(Math.cos(ma + 1.2) * 4, 1.4, Math.sin(ma + 1.2) * 3); }
     if (ui.started && !ui.blocked()) { tickWorld(dt); updatePlayer(dt); autosaveT += dt; if (autosaveT > 30) { autosaveT = 0; save(); }  }
     worldTime += dt;
-    doorAnim(dt); placeTools(dt); syncInstances(); lighting(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); tickScanner(dt); editTick(); tickTimeClock(dt); tickPc(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
+    doorAnim(dt); placeTools(dt); syncInstances(); lighting(dt); updateLightBudget(); shadowTick(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); tickScanner(dt); editTick(); tickTimeClock(dt); tickPc(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
     interact(); updatePrompt(); updateHud(dt);
     renderFrame(dt);
     if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + (post.calls || renderer.info.render.calls) + ' draws'; fpsN = 0; fpsT = 0; } }
@@ -4566,6 +5065,7 @@
       cableUse: cableUse, cablePlugInto: cablePlugInto,
       hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, HALL: HALL, wallX: wallX, focusAlt: function () { if (focus && focus.alt) focus.alt(); }, shelfPrompt: shelfPrompt, loadPrompt: loadPrompt, cartParcels: cartParcels, dropMarker: dropMarker, updateDropMarker: updateDropMarker, dropPoint: dropPoint, BELTS: BELTS, MACH: MACH, inWing: inWing,
       openPc: openPc, closePc: closePc, pc: pc,
+      beltSnap: beltSnap, beltFeeder: beltFeeder, BELT_PIECES: BELT_PIECES, machinePoints: machinePoints, freeStock: freeStock, benchNeed: benchNeed, benchSurplus: benchSurplus, benchBoxUse: benchBoxUse,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,
       addXp: addXp, counts: function () { return { draws: (post.calls || renderer.info.render.calls), inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; }

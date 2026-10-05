@@ -1,6 +1,6 @@
 //@ the pallet jack, the picking cart and the forklift
   // ── Tools you push: the jack and the cart ─────────────────────────
-  var jackMesh = null, jackMeshes = {}, cartMesh = null, forkM = null, driving = false, forkSpeed = 0, forkLook = { yaw: 0, pitch: 0 };
+  var jackMesh = null, jackMeshes = {}, cartMesh = null, forkM = null, driving = false, forkSpeed = 0, forkLook = { yaw: 0, pitch: 0 }, jackModel = null;
   function isJack(t) { return t === 'jack' || t === 'jack2'; }
   function jackTool() { return isJack(player.tool) ? player.tool : 'jack'; }
   function toolWorld(tool) {
@@ -9,7 +9,7 @@
   }
   function buildTools() {
     // ── the pallet jack: forks either side of the origin (where the pallet sits), the pump body and the tiller behind (local -z)
-    var buildJack = function (tool) { var j = new THREE.Group(); j.userData.dynamic = true; scene.add(j); jackMeshes[tool] = j;
+    var buildJack = function (tool, noHit) { var j = new THREE.Group(); j.userData.dynamic = true; scene.add(j); if (!noHit) jackMeshes[tool] = j;   /* noHit: a jack a receiver pushes, not one you can grab */
     var JO = std({ color: 0xe8701a, roughness: 0.45, metalness: 0.35 });
     [-0.3, 0.3].forEach(function (x) {
       box(0.16, 0.06, 1.1, JO, x, 0.095, 0.0, j); var tip = box(0.16, 0.06, 0.16, JO, x, 0.075, 0.62, j); tip.rotation.x = 0.35;
@@ -24,8 +24,8 @@
     box(0.08, 0.03, 0.1, MAT.red, 0, 0.95, 0.06, tiller); cyl(0.04, 0.08, MAT.steelDark, 0, 0.0, 0, tiller, 10);
     sign(['2500 kg'], 0.3, 0.1, 0, 0.3, -0.5, 0, { w: 256, h: 80, bg: '#1b232c', fg: '#f5b53d' }, j);
     groundBlob(0.9, 1.7, 0, -0.1, j, 0);
-    hitBox(1.0, 1.3, 1.9, 0, 0.6, -0.25, { prompt: function () { return toolPrompt(tool); }, use: function () { grabTool(tool); } }, j); return j; };
-    jackMesh = buildJack('jack'); buildJack('jack2');
+    if (!noHit) hitBox(1.0, 1.3, 1.9, 0, 0.6, -0.25, { prompt: function () { return toolPrompt(tool); }, use: function () { grabTool(tool); } }, j); return j; };
+    jackModel = buildJack; jackMesh = buildJack('jack'); buildJack('jack2');
     // ── the picking cart: a tubular frame, two mesh shelves, a push loop, four casters and a clipboard
     var c = new THREE.Group(); c.userData.dynamic = true; scene.add(c); cartMesh = c;
     [[-0.62, -0.3], [0.62, -0.3], [-0.62, 0.3], [0.62, 0.3]].forEach(function (o) { cyl(0.018, 0.96, MAT.chrome, o[0], 0.56, o[1], c, 8); box(0.05, 0.08, 0.05, MAT.steelDark, o[0], 0.1, o[1], c); var cw = cyl(0.045, 0.03, MAT.rubber, o[0], 0.045, o[1] + 0.03, c, 12); cw.rotation.z = Math.PI / 2; });
@@ -118,13 +118,14 @@
     // a towed tool trails the player: its heading eases toward the player's, so a look round does not whip it about
     var towed = function (tool, mesh) { var w = toolWorld(tool); if (player.tool === tool) { var cur = mesh.userData.towRy === undefined ? w.ry : mesh.userData.towRy, d = Math.atan2(Math.sin(w.ry - cur), Math.cos(w.ry - cur)); cur += d * ease; mesh.userData.towRy = cur; w.ry = cur; w.x = player.x + Math.sin(cur) * 1.15; w.z = player.z + Math.cos(cur) * 1.15; } else mesh.userData.towRy = undefined; mesh.position.set(w.x, floorY(w.x, w.z), w.z); mesh.rotation.y = w.ry; };
     towed('jack', jackMesh); towed('jack2', jackMeshes.jack2); towed('cart', cartMesh); cartMesh.visible = !!S.up.cart;
-    forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving; forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, ease * 2); }
+    forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving || !!staffDriving(); forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, ease * 2); }
   }
 
   // ── The forklift ──────────────────────────────────────────────────
   function forkTip() { return { x: S.fork.x + Math.sin(S.fork.yaw) * 1.5, y: S.fork.lift, z: S.fork.z + Math.cos(S.fork.yaw) * 1.5 }; }
   function startDrive() {
     if (!S.up.fork || S.hand || player.tool || driving) return;
+    var drv = staffDriving(); if (drv) { toast(drv.name + ' is on the forklift. They park it when the job is done.', 'bad'); sfx('bad'); return; }
     if (S.fork.plugged) cableUnplugFork('You drove off with the charger plugged in. The plug came out.');
     driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = -0.14; sfx('forklift'); introStep('fork'); hudDirty = true;
     $('h-drive').hidden = false;

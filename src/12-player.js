@@ -70,6 +70,7 @@
     if (src.kind === 'shelf') return { prompt: function () { return shelfPrompt(src); }, use: function () { shelfUse(src); } };
     if (src.kind === 'floor') return { prompt: function () { return floorPrompt(src); }, use: function () { floorUse(src); } };
     if (src.kind === 'belt') return { prompt: function () { return beltItemPrompt(src); }, use: function () { beltItemUse(src); } };
+    if (src.kind === 'bench') return { prompt: function () { return benchBoxPrompt(src); }, use: function () { benchBoxUse(src); } };
     return null;
   }
   function interact() {
@@ -77,14 +78,15 @@
     if (!ui.started || ui.blocked() || driving) return;
     ray.setFromCamera(centre, camera);
     if (edit.on) {
-      if (edit.grabbed) return;
+      if (edit.grabbed) { if (edit.snapText) { focus = { prompt: function () { return edit.snapText; }, use: function () {} }; focusText = edit.snapText; } return; }
       ray.far = 7; var ph = ray.intersectObjects(scene.children, true); ray.far = 3.4;
       for (var q = 0; q < ph.length; q++) { var pid = propIdOf(ph[q].object); if (!pid) continue; if (ph[q].object.userData.baked || !ph[q].object.visible) continue; var pdef = propDef(pid); if (!pdef) continue; focus = { editId: pid, prompt: function () { return ''; }, use: function () {} }; focusText = 'Grab the ' + pdef.label + '  ·  R turn · Backspace put back · Del remove'; return; }
       return;
     }
     var hits = ray.intersectObjects(inter.concat(instList), false);
-    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins
-    for (var si = 1; si < hits.length; si++) { if (hits[si].object.userData.screen && hits[si].distance - hits[0].distance < 0.5) { var sh = hits.splice(si, 1)[0]; hits.unshift(sh); break; } }
+    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins.
+    // The boxes on the bench sit inside the bench's own hit box the same way: within 0.8 m a box wins over the bench.
+    for (var si = 1; si < hits.length; si++) { var hs = hits[si], isrc = hs.object.isInstancedMesh ? instSource(hs) : null; if ((hs.object.userData.screen && hs.distance - hits[0].distance < 0.5) || (isrc && isrc.kind === 'bench' && hs.distance - hits[0].distance < 0.8)) { var sh = hits.splice(si, 1)[0]; hits.unshift(sh); break; } }
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i], def = h.object.userData.it || srcDef(instSource(h));
       if (!def) continue;

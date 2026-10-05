@@ -15,8 +15,8 @@
   function customById(id) { return (S.custom || []).filter(function (c) { return c.id === id; })[0] || null; }
   function propPlacement(id) {
     var d = PROPS[id], c = customById(id), o = (S.layout && S.layout[id]) || {};
-    if (c) return { x: typeof o.x === 'number' ? o.x : c.x, z: typeof o.z === 'number' ? o.z : c.z, rot: typeof o.rot === 'number' ? o.rot : (c.rot || 0), hidden: !!o.hidden, custom: true };
-    return { x: typeof o.x === 'number' ? o.x : d.x, z: typeof o.z === 'number' ? o.z : d.z, rot: typeof o.rot === 'number' ? o.rot : (d.rot || 0), hidden: !!o.hidden, custom: false };
+    if (c) return { x: typeof o.x === 'number' ? o.x : c.x, z: typeof o.z === 'number' ? o.z : c.z, rot: typeof o.rot === 'number' ? o.rot : (c.rot || 0), h: typeof o.h === 'number' ? o.h : (c.h || 0), hidden: !!o.hidden, custom: true };
+    return { x: typeof o.x === 'number' ? o.x : d.x, z: typeof o.z === 'number' ? o.z : d.z, rot: typeof o.rot === 'number' ? o.rot : (d.rot || 0), h: o.h || 0, hidden: !!o.hidden, custom: false };
   }
   function propLabel(id) { var d = propDef(id); return d ? d.label : id; }
   function rotAABB(o, rot) {
@@ -47,8 +47,14 @@
     var inGroup = function (o) { for (var p = o; p; p = p.parent) if (p === inst.g) return true; return false; };
     yard.lampLenses = yard.lampLenses.filter(function (l) { return !inGroup(l); }); for (var yl = yardLights.length - 1; yl >= 0; yl--) if (inGroup(yardLights[yl])) yardLights.splice(yl, 1);
     dress.clocks = dress.clocks.filter(function (c) { return !c.group || !inGroup(c.group); }); screens.forEach(function (s, k) { if (inGroup(s.mesh)) screens.splice(k, 1); });
+    BELT_PLANES = BELT_PLANES.filter(function (p) { return !inGroup(p); });
     for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1);
-    delete propInst[id]; NAV.dirty = true;
+    delete propInst[id]; NAV.dirty = true; beltsChanged();
+  }
+  // a belt piece that is going for good: whatever rides it is set down on the floor where it was
+  function beltSpill(id) {
+    var b = BELTS[id]; if (!b) return; beltItems(id).forEach(function (it) { var w = beltPoint(b, it.d); if (it.kind === 'box') S.floor.push({ kind: 'box', sku: it.sku, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); else if (it.kind === 'parcel' && it.order) S.floor.push({ kind: 'parcel', order: it.order, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); });
+    delete S.belts[id]; delete BELTS[id]; beltsChanged();
   }
   function buildProp(id) {
     removePropInst(id);
@@ -58,12 +64,13 @@
     propInst[id] = inst;
     if (!P.hidden) {
       def.build(ctx, P, inst);
+      if (def.beltPath) { var bh = P.h || 0; BELTS[id] = { id: id, prop: id, path: def.beltPath.map(function (p) { return [p[0], p[1], (p[2] || 0) + bh, p[3]]; }), speedKey: 'belts', piece: true }; }
       g.traverse(function (o) { if (o.isMesh) o.userData.propId = id; });
       ctx.obstacles.forEach(function (o) { var r = rotAABB(o, P.rot); solids.push({ x0: P.x + r.x0, x1: P.x + r.x1, z0: P.z + r.z0, z1: P.z + r.z1, y0: o.y0, y1: o.y1, prop: id }); });
       if (def.after) def.after(ctx, P, inst);
       if (!def.wall && ctx.obstacles.length) { var fx0 = 1e9, fx1 = -1e9, fz0 = 1e9, fz1 = -1e9; ctx.obstacles.forEach(function (o) { fx0 = Math.min(fx0, o.x0); fx1 = Math.max(fx1, o.x1); fz0 = Math.min(fz0, o.z0); fz1 = Math.max(fz1, o.z1); }); groundBlob((fx1 - fx0) * 1.5 + 0.3, (fz1 - fz0) * 1.5 + 0.3, (fx0 + fx1) / 2, (fz0 + fz1) / 2, g, 0); }
     }
-    scene.add(g); NAV.dirty = true; shadowDirty = true;
+    scene.add(g); NAV.dirty = true; shadowDirty = true; beltsChanged();
     return inst;
   }
   function buildProps() { PROP_ORDER.forEach(function (id) { if (!PROPS[id].extra && (!PROPS[id].when || PROPS[id].when())) buildProp(id); }); (S.custom || []).forEach(function (c) { if (PROPS[c.type]) buildProp(c.id); }); }
@@ -104,6 +111,7 @@
     if (dir.y < -0.05 && t > 0 && t < 10) pt = o.clone().add(dir.clone().multiplyScalar(t));
     else { var flat = dir.clone(); flat.y = 0; flat.normalize(); pt = o.clone().add(flat.multiplyScalar(2.6)); pt.y = y; }
     var sn = function (v) { return edit.snap ? Math.round(v * 20) / 20 : v; };
+    if (def.beltPath) { var bs = beltSnap(def, pt, edit.grabbed); edit.snapText = bs ? bs.text : ''; if (bs) return bs; }
     if (def.wall) {
       var best = null, bd = 2.5;
       wallPlanes().forEach(function (w) { var d = w.a === 'x' ? Math.abs(pt.x - w.v) : Math.abs(pt.z - w.v); var within = w.a === 'x' ? (pt.z > w.z0 && pt.z < w.z1) : (pt.x > w.x0 && pt.x < w.x1); if (within && d < bd) { bd = d; best = w; } });
@@ -112,12 +120,34 @@
     var lim = def.yard ? 80 : HALL.x - 0.4, limz = def.yard ? 60 : HALL.z - 0.4;
     return { x: clamp(sn(pt.x), -lim, lim), z: clamp(sn(pt.z), -limz, limz), rot: null, wall: false };
   }
+  // Where a carried belt piece snaps. Anchors are gathered fresh each time: free belt ends, machine outlets, the parcel shelf
+  // and the inbound doors feed a piece (its start goes there); free belt starts, machine inlets, the outbound doors and the
+  // rack bays take from a piece (its end goes there). The nearest anchor within two metres of the aim wins; the piece turns
+  // to run with it, and climbs or drops to its height. A belt end that already feeds something, or a start already fed, is skipped.
+  function beltSnap(def, pt, selfId) {
+    var R2 = REACH * REACH, A = [], X = HALL.x, Z = HALL.z;
+    for (var k in BELTS) { var b = BELTS[k]; if (k === selfId || !propInst[b.prop]) continue; var e = beltPoint(b, beltLen(b)), s = beltPoint(b, 0); if (!b.noSink && !beltSink(b)) A.push({ x: e.x, z: e.z, y: e.y, dir: e.ry, feeds: true, what: 'the ' + beltLabel(b) }); if (!beltFeeder(b)) A.push({ x: s.x, z: s.z, y: s.y, dir: s.ry, feeds: false, what: 'the ' + beltLabel(b) }); }
+    for (var mk in MACH) { var mc = MACH[mk]; if (mc.door !== undefined) continue; machinePoints(mc, 'out').forEach(function (p) { A.push({ x: p.x, z: p.z, y: BELT_Y, dir: null, feeds: true, what: 'the ' + propLabel(mc.prop) }); }); if (mc.accept) machinePoints(mc, 'in').forEach(function (p) { A.push({ x: p.x, z: p.z, y: BELT_Y, dir: null, feeds: false, what: 'the ' + propLabel(mc.prop) }); }); }
+    if (propInst.packline) { var sh = propWorld('packline', 0, 7.0); A.push({ x: sh.x, z: sh.z, y: BELT_Y, dir: sh.a, feeds: true, what: 'the parcel shelf' }); }
+    for (var di = 0; di < 4 && doors[di]; di++) { var at = doorInside(di); A.push({ x: at[0], z: at[1], y: BELT_Y, dir: Math.PI / 2, feeds: di < 2, what: 'dock door ' + dockLabel(di) }); }
+    for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < RACK.bays; bb++) { var sp = rackSlotPos(r, bb, 0), a = sp.ry || 0; [-1, 1].forEach(function (f) { A.push({ x: sp.x + Math.sin(a) * f * 1.1, z: sp.z + Math.cos(a) * f * 1.1, y: BELT_Y, dir: f > 0 ? a + Math.PI : a, feeds: false, what: slotName(slotKey(r, bb, 0)) }); }); }
+    var best = null, bd = 2.2 * 2.2; A.forEach(function (an) { var d = dist2(pt.x, pt.z, an.x, an.z); if (d < bd) { bd = d; best = an; } });
+    if (!best) return null;
+    var path = def.beltPath, last = path[path.length - 1], prev = path[path.length - 2], endDir = Math.atan2(last[0] - prev[0], last[1] - prev[1]), cur = propInst[selfId] ? propInst[selfId].P.rot : 0, q = Math.PI / 2;
+    function wrap4(n) { return ((Math.round(n) % 4) + 4) % 4; }
+    if (best.feeds) { var rot = best.dir === null ? cur : wrap4(best.dir / q); return { x: best.x, z: best.z, rot: rot, h: Math.round((best.y - BELT_Y) * 100) / 100, wall: false, text: 'Snapped: takes from ' + best.what + ' · E places · R turns' }; }
+    var rot2 = best.dir === null ? cur : wrap4((best.dir - endDir) / q), a2 = rot2 * q, ex = last[0] * Math.cos(a2) + last[1] * Math.sin(a2), ez = -last[0] * Math.sin(a2) + last[1] * Math.cos(a2);
+    return { x: best.x - ex, z: best.z - ez, rot: rot2, h: Math.round((best.y - BELT_Y - (last[2] || 0)) * 100) / 100, wall: false, text: 'Snapped: feeds ' + best.what + ' · E places · R turns' };
+  }
+  function ghostProp(id) { propInst[id].g.traverse(function (o) { if (o.isMesh && o.material && o.material.clone && !o.userData.ghosted) { o.userData.origMat = o.material; o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; o.material.depthWrite = false; o.castShadow = false; o.userData.ghosted = true; } }); }
   function editTick() {
     if (!edit.on) return;
     if (edit.grabbed) {
       var inst = propInst[edit.grabbed]; if (!inst) { edit.grabbed = null; return; }
       var def = propDef(edit.grabbed), aim = editAim(def);
-      inst.g.position.set(aim.x, propGroundY(aim.x, aim.z), aim.z); if (aim.rot !== null && def.wall) { inst.P.rot = aim.rot; inst.g.rotation.y = aim.rot * Math.PI / 2; }
+      // a belt piece snapped at another height is rebuilt at that height, legs and all, while it is still being carried
+      if (def.beltPath && typeof aim.h === 'number' && Math.abs((inst.P.h || 0) - aim.h) > 0.01) { var cc = customById(edit.grabbed); if (cc) cc.h = aim.h; if (S.layout && S.layout[edit.grabbed]) S.layout[edit.grabbed].h = aim.h; buildProp(edit.grabbed); inst = propInst[edit.grabbed]; inst.P.h = aim.h; for (var si = solids.length - 1; si >= 0; si--) if (solids[si].prop === edit.grabbed) solids.splice(si, 1); ghostProp(edit.grabbed); }
+      inst.g.position.set(aim.x, propGroundY(aim.x, aim.z), aim.z); if (aim.rot !== null && (def.wall || def.beltPath)) { inst.P.rot = aim.rot; inst.g.rotation.y = aim.rot * Math.PI / 2; }
       editHelper(inst.g, 0xf5b53d);
     } else if (focus && focus.editId && propInst[focus.editId]) editHelper(propInst[focus.editId].g, 0x5fd38d);
     else editHelper(null);
@@ -125,15 +155,16 @@
   function editGrab(id) {
     if (edit.grabbed || !propInst[id]) return;
     var def = propDef(id); if (def.fixed) { toast('That one stays where it is.', 'bad'); return; }
-    edit.grabbed = id; for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1); NAV.dirty = true;
-    propInst[id].g.traverse(function (o) { if (o.isMesh && o.material && o.material.clone && !o.userData.ghosted) { o.userData.origMat = o.material; o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; o.material.depthWrite = false; o.castShadow = false; o.userData.ghosted = true; } });
-    sfx('pickup'); toast('Carrying the ' + propLabel(id) + ' · E places · R turns · Esc drops it back', '');
+    edit.grabbed = id; edit.snapText = ''; for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1); NAV.dirty = true;
+    ghostProp(id);
+    sfx('pickup'); toast('Carrying the ' + propLabel(id) + ' · E places · R turns · Esc drops it back' + (def.beltPath ? ' · it snaps to belt ends, machines, doors and rack bays' : ''), '');
   }
   function editDrop(cancel) {
-    var id = edit.grabbed; if (!id) return; edit.grabbed = null;
-    var inst = propInst[id];
-    if (!cancel && inst) { if (!S.layout) S.layout = {}; S.layout[id] = { x: Math.round(inst.g.position.x * 100) / 100, z: Math.round(inst.g.position.z * 100) / 100, rot: inst.P.rot }; sfx('putdown'); toast('Placed the ' + propLabel(id), 'good'); }
+    var id = edit.grabbed; if (!id) return; edit.grabbed = null; edit.snapText = '';
+    var inst = propInst[id], def = propDef(id);
+    if (!cancel && inst) { if (!S.layout) S.layout = {}; S.layout[id] = { x: Math.round(inst.g.position.x * 100) / 100, z: Math.round(inst.g.position.z * 100) / 100, rot: inst.P.rot, h: inst.P.h || 0 }; sfx('putdown'); }
     buildProp(id); editHelper(null); save();
+    if (!cancel && inst) { if (def && def.beltPath && BELTS[id]) { var fd = feederLabel(beltFeeder(BELTS[id])), sk = sinkLabel(beltSink(BELTS[id])); toast('Placed the ' + propLabel(id) + (fd ? ' · takes from ' + fd : ' · nothing feeds it yet') + (sk ? ' · feeds ' + sk : ' · ends in the open'), fd || sk ? 'good' : ''); } else toast('Placed the ' + propLabel(id), 'good'); }
   }
   function editRotate(pid) {
     var id = pid || edit.grabbed || (focus && focus.editId); if (!id || !propInst[id]) return;
@@ -150,7 +181,7 @@
     var id = pid || edit.grabbed || (focus && focus.editId); if (!id) return;
     var c = customById(id);
     if (edit.grabbed) edit.grabbed = null;
-    if (c) { var def = PROPS[c.type]; S.custom.splice(S.custom.indexOf(c), 1); removePropInst(id); if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
+    if (c) { var def = PROPS[c.type]; S.custom.splice(S.custom.indexOf(c), 1); if (def && def.beltPath) beltSpill(id); removePropInst(id); if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
     else { if (!S.layout) S.layout = {}; S.layout[id] = S.layout[id] || {}; S.layout[id].hidden = true; buildProp(id); toast('Removed the ' + propLabel(id) + ' (the catalogue brings it back)', ''); }
     editHelper(null); sfx('bad'); save();
   }
@@ -160,11 +191,11 @@
     if (def.price && S.bank < def.price) { toast('That costs ' + money(def.price) + ' and you have ' + money(S.bank), 'bad'); return; }
     if (def.price) pay(-def.price, 'Bought: ' + def.label);
     if (!S.custom) S.custom = [];
-    var aim = editAim(def), c = { id: uid('cp'), type: type, x: aim.x, z: aim.z, rot: aim.rot || 0 }; S.custom.push(c);
+    var aim = editAim(def), c = { id: uid('cp'), type: type, x: aim.x, z: aim.z, rot: aim.rot || 0, h: aim.h || 0 }; S.custom.push(c);
     buildProp(c.id); closePanel(); editGrab(c.id); toast('Carrying the ' + def.label + ' · aim and press E', '');
   }
   // the catalogue (C): removed props to bring back, and extras to buy
-  var CAT_GROUPS = [['room', '🛋 Break room and office'], ['hall', '🏭 The hall'], ['wall', '🖼 On the wall'], ['yard', '🌳 The yard']];
+  var CAT_GROUPS = [['belt', '🛤 Conveyors: lay a line from parts. A piece snaps to belt ends, machines, dock doors and rack bays as you carry it.'], ['room', '🛋 Break room and office'], ['hall', '🏭 The hall'], ['wall', '🖼 On the wall'], ['yard', '🌳 The yard']];
   function catalogueHtml() {
     var h = '<p>Build mode. Press <kbd>E</kbd> on a prop to carry it, <kbd>R</kbd> to turn it, <kbd>Backspace</kbd> to put it back where it started, <kbd>Del</kbd> to remove it. Bought extras sell back for half.</p>';
     var hidden = PROP_ORDER.filter(function (id) { return !PROPS[id].extra && propPlacement(id).hidden; });
@@ -261,7 +292,8 @@
   function noticeBuild(c) { c.box(1.6, 1.0, 0.04, MAT.wood, 0, 1.9, 0); c.plane(1.5, 0.9, MAT.cork, 0, 1.9, 0.025, 0, 0); c.sign(['TRUCKS', 'IN 07:30 · 13:30', 'OUT 10:30-12 · 16-18'], 0.9, 0.5, -0.25, 2.05, 0.03, 0, { w: 512, h: 320, bg: '#f5f1e6', fg: '#1b232c', size: 56 }); [[0.45, 1.75, -0.1], [-0.1, 1.6, 0.15], [0.55, 1.65, 0.05]].forEach(function (n) { var nb = c.box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], 0.03); nb.rotation.z = n[2]; c.cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, 0.035, 8).rotation.x = Math.PI / 2; }); }
   function calendarBuild(c) { c.box(0.4, 0.5, 0.02, MAT.paper, 0, 2.6, 0); c.sign(['OCTOBER', '', '1  2  3  4  5  6  7', '8  9 10 11 12 13 14'], 0.36, 0.44, 0, 2.6, 0.012, 0, { w: 256, h: 320, bg: '#f3efe4', fg: '#1b232c', size: 34 }); }
   function clockBuild(r) { return function (c) { var g = new THREE.Group(); g.position.set(0, 2.7, 0.02); c.add(g); var face = cyl(r, 0.03, MAT.white, 0, 0, 0, g, 32); face.rotation.x = Math.PI / 2; var rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 32), MAT.steelDark); g.add(rim); for (var i = 0; i < 12; i++) { var t = box(i % 3 ? 0.015 : 0.03, i % 3 ? 0.04 : 0.07, 0.01, MAT.black, Math.sin(i / 12 * 6.283) * (r - 0.07), Math.cos(i / 12 * 6.283) * (r - 0.07), 0.02, g); t.rotation.z = -i / 12 * 6.283; } var hh = new THREE.Group(), mh = new THREE.Group(); hh.position.z = 0.025; mh.position.z = 0.03; g.add(hh); g.add(mh); box(0.035, r * 0.55, 0.01, MAT.black, 0, r * 0.22, 0, hh); box(0.025, r * 0.85, 0.01, MAT.black, 0, r * 0.37, 0, mh); cyl(0.03, 0.02, MAT.red, 0, 0, 0.035, g, 10).rotation.x = Math.PI / 2; g.userData.dynamic = true; dress.clocks.push({ h: hh, m: mh, group: c.group }); }; }
-  function posterBuild(kind, w, h) { return function (c) { c.poster(kind, w, h, 0, 2.0, 0.01, 0); var fw = w + 0.06, fh = h + 0.06; c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 + fh / 2, 0); c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 - fh / 2, 0); c.box(0.03, fh, 0.03, MAT.black, -fw / 2, 2.0, 0); c.box(0.03, fh, 0.03, MAT.black, fw / 2, 2.0, 0); }; }
+  // a framed poster: the print on a white mount, a sheet of glass over it that catches the lamps at an angle, a black frame round the lot
+  function posterBuild(kind, w, h) { return function (c) { c.box(w + 0.05, h + 0.05, 0.012, MAT.white, 0, 2.0, 0.002).castShadow = false; c.poster(kind, w - 0.04, h - 0.04, 0, 2.0, 0.01, 0); var gl = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.05, h + 0.05), MAT.screenGlass); gl.position.set(0, 2.0, 0.016); gl.renderOrder = 2; c.add(gl); var fw = w + 0.08, fh = h + 0.08; c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 + fh / 2, 0.004); c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 - fh / 2, 0.004); c.box(0.03, fh, 0.03, MAT.black, -fw / 2, 2.0, 0.004); c.box(0.03, fh, 0.03, MAT.black, fw / 2, 2.0, 0.004); }; }
   function extinguisherBuild(c) { c.cyl(0.08, 0.5, MAT.red, 0, 1.0, 0.12, 12); c.cyl(0.05, 0.08, MAT.black, 0, 1.28, 0.12, 10); c.box(0.03, 0.12, 0.1, MAT.black, 0, 1.36, 0.14); c.cyl(0.012, 0.42, MAT.black, 0.08, 1.0, 0.15, 6).rotation.z = 0.15; c.cyl(0.02, 0.07, MAT.black, 0.11, 0.79, 0.17, 8, 0.03); c.cyl(0.025, 0.02, MAT.white, 0.0, 1.3, 0.21, 10).rotation.x = Math.PI / 2; c.box(0.1, 0.1, 0.002, MAT.paper, 0, 1.0, 0.202); c.box(0.2, 0.04, 0.1, MAT.steelDark, 0, 0.72, 0.05); c.sign(['FIRE'], 0.3, 0.12, 0, 1.6, 0.04, 0, { w: 128, h: 48, bg: '#c8342a', fg: '#fff' }); }
   function firstAidBuild(c) { c.box(0.3, 0.3, 0.1, MAT.white, 0, 1.7, 0.05); c.box(0.18, 0.05, 0.02, MAT.green, 0, 1.7, 0.11); c.box(0.05, 0.18, 0.02, MAT.green, 0, 1.7, 0.11); c.box(0.12, 0.02, 0.02, MAT.chrome, 0, 1.87, 0.05); }
   function binPrompt() { var bp = isJack(player.tool) ? jackPallet() : null; if (bp && bp.n > 0) return 'Write off the whole pallet (' + bp.n + ' × ' + skuName(bp.sku) + ', ' + money(Math.round(SKU[bp.sku].val * 0.5 * bp.n)) + ')'; if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Bin the damaged box'; if (S.hand && S.hand.kind === 'box') return 'That box is fine: it belongs on a rack'; return 'The bin · ' + (S.binned || 0) + ' damaged boxes written off'; }
@@ -332,6 +364,7 @@
     var mouse = new THREE.Mesh(bevelGeo(0.06, 0.03, 0.1, 0.012), MAT.black); mouse.position.set(0.5, 0.8, -0.18); c.group.add(mouse); c.box(0.2, 0.06, 0.16, MAT.black, -0.75, 0.81, 0.26); c.cyl(0.012, 0.18, MAT.black, -0.75, 0.9, 0.26, 6).rotation.z = Math.PI / 2;
     c.cyl(0.03, 0.09, MAT.black, 0.9, 0.82, -0.05, 8); c.cyl(0.004, 0.14, MAT.blue, 0.9, 0.9, -0.05, 4).rotation.z = 0.2; c.cyl(0.04, 0.09, MAT.white, 0.7, 0.82, -0.1, 10); c.box(0.2, 0.01, 0.28, MAT.paper, -0.75, 0.785, -0.1); c.box(0.18, 0.012, 0.26, MAT.paper, -0.72, 0.795, -0.08).rotation.y = 0.1;
     c.cyl(0.02, 0.4, MAT_MACH.frame, 0.95, 0.98, 0.25, 8).rotation.z = -0.3; c.cyl(0.07, 0.1, MAT_MACH.frame, 0.84, 1.17, 0.25, 12, 0.03); c.cyl(0.05, 0.02, glowMat(0xfff2c0, 0.6), 0.84, 1.12, 0.25, 12);
+    var dl = new THREE.PointLight(0xfff2c0, 0.3, 3.5, 2); dl.position.set(0.84, 1.05, 0.25); c.add(dl);   // the desk lamp's pool on the desk
     c.sign(['DEPOT CO. · OFFICE'], 0.5, 0.06, -0.75, 0.56, 0.32, 0, { w: 512, h: 64, bg: '#eef1f5', fg: '#1b232c' });
     c.hit(1.2, 0.9, 0.5, 0, 0.5, -0.1, { prompt: function () { return pc.on ? null : (S.events.power ? 'The PC is off: no power' : 'Sit down at the PC'); }, use: function () { openPc(); } });
     c.solid(-1.1, 1.1, -0.4, 0.4, 0, 0.8);
@@ -360,6 +393,7 @@
     c.box(1.0, 0.08, 3.2, MAT.wood, 0, 0.9, 0); [[-0.45, -1.5], [0.45, -1.5], [-0.45, 1.5], [0.45, 1.5]].forEach(function (o) { c.box(0.06, 0.9, 0.06, MAT.steelDark, o[0], 0.45, o[1]); }); c.box(0.9, 0.04, 3.0, MAT.steelDark, 0, 0.3, 0); c.solid(-0.5, 0.5, -1.6, 1.6, 0, 1);
     c.box(0.25, 0.12, 0.12, MAT.red, -0.3, 1.0, -1.3); c.cyl(0.07, 0.1, MAT.white, -0.3, 1.02, -1.3, 10); c.box(0.3, 0.05, 0.3, MAT.steelDark, 0.25, 0.965, -1.35); c.plane(0.2, 0.1, MAT.screen, 0.25, 1.0, -1.2, -0.6, 0); c.cyl(0.02, 0.9, MAT.steelDark, -0.4, 1.4, 1.4, 8); c.box(0.3, 0.08, 0.15, MAT.lamp, -0.3, 1.85, 1.4);
     c.box(0.22, 0.14, 0.18, MAT.white, 0.25, 1.01, 0.6); c.box(0.18, 0.01, 0.1, MAT.paper, 0.25, 1.09, 0.72); c.box(0.12, 0.02, 0.03, MAT.yellow, -0.2, 0.955, 0.2).rotation.y = 0.4;
+    var tl = new THREE.PointLight(0xfff0d0, 0.45, 5, 2); tl.position.set(-0.3, 1.7, 1.4); c.add(tl);   // the task lamp lights the far end of the bench
     c.hit(1.1, 1.2, 3.2, 0, 1.4, 0, { prompt: function () { return benchPrompt(); }, use: function () { benchUse(); } });
     // the terminal on an arm at the near end
     c.box(0.26, 0.03, 0.2, MAT.steelDark, 0.3, 0.955, -1.3); c.cyl(0.025, 0.5, MAT.steelDark, 0.3, 1.2, -1.3, 8); c.box(0.36, 0.04, 0.04, MAT.steelDark, 0.14, 1.45, -1.3); c.box(0.04, 0.4, 0.56, MAT.black, -0.02, 1.45, -1.3);
@@ -374,7 +408,7 @@
     if (!os.length) scText(c, 16, 76, 'No open orders.', '#a0acb8', 14);
     os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
     if (sc.scrollMax > 0) { scText(c, 16, 290, 'Orders ' + (sc.scroll + 1) + ' to ' + Math.min(allO.length, sc.scroll + 4) + ' of ' + allO.length + ' · wheel scrolls', '#6b7784', 10); scButton(sc, 300, 262, 40, 26, 'UP', sc.scroll > 0, function () { sc.scroll = Math.max(0, sc.scroll - 1); }, '#f5b53d'); scButton(sc, 346, 262, 40, 26, 'DOWN', sc.scroll < sc.scrollMax, function () { sc.scroll = Math.min(sc.scrollMax, sc.scroll + 1); }, '#f5b53d'); }
-    else scText(c, 16, 290, 'E on the bench with empty hands opens the full list', '#6b7784', 10);
+    else scText(c, 16, 290, 'Look at a box on the bench to take it back · the cart takes surplus', '#6b7784', 10);
   }
   // yard props (the shelter, dumpster, flag and parking sign)
   function shelterBuild(c) {
@@ -461,9 +495,9 @@
     touchScreen({ w: 200, h: 80, pw: 0.4, ph: 0.16, x: 0.05, y: 1.3, z: 0.035, ry: 0, parent: c.group, title: 'Charger display', draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.2)'); var b = Math.round((S.fork.batt === undefined ? 1 : S.fork.batt) * 100); scText(cc, 10, 30, S.fork.plugged ? (b >= 100 ? 'FORKLIFT · FULL' : 'CHARGING · ' + b + '%') : 'FORKLIFT · ' + b + '% · unplugged', S.fork.plugged ? '#5fd38d' : '#f5b53d', 18); cc.fillStyle = 'rgba(255,255,255,0.12)'; cc.fillRect(10, 48, 180, 14); cc.fillStyle = b < 20 ? '#ff6b5e' : '#5fd38d'; cc.fillRect(10, 48, 1.8 * b, 14); } });
     var w = 2.6, d = 3.6, cz = 2.8; [[0, cz - d / 2, w, 0.08], [0, cz + d / 2, w, 0.08], [-w / 2, cz, 0.08, d], [w / 2, cz, 0.08, d]].forEach(function (ln) { c.plane(ln[2], ln[3], MAT.yellowLine, ln[0], 0.0062, ln[1], -Math.PI / 2, 0); }); c.plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex(['FORKLIFT'], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), 0, 0.0066, cz - d / 2 + 0.3, -Math.PI / 2, 0);
   }
-  function lampPostBuild(c) { c.cyl(0.08, 7.5, MAT.steelDark, 0, 3.75, 0, 8, 0.11); c.box(0.6, 0.2, 0.3, MAT.steelDark, 0, 7.65, 0); var lens = c.box(0.5, 0.04, 0.24, glowMat(0xffd9a0, 0.2), 0, 7.53, 0); yard.lampLenses.push(lens); var l = new THREE.PointLight(0xffd9a0, 0.0, 30, 2); l.position.set(0, 7.7, 0); c.add(l); yardLights.push(l); c.box(0.3, 0.2, 0.3, MAT.grey, 0, 0.1, 0); c.solid(-0.15, 0.15, -0.15, 0.15, -2, 2); }
+  function lampPostBuild(c) { c.cyl(0.08, 7.5, MAT.steelDark, 0, 3.75, 0, 8, 0.11); c.box(0.6, 0.2, 0.3, MAT.steelDark, 0, 7.65, 0); var lens = c.box(0.5, 0.04, 0.24, glowMat(0xffd9a0, 0.2), 0, 7.53, 0); yard.lampLenses.push(lens); var l = new THREE.PointLight(0xffd9a0, 0.0, 36, 2); l.position.set(0, 7.4, 0); l.userData.k = 1.4; c.add(l); yardLights.push(l); c.box(0.3, 0.2, 0.3, MAT.grey, 0, 0.1, 0); c.solid(-0.15, 0.15, -0.15, 0.15, -2, 2); }
   function carBuild(k) { return function (c) { c.add(carMesh(typeof k === "number" ? CAR_COLS[k % CAR_COLS.length] : k)); c.solid(-2.2, 2.2, -1.0, 1.0, -2, 1.5); }; }
-  function paintedBuild(c) { c.sign(['DEPOT CO.'], 9, 1.6, 0, 4.4, 0.01, 0, { w: 1024, h: 192, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['RECEIVE · STORE · PICK · SHIP'], 7, 0.5, 0, 3.3, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); }
+  function paintedBuild(c) { c.sign(['DEPOT CO.'], 9, 1.6, 0, 4.4, 0.01, 0, { w: 1024, h: 192, bg: '#1b232c', fg: '#f5b53d', plate: false }); c.sign(['RECEIVE · STORE · PICK · SHIP'], 7, 0.5, 0, 3.3, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8', plate: false }); }
   function aisleSignBuild(text) { return function (c) { c.sign([text], 2.2, 0.5, 0, 5.4, 0, 0, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.sign([text], 2.2, 0.5, 0, 5.4, 0, Math.PI, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.cyl(0.006, 1.3, MAT.steelDark, -0.9, 6.3, 0, 4); c.cyl(0.006, 1.3, MAT.steelDark, 0.9, 6.3, 0, 4); }; }
 
   // ── Default layout ────────────────────────────────────────────────

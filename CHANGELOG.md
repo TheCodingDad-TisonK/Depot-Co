@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.13.0 (2026-10-05)
+
+The look, the crew and the lines, all at once: Depot Co. gets the pass Grow Co. had.
+
+**The look**
+- People are rigged properly: eased limbs with knees and elbows, shoes with soles and laces, a shirt with a collar, buttons, a pocket and a belt, hair with a fringe, sideburns and a nape (or long, or a bun), a modelled nose and ears, and a 256 px face that blinks and looks at you. Hats sit on the brows. Drivers, guards and staff all use it.
+- Every box in the game has its edges eased on all twelve edges (the old bevel did eight), and every cylinder has eased rims and enough sides to read as round.
+- The hall is lined: a painted blockwork dado to 2.4 m under a steel capping, I-section columns every 8 m with bump guards, two girts above the openings, a cable tray round every wall.
+- The rooms have their own floors: carpet tiles in the office, vinyl in the lobby and the break room, skirting on the plaster walls, recessed troffers, and a bin by the desk.
+- Lighting: a light budget keeps the nearest sixteen lamps live so a lamp can go wherever one belongs. The high bays are real fixtures (conduit, ballast box, spun reflector, lens) over warmer, pooled light, and they flicker up over a couple of seconds when the power comes on. The dock beacons throw real amber on the apron while a truck is on its way. The bench has a task lamp and the desk a desk lamp. The three rooms' lamps hang in their rooms again (they had been left in the open hall when the hall grew). Yard lamps, dock shelters and the gatehouses light the yard at night.
+- The shadow map follows what moves: redrawn four times a second, at once when a door or a prop moves, and every frame while the forklift, a truck or the AGV is moving near you. It used to redraw every four seconds.
+- Signs on the house slate are enamelled plates: shaded, with a hairline inset, stood off the wall on four studs. Posters sit on a white mount behind a sheet of glass. The painted name on the north wall stays paint.
+- Rain is a thin grey streak, not a white blob.
+- The yard: tyre marks and oil at the aprons, pallets stacked by the inbound docks, a skip by the dumpster, a drop trailer on its legs at the far side, weeds along every fence line. The fence panels stood across their runs; they run with them now.
+
+**Orders and the bench**
+- An order only asks for stock that is on site (racks, bench, floor, cart, and the pallets on a signed truck) and not already claimed by another open order. Two orders can no longer want the same six tins when you hold four, and a pick is never surplus the moment it is made. The first order waits for stock.
+- The bench has no menu. A box on the bench is a thing you look at: E takes it back into your hand, or onto the cart. The prompt says whether an open order wants it.
+- The cart at the bench: E unloads only the boxes the open orders still want and, in the same press, loads the bench's surplus onto the cart to go back on the racks.
+- A picker with nothing to pick walks surplus boxes back to the racks, one at a time.
+- The scanner's orders page ends with one pick list for every open order together, less what the bench holds, and the surplus count.
+
+**Conveyors from parts**
+- The catalogue (C in build mode) has a Conveyors group: 2 m and 4 m straights, quarter-turn curves left and right, inclines up and down a metre, and a 4 m high run hung from the roof. A carried piece snaps to the nearest free belt end, machine outlet, parcel shelf or inbound dock door (its start goes there), or to the nearest free belt start, machine inlet, outbound dock door or rack bay (its end goes there), turning and climbing to match. Dropped, it says what it takes from and what it feeds. Removing a piece sets what rode it on the floor.
+- Everything is ready for a belt: the bench takes boxes from any side, a rack bay takes boxes off a belt that ends at it, an outbound door with a truck in takes parcels off a belt that ends at it, an inbound door with a signed truck in feeds boxes off its pallets onto a belt that starts at it, and the parcel shelf feeds any belt laid at its take-off. The pack line's outfeed drops to the shelf and never onto a belt.
+
+**The crew**
+- A forklift driver (level 5, needs the forklift, $95 a day): puts the pallets left on the hall floor away on any level, the top shelf included, and parks the forklift back in its bay. Keeps clear of the AGV's square, the wrapper, and you. You cannot take the forklift while they are on it; they do not take it while you are next to it.
+- A receiver has a pallet jack of their own, pushed under the pallet while they carry one and towed behind them the rest of the time.
+
 ## 1.12.19 (2026-10-04)
 
 - A drop marker: while you hold a box or a parcel, a translucent ghost of it with a ring on the floor shows exactly where G will set it down. Green on good floor, red where it would land at your feet instead. It hides on the forklift, in build mode and at the PC.
