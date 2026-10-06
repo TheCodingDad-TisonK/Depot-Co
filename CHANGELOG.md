@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.4 (2026-10-06)
+
+The crew works the morning after a clock-out.
+
+**The crew**
+- A worker who clocked out the night before clocked in the next morning and then stood at the time clock all day. The flag that marks them as leaving was set at every shift end since 1.4.0 and never cleared, and the morning work gate read it. It never showed before 1.13.3 because the crew could not finish a clock-out at all (they bounced in the lobby doorway); once they could, the next morning exposed it. The gate now reads the clock: on the clock and inside the shift. The flag is cleared on each new day. Saves heal on load.
+
 ## 1.13.3 (2026-10-06)
 
 Rack row A is gone and the receiving side is open floor, nobody stands in the lobby doorway all evening any more, and the receiver leaves his jack behind when he is off the floor.

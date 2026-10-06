@@ -26,7 +26,7 @@
       var p = st.punct, r = Math.random();
       st.arriveOff = p > 0.75 ? randi(-12, -2) : p > 0.4 ? (r < 0.7 ? randi(-6, 4) : randi(6, 14)) : (r < 0.35 ? randi(-3, 3) : randi(8, 28));
       st.overtime = !!st.overtimeNext; st.overtimeNext = false;
-      st.lateToday = false; st.hoursToday = 0; st.clockInAt = null; st.clockedOutAt = null; st.clocked = false; st.wordToday = false;
+      st.lateToday = false; st.hoursToday = 0; st.clockInAt = null; st.clockedOutAt = null; st.clocked = false; st.wordToday = false; st.leaving = false; st.leavingWait = false;
       if (st.sick) logEvent(st.name + ' called in sick', 'bad');
       if (st.dayOff) logEvent(st.name + ' has the day off');
       if (st.punct < 1) st.punct = clamp(st.punct - 0.01, 0.1, 1);   // a word wears off slowly

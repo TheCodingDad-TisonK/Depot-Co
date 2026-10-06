@@ -85,6 +85,8 @@ const SCENARIO = `(async () => {
   ok(S.staff[0].hoursToday > 0.5, 'hours accrue on the clock: ' + S.staff[0].hoursToday.toFixed(2));
   T.myClock(true); ok(S.clockedIn === true, 'you clocked in'); T.myClock(false); ok(S.clockedIn === false && S.stats.hoursWorked >= 0, 'you clocked out with a shift report');
   ok(S.stats.putaway > putaway0, 'receiver put pallets away: ' + (S.stats.putaway - putaway0) + ' boxes');
+  // the morning after a clock-out: the leaving flag from last night must not keep a clocked-in worker idle at the clock
+  { const pk = S.staff.filter((st) => st.role === 'picker')[0]; const t0 = S.time; pk.leaving = true; pk.leavingWait = false; pk.state = 'idle'; pk.clocked = true; pk.task = null; pk.carry = null; pk.after = null; T.setTime(10); T.run(3); ok(pk.state !== 'idle' || !!pk.task, 'a worker who clocked out last night works again today: state=' + pk.state + ' task=' + JSON.stringify(pk.task)); pk.leaving = false; T.setTime(t0); }
   const o2 = T.genOrder(false); ok(!!o2, 'second order #' + (o2 && o2.num));
   o2.lines.forEach((l) => { while (T.stockCount(l.sku) < l.qty) { const k = T.findSlotFor(l.sku, 1, 1); S.slots[k] = S.slots[k] && S.slots[k].n ? S.slots[k] : { sku: l.sku, n: 0 }; S.slots[k].n += 1; } });
   T.run(120); ok(Object.keys(S.bench.boxes).length > 0, 'picker brought boxes to the bench: ' + JSON.stringify(S.bench.boxes));
