@@ -1203,7 +1203,9 @@
   }
   // a belt piece that is going for good: whatever rides it is set down on the floor where it was
   function beltSpill(id) {
-    var b = BELTS[id]; if (!b) return; beltItems(id).forEach(function (it) { var w = beltPoint(b, it.d); if (it.kind === 'box') S.floor.push({ kind: 'box', sku: it.sku, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); else if (it.kind === 'parcel' && it.order) S.floor.push({ kind: 'parcel', order: it.order, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); });
+    var b = BELTS[id]; if (!b) return; var placed = !!(customById(id) || PROPS[id]);   // no record any more: set them down at your feet rather than ask a missing prop where it stood
+    beltItems(id).forEach(function (it) { var w = placed ? beltPoint(b, it.d) : { x: player.x, z: player.z, ry: player.yaw }; if (it.kind === 'box') S.floor.push({ kind: 'box', sku: it.sku, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); else if (it.kind === 'parcel' && it.order) S.floor.push({ kind: 'parcel', order: it.order, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); });
+    beltItems(id).length = 0;
     delete S.belts[id]; delete BELTS[id]; beltsChanged();
   }
   function buildProp(id) {
@@ -1331,7 +1333,7 @@
     var id = pid || edit.grabbed || (focus && focus.editId); if (!id) return;
     var c = customById(id);
     if (edit.grabbed) edit.grabbed = null;
-    if (c) { var def = PROPS[c.type]; S.custom.splice(S.custom.indexOf(c), 1); if (def && def.beltPath) beltSpill(id); removePropInst(id); if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
+    if (c) { var def = PROPS[c.type]; if (def && def.beltPath) beltSpill(id); S.custom.splice(S.custom.indexOf(c), 1); removePropInst(id); if (def && def.beltPath) { delete BELTS[id]; if (S.belts) delete S.belts[id]; } if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
     else { if (!S.layout) S.layout = {}; S.layout[id] = S.layout[id] || {}; S.layout[id].hidden = true; buildProp(id); toast('Removed the ' + propLabel(id) + ' (the catalogue brings it back)', ''); }
     editHelper(null); sfx('bad'); save();
   }
@@ -3733,7 +3735,7 @@
   }
   function beltItems(id) { if (!S.belts) S.belts = {}; if (!S.belts[id]) S.belts[id] = []; return S.belts[id]; }
   function beltStartFree(id) { var it = beltItems(id); return !it.length || it[it.length - 1].d > BELT_GAP; }
-  function beltPush(id, item) { if (!beltStartFree(id)) return false; item.d = 0; beltItems(id).push(item); return true; }
+  function beltPush(id, item) { var b = BELTS[id]; if (b && edit.grabbed === b.prop) return false; if (!beltStartFree(id)) return false; item.d = 0; beltItems(id).push(item); return true; }   // a piece being carried in build mode takes nothing
   // Where a machine takes items in and lets them out, in the world: its inlet points (one or several, in its own frame), or a
   // fixed place for a machine that is not a prop (a dock door). A machine whose prop is not built has no points.
   function machinePoints(mc, which) {
@@ -3786,21 +3788,22 @@
     for (var i = 0; i < 2; i++) {
       var t = truckAtDoor(i); if (!t || !t.signed || !S.doors[i] || !doorPassable(i)) continue;
       var at = doorInside(i), fed = null; if (!at) continue;
-      for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, at[0], at[1]) < REACH * REACH * 1.5) { fed = b; break; } }
+      for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop] || edit.grabbed === b.prop) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, at[0], at[1]) < REACH * REACH * 1.5) { fed = b; break; } }
       if (!fed) continue;
       dockFeedT[i] = (dockFeedT[i] || 0) + dt; if (dockFeedT[i] < 1.2 / speedOf(beltSpeedKey(fed)) || !beltStartFree(fed.id)) continue;
       var p = null; for (var q = 0; q < S.pallets.length; q++) { var pp = S.pallets[q]; if (pp.place === 'truck' && pp.truck === t.id && pp.n > 0 && !(SKU[pp.sku] && SKU[pp.sku].raw)) { p = pp; break; } }
       if (!p) continue;
+      if (!beltPush(fed.id, { kind: 'box', sku: p.sku })) continue;   // the box leaves the pallet only once it is on the belt
       if (!p.received) { p.received = true; t.unloaded++; S.stats.received++; pay(ECON.receiveFee, 'Receiving fee, pallet of ' + skuName(p.sku)); addXp(XP.pallet); feedPush('Received a pallet of ' + skuName(p.sku) + ' off the belt · +' + money(ECON.receiveFee), 'good'); }   // the fee is earned when the first box comes off; the pallet stays aboard until it is empty
-      p.n--; p.wrapped = false; dockFeedT[i] = 0; beltPush(fed.id, { kind: 'box', sku: p.sku }); S.stats.picked++;
+      p.n--; p.wrapped = false; dockFeedT[i] = 0; S.stats.picked++;
       if (p.n <= 0) { p.n = 0; }
     }
   }
-  function machineOutBelt(m) { if (!m.outlet) return null; var w = propWorld(m.prop, m.outlet[0], m.outlet[1]); for (var k in BELTS) { var s = beltPoint(BELTS[k], 0); if (dist2(w.x, w.z, s.x, s.z) < REACH * REACH) return BELTS[k]; } return null; }
+  function machineOutBelt(m) { if (!m.outlet) return null; var w = propWorld(m.prop, m.outlet[0], m.outlet[1]); for (var k in BELTS) { if (!propInst[BELTS[k].prop]) continue; var s = beltPoint(BELTS[k], 0); if (dist2(w.x, w.z, s.x, s.z) < REACH * REACH) return BELTS[k]; } return null; }
   function powered() { return !S.events.power; }
   function tickBelts(dt) {
     for (var k in BELTS) {
-      var b = BELTS[k]; if (!propInst[b.prop]) continue; var items = beltItems(k), L = beltLen(b), sink = beltSink(b);
+      var b = BELTS[k]; if (!propInst[b.prop] || edit.grabbed === b.prop) continue; var items = beltItems(k), L = beltLen(b), sink = beltSink(b);   // a carried piece stands still
       items.sort(function (p, q) { return q.d - p.d; });   // front of the belt first
       var ahead = Infinity;
       for (var i = 0; i < items.length; i++) {
@@ -3991,7 +3994,7 @@
   function dockLoaderPrompt() { var t = truckAtDoor(LOADER_DOOR); return 'Dock loader OUT 2 · ' + (!powered() ? 'no power' : t && S.doors[LOADER_DOOR] ? 'loading, ' + t.parcels.length + ' aboard' : t ? 'open the door and it loads' : 'waiting for a truck at OUT 2') + ' · ' + (S.stats.autoLoaded || 0) + ' loaded by machine so far'; }
   function tickShipping(dt) {
     // a parcel on the shelf rolls onto whatever belt starts at the shelf's take-off: the shipping belt, or a piece laid there
-    if (powered() && S.bench.parcels.length && propInst.packline) { var sp = propWorld('packline', 0, 7.0); for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, sp.x, sp.z) < REACH * REACH && beltStartFree(k)) { beltPush(k, { kind: 'parcel', order: S.bench.parcels.shift() }); break; } } }
+    if (powered() && S.bench.parcels.length && propInst.packline) { var sp = propWorld('packline', 0, 7.0); for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop] || edit.grabbed === b.prop) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, sp.x, sp.z) < REACH * REACH && beltStartFree(k)) { if (beltPush(k, { kind: 'parcel', order: S.bench.parcels[0] })) S.bench.parcels.shift(); break; } } }   /* the parcel leaves the shelf only once it is on the belt */
     if (!S.up.shipbelt || !propInst.shipBelt) return;
     var M = MACH.dockLoader2; if (M.lamps) lampSet(M, dockLoaderStatus()); var a = M.anim; if (a) { if (a.pushT > 0) a.pushT -= dt; var t = truckAtDoor(LOADER_DOOR), out = t && S.doors[LOADER_DOOR] ? 1 : 0; a.ext = lerp(a.ext || 0, out, Math.min(1, dt * 1.5)); a.boom.position.x = 0.9 + a.ext * 1.6; a.boom.scale.x = 0.6 + a.ext * 1.0; a.pusher.position.x = (a.pushT > 0 ? Math.sin(a.pushT / 1.2 * Math.PI) * 0.5 : 0); }
   }

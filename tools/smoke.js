@@ -192,6 +192,11 @@ const SCENARIO = `(async () => {
   T.setDoor(1, false); T.setDoor(0, false); T.setDoor(2, false);
   // a full day on the clock, then sleep
   T.run(620); ok(S.day >= 2, 'the clock rolled to day ' + S.day);
+  // removing a belt piece with items on it: carried or placed, no throw, the items land on the floor, the registry forgets the piece
+  { S.bank += 5000; if (!T.edit.on) T.editToggle(); const fl0 = S.floor.length, cid0 = (S.custom || []).map((c) => c.id); let threw = null;
+    try { T.editBuy('xBeltS2'); const idA = T.edit.grabbed; ok(!!idA && !!T.BELTS[idA], 'bought a belt piece and am carrying it: ' + idA); T.beltItems(idA).push({ kind: 'box', sku: 'bolts', d: 0.5 }); T.editRemove(idA); ok(!T.BELTS[idA] && !(S.belts && S.belts[idA]) && !T.propInst[idA] && S.floor.length === fl0 + 1, 'removed the carried piece: box on the floor, piece gone from the registry');
+      T.editBuy('xBeltS2'); const idB = T.edit.grabbed; T.editDrop(false); ok(!T.edit.grabbed && !!T.propInst[idB], 'placed a second piece'); T.beltItems(idB).push({ kind: 'parcel', order: 'x-test', d: 1.0 }); const bp = T.beltPoint(T.BELTS[idB], 1.0); T.editRemove(idB); const last = S.floor[S.floor.length - 1]; ok(!T.BELTS[idB] && S.floor.length === fl0 + 2 && last && last.kind === 'parcel' && Math.hypot(last.x - bp.x, last.z - bp.z) < 0.05, 'removed the placed piece: parcel set down where it rode'); }
+    catch (e) { threw = e; } ok(!threw, 'removing belt pieces with items did not throw' + (threw ? ': ' + threw.message : '')); S.floor.length = fl0; S.custom = (S.custom || []).filter((c) => cid0.indexOf(c.id) >= 0); if (T.edit.on) T.editToggle(); }
   T.setTime(19); const day0 = S.day; T.sleepNow(); ok(S.day === day0 + 1 && S.time === 6, 'slept to day ' + S.day);
   T.save(); const raw = JSON.parse(localStorage.getItem('depotco-slot1')); ok(raw && raw.day === S.day && raw.up.fork === true, 'save written');
   // hall 5 (1.13.3): a hall-4 save with six rows and stock in the old row A comes back with five rows, the stock moved into free slots, crane states and moved racks shifted down, the sixth row refunded

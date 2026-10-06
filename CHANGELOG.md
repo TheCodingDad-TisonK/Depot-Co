@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.5 (2026-10-06)
+
+Removing a belt piece with items on it no longer crashes the game, and a piece you are carrying is not a belt yet.
+
+**Conveyors from parts**
+- Removing a bought belt piece that had boxes or parcels riding it crashed the game: the piece's record was dropped before the items were set down, so setting them down asked a prop that no longer existed where it stood. The items are set down first now (at your feet if the record is already gone), and a removed piece is also struck from the belt registry, which closes a second way the moulding line's outlet lookup could trip over it.
+- A piece you are carrying in build mode takes nothing and moves nothing. Feeders used to load it while you walked it past them. The inbound dock door and the parcel shelf now take a box or a parcel off the pallet or the shelf only once it is actually on the belt, so a refused push loses nothing.
+
 ## 1.13.4 (2026-10-06)
 
 The crew works the morning after a clock-out.

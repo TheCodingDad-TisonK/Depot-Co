@@ -53,7 +53,9 @@
   }
   // a belt piece that is going for good: whatever rides it is set down on the floor where it was
   function beltSpill(id) {
-    var b = BELTS[id]; if (!b) return; beltItems(id).forEach(function (it) { var w = beltPoint(b, it.d); if (it.kind === 'box') S.floor.push({ kind: 'box', sku: it.sku, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); else if (it.kind === 'parcel' && it.order) S.floor.push({ kind: 'parcel', order: it.order, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); });
+    var b = BELTS[id]; if (!b) return; var placed = !!(customById(id) || PROPS[id]);   // no record any more: set them down at your feet rather than ask a missing prop where it stood
+    beltItems(id).forEach(function (it) { var w = placed ? beltPoint(b, it.d) : { x: player.x, z: player.z, ry: player.yaw }; if (it.kind === 'box') S.floor.push({ kind: 'box', sku: it.sku, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); else if (it.kind === 'parcel' && it.order) S.floor.push({ kind: 'parcel', order: it.order, x: w.x, y: floorY(w.x, w.z), z: w.z, rot: w.ry }); });
+    beltItems(id).length = 0;
     delete S.belts[id]; delete BELTS[id]; beltsChanged();
   }
   function buildProp(id) {
@@ -181,7 +183,7 @@
     var id = pid || edit.grabbed || (focus && focus.editId); if (!id) return;
     var c = customById(id);
     if (edit.grabbed) edit.grabbed = null;
-    if (c) { var def = PROPS[c.type]; S.custom.splice(S.custom.indexOf(c), 1); if (def && def.beltPath) beltSpill(id); removePropInst(id); if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
+    if (c) { var def = PROPS[c.type]; if (def && def.beltPath) beltSpill(id); S.custom.splice(S.custom.indexOf(c), 1); removePropInst(id); if (def && def.beltPath) { delete BELTS[id]; if (S.belts) delete S.belts[id]; } if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
     else { if (!S.layout) S.layout = {}; S.layout[id] = S.layout[id] || {}; S.layout[id].hidden = true; buildProp(id); toast('Removed the ' + propLabel(id) + ' (the catalogue brings it back)', ''); }
     editHelper(null); sfx('bad'); save();
   }
