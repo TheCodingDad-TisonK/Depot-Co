@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.7 (2026-10-06)
+
+A carried belt piece can be placed any way round: R walks the snap points near your aim, then the four free headings.
+
+**Conveyors from parts**
+- A carried piece took the single nearest snap point within two metres of your aim, and R did nothing while it was snapped, because the snap rewrote the heading every frame. Near a dock door or a busy junction that locked the piece onto the wrong anchor the wrong way round, with no way to turn it. R now walks every snap point near the aim, nearest first (the prompt says which of how many), then the four free headings with the piece following your aim, then back to the first snap. The catalogue help says so.
+
 ## 1.13.6 (2026-10-06)
 
 Launching the game no longer refills the bench and reopens shipped orders, parcels sit on the shipping belt again, and the bench, the parcel shelf and the cart hold more.

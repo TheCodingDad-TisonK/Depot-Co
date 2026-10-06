@@ -1232,7 +1232,7 @@
   function propIdOf(obj) { for (var o = obj; o; o = o.parent) if (o.userData && o.userData.propId) return o.userData.propId; return null; }
 
   // ── Build mode ────────────────────────────────────────────────────
-  var edit = { on: false, grabbed: null, helper: null, snap: true, wallAim: null };
+  var edit = { on: false, grabbed: null, helper: null, snap: true, wallAim: null, snapCycle: 0, grabRot: 0 };   // snapCycle: which snap (or free heading) R has walked to for the carried belt piece
   function editToggle() {
     if (edit.grabbed) editDrop(true);
     edit.on = !edit.on;
@@ -1285,13 +1285,18 @@
     if (propInst.packline) { var sh = propWorld('packline', 0, 7.0); A.push({ x: sh.x, z: sh.z, y: BELT_Y, dir: sh.a, feeds: true, what: 'the parcel shelf' }); }
     for (var di = 0; di < 4 && doors[di]; di++) { var at = doorInside(di); A.push({ x: at[0], z: at[1], y: BELT_Y, dir: Math.PI / 2, feeds: di < 2, what: 'dock door ' + dockLabel(di) }); }
     for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < RACK.bays; bb++) { var sp = rackSlotPos(r, bb, 0), a = sp.ry || 0; [-1, 1].forEach(function (f) { A.push({ x: sp.x + Math.sin(a) * f * 1.1, z: sp.z + Math.cos(a) * f * 1.1, y: BELT_Y, dir: f > 0 ? a + Math.PI : a, feeds: false, what: slotName(slotKey(r, bb, 0)) }); }); }
-    var best = null, bd = 2.2 * 2.2; A.forEach(function (an) { var d = dist2(pt.x, pt.z, an.x, an.z); if (d < bd) { bd = d; best = an; } });
-    if (!best) return null;
+    // every anchor within 2.2 m of the aim, nearest first. R walks this list and then the four free headings, so a piece is never
+    // stuck on the wrong anchor: it used to take the nearest only, and R did nothing while snapped (a piece into OUT 1 kept
+    // landing the wrong way round, Tyson 2026-10-06).
+    var near = A.filter(function (an) { return dist2(pt.x, pt.z, an.x, an.z) < 2.2 * 2.2; }).sort(function (p1, p2) { return dist2(pt.x, pt.z, p1.x, p1.z) - dist2(pt.x, pt.z, p2.x, p2.z); });
+    var n = near.length, span = n + 4, pick = (((edit.snapCycle || 0) % span) + span) % span, sn = function (v) { return edit.snap ? Math.round(v * 20) / 20 : v; };
+    if (pick >= n) { var fr = ((edit.grabRot || 0) + pick - n) % 4, lim = HALL.x - 0.4, limz = HALL.z - 0.4; return { x: clamp(sn(pt.x), -lim, lim), z: clamp(sn(pt.z), -limz, limz), rot: fr, wall: false, text: 'Free · runs ' + ['south', 'east', 'north', 'west'][fr] + ' · E places · R turns' + (n ? ', then snaps again' : '') }; }
+    var best = near[pick], step = ' · E places · R: ' + (n > 1 ? 'snap ' + (pick + 1) + ' of ' + n + ', next, then free' : 'free placing');
     var path = def.beltPath, last = path[path.length - 1], prev = path[path.length - 2], endDir = Math.atan2(last[0] - prev[0], last[1] - prev[1]), cur = propInst[selfId] ? propInst[selfId].P.rot : 0, q = Math.PI / 2;
-    function wrap4(n) { return ((Math.round(n) % 4) + 4) % 4; }
-    if (best.feeds) { var rot = best.dir === null ? cur : wrap4(best.dir / q); return { x: best.x, z: best.z, rot: rot, h: Math.round((best.y - BELT_Y) * 100) / 100, wall: false, text: 'Snapped: takes from ' + best.what + ' · E places · R turns' }; }
+    function wrap4(k) { return ((Math.round(k) % 4) + 4) % 4; }
+    if (best.feeds) { var rot = best.dir === null ? cur : wrap4(best.dir / q); return { x: best.x, z: best.z, rot: rot, h: Math.round((best.y - BELT_Y) * 100) / 100, wall: false, text: 'Snapped: takes from ' + best.what + step }; }
     var rot2 = best.dir === null ? cur : wrap4((best.dir - endDir) / q), a2 = rot2 * q, ex = last[0] * Math.cos(a2) + last[1] * Math.sin(a2), ez = -last[0] * Math.sin(a2) + last[1] * Math.cos(a2);
-    return { x: best.x - ex, z: best.z - ez, rot: rot2, h: Math.round((best.y - BELT_Y - (last[2] || 0)) * 100) / 100, wall: false, text: 'Snapped: feeds ' + best.what + ' · E places · R turns' };
+    return { x: best.x - ex, z: best.z - ez, rot: rot2, h: Math.round((best.y - BELT_Y - (last[2] || 0)) * 100) / 100, wall: false, text: 'Snapped: feeds ' + best.what + step };
   }
   function ghostProp(id) { propInst[id].g.traverse(function (o) { if (o.isMesh && o.material && o.material.clone && !o.userData.ghosted) { o.userData.origMat = o.material; o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; o.material.depthWrite = false; o.castShadow = false; o.userData.ghosted = true; } }); }
   function editTick() {
@@ -1309,7 +1314,7 @@
   function editGrab(id) {
     if (edit.grabbed || !propInst[id]) return;
     var def = propDef(id); if (def.fixed) { toast('That one stays where it is.', 'bad'); return; }
-    edit.grabbed = id; edit.snapText = ''; for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1); NAV.dirty = true;
+    edit.grabbed = id; edit.snapText = ''; edit.snapCycle = 0; edit.grabRot = propInst[id].P.rot || 0; for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1); NAV.dirty = true;
     ghostProp(id);
     sfx('pickup'); toast('Carrying the ' + propLabel(id) + ' · E places · R turns · Esc drops it back' + (def.beltPath ? ' · it snaps to belt ends, machines, doors and rack bays' : ''), '');
   }
@@ -1323,6 +1328,7 @@
   function editRotate(pid) {
     var id = pid || edit.grabbed || (focus && focus.editId); if (!id || !propInst[id]) return;
     var inst = propInst[id], def = propDef(id); if (def.wall && !edit.grabbed) { toast('Wall pieces face the wall.', ''); return; }
+    if (edit.grabbed && def.beltPath) { edit.snapCycle++; sfx('click'); return; }   // a carried belt piece: R walks the snaps near the aim, then the four free headings; beltSnap applies it
     inst.P.rot = (inst.P.rot + 1) % 4; inst.g.rotation.y = inst.P.rot * Math.PI / 2; sfx('click');
     if (!edit.grabbed) { if (!S.layout) S.layout = {}; S.layout[id] = { x: inst.g.position.x, z: inst.g.position.z, rot: inst.P.rot }; buildProp(id); save(); }
   }
@@ -1351,7 +1357,7 @@
   // the catalogue (C): removed props to bring back, and extras to buy
   var CAT_GROUPS = [['belt', '🛤 Conveyors: lay a line from parts. A piece snaps to belt ends, machines, dock doors and rack bays as you carry it.'], ['room', '🛋 Break room and office'], ['hall', '🏭 The hall'], ['wall', '🖼 On the wall'], ['yard', '🌳 The yard']];
   function catalogueHtml() {
-    var h = '<p>Build mode. Press <kbd>E</kbd> on a prop to carry it, <kbd>R</kbd> to turn it, <kbd>Backspace</kbd> to put it back where it started, <kbd>Del</kbd> to remove it. Bought extras sell back for half.</p>';
+    var h = '<p>Build mode. Press <kbd>E</kbd> on a prop to carry it, <kbd>R</kbd> to turn it (a carried belt piece first walks through the snap points near your aim, then turns freely), <kbd>Backspace</kbd> to put it back where it started, <kbd>Del</kbd> to remove it. Bought extras sell back for half.</p>';
     var hidden = PROP_ORDER.filter(function (id) { return !PROPS[id].extra && propPlacement(id).hidden; });
     if (hidden.length) h += '<h3>Removed</h3><div class="dc-grid">' + hidden.map(function (id) { return '<div class="dc-card"><div class="body"><b>' + esc(PROPS[id].label) + '</b></div>' + btn('restore', id, 'Bring back', 'primary') + '</div>'; }).join('') + '</div>';
     CAT_GROUPS.forEach(function (gr) {
