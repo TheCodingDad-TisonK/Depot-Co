@@ -150,7 +150,7 @@
     if (P.out && powered() && !P.jam && beltPush('packOut', { kind: 'parcel', order: P.out })) P.out = null;
     // the outfeed end: the parcel drops onto the shelf when there is room
     var outs = beltItems('packOut'), L = beltLen(BELTS.packOut);
-    for (var i = outs.length - 1; i >= 0; i--) { if (outs[i].d >= L - 0.001 && S.bench.parcels.length < 8) { packFinish(outs[i].order); outs.splice(i, 1); } }
+    for (var i = outs.length - 1; i >= 0; i--) { if (outs[i].d >= L - 0.001 && S.bench.parcels.length < 12) { packFinish(outs[i].order); outs.splice(i, 1); } }
     lampSet(MACH.taper, packStatus());
   }
   function packPrompt() { if (S.pack.jam) return 'Clear the jam on the pack line'; if (!powered()) return 'Pack line · no power'; var j = S.pack.job; return 'Pack line · ' + (j ? 'packing order #' + (orderById(j.order) || { num: '?' }).num + ' · ' + j.inMach + '/' + j.boxes.length : S.pack.queue.length ? S.pack.queue.length + ' waiting' : 'idle') + ' · ' + S.pack.made + ' parcels made'; }

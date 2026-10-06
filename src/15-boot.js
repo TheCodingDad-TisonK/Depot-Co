@@ -4,7 +4,7 @@
   buildWorld(); buildTools(); buildScanner();
   S.trucks.forEach(buildTruckMesh); S.staff.forEach(buildStaffMesh);
   // a packed order whose parcel is nowhere (an old save, say) goes back to open with its boxes on the bench
-  S.orders.forEach(function (o) { if ((o.state === 'packed' || o.state === 'loaded') && !parcelExists(o.id)) { o.state = 'open'; o.lines.forEach(function (l) { if (l.packed) benchAdd(l.sku, l.packed); l.packed = 0; }); } });
+  S.orders.forEach(function (o) { if (o.state === 'packed' && !parcelExists(o.id)) { o.state = 'open'; o.lines.forEach(function (l) { if (l.packed) benchAdd(l.sku, l.packed); l.packed = 0; }); } });
   if (S.jack.pallet && !palletById(S.jack.pallet)) S.jack.pallet = null; if (S.jack2 && S.jack2.pallet && !palletById(S.jack2.pallet)) S.jack2.pallet = null;
   if (S.fork.pallet && !palletById(S.fork.pallet)) S.fork.pallet = null;
   updateHandMesh(); applySettings(); resize(); rebuildDyn(); drawBoard();
@@ -61,7 +61,7 @@
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
       hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, HALL: HALL, wallX: wallX, focusAlt: function () { if (focus && focus.alt) focus.alt(); }, shelfPrompt: shelfPrompt, loadPrompt: loadPrompt, cartParcels: cartParcels, dropMarker: dropMarker, updateDropMarker: updateDropMarker, dropPoint: dropPoint, BELTS: BELTS, MACH: MACH, inWing: inWing,
-      openPc: openPc, closePc: closePc, pc: pc, load: load, save: save, state: function () { return S; },
+      openPc: openPc, closePc: closePc, pc: pc, load: load, save: save, state: function () { return S; }, parcelExists: parcelExists,
       beltSnap: beltSnap, beltFeeder: beltFeeder, BELT_PIECES: BELT_PIECES, machinePoints: machinePoints, freeStock: freeStock, benchNeed: benchNeed, benchSurplus: benchSurplus, benchBoxUse: benchBoxUse,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

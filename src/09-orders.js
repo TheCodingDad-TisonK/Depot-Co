@@ -152,5 +152,8 @@
     if (S.floor.some(function (f) { return f.kind === 'parcel' && f.order === oid; })) return true;
     if (S.trucks.some(function (t) { return t.parcels.indexOf(oid) >= 0; })) return true;
     if (S.staff.some(function (st) { return st.carry && st.carry.kind === 'parcel' && st.carry.order === oid; })) return true;
+    if ((S.cart.parcels || []).indexOf(oid) >= 0) return true;
+    if (S.pack && S.pack.out === oid) return true;
+    for (var bk in (S.belts || {})) if (S.belts[bk].some(function (it) { return it.kind === 'parcel' && it.order === oid; })) return true;   // riding any belt, built-in or a piece
     return false;
   }

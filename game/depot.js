@@ -78,10 +78,10 @@
     start: 600, rent: 110, rawPrice: 120, receiveFee: 12, handling: 14, margin: 0.22, lateCut: 0.5, shortCut: 0.6,
     wage: { receiver: 85, picker: 85, packer: 75, driver: 95 },
     rowPrice: 950, cartPrice: 240, forkPrice: 2800, lightsPrice: 600, pcPrice: 0,
-    jackPallet: 8, palletCap: 8, slotCap: 12, cartCap: 6, benchCap: 16
+    jackPallet: 8, palletCap: 8, slotCap: 12, cartCap: 12, benchCap: 24
   };
   var UPGRADES = [
-    { id: 'cart',   name: 'Picking cart',        price: ECON.cartPrice,  lvl: 1, desc: 'A trolley that holds six boxes. Grab it, pick straight onto it from the racks, and empty it onto the bench in one go.' },
+    { id: 'cart',   name: 'Picking cart',        price: ECON.cartPrice,  lvl: 1, desc: 'A trolley with three shelves that holds twelve boxes or parcels. Grab it, pick straight onto it from the racks, and empty it onto the bench in one go.' },
     { id: 'row3',   name: 'Third rack row',      price: ECON.rowPrice,   lvl: 2, desc: 'Sixteen more hand-reachable slots and a top level for the forklift.' },
     { id: 'fork',   name: 'Forklift',            price: ECON.forkPrice,  lvl: 2, desc: 'Drive it, lift whole pallets, and reach the top level of every rack. Parks at the south wall.' },
     { id: 'row4',   name: 'Fourth rack row',     price: ECON.rowPrice,   lvl: 3, desc: 'Another fifteen bays across three levels.' },
@@ -191,6 +191,8 @@
         var nl = {}; for (var lk2 in (s.layout || {})) { var mm = /^(rack|gantry)(\d)$/.exec(lk2); if (!mm) nl[lk2] = s.layout[lk2]; else if (+mm[2] >= 1) nl[mm[1] + (+mm[2] - 1)] = s.layout[lk2]; } s.layout = nl;
         (s.staff || []).forEach(function (st) { st.task = null; if (st.carry && st.carry.back) delete st.carry.back; });
       }
+      // belt items whose piece is gone (a removal that crashed before 1.13.5 left them behind): boxes and parcels go to the receiving floor
+      if (s.belts) for (var bk in s.belts) { if (BELTS[bk] || (s.custom || []).some(function (c) { return c.id === bk; })) continue; (s.belts[bk] || []).forEach(function (it, n) { var fx = SPOT.stageIn.x - 0.9 + (n % 4) * 0.6, fz = SPOT.stageIn.z + 1.5 + Math.floor(n / 4) * 0.6; if (it.kind === 'box') s.floor.push({ kind: 'box', sku: it.sku, x: fx, y: 0, z: fz, rot: 0 }); else if (it.kind === 'parcel' && it.order) s.floor.push({ kind: 'parcel', order: it.order, x: fx, y: 0, z: fz, rot: 0 }); }); delete s.belts[bk]; }
       S = s; return true;
     } catch (e) { return false; }
   }
@@ -1963,7 +1965,7 @@
     [-0.38, 0.38].forEach(function (x) { var rail = c.box(0.04, 0.1, 1.2, DG, x, 0.64, 6.45); rail.rotation.x = 0.06; c.box(0.05, 0.55, 0.05, DG, x, 0.28, 5.95); c.box(0.05, 0.5, 0.05, DG, x, 0.25, 6.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 5.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 6.95); }); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 5.95); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 6.95);
     c.box(0.8, 0.12, 0.03, MAT_MACH.guard, 0, 0.68, 7.02); c.sign(['PARCELS · TAKE FROM HERE'], 0.8, 0.12, 0, 0.5, 7.03, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     c.solid(-0.45, 0.45, 5.8, 7.05, 0, 0.75);
-  }  function shelfSlot(i) { return { lx: i % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(i / 2) * 0.26, y: 0.66 - Math.floor(i / 2) * 0.016 + 0.2 }; }
+  }  function shelfSlot(i) { var k = i % 8, up = i >= 8 ? 0.27 : 0; return { lx: k % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(k / 2) * 0.26, y: 0.66 - Math.floor(k / 2) * 0.016 + 0.2 + up }; }   // twelve: eight on the rails, four more stacked on the back two rows
   // ── The moulding line prop: hopper throat, heated barrel, clamp with a moving platen between tie bars, cooling fan, control cabinet, outfeed belt
   function moulderBuild(c) {
     var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), BL = MAT_MACH.blue, CH = MAT.chrome;
@@ -2428,8 +2430,8 @@
     S.bench.parcels.forEach(function (oid, i) { var s = shelfSlot(i); putParcel(LP.x + s.lx * lc + s.lz * ls, s.y, LP.z - s.lx * ls + s.lz * lc, la, { kind: 'shelf', order: oid }); });
     drawBeltItems();
     S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) { var im = boxInst[f.sku]; if (im) { var ii = counts[f.sku]++; if (ii < 1400) { _e.set(0, f.rot, 0.35); _q.setFromEuler(_e); _v2.set(1, 0.72, 1.08); _m4.compose(_v.set(f.x, f.y + BOX.h * 0.36, f.z), _q, _v2); im.setMatrixAt(ii, _m4); instSrc.box[f.sku][ii] = { kind: 'floor', idx: i }; } } } else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }); });
-    var cw = toolWorld('cart'); S.cart.boxes.forEach(function (sku, i) { var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 3 - 1) * 0.42, ly = i < 3 ? 0.3 : 0.82; putBox(sku, cw.x + lx * c, ly + BOX.h / 2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
-    (S.cart.parcels || []).forEach(function (oid, j) { var i = S.cart.boxes.length + j; if (i >= ECON.cartCap) return; var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 3 - 1) * 0.42, ly = i < 3 ? 0.3 : 0.82; putParcel(cw.x + lx * c, ly + 0.2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
+    var cw = toolWorld('cart'), cartY = [0.3, 0.82, 1.34]; S.cart.boxes.forEach(function (sku, i) { var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 4 - 1.5) * 0.4, ly = cartY[Math.floor(i / 4)] || 1.34; putBox(sku, cw.x + lx * c, ly + BOX.h / 2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
+    (S.cart.parcels || []).forEach(function (oid, j) { var i = S.cart.boxes.length + j; if (i >= ECON.cartCap) return; var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 4 - 1.5) * 0.4, ly = cartY[Math.floor(i / 4)] || 1.34; putParcel(cw.x + lx * c, ly + 0.2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
     S.trucks.forEach(function (t) { if (t.dir !== 'out') return; t.parcels.forEach(function (oid, i) { var pp = truckParcelPos(t, i); putParcel(pp.x, pp.y + 0.23, pp.z, 0, { kind: 'truck' }); }); });
     S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') putBox(st.carry.sku, st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); if (st.carry && st.carry.kind === 'parcel') putParcel(st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); });
     SKUS.forEach(function (s) { var im = boxInst[s.id]; im.count = Math.min(counts[s.id], 1400); im.instanceMatrix.needsUpdate = true; });
@@ -2903,6 +2905,9 @@
     if (S.floor.some(function (f) { return f.kind === 'parcel' && f.order === oid; })) return true;
     if (S.trucks.some(function (t) { return t.parcels.indexOf(oid) >= 0; })) return true;
     if (S.staff.some(function (st) { return st.carry && st.carry.kind === 'parcel' && st.carry.order === oid; })) return true;
+    if ((S.cart.parcels || []).indexOf(oid) >= 0) return true;
+    if (S.pack && S.pack.out === oid) return true;
+    for (var bk in (S.belts || {})) if (S.belts[bk].some(function (it) { return it.kind === 'parcel' && it.order === oid; })) return true;   // riding any belt, built-in or a piece
     return false;
   }
   // ── Tools you push: the jack and the cart ─────────────────────────
@@ -2934,12 +2939,13 @@
     jackModel = buildJack; jackMesh = buildJack('jack'); buildJack('jack2');
     // ── the picking cart: a tubular frame, two mesh shelves, a push loop, four casters and a clipboard
     var c = new THREE.Group(); c.userData.dynamic = true; scene.add(c); cartMesh = c;
-    [[-0.62, -0.3], [0.62, -0.3], [-0.62, 0.3], [0.62, 0.3]].forEach(function (o) { cyl(0.018, 0.96, MAT.chrome, o[0], 0.56, o[1], c, 8); box(0.05, 0.08, 0.05, MAT.steelDark, o[0], 0.1, o[1], c); var cw = cyl(0.045, 0.03, MAT.rubber, o[0], 0.045, o[1] + 0.03, c, 12); cw.rotation.z = Math.PI / 2; });
-    [0.3, 0.82].forEach(function (y) { box(1.3, 0.025, 0.66, MAT.steelDark, 0, y - 0.012, 0, c); var m = plane(1.26, 0.62, MAT.mesh, 0, y + 0.002, 0, -Math.PI / 2, 0, c); m.receiveShadow = false; box(1.3, 0.05, 0.02, MAT.chrome, 0, y + 0.02, 0.32, c); box(1.3, 0.05, 0.02, MAT.chrome, 0, y + 0.02, -0.32, c); });
-    cyl(0.018, 0.35, MAT.chrome, -0.62, 1.2, -0.3, c, 8); cyl(0.018, 0.35, MAT.chrome, 0.62, 1.2, -0.3, c, 8); cyl(0.02, 1.3, MAT.rubber, 0, 1.38, -0.3, c, 8).rotation.z = Math.PI / 2;
-    box(0.22, 0.3, 0.02, MAT.plastic, 0.45, 1.1, -0.29, c); box(0.2, 0.26, 0.01, MAT.paper, 0.45, 1.1, -0.275, c);
-    groundBlob(1.7, 1.1, 0, 0, c, 0);
-    hitBox(1.4, 1.4, 0.8, 0, 0.7, 0, { prompt: function () { return toolPrompt('cart'); }, use: function () { grabTool('cart'); }, alt: function () { cartHandSwap(); } }, c);
+    // 1.13.6: 1.7 m long with three shelves of four, twelve boxes or parcels (it held six on two shelves)
+    [[-0.82, -0.3], [0.82, -0.3], [-0.82, 0.3], [0.82, 0.3]].forEach(function (o) { cyl(0.018, 1.48, MAT.chrome, o[0], 0.82, o[1], c, 8); box(0.05, 0.08, 0.05, MAT.steelDark, o[0], 0.1, o[1], c); var cw = cyl(0.045, 0.03, MAT.rubber, o[0], 0.045, o[1] + 0.03, c, 12); cw.rotation.z = Math.PI / 2; });
+    [0.3, 0.82, 1.34].forEach(function (y) { box(1.7, 0.025, 0.66, MAT.steelDark, 0, y - 0.012, 0, c); var m = plane(1.66, 0.62, MAT.mesh, 0, y + 0.002, 0, -Math.PI / 2, 0, c); m.receiveShadow = false; box(1.7, 0.05, 0.02, MAT.chrome, 0, y + 0.02, 0.32, c); box(1.7, 0.05, 0.02, MAT.chrome, 0, y + 0.02, -0.32, c); });
+    cyl(0.018, 0.35, MAT.chrome, -0.82, 1.72, -0.3, c, 8); cyl(0.018, 0.35, MAT.chrome, 0.82, 1.72, -0.3, c, 8); cyl(0.02, 1.7, MAT.rubber, 0, 1.9, -0.3, c, 8).rotation.z = Math.PI / 2;
+    box(0.22, 0.3, 0.02, MAT.plastic, 0.65, 1.62, -0.29, c); box(0.2, 0.26, 0.01, MAT.paper, 0.65, 1.62, -0.275, c);
+    groundBlob(2.1, 1.1, 0, 0, c, 0);
+    hitBox(1.8, 1.9, 0.8, 0, 0.95, 0, { prompt: function () { return toolPrompt('cart'); }, use: function () { grabTool('cart'); }, alt: function () { cartHandSwap(); } }, c);
     // ── the forklift: a counterbalance electric truck. Rounded shells, treaded tyres, an I-section mast with chains and
     // hoses, a proper seat and column, a dashboard with gauges, the overhead guard as one bent tube, decals and plates.
     var f = new THREE.Group(); f.userData.dynamic = true; scene.add(f);
@@ -3863,7 +3869,7 @@
     if (P.out && powered() && !P.jam && beltPush('packOut', { kind: 'parcel', order: P.out })) P.out = null;
     // the outfeed end: the parcel drops onto the shelf when there is room
     var outs = beltItems('packOut'), L = beltLen(BELTS.packOut);
-    for (var i = outs.length - 1; i >= 0; i--) { if (outs[i].d >= L - 0.001 && S.bench.parcels.length < 8) { packFinish(outs[i].order); outs.splice(i, 1); } }
+    for (var i = outs.length - 1; i >= 0; i--) { if (outs[i].d >= L - 0.001 && S.bench.parcels.length < 12) { packFinish(outs[i].order); outs.splice(i, 1); } }
     lampSet(MACH.taper, packStatus());
   }
   function packPrompt() { if (S.pack.jam) return 'Clear the jam on the pack line'; if (!powered()) return 'Pack line · no power'; var j = S.pack.job; return 'Pack line · ' + (j ? 'packing order #' + (orderById(j.order) || { num: '?' }).num + ' · ' + j.inMach + '/' + j.boxes.length : S.pack.queue.length ? S.pack.queue.length + ' waiting' : 'idle') + ' · ' + S.pack.made + ' parcels made'; }
@@ -3979,7 +3985,7 @@
   // boom pushes them into the trailer whenever a truck is docked with the door up. Nothing loads otherwise; the parcels queue on the belt.
   // the run past OUT 2 climbs 2.2 m so the dock apron under it stays clear for people and the forklift
   // the shelf feeds the shipping belt, which runs down the east wall to the dock loader at OUT 2; OUT 1 stays a manual dock
-  defBelt('shipBelt', { prop: 'shipBelt', path: [[0, 0], [0, 0.5], [1.9, 0.5], [1.9, -18.6]] });
+  defBelt('shipBelt', { prop: 'shipBelt', path: [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -17.4], [1.9, -18.6]] });
   var LOADER_DOOR = 3;
   defMachine('dockLoader2', { prop: 'dockLoader2', inlet: [-0.1, 1.6],
     accept: function (it) {
@@ -5078,7 +5084,7 @@
   buildWorld(); buildTools(); buildScanner();
   S.trucks.forEach(buildTruckMesh); S.staff.forEach(buildStaffMesh);
   // a packed order whose parcel is nowhere (an old save, say) goes back to open with its boxes on the bench
-  S.orders.forEach(function (o) { if ((o.state === 'packed' || o.state === 'loaded') && !parcelExists(o.id)) { o.state = 'open'; o.lines.forEach(function (l) { if (l.packed) benchAdd(l.sku, l.packed); l.packed = 0; }); } });
+  S.orders.forEach(function (o) { if (o.state === 'packed' && !parcelExists(o.id)) { o.state = 'open'; o.lines.forEach(function (l) { if (l.packed) benchAdd(l.sku, l.packed); l.packed = 0; }); } });
   if (S.jack.pallet && !palletById(S.jack.pallet)) S.jack.pallet = null; if (S.jack2 && S.jack2.pallet && !palletById(S.jack2.pallet)) S.jack2.pallet = null;
   if (S.fork.pallet && !palletById(S.fork.pallet)) S.fork.pallet = null;
   updateHandMesh(); applySettings(); resize(); rebuildDyn(); drawBoard();
@@ -5135,7 +5141,7 @@
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
       hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, HALL: HALL, wallX: wallX, focusAlt: function () { if (focus && focus.alt) focus.alt(); }, shelfPrompt: shelfPrompt, loadPrompt: loadPrompt, cartParcels: cartParcels, dropMarker: dropMarker, updateDropMarker: updateDropMarker, dropPoint: dropPoint, BELTS: BELTS, MACH: MACH, inWing: inWing,
-      openPc: openPc, closePc: closePc, pc: pc, load: load, save: save, state: function () { return S; },
+      openPc: openPc, closePc: closePc, pc: pc, load: load, save: save, state: function () { return S; }, parcelExists: parcelExists,
       beltSnap: beltSnap, beltFeeder: beltFeeder, BELT_PIECES: BELT_PIECES, machinePoints: machinePoints, freeStock: freeStock, benchNeed: benchNeed, benchSurplus: benchSurplus, benchBoxUse: benchBoxUse,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

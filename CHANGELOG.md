@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.13.6 (2026-10-06)
+
+Launching the game no longer refills the bench and reopens shipped orders, parcels sit on the shipping belt again, and the bench, the parcel shelf and the cart hold more.
+
+**Fixes**
+- At every launch the game reopened every packed order whose parcel it could not find and put the order's boxes back on the bench, with no cap. The lookup did not know a parcel can ride a belt, sit on the cart or wait at the pack line's outlet, so a save with nine parcels queueing on the shipping belt reopened all nine orders and grew a tower of 73 boxes on a 16-box bench. The lookup covers those places now, and a loaded order (on a truck that may already have left) is never reopened.
+- Parcels on the shipping belt's long leg floated 0.7 m beside the belt since 1.13.1: that release moved the leg toward the wall in the belt's model but the belt registry kept its own copy of the old path, so the items still followed the old centreline. One path now.
+- Boxes and parcels stranded on a belt piece that no longer exists (a removal that crashed before 1.13.5 left them) are set down on the receiving floor when the save loads.
+
+**Room**
+- The packing bench holds 24 boxes (three layers) instead of 16. The parcel shelf holds 12 instead of 8, four more stacked on its back rows.
+- The picking cart is 1.7 m long with three shelves of four: twelve boxes or parcels instead of six.
+
 ## 1.13.5 (2026-10-06)
 
 Removing a belt piece with items on it no longer crashes the game, and a piece you are carrying is not a belt yet.

@@ -190,7 +190,7 @@
     [-0.38, 0.38].forEach(function (x) { var rail = c.box(0.04, 0.1, 1.2, DG, x, 0.64, 6.45); rail.rotation.x = 0.06; c.box(0.05, 0.55, 0.05, DG, x, 0.28, 5.95); c.box(0.05, 0.5, 0.05, DG, x, 0.25, 6.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 5.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 6.95); }); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 5.95); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 6.95);
     c.box(0.8, 0.12, 0.03, MAT_MACH.guard, 0, 0.68, 7.02); c.sign(['PARCELS · TAKE FROM HERE'], 0.8, 0.12, 0, 0.5, 7.03, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     c.solid(-0.45, 0.45, 5.8, 7.05, 0, 0.75);
-  }  function shelfSlot(i) { return { lx: i % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(i / 2) * 0.26, y: 0.66 - Math.floor(i / 2) * 0.016 + 0.2 }; }
+  }  function shelfSlot(i) { var k = i % 8, up = i >= 8 ? 0.27 : 0; return { lx: k % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(k / 2) * 0.26, y: 0.66 - Math.floor(k / 2) * 0.016 + 0.2 + up }; }   // twelve: eight on the rails, four more stacked on the back two rows
   // ── The moulding line prop: hopper throat, heated barrel, clamp with a moving platen between tie bars, cooling fan, control cabinet, outfeed belt
   function moulderBuild(c) {
     var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), BL = MAT_MACH.blue, CH = MAT.chrome;

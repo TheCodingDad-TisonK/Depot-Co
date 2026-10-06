@@ -28,12 +28,13 @@
     jackModel = buildJack; jackMesh = buildJack('jack'); buildJack('jack2');
     // ── the picking cart: a tubular frame, two mesh shelves, a push loop, four casters and a clipboard
     var c = new THREE.Group(); c.userData.dynamic = true; scene.add(c); cartMesh = c;
-    [[-0.62, -0.3], [0.62, -0.3], [-0.62, 0.3], [0.62, 0.3]].forEach(function (o) { cyl(0.018, 0.96, MAT.chrome, o[0], 0.56, o[1], c, 8); box(0.05, 0.08, 0.05, MAT.steelDark, o[0], 0.1, o[1], c); var cw = cyl(0.045, 0.03, MAT.rubber, o[0], 0.045, o[1] + 0.03, c, 12); cw.rotation.z = Math.PI / 2; });
-    [0.3, 0.82].forEach(function (y) { box(1.3, 0.025, 0.66, MAT.steelDark, 0, y - 0.012, 0, c); var m = plane(1.26, 0.62, MAT.mesh, 0, y + 0.002, 0, -Math.PI / 2, 0, c); m.receiveShadow = false; box(1.3, 0.05, 0.02, MAT.chrome, 0, y + 0.02, 0.32, c); box(1.3, 0.05, 0.02, MAT.chrome, 0, y + 0.02, -0.32, c); });
-    cyl(0.018, 0.35, MAT.chrome, -0.62, 1.2, -0.3, c, 8); cyl(0.018, 0.35, MAT.chrome, 0.62, 1.2, -0.3, c, 8); cyl(0.02, 1.3, MAT.rubber, 0, 1.38, -0.3, c, 8).rotation.z = Math.PI / 2;
-    box(0.22, 0.3, 0.02, MAT.plastic, 0.45, 1.1, -0.29, c); box(0.2, 0.26, 0.01, MAT.paper, 0.45, 1.1, -0.275, c);
-    groundBlob(1.7, 1.1, 0, 0, c, 0);
-    hitBox(1.4, 1.4, 0.8, 0, 0.7, 0, { prompt: function () { return toolPrompt('cart'); }, use: function () { grabTool('cart'); }, alt: function () { cartHandSwap(); } }, c);
+    // 1.13.6: 1.7 m long with three shelves of four, twelve boxes or parcels (it held six on two shelves)
+    [[-0.82, -0.3], [0.82, -0.3], [-0.82, 0.3], [0.82, 0.3]].forEach(function (o) { cyl(0.018, 1.48, MAT.chrome, o[0], 0.82, o[1], c, 8); box(0.05, 0.08, 0.05, MAT.steelDark, o[0], 0.1, o[1], c); var cw = cyl(0.045, 0.03, MAT.rubber, o[0], 0.045, o[1] + 0.03, c, 12); cw.rotation.z = Math.PI / 2; });
+    [0.3, 0.82, 1.34].forEach(function (y) { box(1.7, 0.025, 0.66, MAT.steelDark, 0, y - 0.012, 0, c); var m = plane(1.66, 0.62, MAT.mesh, 0, y + 0.002, 0, -Math.PI / 2, 0, c); m.receiveShadow = false; box(1.7, 0.05, 0.02, MAT.chrome, 0, y + 0.02, 0.32, c); box(1.7, 0.05, 0.02, MAT.chrome, 0, y + 0.02, -0.32, c); });
+    cyl(0.018, 0.35, MAT.chrome, -0.82, 1.72, -0.3, c, 8); cyl(0.018, 0.35, MAT.chrome, 0.82, 1.72, -0.3, c, 8); cyl(0.02, 1.7, MAT.rubber, 0, 1.9, -0.3, c, 8).rotation.z = Math.PI / 2;
+    box(0.22, 0.3, 0.02, MAT.plastic, 0.65, 1.62, -0.29, c); box(0.2, 0.26, 0.01, MAT.paper, 0.65, 1.62, -0.275, c);
+    groundBlob(2.1, 1.1, 0, 0, c, 0);
+    hitBox(1.8, 1.9, 0.8, 0, 0.95, 0, { prompt: function () { return toolPrompt('cart'); }, use: function () { grabTool('cart'); }, alt: function () { cartHandSwap(); } }, c);
     // ── the forklift: a counterbalance electric truck. Rounded shells, treaded tyres, an I-section mast with chains and
     // hoses, a proper seat and column, a dashboard with gauges, the overhead guard as one bent tube, decals and plates.
     var f = new THREE.Group(); f.userData.dynamic = true; scene.add(f);

@@ -4,7 +4,7 @@
   // boom pushes them into the trailer whenever a truck is docked with the door up. Nothing loads otherwise; the parcels queue on the belt.
   // the run past OUT 2 climbs 2.2 m so the dock apron under it stays clear for people and the forklift
   // the shelf feeds the shipping belt, which runs down the east wall to the dock loader at OUT 2; OUT 1 stays a manual dock
-  defBelt('shipBelt', { prop: 'shipBelt', path: [[0, 0], [0, 0.5], [1.9, 0.5], [1.9, -18.6]] });
+  defBelt('shipBelt', { prop: 'shipBelt', path: [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -17.4], [1.9, -18.6]] });
   var LOADER_DOOR = 3;
   defMachine('dockLoader2', { prop: 'dockLoader2', inlet: [-0.1, 1.6],
     accept: function (it) {

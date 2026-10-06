@@ -67,6 +67,8 @@
         var nl = {}; for (var lk2 in (s.layout || {})) { var mm = /^(rack|gantry)(\d)$/.exec(lk2); if (!mm) nl[lk2] = s.layout[lk2]; else if (+mm[2] >= 1) nl[mm[1] + (+mm[2] - 1)] = s.layout[lk2]; } s.layout = nl;
         (s.staff || []).forEach(function (st) { st.task = null; if (st.carry && st.carry.back) delete st.carry.back; });
       }
+      // belt items whose piece is gone (a removal that crashed before 1.13.5 left them behind): boxes and parcels go to the receiving floor
+      if (s.belts) for (var bk in s.belts) { if (BELTS[bk] || (s.custom || []).some(function (c) { return c.id === bk; })) continue; (s.belts[bk] || []).forEach(function (it, n) { var fx = SPOT.stageIn.x - 0.9 + (n % 4) * 0.6, fz = SPOT.stageIn.z + 1.5 + Math.floor(n / 4) * 0.6; if (it.kind === 'box') s.floor.push({ kind: 'box', sku: it.sku, x: fx, y: 0, z: fz, rot: 0 }); else if (it.kind === 'parcel' && it.order) s.floor.push({ kind: 'parcel', order: it.order, x: fx, y: 0, z: fz, rot: 0 }); }); delete s.belts[bk]; }
       S = s; return true;
     } catch (e) { return false; }
   }
