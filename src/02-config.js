@@ -73,6 +73,7 @@
   var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
+  var STAFF_JACK = { push: 2.15, tow: 2.07, park: 1.45 };   // a receiver's pallet jack: metres from the figure to the jack's origin when pushed loaded ahead, towed empty behind, parked behind while they stand
   var HALL = { x: 36, z: 24, h: 8 };   // 40 x 28 until 2026-10-02, 60 x 48 until 2026-10-03, now 72 x 48: the east and west corridors needed 6 m more each for the forklift
   // the side walls moved from x 30 to x 36 on 2026-10-03. Anything authored against them follows: a hall position with |x| in the old wall zone
   // (22.1 up to the old wall) moves out by the growth; a yard position beside a side wall (|z| inside the hall) moves with it too.

@@ -104,6 +104,7 @@
   var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
+  var STAFF_JACK = { push: 2.15, tow: 2.07, park: 1.45 };   // a receiver's pallet jack: metres from the figure to the jack's origin when pushed loaded ahead, towed empty behind, parked behind while they stand
   var HALL = { x: 36, z: 24, h: 8 };   // 40 x 28 until 2026-10-02, 60 x 48 until 2026-10-03, now 72 x 48: the east and west corridors needed 6 m more each for the forklift
   // the side walls moved from x 30 to x 36 on 2026-10-03. Anything authored against them follows: a hall position with |x| in the old wall zone
   // (22.1 up to the old wall) moves out by the growth; a yard position beside a side wall (|z| inside the hall) moves with it too.
@@ -933,17 +934,17 @@
   // ── Touch screens: a canvas drawn in the world, tapped where the crosshair points ─
   var screens = [];
   function touchScreen(o) {
-    var c = document.createElement('canvas'); c.width = o.w; c.height = o.h; var ctx = c.getContext('2d');
+    var res = o.res || 1, c = document.createElement('canvas'); c.width = o.w * res; c.height = o.h * res; var ctx = c.getContext('2d'); if (res !== 1) ctx.setTransform(res, 0, 0, res, 0, 0);   // res: canvas pixels per logical pixel; the layout and the tap zones stay in logical pixels
     var t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
     var mesh = new THREE.Mesh(new THREE.PlaneGeometry(o.pw, o.ph), new THREE.MeshBasicMaterial({ map: t })); mesh.position.set(o.x, o.y, o.z); mesh.rotation.y = o.ry || 0; (o.parent || scene).add(mesh);
     var glass = new THREE.Mesh(new THREE.PlaneGeometry(o.pw, o.ph), MAT.screenGlass); glass.position.set(0, 0, 0.0015); glass.renderOrder = 2; mesh.add(glass);
-    var sc = { w: o.w, h: o.h, ctx: ctx, tex: t, mesh: mesh, zones: [], draw: o.draw, cur: null, ripple: 0, title: o.title, dirty: true }; mesh.userData.screen = sc;
+    var sc = { w: o.w, h: o.h, res: res, ctx: ctx, tex: t, mesh: mesh, zones: [], draw: o.draw, cur: null, ripple: 0, title: o.title, dirty: true }; mesh.userData.screen = sc;
     addInter(mesh, { prompt: function () { var z = screenZone(sc); return z ? z.label : (o.title || 'Screen'); }, use: function () { screenTap(sc); } });
     screens.push(sc); return sc;
   }
   function screenZone(sc) { var h = ray.intersectObject(sc.mesh, false); if (!h.length || !h[0].uv) { sc.cur = null; return null; } var x = h[0].uv.x * sc.w, y = (1 - h[0].uv.y) * sc.h; sc.cur = { x: x, y: y }; for (var i = 0; i < sc.zones.length; i++) { var z = sc.zones[i]; if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) return z; } return null; }
   function screenTap(sc) { var z = screenZone(sc); sfx('click'); if (z && z.act) { z.act(); sc.ripple = 1; sc.dirty = true; } }
-  function drawScreens(dt) { screens.forEach(function (sc) { if (sc.ripple > 0) { sc.ripple -= dt * 3; sc.dirty = true; } if (!sc.dirty) return; sc.dirty = false; sc.zones.length = 0; sc.draw(sc.ctx, sc); if (sc.cur && sc.ripple > 0) { sc.ctx.strokeStyle = 'rgba(255,255,255,' + sc.ripple + ')'; sc.ctx.lineWidth = 3; sc.ctx.beginPath(); sc.ctx.arc(sc.cur.x, sc.cur.y, (1 - sc.ripple) * 30 + 4, 0, 6.3); sc.ctx.stroke(); } sc.tex.needsUpdate = true; }); }
+  function drawScreens(dt) { screens.forEach(function (sc) { if (sc.ripple > 0) { sc.ripple -= dt * 3; sc.dirty = true; } if (!sc.dirty) return; sc.dirty = false; sc.zones.length = 0; if (sc.res && sc.res !== 1) sc.ctx.setTransform(sc.res, 0, 0, sc.res, 0, 0); sc.draw(sc.ctx, sc); if (sc.cur && sc.ripple > 0) { sc.ctx.strokeStyle = 'rgba(255,255,255,' + sc.ripple + ')'; sc.ctx.lineWidth = 3; sc.ctx.beginPath(); sc.ctx.arc(sc.cur.x, sc.cur.y, (1 - sc.ripple) * 30 + 4, 0, 6.3); sc.ctx.stroke(); } sc.tex.needsUpdate = true; }); }
   function screenDirtyAll() { screens.forEach(function (s) { s.dirty = true; }); }
   // drawing helpers in the house style
   function scBg(c, w, h, accent) { c.fillStyle = '#0d1216'; c.fillRect(0, 0, w, h); var g = c.createRadialGradient(0, 0, 10, 0, 0, w); g.addColorStop(0, accent || 'rgba(245,181,61,0.18)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(255,255,255,0.04)'; for (var y = 8; y < h; y += 16) for (var x = 8; x < w; x += 16) c.fillRect(x, y, 1.5, 1.5); }
@@ -1528,13 +1529,34 @@
   function benchBuild(c, P) {
     SPOT.bench = { x: P.x, z: P.z }; SPOT.benchOut = { x: P.x + Math.sin(P.rot * Math.PI / 2) * 2.0, z: P.z + Math.cos(P.rot * Math.PI / 2) * 2.0 };
     c.box(1.0, 0.08, 3.2, MAT.wood, 0, 0.9, 0); [[-0.45, -1.5], [0.45, -1.5], [-0.45, 1.5], [0.45, 1.5]].forEach(function (o) { c.box(0.06, 0.9, 0.06, MAT.steelDark, o[0], 0.45, o[1]); }); c.box(0.9, 0.04, 3.0, MAT.steelDark, 0, 0.3, 0); c.solid(-0.5, 0.5, -1.6, 1.6, 0, 1);
-    c.box(0.25, 0.12, 0.12, MAT.red, -0.3, 1.0, -1.3); c.cyl(0.07, 0.1, MAT.white, -0.3, 1.02, -1.3, 10); c.box(0.3, 0.05, 0.3, MAT.steelDark, 0.25, 0.965, -1.35); c.plane(0.2, 0.1, MAT.screen, 0.25, 1.0, -1.2, -0.6, 0); c.cyl(0.02, 0.9, MAT.steelDark, -0.4, 1.4, 1.4, 8); c.box(0.3, 0.08, 0.15, MAT.lamp, -0.3, 1.85, 1.4);
-    c.box(0.22, 0.14, 0.18, MAT.white, 0.25, 1.01, 0.6); c.box(0.18, 0.01, 0.1, MAT.paper, 0.25, 1.09, 0.72); c.box(0.12, 0.02, 0.03, MAT.yellow, -0.2, 0.955, 0.2).rotation.y = 0.4;
+    // the kit lives at the two ends: the box stacks take local z -0.95 to 1.3, and anything under them was never seen
+    var TAN = std({ color: 0xc9a46a, roughness: 0.8 }), CARD = std({ color: 0xb08a5a, roughness: 1 }), TRAY = std({ color: 0x3a4149, roughness: 0.6 });
+    // near end: a platform scale with its readout turned to the worker
+    c.box(0.3, 0.03, 0.3, MAT.steelDark, 0.28, 0.955, -1.2); c.box(0.26, 0.012, 0.26, std({ color: 0xcfd4d9, roughness: 0.4, metalness: 0.5 }), 0.28, 0.976, -1.2); c.box(0.04, 0.24, 0.04, MAT.steelDark, 0.42, 1.09, -1.2);
+    var sgp = new THREE.Group(); sgp.position.set(0.4, 1.23, -1.2); sgp.rotation.order = 'YXZ'; sgp.rotation.y = -Math.PI / 2; sgp.rotation.x = -0.25; c.add(sgp); box(0.18, 0.09, 0.03, MAT.black, 0, 0, 0, sgp); sign(['0.00 kg'], 0.15, 0.06, 0, 0, 0.016, 0, { w: 192, h: 72, bg: '#0d1216', fg: '#5fd38d' }, sgp);
+    // a tape gun standing on its head, two spare rolls beside it
+    var tgn = new THREE.Group(); tgn.position.set(-0.2, 0.94, -1.12); tgn.rotation.y = 0.6; c.add(tgn); box(0.03, 0.11, 0.035, MAT.red, 0, 0.06, -0.05, tgn).rotation.x = 0.35; box(0.02, 0.09, 0.13, MAT.steelDark, 0.03, 0.1, 0.03, tgn); cyl(0.055, 0.05, TAN, 0.03, 0.1, 0.055, tgn, 16).rotation.z = Math.PI / 2; box(0.05, 0.02, 0.05, MAT.steelDark, 0.03, 0.01, 0.11, tgn); cyl(0.012, 0.05, MAT.rubber, 0.03, 0.012, 0.085, tgn, 8).rotation.z = Math.PI / 2;
+    c.cyl(0.055, 0.048, TAN, 0.06, 0.964, -1.48, 16); c.cyl(0.055, 0.048, TAN, 0.08, 1.012, -1.47, 16).rotation.y = 0.4; c.cyl(0.03, 0.05, MAT.white, 0.06, 1.012, -1.48, 12);
+    // a parts tray: box cutter, marker, a roll of labels
+    c.box(0.26, 0.03, 0.18, TRAY, -0.3, 0.955, -1.45); c.box(0.23, 0.014, 0.15, MAT.black, -0.3, 0.972, -1.45); c.box(0.14, 0.02, 0.03, MAT.yellow, -0.33, 0.99, -1.48).rotation.y = 0.3; c.cyl(0.008, 0.14, MAT.black, -0.27, 0.988, -1.41, 8).rotation.z = Math.PI / 2; c.cyl(0.03, 0.04, MAT.white, -0.22, 1.0, -1.49, 12);
+    // the label printer at the near corner, a strip of labels hanging out toward the worker
+    c.box(0.2, 0.12, 0.16, MAT.white, 0.28, 1.0, -1.5); c.box(0.21, 0.02, 0.17, std({ color: 0x8b949c, roughness: 0.5 }), 0.28, 0.95, -1.5); c.box(0.004, 0.09, 0.07, MAT.paper, 0.17, 0.985, -1.5); c.box(0.02, 0.02, 0.01, glowMat(0x5fd38d, 1.2), 0.2, 1.05, -1.42);
+    // far end: the task lamp and a roll of bubble wrap on a rod between two brackets
+    c.cyl(0.02, 0.9, MAT.steelDark, -0.4, 1.4, 1.4, 8); c.box(0.3, 0.08, 0.15, MAT.lamp, -0.3, 1.85, 1.4);
+    [-0.3, 0.3].forEach(function (bx) { c.box(0.03, 0.3, 0.03, MAT.steelDark, bx, 1.09, 1.5); c.box(0.08, 0.02, 0.08, MAT.steelDark, bx, 0.95, 1.5); }); c.cyl(0.012, 0.66, MAT.chrome, 0, 1.25, 1.5, 8).rotation.z = Math.PI / 2;
+    c.cyl(0.11, 0.5, std({ color: 0xe6ecf2, roughness: 0.35, transparent: true, opacity: 0.85 }), 0, 1.25, 1.5, 18).rotation.z = Math.PI / 2; c.plane(0.48, 0.26, std({ color: 0xe6ecf2, roughness: 0.35, transparent: true, opacity: 0.7, side: THREE.DoubleSide }), 0, 1.07, 1.615, 0, 0);
+    // the shelf below: flat cardboard and a bale of folded boxes
+    c.box(0.7, 0.12, 0.8, CARD, 0, 0.38, -0.6); c.box(0.66, 0.02, 0.76, TAN, 0, 0.45, -0.6); c.box(0.6, 0.09, 0.7, CARD, 0.02, 0.365, 0.7).rotation.y = 0.05; c.box(0.02, 0.1, 0.72, MAT.black, -0.2, 0.37, 0.7); c.box(0.02, 0.1, 0.72, MAT.black, 0.2, 0.37, 0.7);
     var tl = new THREE.PointLight(0xfff0d0, 0.45, 5, 2); tl.position.set(-0.3, 1.7, 1.4); c.add(tl);   // the task lamp lights the far end of the bench
     c.hit(1.1, 1.2, 3.2, 0, 1.4, 0, { prompt: function () { return benchPrompt(); }, use: function () { benchUse(); } });
-    // the terminal on an arm at the near end
-    c.box(0.26, 0.03, 0.2, MAT.steelDark, 0.3, 0.955, -1.3); c.cyl(0.025, 0.5, MAT.steelDark, 0.3, 1.2, -1.3, 8); c.box(0.36, 0.04, 0.04, MAT.steelDark, 0.14, 1.45, -1.3); c.box(0.04, 0.4, 0.56, MAT.black, -0.02, 1.45, -1.3);
-    var scr = touchScreen({ w: 400, h: 300, pw: 0.5, ph: 0.36, x: -0.045, y: 1.45, z: -1.3, ry: -Math.PI / 2, parent: c.group, title: 'Bench terminal', draw: benchScreenDraw }); scr.mesh.userData.propId = 'bench'; scr.scrollable = true; scr.scroll = 0;
+    // the terminal: a floor stand on the east corner past the near end, screen at 1.7 m turned to face the working side across the
+    // end of the bench, so it clears the box stacks and never stands in the walkway. It used to hang over the bench top at 1.45 m,
+    // where two layers of boxes hid it and the bench's own hit box took the focus.
+    var tg = new THREE.Group(); tg.position.set(0.35, 0, -2.0); tg.rotation.y = -Math.PI * 3 / 8; c.add(tg);
+    cyl(0.28, 0.03, MAT.steelDark, 0, 0.015, -0.04, tg, 20); cyl(0.24, 0.02, MAT.rubber, 0, 0.04, -0.04, tg, 20); cyl(0.035, 1.72, MAT.steelDark, 0, 0.89, -0.08, tg, 10); box(0.14, 0.2, 0.07, MAT.steelDark, 0, 1.75, -0.06, tg);
+    box(1.0, 0.76, 0.03, MAT.black, 0, 1.75, -0.02, tg); box(0.5, 0.02, 0.14, MAT.steelDark, 0, 1.3, 0.02, tg); box(0.06, 0.04, 0.12, MAT.black, 0.14, 1.33, 0.02, tg); box(0.02, 0.02, 0.01, glowMat(0x5fd38d, 1.2), 0.46, 1.44, 0.0, tg);
+    var scr = touchScreen({ w: 400, h: 300, res: 3, pw: 0.9, ph: 0.675, x: 0, y: 1.75, z: 0, ry: 0, parent: tg, title: 'Bench terminal', draw: benchScreenDraw }); scr.mesh.userData.propId = 'bench'; scr.scrollable = true; scr.scroll = 0;
+    c.solid(0.1, 0.6, -2.25, -1.75, 0, 2.3);
     // the stool
     c.cyl(0.17, 0.04, MAT.black, -1.0, 0.65, -0.4, 16); c.cyl(0.02, 0.6, MAT.chrome, -1.0, 0.32, -0.4, 8); c.cyl(0.2, 0.03, MAT.steelDark, -1.0, 0.03, -0.4, 16);
   }
@@ -1692,8 +1714,8 @@
   defProp('posterSafety', { label: 'safety poster', cat: 'wall', wall: true, x: 16.5, z: 13.83, rot: 2, build: posterBuild('safety', 0.6, 0.9) });
   // the hall
   defProp('bench', { label: 'packing bench', cat: 'hall', x: 16.6, z: 5.2, rot: 0, build: benchBuild });
-  defProp('binDamaged', { label: 'damaged-goods bin', cat: 'hall', x: 14.3, z: 2.6, rot: 0, build: binBuild });
-  defProp('broom', { label: 'broom', cat: 'hall', x: 14.7, z: 3.3, rot: 0, build: broomBuild });
+  defProp('binDamaged', { label: 'damaged-goods bin', cat: 'hall', x: 13.3, z: 2.4, rot: 0, build: binBuild });
+  defProp('broom', { label: 'broom', cat: 'hall', x: 13.0, z: 3.0, rot: 0, build: broomBuild });
   defProp('wetFloor', { label: 'wet-floor sign', cat: 'hall', x: 13.4, z: 7.6, rot: 1, build: wetFloorBuild });
   defProp('empties', { label: 'stack of empty pallets', cat: 'hall', x: -11.2, z: -12.6, rot: 0, build: emptiesBuild });
   defProp('baler', { label: 'baler', cat: 'hall', x: -7.5, z: -13.2, rot: 0, build: balerBuild });
@@ -1701,7 +1723,7 @@
   defProp('hose', { label: 'hose reel', cat: 'wall', wall: true, abs: true, x: -10.5, z: -23.83, rot: 0, build: hoseBuild });
   defProp('extNW', { label: 'fire extinguisher', cat: 'wall', wall: true, x: -19.83, z: -12, rot: 1, build: extinguisherBuild });
   defProp('extNE', { label: 'fire extinguisher', cat: 'wall', wall: true, x: 19.83, z: -12, rot: 3, build: extinguisherBuild });
-  defProp('extBench', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 29.83, z: 6.5, rot: 3, build: extinguisherBuild });
+  defProp('extBench', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 29.83, z: 16.5, rot: 3, build: extinguisherBuild });   // z 6.5 until 1.13.1: the shipping belt now runs along that stretch of wall
   defProp('clockHall', { label: 'hall clock', cat: 'wall', wall: true, abs: true, x: 12, z: -23.7, rot: 0, build: function (c) { var f = clockBuild(0.5); f(c); c.group.children[c.group.children.length - 1].position.y = 5.8 - 2.7 + 2.7; } });
   defProp('posterLift', { label: 'lifting poster', cat: 'wall', wall: true, abs: true, x: -29.83, z: 2, rot: 1, build: posterBuild('lifting', 0.7, 1.05) });
   defProp('posterFork', { label: 'forklift poster', cat: 'wall', wall: true, x: 2.2, z: 13.83, rot: 2, build: posterBuild('forklift', 0.7, 1.05) });
@@ -1831,7 +1853,7 @@
       var lowY = BELT_Y + Math.min(ay, by) - 0.15, high = Math.min(ay, by) > 1.2;
       c.solid(Math.min(ax, bx) - 0.4, Math.max(ax, bx) + 0.4, Math.min(az, bz) - 0.4, Math.max(az, bz) + 0.4, high ? lowY : 0, high ? lowY + 1.2 : 0.82);
     }
-  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [1.9, 0.5], [1.9, -18.6]]); c.sign(['TO OUT 2'], 0.6, 0.14, 1.9, 1.05, 4, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -17.4], [1.9, -18.6]]); c.sign(['TO OUT 2'], 0.6, 0.14, 2.6, 1.05, 4, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function dockLoaderBuild(c) {
     var id = 'dockLoader2', label = 'OUT 2';
     var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, BL = MAT_MACH.blue;
@@ -2376,7 +2398,7 @@
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t) return null; return truckPalletPos(t, p.idx); }
     if (p.place === 'jack') { var jw = toolWorld(p.jack || 'jack'); return { x: jw.x, y: 0.1, z: jw.z, ry: jw.ry }; }
     if (p.place === 'fork') { var fw = forkTip(); return { x: fw.x, y: fw.y, z: fw.z, ry: S.fork.yaw }; }
-    if (p.place === 'staff') { var st = staffById(p.staff); if (!st) return null; return { x: st.x + Math.sin(st.yaw) * 0.95, y: 0.1, z: st.z + Math.cos(st.yaw) * 0.95, ry: st.yaw }; }
+    if (p.place === 'staff') { var st = staffById(p.staff); if (!st) return null; return { x: st.x + Math.sin(st.yaw) * STAFF_JACK.push, y: 0.1, z: st.z + Math.cos(st.yaw) * STAFF_JACK.push, ry: st.yaw }; }   /* on the forks of the jack they push, see jackFollow */
     if (p.place === 'agv') { var A = S.agv; if (!A) return null; return { x: A.x + Math.sin(A.yaw) * 1.0, y: 0.18, z: A.z + Math.cos(A.yaw) * 1.0, ry: A.yaw }; }
     return null;
   }
@@ -2796,9 +2818,9 @@
   }
 
   // ── The packing bench ─────────────────────────────────────────────
-  function benchCount() { var n = 0; for (var k in S.bench.boxes) n += S.bench.boxes[k]; return n; }
+  function benchCount() { var n = 0; for (var k in S.bench.boxes) n += S.bench.boxes[k] || 0; return n; }
   function benchAdd(sku, n) { S.bench.boxes[sku] = (S.bench.boxes[sku] || 0) + n; }
-  function benchTake(sku, n) { var k = Math.min(n, S.bench.boxes[sku] || 0); S.bench.boxes[sku] -= k; if (S.bench.boxes[sku] <= 0) delete S.bench.boxes[sku]; return k; }
+  function benchTake(sku, n) { var k = Math.min(n, S.bench.boxes[sku] || 0); if (!k) { delete S.bench.boxes[sku]; return 0; } S.bench.boxes[sku] -= k; if (S.bench.boxes[sku] <= 0) delete S.bench.boxes[sku]; return k; }   /* a SKU the bench never held used to go undefined minus zero, NaN, and the terminal read NaN / 16 */
   // what the cart would do at the bench: the boxes the orders still want come off it, and the bench's surplus goes onto it
   function cartAtBench() { var need = benchNeed(), off = 0, on = 0, room = ECON.benchCap - benchCount(); S.cart.boxes.forEach(function (sku) { if ((need[sku] || 0) > 0 && off < room) { need[sku]--; off++; } }); var sur = benchSurplus(); for (var k in sur) on += sur[k]; on = Math.min(on, ECON.cartCap - (cartLoad() - off)); return { off: off, on: Math.max(0, on) }; }
   function benchPrompt() {
@@ -2889,7 +2911,7 @@
     box(0.5, 0.36, 0.3, JO, 0, 0.3, -0.66, j); box(0.54, 0.04, 0.34, MAT.steelDark, 0, 0.5, -0.66, j);
     cyl(0.055, 0.26, MAT.chrome, 0, 0.42, -0.6, j, 12); cyl(0.07, 0.1, MAT.steelDark, 0, 0.58, -0.6, j, 12);
     [-0.17, 0.17].forEach(function (x) { cyl(0.09, 0.07, MAT.rubber, x, 0.09, -0.76, j, 14).rotation.z = Math.PI / 2; cyl(0.05, 0.075, MAT.chrome, x, 0.09, -0.76, j, 10).rotation.z = Math.PI / 2; });
-    var tiller = new THREE.Group(); tiller.position.set(0, 0.5, -0.78); tiller.rotation.x = -0.55; j.add(tiller);
+    var tiller = new THREE.Group(); tiller.position.set(0, 0.5, -0.78); tiller.rotation.x = -0.55; j.add(tiller); j.userData.tiller = tiller;
     cyl(0.025, 1.0, MAT.steelDark, 0, 0.5, 0, tiller, 10); box(0.44, 0.06, 0.07, MAT.rubber, 0, 1.0, 0, tiller); box(0.05, 0.05, 0.05, MAT.rubber, -0.2, 1.0, 0, tiller); box(0.05, 0.05, 0.05, MAT.rubber, 0.2, 1.0, 0, tiller);
     box(0.08, 0.03, 0.1, MAT.red, 0, 0.95, 0.06, tiller); cyl(0.04, 0.08, MAT.steelDark, 0, 0.0, 0, tiller, 10);
     sign(['2500 kg'], 0.3, 0.1, 0, 0.3, -0.5, 0, { w: 256, h: 80, bg: '#1b232c', fg: '#f5b53d' }, j);
@@ -3201,7 +3223,7 @@
     return g;
   }
   function setMood(g, mood) { var u = g.userData; if (u.mood === mood) return; u.mood = mood; u.face.material.map = faceTex(u.key, mood, u.skinKey, u.blink > 0); }
-  // mode: 'walk' | 'idle' | 'wait' | 'work'. look: a world point the head turns to, within reason. carry: arms out in front.
+  // mode: 'walk' | 'idle' | 'wait' | 'work'. look: a world point the head turns to, within reason. carry: true holds a box out in front; 'jack' puts both hands down on the grip of a pallet jack pushed ahead; 'tow' trails one arm back to a jack pulled behind.
   // The feet stay planted: the torso rises and falls with the stride and rolls a little, and the head stays level over it.
   function animateHuman(g, dt, mode, speed, look, carry) {
     var u = g.userData; if (!u.legs) return;
@@ -3213,7 +3235,9 @@
     } else {
     L.rotation.x = s * sw; R.rotation.x = -s * sw;
     lk.rotation.x = Math.max(0, -Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0); rk.rotation.x = Math.max(0, Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0);
-    if (carry) { la.rotation.x = -0.9; ra.rotation.x = -0.9; le.rotation.x = -0.9; re.rotation.x = -0.9; la.rotation.z = 0.25; ra.rotation.z = -0.25; }
+    if (carry === 'jack') { la.rotation.x = -0.8; ra.rotation.x = -0.8; le.rotation.x = -0.25; re.rotation.x = -0.25; la.rotation.z = 0.12; ra.rotation.z = -0.12; }   /* hands 0.53 m ahead at 1.02 m: the grip of a jack pushed at STAFF_JACK.push */
+    else if (carry === 'tow') { ra.rotation.x = 0.56; re.rotation.x = 0; ra.rotation.z = -0.15; la.rotation.x = -s * sw * 0.8; le.rotation.x = -Math.max(0, s) * sw * 0.6 - 0.15; la.rotation.z = 0.08; }   /* one arm straight back to the grip 0.35 m behind at 0.85 m, the other swings */
+    else if (carry) { la.rotation.x = -0.9; ra.rotation.x = -0.9; le.rotation.x = -0.9; re.rotation.x = -0.9; la.rotation.z = 0.25; ra.rotation.z = -0.25; }
     else if (mode === 'work') { la.rotation.x = -0.6 + Math.sin(u.idleT * 6) * 0.25; ra.rotation.x = -0.6 - Math.sin(u.idleT * 6) * 0.25; le.rotation.x = -0.8; re.rotation.x = -0.8; la.rotation.z = 0.1; ra.rotation.z = -0.1; }
     else { var drift = Math.sin(u.idleT * 1.1) * 0.05; la.rotation.x = -s * sw * 0.8 + drift; ra.rotation.x = s * sw * 0.8 - drift; le.rotation.x = -Math.max(0, s) * sw * 0.6 - 0.15; re.rotation.x = -Math.max(0, -s) * sw * 0.6 - 0.15; la.rotation.z = 0.08 + Math.sin(u.idleT * 0.7) * 0.03; ra.rotation.z = -0.08 - Math.sin(u.idleT * 0.7) * 0.03; }
     if (mode === 'wait') { R.position.y = 0.86 + Math.max(0, Math.sin(u.idleT * 2.4)) * 0.04; } else R.position.y = 0.86;
@@ -3337,11 +3361,18 @@
     var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' || st.role === 'driver' ? (st.role === 'driver' ? MAT.yellow : MAT.white) : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
     if (st.role === 'receiver' && jackModel) g.userData.jack = jackModel('staffjack', true);   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
   }
-  // the receiver's jack: under the pallet ahead of them while they carry one, towed behind them the rest of the time
-  function jackFollow(st, m, onJack) {
-    var j = m.userData.jack; if (!j) return; j.visible = m.visible;
-    if (onJack) { j.position.set(st.x + Math.sin(st.yaw) * 0.95, floorY(st.x, st.z), st.z + Math.cos(st.yaw) * 0.95); j.rotation.y = st.yaw; }
-    else { j.position.set(st.x - Math.sin(st.yaw) * 1.15, floorY(st.x, st.z), st.z - Math.cos(st.yaw) * 1.15); j.rotation.y = st.yaw + Math.PI; }
+  // the receiver's jack. Loaded: pushed ahead with the tiller lowered to 31 degrees, so its grip meets both hands half a metre in
+  // front at hip height. Empty and walking: towed behind on one trailing arm, tiller at 20 degrees, the grip in that hand just
+  // behind the hip; its heading eases after the figure so a turn does not whip it round. Standing: parked behind them, tiller
+  // sprung up. The distances are STAFF_JACK; the tiller is 1 m long on a pivot 0.78 m behind the jack's origin at 0.5 m.
+  function jackFollow(st, m, onJack, dt, walking) {
+    var j = m.userData.jack; if (!j) return; j.visible = m.visible; var u = j.userData, fy = floorY(st.x, st.z), ease = 1 - Math.exp(-(dt || 1 / 60) * 6);
+    var tilt = onJack ? -1.025 : walking ? -1.213 : -0.3;
+    if (u.tilt === undefined) u.tilt = tilt; else u.tilt += (tilt - u.tilt) * ease; if (u.tiller) u.tiller.rotation.x = u.tilt;
+    if (onJack) { u.towRy = undefined; u.towD = undefined; j.position.set(st.x + Math.sin(st.yaw) * STAFF_JACK.push, fy, st.z + Math.cos(st.yaw) * STAFF_JACK.push); j.rotation.y = st.yaw; return; }
+    var want = walking ? STAFF_JACK.tow : STAFF_JACK.park, cur = u.towRy === undefined ? st.yaw : u.towRy, d = Math.atan2(Math.sin(st.yaw - cur), Math.cos(st.yaw - cur)); cur += d * ease; u.towRy = cur;
+    u.towD = u.towD === undefined ? want : u.towD + (want - u.towD) * ease;
+    j.position.set(st.x - Math.sin(cur) * u.towD, fy, st.z - Math.cos(cur) * u.towD); j.rotation.y = cur + Math.PI;
   }
   function staffDriving() { for (var i = 0; i < S.staff.length; i++) if (S.staff[i].state === 'drive') return S.staff[i]; return null; }
   function staffDropAll(st) {
@@ -3372,13 +3403,13 @@
       var off = isSunday() || st.sick || st.dayOff, end = shiftEnd(st);
       // not here: at home until the arrival time, then the walk in from the yard to the clock
       if (st.state === 'home') {
-        m.visible = false; st.x = RAMP_BOTTOM.x; st.z = RAMP_BOTTOM.z;
+        m.visible = false; if (m.userData.jack) m.userData.jack.visible = false; st.x = RAMP_BOTTOM.x; st.z = RAMP_BOTTOM.z;
         if (!off && !st.clockedOutAt && S.time >= staffArrival(st) && S.time < end - 0.5) { st.state = 'walk'; st.then = 'clockin'; st.path = route({ x: st.x, z: st.z }, clockStand()); }
         return;
       }
       if (st.state === 'gone') { st.state = 'home'; m.visible = false; return; }
       m.visible = true;
-      var carrying = !!st.carry || S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; });
+      var onJack = S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; }), carrying = !!st.carry || onJack;
       // the clock at both ends of the shift
       if (st.state === 'clockin') { staffWait(st, 1.4, function () { staffClockIn(st); st.state = 'idle'; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked && S.time >= end && st.state !== 'leaving' && st.state !== 'clockout' && !(st.state === 'wait' && st.leavingWait)) { staffDropAll(st); st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
@@ -3389,7 +3420,7 @@
       if (!brk && st.state === 'break') st.state = 'idle';
       // the driver: at the forklift, climbs on; on it, the forklift does the walking and the figure sits on the seat
       if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st)) { st.state = 'idle'; st.task = null; } else { st.state = 'drive'; st.drive = { phase: 'toPallet', path: null }; sfx('forklift'); } }
-      if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false); return; }
+      if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false, dt, false); return; }
       var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
       else if (st.state === 'wait') { st.timer -= dt; if (st.timer <= 0) { st.state = 'idle'; st.working = false; if (st.after) { var f = st.after; st.after = null; f(); } } }
@@ -3398,8 +3429,8 @@
       if ((st.state === 'idle' || st.state === 'break') && Math.random() < dt / 22 && S.time - (st.said || 0) > 0.4) { st.said = S.time; staffSay(st, pick(voice(st).idle), '#a0acb8'); }
       m.position.set(st.x, floorY(st.x, st.z), st.z); m.rotation.y = st.yaw;
       var near = dist2(st.x, st.z, player.x, player.z) < 36;
-      animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, carrying);
-      jackFollow(st, m, S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; }));
+      animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, onJack ? 'jack' : carrying ? true : (m.userData.jack && mode === 'walk' ? 'tow' : false));
+      jackFollow(st, m, onJack, dt, mode === 'walk');
     });
   }
   // ── The forklift driver ───────────────────────────────────────────
@@ -4011,12 +4042,12 @@
   var PICK_MERGE = { x: 26.6, z: 5.2 };
   var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
   var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
-  var PB_M = [[0, 0, PICK_H], [4.2, 0, PICK_H, 'hang'], [4.2, -3.2, 0.2]];
+  var PB_M = [[0, 0, PICK_H], [3.6, 0, PICK_H, 'hang'], [3.6, -1.6, 1.35, 'hang'], [3.6, -3.2, 0.2]];   // the drop is two runs: the upper one hangs high enough to walk under, so only its last 1.6 m stands on the floor beside the bench
   defBelt('pickMerge', { prop: 'pickMerge', path: PB_M, speedKey: 'pickBelt' });
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
   defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
   function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
-  defMachine('benchIn', { prop: 'bench', inlets: [[-1.8, -3.2], [0, 2.3], [-1.1, 0], [1.1, 0.6], [1.1, -0.6]], accept: benchAccept });   // where the merge belt lands, and the bench's own ends and sides, so a run of pieces can feed it from any side
+  defMachine('benchIn', { prop: 'bench', inlets: [[-2.4, -3.2], [0, 2.3], [-1.1, 0], [1.1, 0.6], [1.1, -0.6]], accept: benchAccept });   // where the merge belt lands, and the bench's own ends and sides, so a run of pieces can feed it from any side
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }
   function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); return out; }
@@ -4152,9 +4183,16 @@
       return;
     }
     var hits = ray.intersectObjects(inter.concat(instList), false);
-    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins.
-    // The boxes on the bench sit inside the bench's own hit box the same way: within 0.8 m a box wins over the bench.
-    for (var si = 1; si < hits.length; si++) { var hs = hits[si], isrc = hs.object.isInstancedMesh ? instSource(hs) : null; if ((hs.object.userData.screen && hs.distance - hits[0].distance < 0.5) || (isrc && isrc.kind === 'bench' && hs.distance - hits[0].distance < 0.8)) { var sh = hits.splice(si, 1)[0]; hits.unshift(sh); break; } }
+    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins, and
+    // the hit box of the screen's own prop (the bench round its terminal stand) never beats it at any range. Anything else in
+    // front, a box stack say, keeps the focus. The boxes on the bench sit inside the bench's own hit box the same way: within
+    // 0.8 m a box wins over the bench.
+    for (var si = 1; si < hits.length; si++) {
+      var hs = hits[si], isrc = hs.object.isInstancedMesh ? instSource(hs) : null, win = false;
+      if (hs.object.userData.screen) { win = true; var spid = propIdOf(hs.object); for (var sj = 0; sj < si; sj++) { var ho = hits[sj].object; if (!(hs.distance - hits[sj].distance < 0.5 || (spid && ho.material === MAT.hit && propIdOf(ho) === spid))) { win = false; break; } } }
+      else if (isrc && isrc.kind === 'bench' && hs.distance - hits[0].distance < 0.8) win = true;
+      if (win) { hits.unshift(hits.splice(si, 1)[0]); break; }
+    }
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i], def = h.object.userData.it || srcDef(instSource(h));
       if (!def) continue;

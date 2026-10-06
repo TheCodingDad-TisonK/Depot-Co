@@ -134,7 +134,7 @@
     return g;
   }
   function setMood(g, mood) { var u = g.userData; if (u.mood === mood) return; u.mood = mood; u.face.material.map = faceTex(u.key, mood, u.skinKey, u.blink > 0); }
-  // mode: 'walk' | 'idle' | 'wait' | 'work'. look: a world point the head turns to, within reason. carry: arms out in front.
+  // mode: 'walk' | 'idle' | 'wait' | 'work'. look: a world point the head turns to, within reason. carry: true holds a box out in front; 'jack' puts both hands down on the grip of a pallet jack pushed ahead; 'tow' trails one arm back to a jack pulled behind.
   // The feet stay planted: the torso rises and falls with the stride and rolls a little, and the head stays level over it.
   function animateHuman(g, dt, mode, speed, look, carry) {
     var u = g.userData; if (!u.legs) return;
@@ -146,7 +146,9 @@
     } else {
     L.rotation.x = s * sw; R.rotation.x = -s * sw;
     lk.rotation.x = Math.max(0, -Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0); rk.rotation.x = Math.max(0, Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0);
-    if (carry) { la.rotation.x = -0.9; ra.rotation.x = -0.9; le.rotation.x = -0.9; re.rotation.x = -0.9; la.rotation.z = 0.25; ra.rotation.z = -0.25; }
+    if (carry === 'jack') { la.rotation.x = -0.8; ra.rotation.x = -0.8; le.rotation.x = -0.25; re.rotation.x = -0.25; la.rotation.z = 0.12; ra.rotation.z = -0.12; }   /* hands 0.53 m ahead at 1.02 m: the grip of a jack pushed at STAFF_JACK.push */
+    else if (carry === 'tow') { ra.rotation.x = 0.56; re.rotation.x = 0; ra.rotation.z = -0.15; la.rotation.x = -s * sw * 0.8; le.rotation.x = -Math.max(0, s) * sw * 0.6 - 0.15; la.rotation.z = 0.08; }   /* one arm straight back to the grip 0.35 m behind at 0.85 m, the other swings */
+    else if (carry) { la.rotation.x = -0.9; ra.rotation.x = -0.9; le.rotation.x = -0.9; re.rotation.x = -0.9; la.rotation.z = 0.25; ra.rotation.z = -0.25; }
     else if (mode === 'work') { la.rotation.x = -0.6 + Math.sin(u.idleT * 6) * 0.25; ra.rotation.x = -0.6 - Math.sin(u.idleT * 6) * 0.25; le.rotation.x = -0.8; re.rotation.x = -0.8; la.rotation.z = 0.1; ra.rotation.z = -0.1; }
     else { var drift = Math.sin(u.idleT * 1.1) * 0.05; la.rotation.x = -s * sw * 0.8 + drift; ra.rotation.x = s * sw * 0.8 - drift; le.rotation.x = -Math.max(0, s) * sw * 0.6 - 0.15; re.rotation.x = -Math.max(0, -s) * sw * 0.6 - 0.15; la.rotation.z = 0.08 + Math.sin(u.idleT * 0.7) * 0.03; ra.rotation.z = -0.08 - Math.sin(u.idleT * 0.7) * 0.03; }
     if (mode === 'wait') { R.position.y = 0.86 + Math.max(0, Math.sin(u.idleT * 2.4)) * 0.04; } else R.position.y = 0.86;
@@ -270,11 +272,18 @@
     var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' || st.role === 'driver' ? (st.role === 'driver' ? MAT.yellow : MAT.white) : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
     if (st.role === 'receiver' && jackModel) g.userData.jack = jackModel('staffjack', true);   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
   }
-  // the receiver's jack: under the pallet ahead of them while they carry one, towed behind them the rest of the time
-  function jackFollow(st, m, onJack) {
-    var j = m.userData.jack; if (!j) return; j.visible = m.visible;
-    if (onJack) { j.position.set(st.x + Math.sin(st.yaw) * 0.95, floorY(st.x, st.z), st.z + Math.cos(st.yaw) * 0.95); j.rotation.y = st.yaw; }
-    else { j.position.set(st.x - Math.sin(st.yaw) * 1.15, floorY(st.x, st.z), st.z - Math.cos(st.yaw) * 1.15); j.rotation.y = st.yaw + Math.PI; }
+  // the receiver's jack. Loaded: pushed ahead with the tiller lowered to 31 degrees, so its grip meets both hands half a metre in
+  // front at hip height. Empty and walking: towed behind on one trailing arm, tiller at 20 degrees, the grip in that hand just
+  // behind the hip; its heading eases after the figure so a turn does not whip it round. Standing: parked behind them, tiller
+  // sprung up. The distances are STAFF_JACK; the tiller is 1 m long on a pivot 0.78 m behind the jack's origin at 0.5 m.
+  function jackFollow(st, m, onJack, dt, walking) {
+    var j = m.userData.jack; if (!j) return; j.visible = m.visible; var u = j.userData, fy = floorY(st.x, st.z), ease = 1 - Math.exp(-(dt || 1 / 60) * 6);
+    var tilt = onJack ? -1.025 : walking ? -1.213 : -0.3;
+    if (u.tilt === undefined) u.tilt = tilt; else u.tilt += (tilt - u.tilt) * ease; if (u.tiller) u.tiller.rotation.x = u.tilt;
+    if (onJack) { u.towRy = undefined; u.towD = undefined; j.position.set(st.x + Math.sin(st.yaw) * STAFF_JACK.push, fy, st.z + Math.cos(st.yaw) * STAFF_JACK.push); j.rotation.y = st.yaw; return; }
+    var want = walking ? STAFF_JACK.tow : STAFF_JACK.park, cur = u.towRy === undefined ? st.yaw : u.towRy, d = Math.atan2(Math.sin(st.yaw - cur), Math.cos(st.yaw - cur)); cur += d * ease; u.towRy = cur;
+    u.towD = u.towD === undefined ? want : u.towD + (want - u.towD) * ease;
+    j.position.set(st.x - Math.sin(cur) * u.towD, fy, st.z - Math.cos(cur) * u.towD); j.rotation.y = cur + Math.PI;
   }
   function staffDriving() { for (var i = 0; i < S.staff.length; i++) if (S.staff[i].state === 'drive') return S.staff[i]; return null; }
   function staffDropAll(st) {
@@ -305,13 +314,13 @@
       var off = isSunday() || st.sick || st.dayOff, end = shiftEnd(st);
       // not here: at home until the arrival time, then the walk in from the yard to the clock
       if (st.state === 'home') {
-        m.visible = false; st.x = RAMP_BOTTOM.x; st.z = RAMP_BOTTOM.z;
+        m.visible = false; if (m.userData.jack) m.userData.jack.visible = false; st.x = RAMP_BOTTOM.x; st.z = RAMP_BOTTOM.z;
         if (!off && !st.clockedOutAt && S.time >= staffArrival(st) && S.time < end - 0.5) { st.state = 'walk'; st.then = 'clockin'; st.path = route({ x: st.x, z: st.z }, clockStand()); }
         return;
       }
       if (st.state === 'gone') { st.state = 'home'; m.visible = false; return; }
       m.visible = true;
-      var carrying = !!st.carry || S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; });
+      var onJack = S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; }), carrying = !!st.carry || onJack;
       // the clock at both ends of the shift
       if (st.state === 'clockin') { staffWait(st, 1.4, function () { staffClockIn(st); st.state = 'idle'; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked && S.time >= end && st.state !== 'leaving' && st.state !== 'clockout' && !(st.state === 'wait' && st.leavingWait)) { staffDropAll(st); st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
@@ -322,7 +331,7 @@
       if (!brk && st.state === 'break') st.state = 'idle';
       // the driver: at the forklift, climbs on; on it, the forklift does the walking and the figure sits on the seat
       if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st)) { st.state = 'idle'; st.task = null; } else { st.state = 'drive'; st.drive = { phase: 'toPallet', path: null }; sfx('forklift'); } }
-      if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false); return; }
+      if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false, dt, false); return; }
       var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
       else if (st.state === 'wait') { st.timer -= dt; if (st.timer <= 0) { st.state = 'idle'; st.working = false; if (st.after) { var f = st.after; st.after = null; f(); } } }
@@ -331,8 +340,8 @@
       if ((st.state === 'idle' || st.state === 'break') && Math.random() < dt / 22 && S.time - (st.said || 0) > 0.4) { st.said = S.time; staffSay(st, pick(voice(st).idle), '#a0acb8'); }
       m.position.set(st.x, floorY(st.x, st.z), st.z); m.rotation.y = st.yaw;
       var near = dist2(st.x, st.z, player.x, player.z) < 36;
-      animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, carrying);
-      jackFollow(st, m, S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; }));
+      animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, onJack ? 'jack' : carrying ? true : (m.userData.jack && mode === 'walk' ? 'tow' : false));
+      jackFollow(st, m, onJack, dt, mode === 'walk');
     });
   }
   // ── The forklift driver ───────────────────────────────────────────

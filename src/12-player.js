@@ -84,9 +84,16 @@
       return;
     }
     var hits = ray.intersectObjects(inter.concat(instList), false);
-    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins.
-    // The boxes on the bench sit inside the bench's own hit box the same way: within 0.8 m a box wins over the bench.
-    for (var si = 1; si < hits.length; si++) { var hs = hits[si], isrc = hs.object.isInstancedMesh ? instSource(hs) : null; if ((hs.object.userData.screen && hs.distance - hits[0].distance < 0.5) || (isrc && isrc.kind === 'bench' && hs.distance - hits[0].distance < 0.8)) { var sh = hits.splice(si, 1)[0]; hits.unshift(sh); break; } }
+    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins, and
+    // the hit box of the screen's own prop (the bench round its terminal stand) never beats it at any range. Anything else in
+    // front, a box stack say, keeps the focus. The boxes on the bench sit inside the bench's own hit box the same way: within
+    // 0.8 m a box wins over the bench.
+    for (var si = 1; si < hits.length; si++) {
+      var hs = hits[si], isrc = hs.object.isInstancedMesh ? instSource(hs) : null, win = false;
+      if (hs.object.userData.screen) { win = true; var spid = propIdOf(hs.object); for (var sj = 0; sj < si; sj++) { var ho = hits[sj].object; if (!(hs.distance - hits[sj].distance < 0.5 || (spid && ho.material === MAT.hit && propIdOf(ho) === spid))) { win = false; break; } } }
+      else if (isrc && isrc.kind === 'bench' && hs.distance - hits[0].distance < 0.8) win = true;
+      if (win) { hits.unshift(hits.splice(si, 1)[0]); break; }
+    }
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i], def = h.object.userData.it || srcDef(instSource(h));
       if (!def) continue;

@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.13.1 (2026-10-06)
+
+The pack terminal on its own stand, room round the bench, a bench top you can read, and a receiver who holds the jack.
+
+**The bench terminal**
+- The terminal is off the bench. It stands on its own floor stand at the near east corner, a 0.9 m screen at head height turned to face you along the working side, drawn at three times the old resolution. The old arm over the bench top, where two layers of boxes hid it, is gone.
+- Looking at a screen now always focuses the screen, never the hit box of the thing it belongs to. The bench used to take the prompt from its own terminal.
+
+**Room round the bench**
+- The pick merge belt hangs high until its last 1.6 m and comes down 0.6 m further from the bench, so the working side is open from end to end and straight on past the bench end.
+- The shipping belt's long run sits against the east wall, 0.7 m further out than before: the slot between the bench and the belt is 1.7 m instead of 1.0 m. It still ends at the OUT 2 loader.
+- The damaged-goods bin and the broom moved to the west side of the merge belt's foot; the fire extinguisher moved up the wall past the belt's start.
+
+**The bench top**
+- The kit sits at the two ends where the box stacks never cover it: a platform scale with its readout turned to you, a tape gun and spare rolls, a parts tray with the cutter, a marker and a roll of labels, the label printer at the corner, a roll of bubble wrap on brackets at the far end, and flat cardboard on the shelf below.
+
+**The receiver's jack**
+- With a pallet on: the jack is pushed ahead with the tiller lowered and both hands on the grip, and the pallet rides on its forks.
+- Empty and walking: towed behind on one trailing arm. Standing: parked behind them with the tiller sprung up. The handle used to pass through the body and float in front of the chest.
+
+**Fixes**
+- The terminal could read "NaN / 16 on the bench" after a short pack: taking a box of a kind the bench never held turned the count into NaN.
+- A receiver's jack no longer stays visible at the ramp after they have gone home.
+
 ## 1.13.0 (2026-10-05)
 
 The look, the crew and the lines, all at once: Depot Co. gets the pass Grow Co. had.

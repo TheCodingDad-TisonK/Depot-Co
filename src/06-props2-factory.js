@@ -94,7 +94,7 @@
       var lowY = BELT_Y + Math.min(ay, by) - 0.15, high = Math.min(ay, by) > 1.2;
       c.solid(Math.min(ax, bx) - 0.4, Math.max(ax, bx) + 0.4, Math.min(az, bz) - 0.4, Math.max(az, bz) + 0.4, high ? lowY : 0, high ? lowY + 1.2 : 0.82);
     }
-  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [1.9, 0.5], [1.9, -18.6]]); c.sign(['TO OUT 2'], 0.6, 0.14, 1.9, 1.05, 4, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -17.4], [1.9, -18.6]]); c.sign(['TO OUT 2'], 0.6, 0.14, 2.6, 1.05, 4, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function dockLoaderBuild(c) {
     var id = 'dockLoader2', label = 'OUT 2';
     var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, BL = MAT_MACH.blue;

@@ -15,12 +15,12 @@
   var PICK_MERGE = { x: 26.6, z: 5.2 };
   var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
   var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
-  var PB_M = [[0, 0, PICK_H], [4.2, 0, PICK_H, 'hang'], [4.2, -3.2, 0.2]];
+  var PB_M = [[0, 0, PICK_H], [3.6, 0, PICK_H, 'hang'], [3.6, -1.6, 1.35, 'hang'], [3.6, -3.2, 0.2]];   // the drop is two runs: the upper one hangs high enough to walk under, so only its last 1.6 m stands on the floor beside the bench
   defBelt('pickMerge', { prop: 'pickMerge', path: PB_M, speedKey: 'pickBelt' });
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
   defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
   function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
-  defMachine('benchIn', { prop: 'bench', inlets: [[-1.8, -3.2], [0, 2.3], [-1.1, 0], [1.1, 0.6], [1.1, -0.6]], accept: benchAccept });   // where the merge belt lands, and the bench's own ends and sides, so a run of pieces can feed it from any side
+  defMachine('benchIn', { prop: 'bench', inlets: [[-2.4, -3.2], [0, 2.3], [-1.1, 0], [1.1, 0.6], [1.1, -0.6]], accept: benchAccept });   // where the merge belt lands, and the bench's own ends and sides, so a run of pieces can feed it from any side
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= 4 ? 'pickBelt2' : 'pickBelt'; }
   function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); return out; }

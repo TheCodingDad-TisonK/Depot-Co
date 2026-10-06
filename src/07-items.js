@@ -23,7 +23,7 @@
     if (p.place === 'truck') { var t = truckById(p.truck); if (!t) return null; return truckPalletPos(t, p.idx); }
     if (p.place === 'jack') { var jw = toolWorld(p.jack || 'jack'); return { x: jw.x, y: 0.1, z: jw.z, ry: jw.ry }; }
     if (p.place === 'fork') { var fw = forkTip(); return { x: fw.x, y: fw.y, z: fw.z, ry: S.fork.yaw }; }
-    if (p.place === 'staff') { var st = staffById(p.staff); if (!st) return null; return { x: st.x + Math.sin(st.yaw) * 0.95, y: 0.1, z: st.z + Math.cos(st.yaw) * 0.95, ry: st.yaw }; }
+    if (p.place === 'staff') { var st = staffById(p.staff); if (!st) return null; return { x: st.x + Math.sin(st.yaw) * STAFF_JACK.push, y: 0.1, z: st.z + Math.cos(st.yaw) * STAFF_JACK.push, ry: st.yaw }; }   /* on the forks of the jack they push, see jackFollow */
     if (p.place === 'agv') { var A = S.agv; if (!A) return null; return { x: A.x + Math.sin(A.yaw) * 1.0, y: 0.18, z: A.z + Math.cos(A.yaw) * 1.0, ry: A.yaw }; }
     return null;
   }

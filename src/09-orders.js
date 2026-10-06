@@ -81,9 +81,9 @@
   }
 
   // ── The packing bench ─────────────────────────────────────────────
-  function benchCount() { var n = 0; for (var k in S.bench.boxes) n += S.bench.boxes[k]; return n; }
+  function benchCount() { var n = 0; for (var k in S.bench.boxes) n += S.bench.boxes[k] || 0; return n; }
   function benchAdd(sku, n) { S.bench.boxes[sku] = (S.bench.boxes[sku] || 0) + n; }
-  function benchTake(sku, n) { var k = Math.min(n, S.bench.boxes[sku] || 0); S.bench.boxes[sku] -= k; if (S.bench.boxes[sku] <= 0) delete S.bench.boxes[sku]; return k; }
+  function benchTake(sku, n) { var k = Math.min(n, S.bench.boxes[sku] || 0); if (!k) { delete S.bench.boxes[sku]; return 0; } S.bench.boxes[sku] -= k; if (S.bench.boxes[sku] <= 0) delete S.bench.boxes[sku]; return k; }   /* a SKU the bench never held used to go undefined minus zero, NaN, and the terminal read NaN / 16 */
   // what the cart would do at the bench: the boxes the orders still want come off it, and the bench's surplus goes onto it
   function cartAtBench() { var need = benchNeed(), off = 0, on = 0, room = ECON.benchCap - benchCount(); S.cart.boxes.forEach(function (sku) { if ((need[sku] || 0) > 0 && off < room) { need[sku]--; off++; } }); var sur = benchSurplus(); for (var k in sur) on += sur[k]; on = Math.min(on, ECON.cartCap - (cartLoad() - off)); return { off: off, on: Math.max(0, on) }; }
   function benchPrompt() {
