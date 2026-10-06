@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.13.3 (2026-10-06)
+
+Rack row A is gone and the receiving side is open floor, nobody stands in the lobby doorway all evening any more, and the receiver leaves his jack behind when he is off the floor.
+
+**The hall**
+- Five rack rows instead of six: the old row A at z -17.5 is removed and rows B to F are now A to E, so the receiving side between the inbound docks and the north wall is open floor. Saves migrate on first load: slot contents, crane states and any moved rack shift down one row, the stock of the old row A goes into free slots of the rows kept (what does not fit goes onto floor pallets along the old row for the forklift driver), and a sixth row owned is refunded.
+- The pick belts follow: rows A to C feed the south belt, D and E the north one. The office PC's upgrade list reads row ownership the same way the menu does; it only knew rows three and four.
+
+**The crew**
+- The walk to the clock at the end of a shift was planned again every tick. A re-plan from a cell the nav grid counts as blocked, a door jamb the walker had just clipped, sends them one step back out and the next step takes them back in; two receivers stood in the lobby door from 18:00 to past 21:00 in a 1.13.2 save. The walk is planned once, and a straight run between waypoints may no longer cut the corner of a blocked cell.
+- The receiver parks the pallet jack where he stands when he heads for a break, the clock or home, and it stays in the hall overnight. When work starts he walks back to it before anything else. A pallet still on the jack at the end of the shift is set down where the jack stands rather than going home with him.
+
 ## 1.13.2 (2026-10-06)
 
 The driver sits on the seat with his hands on the wheel, nobody walks through the pick belt legs any more, and the cranes and the pickers stop fetching the same box.

@@ -3,7 +3,7 @@
   function freshState() {
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
-      hall: 4,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
+      hall: 5,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
       up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false },
       gantries: {}, speed: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
@@ -54,6 +54,19 @@
       if (!s.flags.toolBays3) { s.flags.toolBays3 = 1; if (s.jack && Math.abs(s.jack.x - -28.6) < 1.2 && Math.abs(s.jack.z - 6.0) < 1.6) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.jack.rot = Math.PI / 2; } }
       // 2026-10-03, hall 4: the side walls went from x 30 to x 36. Anything a player left against them follows, once
       if (s.hall === 3) { s.hall = 4; var mv = function (o, yard) { if (o && typeof o.x === 'number') o.x = wallX(o.x, o.z || 0, !!yard); }; for (var lk in (s.layout || {})) mv(s.layout[lk], PROPS[lk] && PROPS[lk].yard); (s.custom || []).forEach(function (c) { mv(c, PROPS[c.type] && PROPS[c.type].yard); }); (s.pallets || []).forEach(function (p) { if (p.place === 'floor') mv(p, false); }); (s.staff || []).forEach(function (stf) { mv(stf, false); }); mv(s.fork, false); ['jack', 'jack2', 'cart'].forEach(function (tl) { if (s[tl]) { s[tl].x = SPOT[tl].x; s[tl].z = SPOT[tl].z; } }); s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); if (s.agv) s.agv.placed = false; }
+      // 2026-10-06, hall 5: rack row A (z -17.5) is gone and the receiving side is open floor. Rows B to F are A to E: slot keys,
+      // crane states and moved racks shift down one row. The stock of the old row A goes into free slots of the rows kept, what
+      // does not fit onto floor pallets along the old row for the forklift driver; a sixth row owned is refunded.
+      if (s.hall === 4) {
+        s.hall = 5; var ns = {}, spill = [];
+        for (var sk in (s.slots || {})) { var sp = slotParse(sk), sv = s.slots[sk]; if (!sv) continue; if (sp.r >= 1) ns[slotKey(sp.r - 1, sp.b, sp.l)] = sv; else if (sv.n > 0) spill.push({ sku: sv.sku, n: sv.n, b: sp.b }); }
+        var rowsNow = Math.min(s.up.rows || 2, RACK.rows.length); if ((s.up.rows || 0) > RACK.rows.length) s.bank += ECON.rowPrice; s.up.rows = rowsNow;
+        spill.forEach(function (it) { var put = false; for (var r = 0; r < rowsNow && !put; r++) for (var b = 0; b < RACK.bays && !put; b++) for (var l = 0; l < RACK.levels.length && !put; l++) { var k = slotKey(r, b, l); if (!ns[k] || !ns[k].n) { ns[k] = { sku: it.sku, n: it.n, pal: true }; put = true; } } if (!put) s.pallets.push({ id: 'pl-mig-' + it.b + '-' + Math.random().toString(36).slice(2, 7), sku: it.sku, n: it.n, place: 'floor', x: RACK.x0 + RACK.bayW * (it.b + 0.5), z: -17.5, y: 0, rot: 0 }); });
+        s.slots = ns;
+        var ng = {}; for (var gk in (s.gantries || {})) if (+gk >= 1) { var G = s.gantries[gk]; G.state = 'idle'; G.sku = null; G.key = null; ng[+gk - 1] = G; } s.gantries = ng;
+        var nl = {}; for (var lk2 in (s.layout || {})) { var mm = /^(rack|gantry)(\d)$/.exec(lk2); if (!mm) nl[lk2] = s.layout[lk2]; else if (+mm[2] >= 1) nl[mm[1] + (+mm[2] - 1)] = s.layout[lk2]; } s.layout = nl;
+        (s.staff || []).forEach(function (st) { st.task = null; if (st.carry && st.carry.back) delete st.carry.back; });
+      }
       S = s; return true;
     } catch (e) { return false; }
   }

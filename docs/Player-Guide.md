@@ -2,7 +2,7 @@
 
 ## The building
 
-The staff door on the west wall opens into the entrance lobby: the time clock, lockers, coat hooks and the notice board. Through the lobby door is the hall, 60 by 48 metres: six rack rows of fifteen bays, the docks on the west (IN) and east (OUT) walls, the pack line by the office. The break room is the north-west corner (cot, coffee, vending machine, radio), the office the south-east corner. Through the strip curtain in the north wall is the production wing, with its hopper, moulding line and the belt to the palletiser. `F8` opens a dev console for testing.
+The staff door on the west wall opens into the entrance lobby: the time clock, lockers, coat hooks and the notice board. Through the lobby door is the hall, 72 by 48 metres: five rack rows of fifteen bays with open floor on the receiving side, the docks on the west (IN) and east (OUT) walls, the pack line by the office. The break room is the north-west corner (cot, coffee, vending machine, radio), the office the south-east corner. Through the strip curtain in the north wall is the production wing, with its hopper, moulding line and the belt to the palletiser. `F8` opens a dev console for testing.
 
 ## Your first day
 
