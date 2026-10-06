@@ -1849,7 +1849,7 @@
       var ux = (bx - ax) / run, uz = (bz - az) / run, px = uz, pz = -ux;
       var hang = pts[i][3] === 'hang';
       if (hang) { for (var hd = 0.6; hd < run; hd += 2.5) { var ht = BELT_Y + ay + (by - ay) * hd / run + 0.05, hx = ax + ux * hd, hz = az + uz * hd; [-0.3, 0.3].forEach(function (o) { c.cyl(0.025, HALL.h - 0.2 - ht, MAT_MACH.frame, hx + px * o, (HALL.h - 0.2 + ht) / 2, hz + pz * o, 6); }); var hb = c.box(0.8, 0.06, 0.06, MAT_MACH.frame, hx, ht, hz); hb.rotation.y = ang; var hp = c.box(0.9, 0.05, 0.3, MAT_MACH.frame, hx, HALL.h - 0.2, hz); hp.rotation.y = ang; } }
-      else for (var d = run < 1 ? (i % 3 === 1 ? run / 2 : run + 1) : 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
+      else for (var d = run < 1 ? (i % 3 === 1 ? run / 2 : run + 1) : 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); if (Math.min(ay, by) > 1.2) c.solid(lx + px * o - 0.1, lx + px * o + 0.1, lz + pz * o - 0.1, lz + pz * o + 0.1, 0, top); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
       var lowY = BELT_Y + Math.min(ay, by) - 0.15, high = Math.min(ay, by) > 1.2;
       c.solid(Math.min(ax, bx) - 0.4, Math.max(ax, bx) + 0.4, Math.min(az, bz) - 0.4, Math.max(az, bz) + 0.4, high ? lowY : 0, high ? lowY + 1.2 : 0.82);
     }
@@ -2299,7 +2299,7 @@
       var gll = new THREE.PointLight(0xffb040, 0, 14, 2); gll.position.set(hx, YARD_Y + 3.0, hz - 2.2); gll.userData.k = 0.9; scene.add(gll); yardLights.push(gll);
       sign(['GATE ' + (side < 0 ? 'WEST' : 'EAST')], 1.8, 0.4, hx, YARD_Y + 2.6, hz - 1.42, 0, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' });
       sign(['STOP', 'REPORT TO THE GATE'], 1.0, 1.0, gx + side * 10, YARD_Y + 2.2, -4, side > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#c8342a', fg: '#fff', size: 52 }); cyl(0.04, 2.2, MAT.steelDark, gx + side * 10, YARD_Y + 1.1, -4, null, 6);
-      var guard = makeHuman({ vest: MAT.hivis, cap: true, capMat: MAT.black, shirt: MAT.jeans }); guard.position.set(hx, YARD_Y + 0.2, hz - 0.2); guard.rotation.y = Math.PI; scene.add(guard); yard.guards.push({ g: guard, side: side });
+      var guard = makeHuman({ vest: MAT.hivis, cap: true, capMat: MAT.black, shirt: MAT.jeans }); guard.position.set(hx, YARD_Y + 0.2, hz - 0.2); guard.userData.baseY = YARD_Y + 0.2; guard.rotation.y = Math.PI; scene.add(guard); yard.guards.push({ g: guard, side: side });
     });
     // the staff car park, the smoking shelter, the dumpster, the flag
     for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -29 + b * 2.7, YARD_Y + 0.012, 31, -Math.PI / 2);
@@ -3231,7 +3231,7 @@
     if (mode === 'walk') u.walk += dt * (6 + speed * 1.5); else { var ph = u.walk % Math.PI; u.walk += (ph < Math.PI / 2 ? -ph : Math.PI - ph) * Math.min(1, 10 * dt); }
     var t = u.walk, sw = mode === 'walk' ? 0.55 : 0, s = Math.sin(t), L = u.legs[0], R = u.legs[1], lk = L.userData.knee, rk = R.userData.knee, la = u.arms[0], ra = u.arms[1], le = la.userData.elbow, re = ra.userData.elbow, T = u.torso;
     if (mode === 'sit') {   // on the forklift seat: thighs forward, shins down, hands on the wheel
-      L.rotation.x = -1.45; R.rotation.x = -1.45; lk.rotation.x = 1.45; rk.rotation.x = 1.45; R.position.y = 0.86; la.rotation.x = -0.85; ra.rotation.x = -0.85; le.rotation.x = -0.55; re.rotation.x = -0.55; la.rotation.z = 0.2; ra.rotation.z = -0.2; T.position.set(0, 0.86, 0); T.rotation.set(0, 0, 0); u.head.rotation.z = 0;
+      L.rotation.x = -1.45; R.rotation.x = -1.45; lk.rotation.x = 1.45; rk.rotation.x = 1.45; R.position.y = 0.86; la.rotation.x = -0.5; ra.rotation.x = -0.5; le.rotation.x = -0.15; re.rotation.x = -0.15; la.rotation.z = 0.18; ra.rotation.z = -0.18; T.position.set(0, 0.86, 0); T.rotation.set(0, 0, 0); u.head.rotation.z = 0;
     } else {
     L.rotation.x = s * sw; R.rotation.x = -s * sw;
     lk.rotation.x = Math.max(0, -Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0); rk.rotation.x = Math.max(0, Math.sin(t - 0.6)) * 1.0 * (sw ? 1 : 0);
@@ -3389,10 +3389,20 @@
     st.x += dx / d * sp; st.z += dz / d * sp;
     var want = Math.atan2(dx, dz), diff = want - st.yaw; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; st.yaw += diff * Math.min(1, 10 * dt);
   }
+  // boxes already on their way to the bench, by SKU: on the pick belts and the merge, in a crane's grab, in a picker's hands, or
+  // claimed by a picker walking to the slot. The cranes and the pickers both subtract this, so neither fetches a box the other
+  // already has in hand. A box being carried back to the racks is not on its way to the bench.
+  function pickInFlight() {
+    var n = {}, add = function (sku) { n[sku] = (n[sku] || 0) + 1; };
+    ['pickBelt', 'pickBelt2', 'pickMerge'].forEach(function (bid) { if (BELTS[bid]) beltItems(bid).forEach(function (it) { if (it.kind === 'box') add(it.sku); }); });
+    if (S.up.gantry) gantryRows().forEach(function (r) { var G = gantryState(r); if (G.sku && G.state !== 'idle') add(G.sku); });
+    S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') { if (!st.carry.back) add(st.carry.sku); } else if (st.task && st.task.kind === 'pick') add(st.task.sku); });
+    return n;
+  }
   function skuDemand(sku) {
     var need = 0; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { if (l.sku === sku) need += l.qty; }); });
     need -= (S.bench.boxes[sku] || 0);
-    S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box' && st.carry.sku === sku) need--; if (st.task && st.task.kind === 'pick' && st.task.sku === sku && !st.carry) need--; });
+    need -= pickInFlight()[sku] || 0;
     return need;
   }
   function tickStaff(dt) {
@@ -3420,14 +3430,14 @@
       if (!brk && st.state === 'break') st.state = 'idle';
       // the driver: at the forklift, climbs on; on it, the forklift does the walking and the figure sits on the seat
       if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st)) { st.state = 'idle'; st.task = null; } else { st.state = 'drive'; st.drive = { phase: 'toPallet', path: null }; sfx('forklift'); } }
-      if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false, dt, false); return; }
+      if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.userData.baseY = fy + 0.56; m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false, dt, false); return; }
       var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
       else if (st.state === 'wait') { st.timer -= dt; if (st.timer <= 0) { st.state = 'idle'; st.working = false; if (st.after) { var f = st.after; st.after = null; f(); } } }
       else if (st.state === 'break') { /* standing in the break room */ }
       else if (st.state === 'idle' && working) { if (st.role === 'receiver') receiverThink(st); else if (st.role === 'picker') pickerThink(st); else if (st.role === 'driver') driverThink(st); else packerThink(st); }
       if ((st.state === 'idle' || st.state === 'break') && Math.random() < dt / 22 && S.time - (st.said || 0) > 0.4) { st.said = S.time; staffSay(st, pick(voice(st).idle), '#a0acb8'); }
-      m.position.set(st.x, floorY(st.x, st.z), st.z); m.rotation.y = st.yaw;
+      m.position.set(st.x, floorY(st.x, st.z), st.z); m.userData.baseY = m.position.y; m.rotation.y = st.yaw;
       var near = dist2(st.x, st.z, player.x, player.z) < 36;
       animateHuman(m, dt, mode, 1.9, near && st.state !== 'walk' ? { x: player.x, y: player.y + 1.6, z: player.z } : null, onJack ? 'jack' : carrying ? true : (m.userData.jack && mode === 'walk' ? 'tow' : false));
       jackFollow(st, m, onJack, dt, mode === 'walk');
@@ -4040,8 +4050,8 @@
   // the two feeders stay high along the row ends, turn in past row D and row E and meet hung over the lane at the merge point (26.6, 5.2);
   // from there one merge belt crosses the rest of the lane on rods and ramps down to bench height at the bench's north-west corner
   var PICK_MERGE = { x: 26.6, z: 5.2 };
-  var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
-  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
+  var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H, 'hang'], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();   // hung from the roof end to end: no legs in the walk round the rack ends
+  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H, 'hang'], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
   var PB_M = [[0, 0, PICK_H], [3.6, 0, PICK_H, 'hang'], [3.6, -1.6, 1.35, 'hang'], [3.6, -3.2, 0.2]];   // the drop is two runs: the upper one hangs high enough to walk under, so only its last 1.6 m stands on the floor beside the bench
   defBelt('pickMerge', { prop: 'pickMerge', path: PB_M, speedKey: 'pickBelt' });
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
@@ -4055,9 +4065,7 @@
   function gantryNeed(r) {
     var need = {}; S.orders.forEach(function (o) { if (o.state !== 'open') return; o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); });
     for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k];
-    ['pickBelt', 'pickBelt2', 'pickMerge'].forEach(function (bid) { beltItems(bid).forEach(function (it) { if (it.kind === 'box') need[it.sku] = (need[it.sku] || 0) - 1; }); });
-    gantryRows().forEach(function (gr2) { var G = gantryState(gr2); if (G.sku && G.state !== 'idle') need[G.sku] = (need[G.sku] || 0) - 1; });
-    S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') need[st.carry.sku] = (need[st.carry.sku] || 0) - 1; });
+    var fl = pickInFlight(); for (var fk in fl) need[fk] = (need[fk] || 0) - fl[fk];   // the belts, the other cranes, the pickers' hands and their claims: see pickInFlight
     for (var sku in need) if (need[sku] > 0) { for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === r && s && s.sku === sku && s.n > 0) return { sku: sku, key: key }; } }
     return null;
   }

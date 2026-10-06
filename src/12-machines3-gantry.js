@@ -13,8 +13,8 @@
   // the two feeders stay high along the row ends, turn in past row D and row E and meet hung over the lane at the merge point (26.6, 5.2);
   // from there one merge belt crosses the rest of the lane on rods and ramps down to bench height at the bench's north-west corner
   var PICK_MERGE = { x: 26.6, z: 5.2 };
-  var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
-  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
+  var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[3] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H, 'hang'], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();   // hung from the roof end to end: no legs in the walk round the rack ends
+  var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[4] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H, 'hang'], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
   var PB_M = [[0, 0, PICK_H], [3.6, 0, PICK_H, 'hang'], [3.6, -1.6, 1.35, 'hang'], [3.6, -3.2, 0.2]];   // the drop is two runs: the upper one hangs high enough to walk under, so only its last 1.6 m stands on the floor beside the bench
   defBelt('pickMerge', { prop: 'pickMerge', path: PB_M, speedKey: 'pickBelt' });
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
@@ -28,9 +28,7 @@
   function gantryNeed(r) {
     var need = {}; S.orders.forEach(function (o) { if (o.state !== 'open') return; o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); });
     for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k];
-    ['pickBelt', 'pickBelt2', 'pickMerge'].forEach(function (bid) { beltItems(bid).forEach(function (it) { if (it.kind === 'box') need[it.sku] = (need[it.sku] || 0) - 1; }); });
-    gantryRows().forEach(function (gr2) { var G = gantryState(gr2); if (G.sku && G.state !== 'idle') need[G.sku] = (need[G.sku] || 0) - 1; });
-    S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') need[st.carry.sku] = (need[st.carry.sku] || 0) - 1; });
+    var fl = pickInFlight(); for (var fk in fl) need[fk] = (need[fk] || 0) - fl[fk];   // the belts, the other cranes, the pickers' hands and their claims: see pickInFlight
     for (var sku in need) if (need[sku] > 0) { for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === r && s && s.sku === sku && s.n > 0) return { sku: sku, key: key }; } }
     return null;
   }

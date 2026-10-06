@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.13.2 (2026-10-06)
+
+The driver sits on the seat with his hands on the wheel, nobody walks through the pick belt legs any more, and the cranes and the pickers stop fetching the same box.
+
+**The crew**
+- The forklift driver sits on the seat: hips on the cushion, back to the backrest, feet on the plate, hands on the wheel rim. The figure rig writes its base height every frame and the staff tick never set one, so every staff figure sat at floor height inside the truck, with the arms up in the air where the wheel is not.
+- The gatehouse guards stand on the gatehouse floor for the same reason; they floated a metre above it.
+- The cranes and the pickers read one ledger of what is already on its way to the bench: boxes on the pick belts and the merge, a crane's grab, a picker's carried box, and a picker's claim while walking to the slot. The crane used to ignore a walking picker and the picker ignored the belts and the cranes, so the same box got fetched twice.
+
+**The hall**
+- The two pick belts hang from the roof end to end, like the merge run. They stood on floor legs every 1.5 m right at the rack ends, where every route turns the corner, and a leg under a high belt had no collision at all, so staff walked straight through the poles. Any future high belt with legs gets a floor solid under each leg.
+
 ## 1.13.1 (2026-10-06)
 
 The pack terminal on its own stand, room round the bench, a bench top you can read, and a receiver who holds the jack.
