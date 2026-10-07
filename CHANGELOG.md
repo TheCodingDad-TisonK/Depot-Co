@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.14.1 (2026-10-07)
+
+The annex halls look like halls, the Hall 2 doorway is a doorway from both sides, the office PC has room for its ten apps, and one press returns the bench surplus to the racks.
+
+**The annex halls**
+- Every inside face now carries the main hall's dressing: the block dado with its rail, the two girts, a cable tray, an I-beam column with a bump guard every eight metres, a clerestory window every four on the outside walls. The roof has its trusses and purlins, three skylight strips and two vents; outside, a gutter and downpipes. Six high bays a hall instead of four, with the fixtures.
+- The doorway into each hall has jambs, a lintel, a strip curtain, the hall's name over it, a way-out sign inside, bollards, hazard strips and the name painted on the floor. Each hall gets a fire extinguisher, a fire-exit poster, a no-smoking poster, a wall clock, an aisle sign between its rows, a walkway along the wall you come in by and a skirting line.
+- Hall 2 leans on the production wing's east wall and Hall 3 on its west wall instead of standing a hand's width off them.
+- The main hall's lining ran straight across the new doorways as a one-sided wall: from the main hall you saw wall where the doorway was and could see Hall 2 through it; from Hall 2 the doorway stood open. The lining stops at the doorways now, and the painted name on the north wall moved east, off the Hall 2 doorway it was cut by.
+
+**The office PC**
+- Ten apps in one row left the Plant button a sliver at the edge of the screen. The taskbar is two rows of five; the clock moved to the top corner.
+
+**The bench**
+- A RETURN SURPLUS button on the bench terminal, a Return all button on the bench panel and a Bench surplus row on the Plant page put every box no open order wants, on the bench or loose on the hall floor, back on the racks in one press. A save that came back with forty surplus boxes on the bench is cleared in a second.
+
 ## 1.14.0 (2026-10-07)
 
 Three shipping lanes with a third dock, a mezzanine that became a sortation deck, shipping bays at every dock, three more halls, six upgrade tiers, staff options and a plant page.

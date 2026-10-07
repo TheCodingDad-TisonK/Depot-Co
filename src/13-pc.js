@@ -8,6 +8,7 @@
     var dialRow = function (name, key) { rows.push({ text: '   ' + name + ' dial', sub: 'tap to step the speed', right: pct(key), key: key, dialOnly: true, btn: { label: pct(key) + ' ▸', on: true, act: function () { speedCycle(key); }, col: '#78bdf5' } }); };
     var add = function (name, status, sub, key, action) { rows.push({ text: name + '  ·  ' + status, sub: sub, right: key ? pct(key) : '', key: key, hi: status === 'run' || status === 'running' || status === 'sorting', btnIsDial: !action && !!key, btn: action || (key ? { label: pct(key) + ' ▸', on: true, act: function () { speedCycle(key); }, col: '#78bdf5' } : null) }); if (action && key) dialRow(name, key); };
     if (propInst.packline) add('Pack line', packStatus(), packPrompt(), 'packline', S.pack.jam ? { label: 'CLEAR JAM', on: true, act: packUse, col: '#ff6b5e' } : S.up.plantAuto ? { label: S.pack.auto === false ? 'AUTO OFF' : 'AUTO ON', on: true, act: function () { S.pack.auto = S.pack.auto === false; sfx('click'); }, col: S.pack.auto === false ? '#f5b53d' : '#5fd38d' } : null);
+    var surP = surplusCount(); if (surP) rows.push({ text: 'Bench surplus  ·  ' + surP + ' box' + (surP > 1 ? 'es' : ''), sub: 'boxes no open order wants, on the bench or loose on the floor', hi: true, btn: { label: 'RETURN ALL', on: true, act: function () { returnSurplus(); }, col: '#f5b53d' } });
     if (propInst.moulder) add('Moulding line', factoryStatus(), moulderPrompt(), 'moulder', { label: S.factory.jam ? 'CLEAR JAM' : S.factory.on ? 'STOP' : 'START', on: true, act: moulderUse, col: S.factory.jam ? '#ff6b5e' : S.factory.on ? '#f5b53d' : '#5fd38d' });
     if (propInst.palletiser) add('Palletiser', S.pal.n ? 'run' : 'idle', palletiserPrompt(), 'beltMain', { label: 'EJECT', on: S.pal.n > 0, act: palletiserUse, col: '#f5b53d' });
     if (propInst.baler) add('Baler', balerStatus(), balerPrompt(), 'baler', { label: 'BALE', on: S.baler.card >= BALE_NEED && !S.baler.t, act: balerUse, col: '#f5b53d' });
@@ -35,7 +36,7 @@
   function pcSeat() { var P = propPlacement('desk'), a = P.rot * Math.PI / 2, lx = 0, lz = -0.5; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a), yaw: a + Math.PI }; }
   function pcCamera() { var s = pcSeat(); camera.position.set(s.x, 1.33, s.z); camera.rotation.set(-0.06 + pc.look.pitch, s.yaw + pc.look.yaw, 0, 'YXZ'); player.x = s.x; player.z = s.z; }
   function pcRows(sc, rows, y0, rowH) {
-    var c = sc.ctx, maxRows = Math.floor((sc.h - y0 - 50) / rowH), start = clamp(pc.scroll, 0, Math.max(0, rows.length - maxRows)), y = y0;
+    var c = sc.ctx, maxRows = Math.floor((sc.h - y0 - 90) / rowH), start = clamp(pc.scroll, 0, Math.max(0, rows.length - maxRows)), y = y0;   // 90: the two-row taskbar
     pc.scroll = start;
     rows.slice(start, start + maxRows).forEach(function (r) {
       c.fillStyle = r.hi ? 'rgba(245,181,61,0.1)' : 'rgba(255,255,255,0.04)'; c.fillRect(16, y, sc.w - 32, rowH - 6);
@@ -53,9 +54,10 @@
     if (S.events.power) { c.fillStyle = '#05080a'; c.fillRect(0, 0, w, h); return; }
     scBg(c, w, h, 'rgba(120,189,245,0.18)');
     // the taskbar
-    c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(0, h - 44, w, 44);
-    PC_APPS.forEach(function (a, i) { scButton(sc, 8 + i * 98, h - 38, 92, 32, a[1] + ' ' + a[2], pc.app === a[0], function () { pc.app = a[0]; pc.scroll = 0; }, '#78bdf5'); });
-    c.fillStyle = '#a0acb8'; c.font = '13px Bahnschrift, Arial'; c.textAlign = 'right'; c.fillText('Day ' + S.day + ' · ' + fmtTime(S.time), w - 10, h - 16); c.textAlign = 'left';
+    c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(0, h - 84, w, 84);   // two rows of five since the Plant app: ten in one row left the last one a sliver
+    var perRow = Math.ceil(PC_APPS.length / 2), bw = Math.floor((w - 16 - 8 * (perRow - 1)) / perRow);
+    PC_APPS.forEach(function (a, i) { var row = Math.floor(i / perRow), col = i % perRow; scButton(sc, 8 + col * (bw + 8), h - 80 + row * 40, bw, 34, a[1] + ' ' + a[2], pc.app === a[0], function () { pc.app = a[0]; pc.scroll = 0; }, '#78bdf5'); });
+    c.fillStyle = '#a0acb8'; c.font = '12px Bahnschrift, Arial'; c.textAlign = 'right'; c.fillText('Day ' + S.day + ' · ' + fmtTime(S.time), w - 10, 14); c.textAlign = 'left';
     var app = pc.app;
     if (app === 'home') {
       scText(c, 24, 48, 'DEPOT OS', '#f5b53d', 34); scText(c, 24, 72, 'Depot Co. · ' + (S.weather ? S.weather.kind : 'clear') + ' · ' + SEASONS[season()] + (isSunday() ? ' · Sunday, closed' : ''), '#a0acb8', 14);

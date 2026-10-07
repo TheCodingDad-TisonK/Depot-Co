@@ -438,6 +438,7 @@
     os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
     if (sc.scrollMax > 0) { scText(c, 16, 290, 'Orders ' + (sc.scroll + 1) + ' to ' + Math.min(allO.length, sc.scroll + 4) + ' of ' + allO.length + ' · wheel scrolls', '#6b7784', 10); scButton(sc, 300, 262, 40, 26, 'UP', sc.scroll > 0, function () { sc.scroll = Math.max(0, sc.scroll - 1); }, '#f5b53d'); scButton(sc, 346, 262, 40, 26, 'DOWN', sc.scroll < sc.scrollMax, function () { sc.scroll = Math.min(sc.scrollMax, sc.scroll + 1); }, '#f5b53d'); }
     else scText(c, 16, 290, 'Look at a box on the bench to take it back · the cart takes surplus', '#6b7784', 10);
+    var surN = surplusCount(); scButton(sc, 116, 258, 118, 26, surN ? 'RETURN ' + surN + ' SURPLUS' : 'NO SURPLUS', surN > 0, function () { returnSurplus(); }, '#f5b53d');
     if (S.up.plantAuto) { var autoOn = !S.pack || S.pack.auto !== false; scButton(sc, 16, 258, 92, 26, 'AUTO ' + (autoOn ? 'ON' : 'OFF'), true, function () { if (!S.pack) return; S.pack.auto = autoOn ? false : true; toast('Pack line auto-start ' + (autoOn ? 'off' : 'on'), autoOn ? 'bad' : 'good'); }, autoOn ? '#5fd38d' : '#ff6b5e'); }
   }
   // yard props (the shelter, dumpster, flag and parking sign)
@@ -548,7 +549,7 @@
   defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
   defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, build: boardBuild });
   defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, x: 0, z: 13.83, rot: 2, build: chargerBuild });
-  defProp('painted', { label: 'painted name', cat: 'wall', wall: true, abs: true, x: 17, z: -23.83, rot: 0, build: paintedBuild });
+  defProp('painted', { label: 'painted name', cat: 'wall', wall: true, abs: true, keep: true, x: 28.5, z: -23.83, rot: 0, build: paintedBuild });   // east of the Hall 2 doorway, which cut through it at x 17
   [['aisleAB', -12, 'AISLE  A · B'], ['aisleBC', -6, 'AISLE  B · C'], ['aisleCD', 0, 'AISLE  C · D'], ['aisleDE', 6, 'AISLE  D · E'], ['aisleEF', 12, 'AISLE  E · F']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', abs: true, x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
   [[-30, -12], [-30, 10], [30, -12], [30, 10]].forEach(function (p, i) { defProp('lamp' + i, { label: 'lamp post', cat: 'yard', yard: true, x: p[0], z: p[1], rot: 0, build: lampPostBuild }); });
   [0, 1, 3, 4].forEach(function (k, i) { defProp('car' + i, { label: 'parked car', cat: 'yard', yard: true, abs: true, x: -27.65 + k * 2.7, z: 31.5, rot: 1, build: carBuild(k) }); });

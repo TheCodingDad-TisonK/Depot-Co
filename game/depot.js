@@ -821,7 +821,7 @@
   function buildHallLining() {
     var X = HALL.x, Z = HALL.z, H = HALL.h, DH = 2.4, sd = SPOT.staffDoor.z;
     var cutZ = { '-1': [[-15.8, -12.2], [-7.8, -4.2], [sd - 0.65, sd + 0.65], [18.4, Z], [-Z, -20.1]], '1': [[-15.8, -12.2], [-7.8, -4.2], [18.4, Z]] };   // the docks, the staff door, the lobby, the break room; the office
-    var cutX = { '-1': [[WING.belt.x0 - 0.1, WING.belt.x1 + 0.1], [WING.door.x0 - 0.1, WING.door.x1 + 0.1], [23.3, 24.7], [-X, -28.9]], '1': [[X - 7.6, X], [-X, -31.4]] };   // the belt opening, the wing door, the fire exit, the break room; the office, the lobby
+    var cutX = { '-1': [[WING.belt.x0 - 0.1, WING.belt.x1 + 0.1], [WING.door.x0 - 0.1, WING.door.x1 + 0.1], [23.3, 24.7], [-X, -28.9], [HALLS.hall2.door.x0 - 0.1, HALLS.hall2.door.x1 + 0.1], [HALLS.hall3.door.x0 - 0.1, HALLS.hall3.door.x1 + 0.1]], '1': [[X - 7.6, X], [-X, -31.4]] };   // the hall doorways too, since 1.14.1   // the belt opening, the wing door, the fire exit, the break room; the office, the lobby
     function segs(a0, a1, cuts) { var out = [[a0, a1]]; cuts.forEach(function (c) { var nx = []; out.forEach(function (s) { if (c[1] <= s[0] || c[0] >= s[1]) { nx.push(s); return; } if (c[0] > s[0]) nx.push([s[0], c[0]]); if (c[1] < s[1]) nx.push([c[1], s[1]]); }); out = nx; }); return out.filter(function (s) { return s[1] - s[0] > 0.3; }); }
     function dadoMat(len) { var m = MAT.block.clone(); m.map = MAT.block.map.clone(); m.map.needsUpdate = true; m.map.repeat.set(len / 1.6, DH / 0.8); m.normalMap = MAT.block.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set(len / 1.6, DH / 0.8); return m; }
     function wall(axis, side) {
@@ -1659,6 +1659,7 @@
     os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
     if (sc.scrollMax > 0) { scText(c, 16, 290, 'Orders ' + (sc.scroll + 1) + ' to ' + Math.min(allO.length, sc.scroll + 4) + ' of ' + allO.length + ' · wheel scrolls', '#6b7784', 10); scButton(sc, 300, 262, 40, 26, 'UP', sc.scroll > 0, function () { sc.scroll = Math.max(0, sc.scroll - 1); }, '#f5b53d'); scButton(sc, 346, 262, 40, 26, 'DOWN', sc.scroll < sc.scrollMax, function () { sc.scroll = Math.min(sc.scrollMax, sc.scroll + 1); }, '#f5b53d'); }
     else scText(c, 16, 290, 'Look at a box on the bench to take it back · the cart takes surplus', '#6b7784', 10);
+    var surN = surplusCount(); scButton(sc, 116, 258, 118, 26, surN ? 'RETURN ' + surN + ' SURPLUS' : 'NO SURPLUS', surN > 0, function () { returnSurplus(); }, '#f5b53d');
     if (S.up.plantAuto) { var autoOn = !S.pack || S.pack.auto !== false; scButton(sc, 16, 258, 92, 26, 'AUTO ' + (autoOn ? 'ON' : 'OFF'), true, function () { if (!S.pack) return; S.pack.auto = autoOn ? false : true; toast('Pack line auto-start ' + (autoOn ? 'off' : 'on'), autoOn ? 'bad' : 'good'); }, autoOn ? '#5fd38d' : '#ff6b5e'); }
   }
   // yard props (the shelter, dumpster, flag and parking sign)
@@ -1769,7 +1770,7 @@
   defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
   defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, build: boardBuild });
   defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, x: 0, z: 13.83, rot: 2, build: chargerBuild });
-  defProp('painted', { label: 'painted name', cat: 'wall', wall: true, abs: true, x: 17, z: -23.83, rot: 0, build: paintedBuild });
+  defProp('painted', { label: 'painted name', cat: 'wall', wall: true, abs: true, keep: true, x: 28.5, z: -23.83, rot: 0, build: paintedBuild });   // east of the Hall 2 doorway, which cut through it at x 17
   [['aisleAB', -12, 'AISLE  A · B'], ['aisleBC', -6, 'AISLE  B · C'], ['aisleCD', 0, 'AISLE  C · D'], ['aisleDE', 6, 'AISLE  D · E'], ['aisleEF', 12, 'AISLE  E · F']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', abs: true, x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
   [[-30, -12], [-30, 10], [30, -12], [30, 10]].forEach(function (p, i) { defProp('lamp' + i, { label: 'lamp post', cat: 'yard', yard: true, x: p[0], z: p[1], rot: 0, build: lampPostBuild }); });
   [0, 1, 3, 4].forEach(function (k, i) { defProp('car' + i, { label: 'parked car', cat: 'yard', yard: true, abs: true, x: -27.65 + k * 2.7, z: 31.5, rot: 1, build: carBuild(k) }); });
@@ -2310,9 +2311,9 @@
   // the forklift, the AGV and the receivers use them; the cranes stay over the main rows. Rows are numbered from 20 so the main
   // rows (0 to 4) and the deck row (5) keep their meaning.
   var HALLS = {
-    hall2: { name: 'Hall 2', x0: 10.3, x1: HALL.x, z0: -44, z1: -HALL.z, door: { x0: 17.0, x1: 20.6, h: 4.2, z: -HALL.z }, rows: [20, 21], rowZ: [-30, -37], rowX0: 12.5, bays: 7, lights: [[17, -29], [30, -29], [17, -39], [30, -39]] },
-    hall3: { name: 'Hall 3', x0: -HALL.x, x1: -14.3, z0: -44, z1: -HALL.z, door: { x0: -28.5, x1: -26.0, h: 3.6, z: -HALL.z }, rows: [22, 23], rowZ: [-29.5, -38.5], rowX0: -33.0, bays: 5, lights: [[-30, -29], [-19, -29], [-30, -39], [-19, -39]], dockIn: 2 },
-    hall4: { name: 'Hall 4', x0: -14, x1: 10, z0: -64, z1: -44, door: { x0: 5.0, x1: 8.6, h: 4.2, z: -44 }, rows: [24, 25], rowZ: [-50.5, -57.5], rowX0: -12.5, bays: 7, lights: [[-7, -49], [4, -49], [-7, -59], [4, -59]] }
+    hall2: { name: 'Hall 2', x0: 10.0, x1: HALL.x, z0: -44, z1: -HALL.z, door: { x0: 17.0, x1: 20.6, h: 4.2, z: -HALL.z }, rows: [20, 21], rowZ: [-30, -37], rowX0: 12.5, bays: 7, lights: [[15, -39], [23, -39], [31, -39], [15, -29], [23, -29], [31, -29]] },
+    hall3: { name: 'Hall 3', x0: -HALL.x, x1: -14.0, z0: -44, z1: -HALL.z, door: { x0: -28.5, x1: -26.0, h: 3.6, z: -HALL.z }, rows: [22, 23], rowZ: [-29.5, -38.5], rowX0: -33.0, bays: 5, lights: [[-31, -39], [-23, -39], [-17, -39], [-31, -29], [-23, -29], [-17, -29]], dockIn: 2 },
+    hall4: { name: 'Hall 4', x0: -14, x1: 10, z0: -64, z1: -44, door: { x0: 5.0, x1: 8.6, h: 4.2, z: -44 }, rows: [24, 25], rowZ: [-50.5, -57.5], rowX0: -12.5, bays: 7, lights: [[-8, -59], [0, -59], [8, -59], [-8, -49], [0, -49], [8, -49]] }
   };
   var HALL_OF_ROW = {}; for (var hk in HALLS) HALLS[hk].rows.forEach(function (r) { HALL_OF_ROW[r] = hk; });
   function hallOwned(id) { return !!(S.up && S.up[id]); }
@@ -2336,32 +2337,67 @@
     return false;
   }
   // ── The build ─────────────────────────────────────────────────────
+  // ── The build: a steel box dressed like the main hall ─────────────
+  // Every inside face gets the main hall's lining: the block dado with its rail, the two girts, the cable tray, an I-beam column
+  // with a bump guard every eight metres, a clerestory window every four on the outside walls. Over it the roof with its trusses,
+  // skylights and vents; outside, the gutter and downpipes. The doorway gets jambs, a lintel, a strip curtain, the way-out sign.
+  function hallSegs(a0, a1, cuts) { var out = [[a0, a1]]; cuts.forEach(function (cc) { var nx = []; out.forEach(function (s) { if (cc[1] <= s[0] || cc[0] >= s[1]) { nx.push(s); return; } if (cc[0] > s[0]) nx.push([s[0], cc[0]]); if (cc[1] < s[1]) nx.push([cc[1], s[1]]); }); out = nx; }); return out.filter(function (s) { return s[1] - s[0] > 0.3; }); }
+  function hallDado(len, DH) { var m = MAT.block.clone(); m.map = MAT.block.map.clone(); m.map.needsUpdate = true; m.map.repeat.set(len / 1.6, DH / 0.8); m.normalMap = MAT.block.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set(len / 1.6, DH / 0.8); return m; }
+  function hallColumn(c, x, z, alongZ) {
+    var FR = MAT.steelDark, h = HALL.h - 0.3; c.box(alongZ ? 0.26 : 0.02, h, alongZ ? 0.02 : 0.26, FR, x, h / 2, z);
+    [-0.12, 0.12].forEach(function (o) { c.box(alongZ ? 0.02 : 0.3, h, alongZ ? 0.3 : 0.02, FR, x + (alongZ ? o : 0), h / 2, z + (alongZ ? 0 : o)); });
+    c.box(0.42, 0.03, 0.42, FR, x, 0.015, z); [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]].forEach(function (b) { c.cyl(0.018, 0.03, MAT.chrome, x + b[0], 0.04, z + b[1], 6); });
+    c.box(0.46, 0.5, 0.46, MAT.hazard, x, 0.28, z).castShadow = false; c.solid(x - 0.16, x + 0.16, z - 0.16, z + 0.16, 0, h);
+  }
+  // one inside face: axis 'x' is a wall along z standing at x = at; axis 'z' a wall along x at z = at; inward points into the hall
+  function hallFace(c, axis, at, inward, a0, a1, cuts, opts) {
+    var FR = MAT.steelDark, DH = 2.4, ry = axis === 'x' ? (inward > 0 ? Math.PI / 2 : -Math.PI / 2) : (inward > 0 ? 0 : Math.PI), off = at + inward * 0.17, full = a1 - a0, c0 = (a0 + a1) / 2;
+    hallSegs(a0 + 0.3, a1 - 0.3, cuts).forEach(function (s) { var len = s[1] - s[0], mid = (s[0] + s[1]) / 2; if (axis === 'x') { c.plane(len, DH, hallDado(len, DH), off, DH / 2, mid, 0, ry); c.box(0.06, 0.05, len, FR, off + inward * 0.02, DH + 0.025, mid); } else { c.plane(len, DH, hallDado(len, DH), mid, DH / 2, off, 0, ry); c.box(len, 0.05, 0.06, FR, mid, DH + 0.025, off + inward * 0.02); } });
+    var g = at + inward * 0.22; [5.2, 6.8].forEach(function (gy) { if (axis === 'x') c.box(0.06, 0.12, full, FR, g, gy, c0); else c.box(full, 0.12, 0.06, FR, c0, gy, g); });
+    if (opts.tray) { var ty = at + inward * 0.35; if (axis === 'x') { c.box(0.3, 0.08, full - 1, FR, ty, 5.6, c0); for (var t = a0 + 1; t < a1; t += 2) c.box(0.3, 0.08, 0.04, FR, ty, 5.6, t); } else { c.box(full - 1, 0.08, 0.3, FR, c0, 5.6, ty); for (var t2 = a0 + 1; t2 < a1; t2 += 2) c.box(0.04, 0.08, 0.3, FR, t2, 5.6, ty); } }
+    for (var p = a0 + 4; p < a1 - 1; p += 8) { if (cuts.some(function (cc) { return p > cc[0] - 0.6 && p < cc[1] + 0.6; })) continue; hallColumn(c, axis === 'x' ? at + inward * 0.42 : p, axis === 'x' ? p : at + inward * 0.42, axis === 'x'); }
+    if (opts.windows) { var wy = 6.0, ww = 2.4, wh = 1.3, woff = at + inward * 0.2; for (var wp = a0 + 4; wp < a1 - 2; wp += 4) { if (cuts.some(function (cc) { return wp > cc[0] - 1.5 && wp < cc[1] + 1.5; })) continue; if (axis === 'x') { c.box(0.04, wh + 0.12, ww + 0.12, FR, woff - inward * 0.02, wy, wp); c.plane(ww, wh, MAT.skylight, woff, wy, wp, 0, ry); c.box(0.05, wh, 0.05, FR, woff + inward * 0.01, wy, wp); c.box(0.05, 0.05, ww, FR, woff + inward * 0.01, wy, wp); } else { c.box(ww + 0.12, wh + 0.12, 0.04, FR, wp, wy, woff - inward * 0.02); c.plane(ww, wh, MAT.skylight, wp, wy, woff, 0, ry); c.box(0.05, wh, 0.05, FR, wp, wy, woff + inward * 0.01); c.box(ww, 0.05, 0.05, FR, wp, wy, woff + inward * 0.01); } } }
+  }
   function hallBuild(id) { return function (c) {
-    var H = HALLS[id], h = HALL.h, cx = (H.x0 + H.x1) / 2, cz = (H.z0 + H.z1) / 2, wx = H.x1 - H.x0, wz = H.z1 - H.z0, FR = MAT.steelDark;
+    var H = HALLS[id], h = HALL.h, cx = (H.x0 + H.x1) / 2, cz = (H.z0 + H.z1) / 2, wx = H.x1 - H.x0, wz = H.z1 - H.z0, FR = MAT.steelDark, D = H.door;
+    var ownW = id !== 'hall2', ownE = id !== 'hall3';   // Hall 2 leans on the wing's east wall, Hall 3 on its west wall; those stand already
     c.box(wx + 0.6, 1.2, wz + 0.3, MAT.grey, cx, YARD_Y + 0.6, cz - 0.15);   // the plinth
     var fl = c.plane(wx, wz, MAT.floor, cx, 0.001, cz, -Math.PI / 2, 0); fl.receiveShadow = true;
-    // walls: the one it opens off already stands (the main north wall, or the wing's); the others are its own, with the dock cut out of Hall 3's west wall
+    c.plane(wx - 0.4, 0.12, MAT.trim, cx, 0.06, H.z0 + 0.16, 0, 0);   // the skirting line along the far wall
     var wallSeg = function (axis, at, a0, a1, y0, y1) { var len = a1 - a0, mid = (a0 + a1) / 2, hh = y1 - y0; if (len <= 0.01 || hh <= 0.01) return; if (axis === 'x') { c.box(len, hh, 0.3, MAT.wall, mid, y0 + hh / 2, at); c.solid(a0, a1, at - 0.15, at + 0.15, y0 === 0 ? -1 : y0, y1 + 1); } else { c.box(0.3, hh, len, MAT.wall, at, y0 + hh / 2, mid); c.solid(at - 0.15, at + 0.15, a0, a1, y0 === 0 ? -1 : y0, y1 + 1); } };
-    if (id !== 'hall4') wallSeg('x', H.z0, H.x0 - 0.15, H.x1 + 0.15, 0, h); else wallSeg('x', H.z0, H.x0 - 0.15, H.x1 + 0.15, 0, h);   // the north wall
-    // the side walls: Hall 3's west wall carries IN 3; the east wall of Hall 2 continues the main east wall; the inner walls stand against the wing's
-    var sides = id === 'hall2' ? [[H.x0, []], [H.x1, []]] : id === 'hall3' ? [[H.x0, [{ z0: DOCKS.in[2].z - DOCKS.w / 2, z1: DOCKS.in[2].z + DOCKS.w / 2, h: DOCKS.h }]], [H.x1, []]] : [[H.x0, []], [H.x1, []]];
-    sides.forEach(function (sd) { var x = sd[0], z = H.z0; sd[1].forEach(function (o) { wallSeg('z', x, z, o.z0, 0, h); wallSeg('z', x, o.z0, o.z1, o.h, h); z = o.z1; }); wallSeg('z', x, z, H.z1, 0, h); });
-    // roof, skylights, trusses, high bays
+    wallSeg('x', H.z0, H.x0 - 0.15, H.x1 + 0.15, 0, h);   // the far wall
+    var dockCut = id === 'hall3' ? [DOCKS.in[2].z - DOCKS.w / 2, DOCKS.in[2].z + DOCKS.w / 2] : null;
+    if (ownW) { if (dockCut) { wallSeg('z', H.x0, H.z0, dockCut[0], 0, h); wallSeg('z', H.x0, dockCut[0], dockCut[1], DOCKS.h, h); wallSeg('z', H.x0, dockCut[1], H.z1, 0, h); } else wallSeg('z', H.x0, H.z0, H.z1, 0, h); }
+    if (ownE) wallSeg('z', H.x1, H.z0, H.z1, 0, h);
+    // the roof: slab, inner face, three skylight strips, trusses along z, purlins across, two roof vents
     c.box(wx + 0.6, 0.3, wz + 0.6, MAT.roof, cx, h + 0.15, cz); c.plane(wx, wz, MAT.roofIn, cx, h - 0.01, cz, Math.PI / 2, 0);
-    [H.z0 + 5, H.z0 + 12, H.z0 + 17].forEach(function (z) { if (z < H.z1 - 1) { var sk = c.plane(wx - 4, 1.4, MAT.skylight, cx, h - 0.02, z, Math.PI / 2, 0); world.lampMeshes.push(sk); } });
-    for (var tz = H.z0 + 4; tz < H.z1 - 1; tz += 6) c.box(wx - 0.4, 0.5, 0.22, FR, cx, h - 0.3, tz);
-    H.lights.forEach(function (p, i) { highBay(p[0], 7.3 - 0.3, p[1]); var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l); });
-    // the doorway: a lintel on the inside, a sign both sides, bollards, a hazard strip on the floor
-    var D = H.door, dz = D.z, dcx = (D.x0 + D.x1) / 2, inside = id === 'hall4' ? -1 : 1;   // inside: which way the hall it opens off lies (+z for the main hall, -z... no: Hall 4 opens off the wing which lies at larger z)
-    c.box(D.x1 - D.x0 + 0.4, 0.14, 0.44, FR, dcx, D.h - 0.04, dz);
-    c.sign([H.name.toUpperCase()], 2.0, 0.5, dcx, D.h + 0.55, dz + 0.17, 0, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.sign([H.name.toUpperCase(), 'to the main hall'], 2.0, 0.5, dcx, D.h + 0.55, dz - 0.17, Math.PI, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' });
-    [D.x0 - 0.5, D.x1 + 0.5].forEach(function (bx) { [dz - 0.9, dz + 0.9].forEach(function (bz) { c.cyl(0.11, 1.0, MAT.yellow, bx, 0.5, bz, 10); c.cyl(0.14, 0.05, MAT.black, bx, 0.025, bz, 10); c.solid(bx - 0.12, bx + 0.12, bz - 0.12, bz + 0.12, 0, 1.0); }); });
-    c.plane(D.x1 - D.x0, 1.6, MAT.hazard, dcx, 0.0065, dz - 0.9, -Math.PI / 2, 0); c.plane(D.x1 - D.x0, 1.6, MAT.hazard, dcx, 0.0065, dz + 0.9, -Math.PI / 2, 0);
-    // floor markings: the rack block edges and a walkway along the inner wall; a hall sign high on the north wall
+    [H.z0 + 4.5, cz, H.z1 - 4.5].forEach(function (z) { var sk = c.plane(wx - 4, 1.4, MAT.skylight, cx, h - 0.02, z, Math.PI / 2, 0); world.lampMeshes.push(sk); });
+    for (var tx = Math.ceil((H.x0 + 2) / 8) * 8; tx < H.x1 - 1; tx += 8) c.box(0.25, 0.6, wz - 0.4, FR, tx, h - 0.35, cz);
+    for (var pz = H.z0 + 3; pz < H.z1 - 1; pz += 4) c.box(wx - 0.4, 0.12, 0.12, FR, cx, h - 0.1, pz);
+    [cx - wx / 4, cx + wx / 4].forEach(function (vx) { c.cyl(0.45, 0.6, MAT.steel, vx, h + 0.6, cz, 12); c.cyl(0.6, 0.15, FR, vx, h + 0.95, cz, 12); });
+    H.lights.forEach(function (p, i) { highBay(p[0], 7.0, p[1]); var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l); });
+    // the inside faces: the far wall with the tray and windows, the wall it opens off with the doorway cut, the two sides
+    var dcut = [D.x0 - 0.1, D.x1 + 0.1];
+    hallFace(c, 'z', H.z0, 1, H.x0, H.x1, [], { windows: true, tray: true });
+    hallFace(c, 'z', H.z1, -1, H.x0, H.x1, [dcut], { windows: false });
+    hallFace(c, 'x', H.x0, 1, H.z0, H.z1, dockCut ? [dockCut] : [], { windows: ownW });
+    hallFace(c, 'x', H.x1, -1, H.z0, H.z1, [], { windows: ownE });
+    // the doorway: jambs and a lintel, a strip curtain, the hall's name over it on both sides, the way out inside, bollards, hazard strips
+    var dcx = (D.x0 + D.x1) / 2, dz = D.z, dw = D.x1 - D.x0, strip = std({ color: 0xdfe8ee, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.45, side: THREE.DoubleSide }); strip.userData.noBake = true;
+    [D.x0 - 0.1, D.x1 + 0.1].forEach(function (jx) { c.box(0.2, D.h, 0.5, FR, jx, D.h / 2, dz); }); c.box(dw + 0.4, 0.14, 0.5, FR, dcx, D.h - 0.04, dz);
+    for (var sx2 = D.x0 + 0.15; sx2 < D.x1; sx2 += 0.3) { var st = c.plane(0.28, D.h - 0.2, strip, sx2, (D.h - 0.2) / 2, dz + (sx2 * 7 % 1) * 0.02 - 0.01, 0, 0); st.rotation.y = ((sx2 * 13) % 1 - 0.5) * 0.08; }
+    c.sign([H.name.toUpperCase()], 2.0, 0.5, dcx, D.h + 0.55, dz + 0.3, 0, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.sign(['WAY OUT  →  MAIN HALL'], 1.8, 0.4, dcx, D.h + 0.55, dz - 0.3, Math.PI, { w: 512, h: 112, bg: '#1e7a3a', fg: '#fff' });
+    [D.x0 - 0.6, D.x1 + 0.6].forEach(function (bx) { [dz - 0.9, dz + 0.9].forEach(function (bz) { c.cyl(0.11, 1.0, MAT.yellow, bx, 0.5, bz, 10); c.cyl(0.14, 0.05, MAT.black, bx, 0.025, bz, 10); c.solid(bx - 0.12, bx + 0.12, bz - 0.12, bz + 0.12, 0, 1.0); }); });
+    c.plane(dw, 1.6, MAT.hazard, dcx, 0.0065, dz - 0.9, -Math.PI / 2, 0); c.plane(dw, 1.6, MAT.hazard, dcx, 0.0065, dz + 0.9, -Math.PI / 2, 0);
+    // floor markings: the rack block edges, the walkway along the wall you come in by, the hall's name painted at the doorway
     var rx0 = H.rowX0 - 0.4, rx1 = H.rowX0 + H.bays * RACK.bayW + 0.4; c.plane(0.1, wz - 1, MAT.yellowLine, rx0, 0.006, cz, -Math.PI / 2, 0); c.plane(0.1, wz - 1, MAT.yellowLine, rx1, 0.006, cz, -Math.PI / 2, 0);
-    c.sign([H.name.toUpperCase(), 'DEPOT CO.'], 4.0, 1.2, cx, 5.6, H.z0 + 0.17, 0, { w: 512, h: 160, bg: '#1b232c', fg: '#f5b53d' });
-    if (id === 'hall3') { c.plane(1.6, DOCKS.w - 0.4, MAT.hazard, H.x0 + 0.8, 0.008, DOCKS.in[2].z, -Math.PI / 2, 0); }
-    void inside;
+    c.plane(wx - 1, 0.1, MAT.yellowLine, cx, 0.006, H.z1 - 1.6, -Math.PI / 2, 0); c.plane(wx - 1, 0.1, MAT.yellowLine, cx, 0.006, H.z1 - 2.8, -Math.PI / 2, 0);
+    var lbl = new THREE.MeshBasicMaterial({ map: textTex([H.name.toUpperCase()], { w: 512, h: 128, bg: '#8b8d8e', fg: '#d9a12c' }) }); c.plane(2.2, 0.55, lbl, dcx, 0.0066, dz - 2.2, -Math.PI / 2, 0);
+    if (id === 'hall3') { c.plane(1.6, DOCKS.w - 0.4, MAT.hazard, H.x0 + 0.8, 0.008, DOCKS.in[2].z, -Math.PI / 2, 0); [-1, 1].forEach(function (s) { var bz = DOCKS.in[2].z + s * (DOCKS.w / 2 + 0.5); c.cyl(0.11, 1.0, MAT.yellow, H.x0 + 1.0, 0.5, bz, 10); c.cyl(0.14, 0.05, MAT.black, H.x0 + 1.0, 0.025, bz, 10); }); }
+    // outside: the gutter and downpipes on the far wall, gutters down the sides, the painted name high on the far wall inside
+    c.box(wx + 0.4, 0.16, 0.16, FR, cx, h - 0.05, H.z0 - 0.25); [H.x0 + 1, H.x1 - 1].forEach(function (dx) { c.cyl(0.07, h + 1.1, FR, dx, (h - 1.2) / 2 + 0.05, H.z0 - 0.25, 8); });
+    if (ownW) { c.box(0.16, 0.16, wz, FR, H.x0 - 0.25, h - 0.05, cz); c.cyl(0.07, h + 1.1, FR, H.x0 - 0.25, (h - 1.2) / 2 + 0.05, H.z1 - 2, 8); } if (ownE) { c.box(0.16, 0.16, wz, FR, H.x1 + 0.25, h - 0.05, cz); c.cyl(0.07, h + 1.1, FR, H.x1 + 0.25, (h - 1.2) / 2 + 0.05, H.z1 - 2, 8); }
+    c.sign([H.name.toUpperCase(), 'DEPOT CO.'], 4.0, 1.2, cx, 4.3, H.z0 + 0.17, 0, { w: 512, h: 160, bg: '#1b232c', fg: '#f5b53d' });
   }; }
   // the shutter in a doorway the hall has not been bought for yet: a closed roller door and its sign
   function shutterBuild(id) { return function (c) {
@@ -2378,12 +2414,20 @@
     defProp('shut' + id, { label: H.name + ' shutter', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: shutterBuild(id) });
     H.rows.forEach(function (r, k) { defProp('rack' + r, { label: H.name + ' rack row ' + 'HIJKLM'[r - 20], cat: 'hall', abs: true, keep: true, fixed: true, x: H.rowX0 - RACK.x0, z: H.rowZ[k], rot: 0, build: rackBuild(r), when: function () { return hallOwned(id); } }); });
   })(hid);
+  for (var hfid in HALLS) (function (id) {
+    var H = HALLS[id], when = function () { return hallOwned(id); }, cx = (H.x0 + H.x1) / 2, D = H.door;
+    defProp('ext' + id, { label: H.name + ' extinguisher', cat: 'wall', wall: true, abs: true, keep: true, x: H.x1 - 2.5, z: H.z0 + 0.17, rot: 0, build: extinguisherBuild, when: when });
+    defProp('posterExit' + id, { label: H.name + ' fire-exit poster', cat: 'wall', wall: true, abs: true, keep: true, x: D.x1 + 1.6, z: D.z - 0.17, rot: 2, build: posterBuild('exit', 0.6, 0.9), when: when });
+    defProp('posterSmoke' + id, { label: H.name + ' no-smoking poster', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 2.5, z: H.z0 + 0.17, rot: 0, build: posterBuild('smoke', 0.6, 0.8), when: when });
+    defProp('clock' + id, { label: H.name + ' clock', cat: 'wall', wall: true, abs: true, keep: true, x: cx + 3.2, z: H.z0 + 0.3, rot: 0, build: function (c) { var f = clockBuild(0.4); f(c); }, when: when });
+    defProp('aisle' + id, { label: H.name + ' aisle sign', cat: 'hall', abs: true, keep: true, fixed: true, x: cx, z: (H.rowZ[0] + H.rowZ[1]) / 2, rot: 0, build: aisleSignBuild(H.name.toUpperCase() + ' · ' + 'HIJKLM'[H.rows[0] - 20] + ' / ' + 'HIJKLM'[H.rows[1] - 20]), when: when });
+  })(hfid);
   defProp('consoleIn2', { label: 'dock console IN 3', cat: 'wall', wall: true, abs: true, x: -29.7, z: -31.5, rot: 1, build: consoleBuild(5), when: function () { return hallOwned('hall3'); } });
   // buying a hall: it stands, its rows stand, its shutter goes, Hall 3 gets its dock door and lane, the silo moves out of Hall 3's way
   function buildHall(id) {
     var H = HALLS[id];
     if (id === 'hall3') { var sp = propPlacement('silo'); if (inRectH(sp.x, sp.z, H) || (sp.x > H.x0 - 3 && sp.x < H.x1 + 3 && sp.z > H.z0 - 3 && sp.z < H.z1 + 3)) { S.layout.silo = { x: -26, z: -50, rot: 0 }; buildProp('silo'); } if (!doors[5]) { buildDoor(5, -1, DOCKS.in[2].z); if (yard.dock) yard.dock(doors[5]); } buildProp('consoleIn2'); }
-    buildProp(id); H.rows.forEach(function (r) { buildProp('rack' + r); }); buildProp('shut' + id);
+    buildProp(id); H.rows.forEach(function (r) { buildProp('rack' + r); }); buildProp('shut' + id); ['ext', 'posterExit', 'posterSmoke', 'clock', 'aisle'].forEach(function (k) { buildProp(k + id); });
     NAV.dirty = true; shadowDirty = true; beltsChanged(); if (!edit.on) { unbakeStatic(); bakeStatic(); }
     logEvent(H.name + ' is open: ' + H.rows.length + ' rack rows of ' + H.bays + ' bays' + (id === 'hall3' ? ', and IN 3 on its west wall' : ''), 'good');
   }
@@ -3072,6 +3116,17 @@
     if (S.hand || player.tool) return;
     if (benchTake(sku, 1)) { handSet({ kind: 'box', sku: sku }); sfx('pickup'); }
   }
+  // every surplus box on the bench, and every undamaged loose box on the hall floor, back onto the racks in one go (Tyson, 2026-10-07: a save
+  // came back with a bench full of surplus and putting it back by hand was a chore)
+  function returnSurplus() {
+    var sur = benchSurplus(), moved = 0, floorN = 0;
+    for (var sku in sur) { var left = sur[sku]; for (var guard = 0; left > 0 && guard < 40; guard++) { var key = findSlotFor(sku, 1, 1); if (!key) break; var room = Math.min(left, slotSpace(key, sku)); if (room <= 0) break; benchTake(sku, room); slotAdd(key, sku, room); left -= room; moved += room; } }
+    for (var i = S.floor.length - 1; i >= 0; i--) { var f = S.floor[i]; if (f.kind !== 'box' || f.damaged || !insideHall(f.x, f.z)) continue; var k2 = findSlotFor(f.sku, 1, 1); if (!k2) continue; slotAdd(k2, f.sku, 1); S.floor.splice(i, 1); moved++; floorN++; }
+    if (moved) { S.stats.putaway += moved; sfx('crate'); toast(moved + ' surplus box' + (moved > 1 ? 'es' : '') + ' back on the racks' + (floorN ? ' (' + floorN + ' off the floor)' : ''), 'good'); logEvent('Returned ' + moved + ' surplus boxes to the racks' + (floorN ? ', ' + floorN + ' of them off the floor' : ''), 'good'); hudDirty = true; screenDirtyAll(); if (ui.panelOpen) renderPanel(); }
+    else toast('Nothing surplus to return.', '');
+    return moved;
+  }
+  function surplusCount() { var sur = benchSurplus(), n = 0; for (var k in sur) n += sur[k]; S.floor.forEach(function (f) { if (f.kind === 'box' && !f.damaged && insideHall(f.x, f.z)) n++; }); return n; }
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }
   function canPackShort(o) { var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }
@@ -4953,6 +5008,7 @@
     var dialRow = function (name, key) { rows.push({ text: '   ' + name + ' dial', sub: 'tap to step the speed', right: pct(key), key: key, dialOnly: true, btn: { label: pct(key) + ' ▸', on: true, act: function () { speedCycle(key); }, col: '#78bdf5' } }); };
     var add = function (name, status, sub, key, action) { rows.push({ text: name + '  ·  ' + status, sub: sub, right: key ? pct(key) : '', key: key, hi: status === 'run' || status === 'running' || status === 'sorting', btnIsDial: !action && !!key, btn: action || (key ? { label: pct(key) + ' ▸', on: true, act: function () { speedCycle(key); }, col: '#78bdf5' } : null) }); if (action && key) dialRow(name, key); };
     if (propInst.packline) add('Pack line', packStatus(), packPrompt(), 'packline', S.pack.jam ? { label: 'CLEAR JAM', on: true, act: packUse, col: '#ff6b5e' } : S.up.plantAuto ? { label: S.pack.auto === false ? 'AUTO OFF' : 'AUTO ON', on: true, act: function () { S.pack.auto = S.pack.auto === false; sfx('click'); }, col: S.pack.auto === false ? '#f5b53d' : '#5fd38d' } : null);
+    var surP = surplusCount(); if (surP) rows.push({ text: 'Bench surplus  ·  ' + surP + ' box' + (surP > 1 ? 'es' : ''), sub: 'boxes no open order wants, on the bench or loose on the floor', hi: true, btn: { label: 'RETURN ALL', on: true, act: function () { returnSurplus(); }, col: '#f5b53d' } });
     if (propInst.moulder) add('Moulding line', factoryStatus(), moulderPrompt(), 'moulder', { label: S.factory.jam ? 'CLEAR JAM' : S.factory.on ? 'STOP' : 'START', on: true, act: moulderUse, col: S.factory.jam ? '#ff6b5e' : S.factory.on ? '#f5b53d' : '#5fd38d' });
     if (propInst.palletiser) add('Palletiser', S.pal.n ? 'run' : 'idle', palletiserPrompt(), 'beltMain', { label: 'EJECT', on: S.pal.n > 0, act: palletiserUse, col: '#f5b53d' });
     if (propInst.baler) add('Baler', balerStatus(), balerPrompt(), 'baler', { label: 'BALE', on: S.baler.card >= BALE_NEED && !S.baler.t, act: balerUse, col: '#f5b53d' });
@@ -4980,7 +5036,7 @@
   function pcSeat() { var P = propPlacement('desk'), a = P.rot * Math.PI / 2, lx = 0, lz = -0.5; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a), yaw: a + Math.PI }; }
   function pcCamera() { var s = pcSeat(); camera.position.set(s.x, 1.33, s.z); camera.rotation.set(-0.06 + pc.look.pitch, s.yaw + pc.look.yaw, 0, 'YXZ'); player.x = s.x; player.z = s.z; }
   function pcRows(sc, rows, y0, rowH) {
-    var c = sc.ctx, maxRows = Math.floor((sc.h - y0 - 50) / rowH), start = clamp(pc.scroll, 0, Math.max(0, rows.length - maxRows)), y = y0;
+    var c = sc.ctx, maxRows = Math.floor((sc.h - y0 - 90) / rowH), start = clamp(pc.scroll, 0, Math.max(0, rows.length - maxRows)), y = y0;   // 90: the two-row taskbar
     pc.scroll = start;
     rows.slice(start, start + maxRows).forEach(function (r) {
       c.fillStyle = r.hi ? 'rgba(245,181,61,0.1)' : 'rgba(255,255,255,0.04)'; c.fillRect(16, y, sc.w - 32, rowH - 6);
@@ -4998,9 +5054,10 @@
     if (S.events.power) { c.fillStyle = '#05080a'; c.fillRect(0, 0, w, h); return; }
     scBg(c, w, h, 'rgba(120,189,245,0.18)');
     // the taskbar
-    c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(0, h - 44, w, 44);
-    PC_APPS.forEach(function (a, i) { scButton(sc, 8 + i * 98, h - 38, 92, 32, a[1] + ' ' + a[2], pc.app === a[0], function () { pc.app = a[0]; pc.scroll = 0; }, '#78bdf5'); });
-    c.fillStyle = '#a0acb8'; c.font = '13px Bahnschrift, Arial'; c.textAlign = 'right'; c.fillText('Day ' + S.day + ' · ' + fmtTime(S.time), w - 10, h - 16); c.textAlign = 'left';
+    c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(0, h - 84, w, 84);   // two rows of five since the Plant app: ten in one row left the last one a sliver
+    var perRow = Math.ceil(PC_APPS.length / 2), bw = Math.floor((w - 16 - 8 * (perRow - 1)) / perRow);
+    PC_APPS.forEach(function (a, i) { var row = Math.floor(i / perRow), col = i % perRow; scButton(sc, 8 + col * (bw + 8), h - 80 + row * 40, bw, 34, a[1] + ' ' + a[2], pc.app === a[0], function () { pc.app = a[0]; pc.scroll = 0; }, '#78bdf5'); });
+    c.fillStyle = '#a0acb8'; c.font = '12px Bahnschrift, Arial'; c.textAlign = 'right'; c.fillText('Day ' + S.day + ' · ' + fmtTime(S.time), w - 10, 14); c.textAlign = 'left';
     var app = pc.app;
     if (app === 'home') {
       scText(c, 24, 48, 'DEPOT OS', '#f5b53d', 34); scText(c, 24, 72, 'Depot Co. · ' + (S.weather ? S.weather.kind : 'clear') + ' · ' + SEASONS[season()] + (isSunday() ? ' · Sunday, closed' : ''), '#a0acb8', 14);
@@ -5294,7 +5351,7 @@
     var h = '', os = openOrders().sort(function (a, b) { return (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due; });
     h += '<h3>Orders to pack</h3>' + (os.length ? os.map(function (o) { return orderCard(o, true); }).join('') : '<p>No open orders. Boxes you leave here stay on the bench.</p>');
     var keys = Object.keys(S.bench.boxes).filter(function (k) { return S.bench.boxes[k] > 0; });
-    h += '<h3>On the bench (' + benchCount() + ' / ' + ECON.benchCap + ')</h3>' + (keys.length ? keys.map(function (k) { return '<div class="dc-card"><div class="body">' + sw(k) + ' <b>' + esc(skuName(k)) + '</b> × ' + S.bench.boxes[k] + '</div>' + btn('takeback', k, 'Take one back', '', !!S.hand) + '</div>'; }).join('') : '<p>Nothing on the bench. Bring boxes from the racks, or unload a cart here.</p>');
+    h += '<h3>On the bench (' + benchCount() + ' / ' + ECON.benchCap + ')</h3>' + (surplusCount() ? '<div class="dc-card"><div class="body"><b>' + surplusCount() + ' surplus</b><small>boxes no open order wants, on the bench or loose on the floor</small></div>' + btn('returnSurplus', '', 'Return all to the racks', 'primary') + '</div>' : '') + (keys.length ? keys.map(function (k) { return '<div class="dc-card"><div class="body">' + sw(k) + ' <b>' + esc(skuName(k)) + '</b> × ' + S.bench.boxes[k] + '</div>' + btn('takeback', k, 'Take one back', '', !!S.hand) + '</div>'; }).join('') : '<p>Nothing on the bench. Bring boxes from the racks, or unload a cart here.</p>');
     if (S.bench.parcels.length) h += '<h3>Parcels on the shelf</h3><p>' + S.bench.parcels.map(function (id) { var o = orderById(id); return o ? '#' + o.num + ' for ' + esc(clientName(o.client)) : ''; }).join(' · ') + '</p>';
     return h;
   }
@@ -5331,6 +5388,7 @@
     if (act.indexOf('dev:') === 0) { devAct(act.slice(4)); return; }
     if (act === 'pack') { var o = orderById(arg); if (o && packOrder(o)) toast('Packed #' + o.num, 'good'); }
     else if (act === 'takeback') { if (!S.hand && benchTake(arg, 1)) { handSet({ kind: 'box', sku: arg }); sfx('pickup'); } }
+    else if (act === 'returnSurplus') returnSurplus();
     else if (act === 'buy' && panel.kind !== 'catalogue') buyUpgrade(arg);
     else if (act === 'hire') { var d = STAFF_ROLES[arg]; if (d && S.level >= d.lvl && S.staff.length < staffCap()) { hireStaff(arg); toast('Hired a ' + d.name.toLowerCase(), 'good'); } }
     else if (act === 'fire') fireStaff(arg);
@@ -5838,7 +5896,7 @@
       sleepNow: sleepNow, flipBreaker: flipBreaker, inspection: inspection, prowlerCheck: prowlerCheck, drawBoard: drawBoard, introIndex: introIndex, floorY: floorY, collides: collides, route: route,
       cableUse: cableUse, cablePlugInto: cablePlugInto,
       hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, HALL: HALL, wallX: wallX, focusAlt: function () { if (focus && focus.alt) focus.alt(); }, shelfPrompt: shelfPrompt, loadPrompt: loadPrompt, cartParcels: cartParcels, dropMarker: dropMarker, updateDropMarker: updateDropMarker, dropPoint: dropPoint, BELTS: BELTS, MACH: MACH, inWing: inWing,
-      openPc: openPc, closePc: closePc, pc: pc, load: load, save: save, state: function () { return S; }, parcelExists: parcelExists, speedCycle: speedCycle, UPPER: UPPER, liftState: liftState, upperSlotFor: upperSlotFor, buildUpper: buildUpper, buildSorter: buildSorter, sortState: sortState, orderMode: orderMode, MODES: MODES, TRUCK_OUT: TRUCK_OUT, SORT: SORT, floorYAt: floorY, stageOf: stageOf, deckNightRun: deckNightRun, walkoverY: walkoverY, HALLS: HALLS, buildHall: buildHall, inAnnex: inAnnex, insideHall: insideHall, DOOR_MAP: DOOR_MAP, doorIndex: doorIndex, groundRows: groundRows, rowBays: rowBays, slotTotal: slotTotal, plantRows: plantRows, staffTrain: staffTrain, staffRaise: staffRaise, staffShiftCycle: staffShiftCycle, staffCrossCycle: staffCrossCycle, shiftStart: shiftStart, staffCap: staffCap, activeClients: activeClients,
+      openPc: openPc, closePc: closePc, pc: pc, load: load, save: save, state: function () { return S; }, parcelExists: parcelExists, speedCycle: speedCycle, UPPER: UPPER, liftState: liftState, upperSlotFor: upperSlotFor, buildUpper: buildUpper, buildSorter: buildSorter, sortState: sortState, orderMode: orderMode, MODES: MODES, TRUCK_OUT: TRUCK_OUT, SORT: SORT, floorYAt: floorY, stageOf: stageOf, deckNightRun: deckNightRun, walkoverY: walkoverY, HALLS: HALLS, buildHall: buildHall, returnSurplus: returnSurplus, surplusCount: surplusCount, inAnnex: inAnnex, insideHall: insideHall, DOOR_MAP: DOOR_MAP, doorIndex: doorIndex, groundRows: groundRows, rowBays: rowBays, slotTotal: slotTotal, plantRows: plantRows, staffTrain: staffTrain, staffRaise: staffRaise, staffShiftCycle: staffShiftCycle, staffCrossCycle: staffCrossCycle, shiftStart: shiftStart, staffCap: staffCap, activeClients: activeClients,
       beltSnap: beltSnap, beltFeeder: beltFeeder, BELT_PIECES: BELT_PIECES, machinePoints: machinePoints, freeStock: freeStock, benchNeed: benchNeed, benchSurplus: benchSurplus, benchBoxUse: benchBoxUse,
       myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,

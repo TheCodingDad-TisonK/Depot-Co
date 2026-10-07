@@ -128,6 +128,17 @@
     if (S.hand || player.tool) return;
     if (benchTake(sku, 1)) { handSet({ kind: 'box', sku: sku }); sfx('pickup'); }
   }
+  // every surplus box on the bench, and every undamaged loose box on the hall floor, back onto the racks in one go (Tyson, 2026-10-07: a save
+  // came back with a bench full of surplus and putting it back by hand was a chore)
+  function returnSurplus() {
+    var sur = benchSurplus(), moved = 0, floorN = 0;
+    for (var sku in sur) { var left = sur[sku]; for (var guard = 0; left > 0 && guard < 40; guard++) { var key = findSlotFor(sku, 1, 1); if (!key) break; var room = Math.min(left, slotSpace(key, sku)); if (room <= 0) break; benchTake(sku, room); slotAdd(key, sku, room); left -= room; moved += room; } }
+    for (var i = S.floor.length - 1; i >= 0; i--) { var f = S.floor[i]; if (f.kind !== 'box' || f.damaged || !insideHall(f.x, f.z)) continue; var k2 = findSlotFor(f.sku, 1, 1); if (!k2) continue; slotAdd(k2, f.sku, 1); S.floor.splice(i, 1); moved++; floorN++; }
+    if (moved) { S.stats.putaway += moved; sfx('crate'); toast(moved + ' surplus box' + (moved > 1 ? 'es' : '') + ' back on the racks' + (floorN ? ' (' + floorN + ' off the floor)' : ''), 'good'); logEvent('Returned ' + moved + ' surplus boxes to the racks' + (floorN ? ', ' + floorN + ' of them off the floor' : ''), 'good'); hudDirty = true; screenDirtyAll(); if (ui.panelOpen) renderPanel(); }
+    else toast('Nothing surplus to return.', '');
+    return moved;
+  }
+  function surplusCount() { var sur = benchSurplus(), n = 0; for (var k in sur) n += sur[k]; S.floor.forEach(function (f) { if (f.kind === 'box' && !f.damaged && insideHall(f.x, f.z)) n++; }); return n; }
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }
   function canPackShort(o) { var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }
