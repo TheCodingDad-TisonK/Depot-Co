@@ -11,7 +11,7 @@ You clock in at 06:00 with $600, two rack rows and a pallet jack. The intro in t
 1. **07:30, the first truck.** Walk to dock **IN 1** on the west wall and open the door: `E` on the door itself or on the green button beside it. The truck backs in and the driver waits. It leaves at 11:30 whether you have emptied it or not, and anything still on it goes back unpaid.
 2. **Unload.** Walk into the trailer. `E` on a pallet takes one box; carry it to a rack and `E` on a slot puts it there. Or grab the pallet jack from the receiving square, `E` on a pallet lifts the whole thing, and `E` on a floor-level slot sets it in. You are paid $12 the moment a pallet is touched.
 3. **The racks.** A slot holds up to twelve boxes of one line. Floor and shelf levels are hand-reachable. The top level needs the forklift. The scanner (`Tab`, page 2) suggests a slot for every pallet.
-4. **The scanner.** `Tab` raises it. Page 1 is the pick list with the slot of every line, page 2 what is still on the truck and where it should go, page 3 the stock, page 4 the day. Point it at a rack slot and the bottom line reads that slot. `1`-`4` or the mouse wheel turn the pages.
+4. **The scanner.** `Tab` raises it. Eight pages on the number keys: Home with the day and the alerts, Orders with every line and the slot to pick it from, Picks (one list for every open order, in walking order), Putaway (what is on the docked trucks and where each pallet should go), Stock, Docks (every door, its lane, its truck and its shipping bay), Plant (every machine, jams first) and Crew. The wheel moves the cursor down the page; `F` sets a waypoint on the highlighted row, a green ring and beam on the floor with the heading and the distance on the HUD, and it clears itself when you get there (`X` clears it sooner). Point the beam at a rack slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it.
 5. **08:30, the first order.** It shows on the office PC, the wall board above the office, and the scanner (page 1), with the lines, the due time and the pay. The due time is the departure of an outbound truck.
 6. **Pick.** Walk to the slot the scanner names and `E` takes a box. Carry it to the **packing bench** on the east side and `E` puts it down. One box per trip until you buy the cart.
 7. **Pack.** The terminal at the end of the bench lists the orders. Pick one and release it to the pack line: its boxes ride the infeed belt into the case taper, and the parcel rolls down the outfeed onto the gravity shelf at the end of the line. An order with at least half its boxes can be released short for 60% of the pay.
@@ -139,7 +139,7 @@ Build mode (`F2`), then `C`: the Conveyors group sells belts by the piece, strai
 
 ## Keys
 
-`WASD` move · `Shift` run · `Space` jump · `E` use · `G` put down or let go · `Tab` scanner · `1`-`4` scanner pages · `Esc` pause · `F3` FPS · `F12` screenshot · `F11` fullscreen. Forklift: `W S` drive, `A D` steer, `R F` forks, `E` lift or set down, `G` get off.
+`WASD` move · `Shift` run · `Space` jump · `E` use · `G` put down or let go · `Tab` scanner · `1`-`8` its pages, the wheel its cursor, `F` a waypoint, `X` clears it · `Esc` pause · `F3` FPS · `F12` screenshot · `F11` fullscreen. Forklift: `W S` drive, `A D` steer, `R F` forks, `E` lift or set down, `G` get off.
 
 ## Pallet jacks and empty pallets
 

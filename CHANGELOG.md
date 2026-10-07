@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.15.0 (2026-10-07)
+
+The hand scanner is a terminal in your hand.
+
+**New**
+- Eight pages on the number keys: Home (the day, the bank, the trucks and the alerts), Orders (every open line with the slot to pick it from), Picks (one pick list for every open order, in walking order), Putaway (what is on the docked trucks and where each pallet should go), Stock, Docks (every door, its lane, its truck, its shipping bay and what waits to ship), Plant (every machine, jams first) and Crew.
+- A cursor. The mouse wheel moves it down the page and the page scrolls with it.
+- Waypoints. F sets one on the highlighted row: a green ring and a beam stand on the floor where you need to go, the HUD shows the heading arrow and the distance, and the waypoint clears itself when you arrive. X clears it sooner, with the scanner up or down. A waypoint on a crew member follows them around.
+- The beam readout. Point the scanner at a rack slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it: what it is, how many, where it goes.
+- The LED on the scanner pulses while a waypoint is set.
+
+**Changes**
+- Rows too long for the display end in an ellipsis instead of running off the edge.
+- The intro step, the help page and the Player Guide describe the new scanner.
+
 ## 1.14.2 (2026-10-07)
 
 OUT 3 is open from the inside.

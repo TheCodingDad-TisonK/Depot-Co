@@ -98,6 +98,7 @@
     for (var i = 0; i < hits.length; i++) {
       var h = hits[i], def = h.object.userData.it || srcDef(instSource(h));
       if (!def) continue;
+      if (h.object.isInstancedMesh && !def.src) def.src = instSource(h); if (def.prop === undefined) def.prop = propIdOf(h.object) || null;   // the scanner reads these
       var txt = def.prompt(); if (!txt) continue;
       focus = def; focusText = txt; break;
     }
@@ -136,7 +137,10 @@
       if (e.code === 'KeyG' && !e.repeat) { if (edit.grabbed) editDrop(true); return; }
     }
     if (e.code === 'Tab') { e.preventDefault(); if (!pc.on) scanToggle(!ui.scanOpen); return; }
-    if (ui.scanOpen && /^Digit[1-4]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return; }
+    if (ui.scanOpen && /^Digit[1-8]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return; }
+    if (ui.scanOpen && e.code === 'KeyF') { e.preventDefault(); scanGo(); return; }
+    if (ui.scanOpen && e.code === 'KeyX') { e.preventDefault(); scanClearNav(); return; }
+    if (!ui.scanOpen && e.code === 'KeyX' && scan.nav && !pc.on) { scanClearNav(); return; }
     player.keys[e.code] = true;
     if (e.repeat) return;
     if (e.code === 'KeyE') useFocus();
@@ -144,6 +148,6 @@
     else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving && !e.repeat) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
-  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });
+  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanScroll(e.deltaY > 0 ? 1 : -1); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });
   function screenUnderCrosshair() { for (var i = 0; i < screens.length; i++) { if (!screens[i].mesh.visible) continue; if (ray.intersectObject(screens[i].mesh, false).length) return screens[i]; } return null; }
   window.addEventListener('blur', function () { player.keys = {}; });

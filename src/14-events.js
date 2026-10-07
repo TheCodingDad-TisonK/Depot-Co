@@ -117,7 +117,7 @@
     ['sign', 'When the truck is in and the dock door is up, the driver walks in and waits beside the door. Press <b>E</b> on him to sign the delivery note. Nothing comes off until you do.'],
     ['unload', 'Walk into the trailer. Take a box off a pallet with <b>E</b>, or grab the pallet jack from its bay by the receiving square and lift a whole pallet.'],
     ['putaway', 'Put it on a rack: look at a slot and press <b>E</b>. Row A, floor level, is nearest. A slot holds 12 boxes of one line.'],
-    ['scanner', 'Press <b>Tab</b>. The scanner in your hand lists the orders, what is still on the truck, and where every line is stored.'],
+    ['scanner', 'Press <b>Tab</b>. The scanner in your hand has eight pages on the number keys: the orders and their slots, the pick list, what is still on the truck, the stock, the docks, the plant, the crew. The wheel moves the cursor and <b>F</b> sets a waypoint on the highlighted row.'],
     ['order', 'Orders arrive from 08:30 on the office PC (sit down at the desk), the wall board and the scanner. Wait for the first one.'],
     ['pick', 'Take the boxes the order needs off the rack (<b>E</b> on the slot). One box per trip until you buy the cart.'],
     ['bench', 'Carry them to the <b>packing bench</b> on the east side and press E to put them down.'],
