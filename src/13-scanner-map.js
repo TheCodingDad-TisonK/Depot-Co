@@ -16,7 +16,7 @@
     var rect = function (x0, x1, z0, z1, fill, stroke, dash) { c.beginPath(); c.rect(X(Math.min(x0, x1)), Z(Math.min(z0, z1)), Math.abs(x1 - x0) * s, Math.abs(z1 - z0) * s); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = 1; if (dash) c.setLineDash([3, 3]); c.stroke(); c.setLineDash([]); } };
     var label = function (t, wx, wz, col, size, align) { c.fillStyle = col || '#a0acb8'; c.font = (size || 8) + 'px Bahnschrift, Arial, sans-serif'; c.textAlign = align || 'center'; c.fillText(t, X(wx), Z(wz)); c.textAlign = 'left'; };
     c.fillStyle = '#0f151b'; c.fillRect(x, y, w, h);
-    c.fillStyle = 'rgba(255,255,255,0.035)'; c.fillRect(X(-HALL.x - 16), Z(-17), 16 * s, 14 * s); c.fillRect(X(HALL.x), Z(-25), 16 * s, 22 * s);   // the aprons the trucks back onto
+    c.fillStyle = 'rgba(255,255,255,0.035)'; c.fillRect(X(-HALL.x - 16), Z(-17), 16 * s, 14 * s); c.fillRect(X(HALL.x), Z(returnsHall() ? -37 : -25), 16 * s, (returnsHall() ? 34 : 22) * s);   // the aprons the trucks back onto (the east one reaches the returns dock once the returns hall is open)
     var FLOOR = 'rgba(120,140,160,0.13)', WALL = 'rgba(200,215,230,0.55)';
     rect(-HALL.x, HALL.x, -HALL.z, HALL.z, FLOOR, WALL);
     rect(WING.x0, WING.x1, WING.z0, WING.z1, FLOOR, WALL); label('WING', (WING.x0 + WING.x1) / 2, WING.z0 + 3.2, '#6b7784', 8);
@@ -28,11 +28,11 @@
     // the rack rows you own, lettered, and the upper row
     groundRows().forEach(function (r) { var p0 = rackSlotPos(r, 0, 0), p1 = rackSlotPos(r, rowBays(r) - 1, 0), lo = Math.min(p0.x, p1.x) - RACK.bayW / 2, hi = Math.max(p0.x, p1.x) + RACK.bayW / 2; rect(lo, hi, p0.z - RACK.depth / 2, p0.z + RACK.depth / 2, 'rgba(245,181,61,0.55)', null); label(rowLetter(r), lo - 1.0, p0.z + 1.0, '#f5b53d', 7, 'right'); });
     // the docks: a notch on the wall in the lane colour, the label, and the truck when one is in
-    DOOR_MAP.forEach(function (dm, i) { var d = doors[i]; if (!d) return; var lane = dockLane(i), col = lane ? lane.col : '#f5b53d', own = dm.dir === 'in' || dockOwned(dm.dock), wx = d.side * HALL.x;
+    DOOR_MAP.forEach(function (dm, i) { var d = doors[i]; if (!d) return; var lane = dockLane(i), col = lane ? lane.col : '#f5b53d', own = doorOwned(i), wx = d.side * HALL.x;
       c.fillStyle = own ? col : 'rgba(255,255,255,0.15)'; c.fillRect(X(wx) - 2, Z(d.z - DOCKS.w / 2), 4, DOCKS.w * s); label(dockLabel(i), wx + d.side * 2.4, d.z + 1.4, own ? col : '#6b7784', 7, d.side < 0 ? 'right' : 'left');
       var t = truckAtDoor(i); if (t) { var tb = trailerBounds(t); rect(tb.x0, tb.x1, tb.z0, tb.z1, 'rgba(238,241,245,0.7)', null); var cx0 = t.x + t.side * TRAILER.len, cx1 = t.x + t.side * (TRAILER.len + 3.2); rect(cx0, cx1, t.z - 1.2, t.z + 1.2, col, null); } });
     // the things worth finding
-    [['bench', 'BENCH'], ['returnsDesk', 'RETURNS'], ['palletiser', 'PALLETISER'], ['moulder', 'MOULDER'], ['agvDock', 'AGV DOCK'], ['timeclock', 'CLOCK'], ['cot', 'COT'], ['empties', 'EMPTIES'], ['wrapper', 'WRAP'], ['baler', 'BALER'], ['desk', 'PC']].forEach(function (p) { if (!propInst[p[0]] || propPlacement(p[0]).hidden) return; var P = propPlacement(p[0]); c.fillStyle = 'rgba(238,241,245,0.5)'; c.fillRect(X(P.x) - 2, Z(P.z) - 2, 4, 4); label(p[1], P.x, P.z - 1.2, '#a0acb8', 6); });
+    [['bench', 'BENCH'], ['returnsDesk', 'RETURNS'], ['retDesk1', 'RETURNS'], ['retCage', 'RESTOCK'], ['palletiser', 'PALLETISER'], ['moulder', 'MOULDER'], ['agvDock', 'AGV DOCK'], ['timeclock', 'CLOCK'], ['cot', 'COT'], ['empties', 'EMPTIES'], ['wrapper', 'WRAP'], ['baler', 'BALER'], ['desk', 'PC']].forEach(function (p) { if (!propInst[p[0]] || propPlacement(p[0]).hidden) return; var P = propPlacement(p[0]); c.fillStyle = 'rgba(238,241,245,0.5)'; c.fillRect(X(P.x) - 2, Z(P.z) - 2, 4, 4); label(p[1], P.x, P.z - 1.2, '#a0acb8', 6); });
     // the forklift, the AGV, the crew
     if (S.up.fork) { c.fillStyle = '#f5b53d'; c.fillRect(X(S.fork.x) - 3, Z(S.fork.z) - 3, 6, 6); }
     if (S.up.agv && S.agv) { c.fillStyle = '#78bdf5'; c.fillRect(X(S.agv.x) - 2.5, Z(S.agv.z) - 2.5, 5, 5); }

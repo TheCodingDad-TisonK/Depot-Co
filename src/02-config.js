@@ -94,7 +94,7 @@
     { id: 'sorter',    name: 'Sortation deck and air dock', price: 7500, lvl: 6, needs: 'upper', desc: 'Every parcel off the pack line rides a spiral up to the deck and along the sorter: a scanner reads its lane, three cells crate it for the sea, strap it for the land or bag it for the air, and spirals drop it into the right dock loader by itself: sea at OUT 1, land at OUT 2, air at the new OUT 3, which opens with this and brings the air-freight clients, who pay half as much again. No more forwarding fees for parcels out of the wrong door. Three deck accounts start ordering: bigger orders at a third more.' },
     { id: 'deckNight', name: 'Deck night shift',       price: 1800, lvl: 6, needs: 'sorter', desc: 'The deck keeps running while you sleep: every parcel on the shelf and on the deck belts is sorted by morning and staged beside the loader of its lane, and the first truck of each lane loads them from the bays by itself.' },
     // 1.14.0: the annex halls, bought one after another off the north side
-    { id: 'hall2', name: 'Hall 2 (east annex)',            price: 9000, lvl: 7, needs: 'fork',  desc: 'A second hall off the north wall, east of the production wing: 26 by 20 metres, two rack rows of seven bays on three levels, its own roof lights. Storage for the forklift, the AGV and the crew; the cranes stay over the main rows. The doorway is already cut, this opens the shutter.' },
+    { id: 'hall2', name: 'Returns hall (east annex)',      price: 9000, lvl: 7, needs: 'fork',  desc: 'A second hall off the north wall, east of the production wing, given over to returns: a returns dock of its own on the east wall with a truck twice a day, the belt that carries the returns off the trailer to the intake, three inspection desks, the restock cage and a compactor for the damaged ones. The desk by the bench goes. The doorway is already cut, this opens the shutter.' },
     { id: 'hall3', name: 'Hall 3 (west annex) and IN 3',   price: 9500, lvl: 7, needs: 'hall2', desc: 'A third hall west of the wing with two rows of five bays and a third inbound dock, IN 3, on its west wall: a third truck a day, straight into the new rows. The silo moves out of its way.' },
     { id: 'hall4', name: 'Hall 4 (behind the wing)',       price: 9500, lvl: 8, needs: 'hall3', desc: 'The back hall, through the north wall of the production wing: 24 by 20 metres and two more rows of seven bays. The far end of the building.' }
   ];
@@ -116,19 +116,19 @@
   var WALL_SHIFT = HALL.x - 30;
   function wallX(x, z, yard) { var ax = Math.abs(x); var move = yard ? (ax >= 22.1 && Math.abs(z) < HALL.z + 2) : (ax >= 22.1 && ax < 30.5); return move ? x + (x < 0 ? -WALL_SHIFT : WALL_SHIFT) : x; }
   var RACK = { rows: [-10.9, -4.3, 2.3, 8.9, 15.5], bays: 15, bayW: 3, x0: -24, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // rows 6.6 m apart, biased south so row E and its crane clear the office front at z 18.5; a sixth row at z -17.5 stood here until 1.13.3 (Tyson wanted the receiving side open); levels: the y of the pallet base; top is forklift-only
-  var DOCKS = { in: [{ z: -14 }, { z: -6 }, { z: -34 }], out: [{ z: -14 }, { z: -6 }, { z: -21.6 }], w: 3.6, h: 4.2 };   // IN 3 (z -34) is in Hall 3's west wall and exists once Hall 3 does
+  var DOCKS = { in: [{ z: -14 }, { z: -6 }, { z: -34 }], out: [{ z: -14 }, { z: -6 }, { z: -21.6 }], ret: [{ z: -34 }], w: 3.6, h: 4.2 };   // the returns dock (z -34) is in the returns hall's east wall and exists once that hall does   // IN 3 (z -34) is in Hall 3's west wall and exists once Hall 3 does
   // the dock doors by index, in the order the save keeps them: IN 1, IN 2, OUT 1, OUT 2, OUT 3 (1.14.0), IN 3 (1.14.0, Hall 3). Never i % 2 again.
-  var DOOR_MAP = [{ dir: 'in', dock: 0 }, { dir: 'in', dock: 1 }, { dir: 'out', dock: 0 }, { dir: 'out', dock: 1 }, { dir: 'out', dock: 2 }, { dir: 'in', dock: 2 }];
+  var DOOR_MAP = [{ dir: 'in', dock: 0 }, { dir: 'in', dock: 1 }, { dir: 'out', dock: 0 }, { dir: 'out', dock: 1 }, { dir: 'out', dock: 2 }, { dir: 'in', dock: 2 }, { dir: 'ret', dock: 0 }];   // 6: the returns dock, east wall of the returns hall
   function doorIndex(dir, dock) { for (var i = 0; i < DOOR_MAP.length; i++) if (DOOR_MAP[i].dir === dir && DOOR_MAP[i].dock === dock) return i; return -1; }   // OUT 3 (air) at the north end of the east wall, under the deck, since 1.14.0
   var YARD_Y = -1.2;
   var SKYLIGHT_Z = [-14, -7, 0, 7, 14];   // the roof lights and the shafts under them
   var TRAILER = { len: 12, w: 2.5, h: 2.7 };
   var SPOT = {
     bench: { x: 26.6, z: 5.2 }, benchOut: { x: 26.6, z: 7.2 },
-    stageIn: { x: -26, z: -10 }, stageOut: { x: 26, z: -10 },
+    stageIn: { x: -26, z: -10 }, stageOut: { x: 23, z: 0 },   // stageOut lands at x 29 after the wall shift: by OUT 2, between the land spiral and the bench (it sat under the sea spiral from 1.14 to 1.16)
     pc: { x: 27.5, z: 21.8 }, breaker: { x: 29.7, z: 19.6 },
     cot: { x: -27.2, z: 22.2 }, coffee: { x: -29.4, z: 19.3 },
-    jack: { x: -27.8, z: -18.0 }, jack2: { x: 27.8, z: -18.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 20.5 },   // one jack by the IN docks, one by the OUT docks, the cart on the west wall
+    jack: { x: -27.8, z: -18.0 }, jack2: { x: 27.8, z: -18.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 21.2 },   // one jack by the IN docks, one by the OUT docks, the cart on the west wall
     spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }
   };
   for (var spk in SPOT) SPOT[spk].x = wallX(SPOT[spk].x, SPOT[spk].z, false);   // authored against the 30 m walls

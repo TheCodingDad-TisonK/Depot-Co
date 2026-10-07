@@ -15,7 +15,7 @@
   function buildTruckMesh(t) {
     var g = new THREE.Group(), side = t.side, L = function (x) { return x * side; }, len = TRAILER.len, w = TRAILER.w, h = TRAILER.h;
     g.userData.dynamic = true;
-    var paint = t.color === 'red' ? MAT.truckRed : t.color === 'blue' ? MAT.truckBlue : MAT.green, TRM = t.mode === 'sea' ? MAT.container : MAT.trailer, fz = t.dir === 'out' && t.dock === 2 ? -1 : 1;   // a sea truck carries a container; OUT 3 sits in the corner, so its landing and driver route mirror to the north side
+    var paint = t.color === 'red' ? MAT.truckRed : t.color === 'blue' ? MAT.truckBlue : MAT.green, TRM = t.mode === 'sea' ? MAT.container : MAT.trailer, fz = dockStepSide(doorIndex(t.dir, t.dock));   // a sea truck carries a container; OUT 3 sits in the corner, so its landing and driver route mirror to the north side
     // the trailer: floor, lined walls, ribbed outside, roof, rear frame with the doors folded back, chassis, wheels and guards
     box(len, 0.12, w, MAT.steelDark, L(len / 2), -0.06, 0, g); plane(len - 0.2, w - 0.2, MAT.wood, L(len / 2), 0.005, 0, -Math.PI / 2, 0, g);
     [-1, 1].forEach(function (s) { box(len, h, 0.06, TRM, L(len / 2), h / 2, s * (w / 2 + 0.03), g); var lin = plane(len - 0.1, h - 0.1, MAT.lining, L(len / 2), h / 2, s * (w / 2 - 0.005), 0, s > 0 ? Math.PI : 0, g); lin.receiveShadow = false; for (var rb = 1; rb < len; rb += 1.5) box(0.04, h - 0.2, 0.06, MAT.steelDark, L(rb), h / 2, s * (w / 2 + 0.06), g); });
@@ -52,7 +52,7 @@
     [-1, 1].forEach(function (s) { var dp = plane(len, 0.6, dirtMat, L(len / 2), 0.3, s * (w / 2 + 0.065), 0, s > 0 ? 0 : Math.PI, g); dp.renderOrder = 1; var dc = plane(2.6, 0.6, dirtMat, L(len + 1.7), 0.0, s * 1.21, 0, s > 0 ? 0 : Math.PI, g); dc.renderOrder = 1; });
     groundBlob(len + 4, 3.4, L(len / 2 + 1.5), 0, g, YARD_Y);
     // the client's name on both sides of the trailer, and the haulier on the cab door
-    var cname = t.dir === 'in' ? clientName(t.client) : (MODES[t.mode] || MODES.land).haulier;
+    var cname = t.dir === 'in' ? clientName(t.client) : t.dir === 'ret' ? 'DEPOT CO. RETURNS' : (MODES[t.mode] || MODES.land).haulier;
     if (t.dir === 'out' && t.mode === 'sea') { [[0.1, -1], [len - 0.1, -1], [0.1, 1], [len - 0.1, 1]].forEach(function (p) { box(0.2, 0.2, 0.2, MAT.steelDark, L(p[0]), 0.1, p[1] * (w / 2 + 0.02), g); box(0.2, 0.2, 0.2, MAT.steelDark, L(p[0]), h - 0.1, p[1] * (w / 2 + 0.02), g); }); }   // a container's corner castings
     if (t.dir === 'out' && t.mode === 'air') { [-1, 1].forEach(function (s) { plane(len - 0.2, 0.22, std({ color: 0x3fa7d6, roughness: 0.5 }), L(len / 2), 2.45, s * (w / 2 + 0.075), 0, s > 0 ? 0 : Math.PI, g); plane(len - 0.2, 0.1, std({ color: 0xff6b5e, roughness: 0.5 }), L(len / 2), 2.25, s * (w / 2 + 0.075), 0, s > 0 ? 0 : Math.PI, g); }); }   // the air carrier's livery band
     if (!clientSignTex[cname]) clientSignTex[cname] = textTex([cname], { w: 1024, h: 160, bg: '#e6e8ea', fg: t.dir === 'in' ? '#2c5f9e' : '#1b232c', size: 80 });
@@ -60,7 +60,7 @@
     [-1, 1].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.25), sm); p.position.set(L(len / 2), 1.7, s * (w / 2 + 0.07)); p.rotation.y = s > 0 ? 0 : Math.PI; g.add(p); });
     [-1, 1].forEach(function (s) { sign([t.driver.toUpperCase() + ' HAULAGE'], 1.4, 0.3, L(len + 1.5), 0.4, s * 1.22, s > 0 ? 0 : Math.PI, { w: 512, h: 96, bg: '#1b232c', fg: '#eef1f5' }, g); });
     // the loading zone inside an outbound trailer
-    if (t.dir === 'out') hitBox(3.0, 2.4, w - 0.2, L(1.8), 1.25, 0, { truck: t.id, prompt: function () { return loadPrompt(t.id); }, use: function () { loadUse(t.id); } }, g);
+    if (t.dir !== 'in') hitBox(3.0, 2.4, w - 0.2, L(1.8), 1.25, 0, { truck: t.id, prompt: function () { return loadPrompt(t.id); }, use: function () { loadUse(t.id); } }, g);
     // the driver: climbs out when docked, walks to the dock with the paperwork, and waits there
     var drv = makeHuman({ cap: true, capMat: paint, vest: Math.random() < 0.5 ? MAT.hivis : null }); drv.position.set(L(len + 1.4), YARD_Y, -2.1 * fz); drv.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2; drv.visible = false; g.add(drv);
     box(0.22, 0.3, 0.02, MAT.wood, 0.16, 1.05, 0.2, drv); box(0.2, 0.26, 0.01, MAT.paper, 0.16, 1.05, 0.215, drv);
@@ -90,11 +90,11 @@
     while (S.factory && S.factory.rawOrdered > 0 && t.pallets.length < 8) { var rp = newPallet('raw', 8, { place: 'truck', truck: t.id, idx: t.pallets.length, x: 0, z: 0 }); t.pallets.push(rp.id); S.factory.rawOrdered--; }
   }
   function spawnTruck(dir, dock, leaveH) {
-    var side = dir === 'in' ? -1 : 1, z = (dir === 'in' ? DOCKS.in : DOCKS.out)[dock].z;
+    var side = dir === 'in' ? -1 : 1, z = (dir === 'in' ? DOCKS.in : dir === 'ret' ? DOCKS.ret : DOCKS.out)[dock].z;   // the returns truck docks on the east side, in the returns hall's wall
     var t = { id: uid('tr'), num: S.truckSeq++, dir: dir, dock: dock, side: side, z: z, x: side * 100, state: 'coming', mode: dir === 'out' ? TRUCK_OUT[dock].mode : null, returns: [], arrived: 0, leave: leaveH, day: S.day, pallets: [], parcels: [], driver: pick(DRIVER_NAMES), color: pick(['red', 'blue', 'green']), unloaded: 0, doneAt: 0 };
-    if (dir === 'in') inboundLoad(t); else truckReturns(t);
+    if (dir === 'in') inboundLoad(t); else if (dir === 'ret') retTruckLoad(t); else truckReturns(t);
     S.trucks.push(t); buildTruckMesh(t); sfx('truck');
-    logEvent((dir === 'in' ? 'Inbound truck coming to ' : 'Outbound truck coming to ') + dockLabel(doorIndex(dir, dock)));
+    logEvent((dir === 'in' ? 'Inbound truck coming to ' : dir === 'ret' ? 'The returns truck is coming to ' : 'Outbound truck coming to ') + dockLabel(doorIndex(dir, dock)));
     return t;
   }
   function tickTrucks(dt) {
@@ -102,17 +102,21 @@
     var inDocks = isSunday() ? [] : [0].concat(S.up.dock2 ? [1] : []).concat(S.up.hall3 ? [2] : []);   // IN 3 with Hall 3
     TRUCK_IN.forEach(function (h, k) { inDocks.forEach(function (dock) { var f = 'in' + S.day + '-' + k + '-' + dock; if (!S.flags[f] && S.time >= h - 0.25 && S.time < h + 1.5) { S.flags[f] = 1; if (!truckAtDoor(doorIndex('in', dock)) && !S.trucks.some(function (t) { return t.dir === 'in' && t.dock === dock && t.state !== 'leaving'; })) spawnTruck('in', dock, h + TRUCK_WAIT); } }); });
     TRUCK_OUT.forEach(function (dk, k) { if (isSunday() || !dockOwned(k)) return; dk.windows.forEach(function (w, wi) { var f = 'out' + S.day + '-' + k + '-' + wi; if (!S.flags[f] && S.time >= w.arrive - 0.25 && S.time < w.leave - 0.3) { S.flags[f] = 1; if (!S.trucks.some(function (t) { return t.dir === 'out' && t.dock === k && t.state !== 'leaving'; })) spawnTruck('out', k, w.leave); } }); });   // one lane a dock, two windows a day
+    if (!isSunday() && returnsHall() && returnsOn() && S.shipped.length) TRUCK_RET.forEach(function (h, k) { var f = 'ret' + S.day + '-' + k; if (!S.flags[f] && S.time >= h - 0.25 && S.time < h + 1.5) { S.flags[f] = 1; if (!truckAtDoor(6) && !S.trucks.some(function (t) { return t.dir === 'ret' && t.state !== 'leaving'; })) spawnTruck('ret', 0, h + TRUCK_WAIT); } });   // the returns truck, twice a day once the returns hall is open
     // movement and waiting
     for (var i = S.trucks.length - 1; i >= 0; i--) {
       var t = S.trucks[i], m = truckMeshes[t.id]; if (!m) { buildTruckMesh(t); m = truckMeshes[t.id]; }
       if (t.state === 'coming') {
         var dx = truckDockX(t.side), dirn = dx > t.x ? 1 : -1; t.x += dirn * 7 * dt;
-        if ((dirn > 0 && t.x >= dx) || (dirn < 0 && t.x <= dx)) { t.x = dx; t.state = 'docked'; t.arrived = S.time; sfx('airbrake'); if (t.dir === 'in') { toast('Truck at ' + dockLabel(doorIndex('in', t.dock)) + ': ' + t.pallets.length + ' pallets from ' + clientName(t.client), 'rare'); logEvent(t.driver + ' docked at ' + dockLabel(doorIndex('in', t.dock)) + ' with ' + t.pallets.length + ' pallets'); introStep('truck'); } else { toast('Outbound ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck at ' + dockLabel(doorIndex('out', t.dock)) + ' · leaves ' + fmtTime(t.leave) + (t.returns && t.returns.length ? ' · ' + t.returns.length + ' return' + (t.returns.length > 1 ? 's' : '') + ' aboard' : ''), 'rare'); logEvent('Outbound ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck at ' + dockLabel(doorIndex('out', t.dock)) + ', leaves at ' + fmtTime(t.leave)); } rebuildBoardSoon(); }
+        if ((dirn > 0 && t.x >= dx) || (dirn < 0 && t.x <= dx)) { t.x = dx; t.state = 'docked'; t.arrived = S.time; sfx('airbrake'); if (t.dir === 'in') { toast('Truck at ' + dockLabel(doorIndex('in', t.dock)) + ': ' + t.pallets.length + ' pallets from ' + clientName(t.client), 'rare'); logEvent(t.driver + ' docked at ' + dockLabel(doorIndex('in', t.dock)) + ' with ' + t.pallets.length + ' pallets'); introStep('truck'); } else if (t.dir === 'ret') { toast('Returns truck at the returns dock: ' + t.returns.length + ' return' + (t.returns.length === 1 ? '' : 's') + ' to inspect · leaves ' + fmtTime(t.leave), 'rare'); logEvent('The returns truck docked with ' + t.returns.length + ' returns, leaves at ' + fmtTime(t.leave)); } else { toast('Outbound ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck at ' + dockLabel(doorIndex(t.dir, t.dock)) + ' · leaves ' + fmtTime(t.leave) + (t.returns && t.returns.length ? ' · ' + t.returns.length + ' return' + (t.returns.length > 1 ? 's' : '') + ' aboard' : ''), 'rare'); logEvent('Outbound ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck at ' + dockLabel(doorIndex(t.dir, t.dock)) + ', leaves at ' + fmtTime(t.leave)); } rebuildBoardSoon(); }
       } else if (t.state === 'docked') {
         if (!t.warned && S.time >= t.leave - 0.5 && S.time < t.leave) { t.warned = true; truckWarn(t); }   // half an hour's notice
         if (t.dir === 'in') {
           var left = S.pallets.some(function (p) { return p.place === 'truck' && p.truck === t.id && p.n > 0; });
           if (!left) { if (!t.doneAt) t.doneAt = S.time; if (S.time >= t.doneAt + 0.25) truckLeave(t, 'done'); }
+          else if (S.time >= t.leave) truckLeave(t, 'timeout');
+        } else if (t.dir === 'ret') {
+          if (!(t.returns && t.returns.length)) { if (!t.doneAt) t.doneAt = S.time; if (S.time >= t.doneAt + 0.25) truckLeave(t, 'done'); }   // emptied: a quarter hour and it goes
           else if (S.time >= t.leave) truckLeave(t, 'timeout');
         } else if (S.time >= t.leave) truckLeave(t, 'schedule');
       } else if (t.state === 'leaving') {
@@ -144,6 +148,7 @@
   function truckWarn(t) {
     var lbl = dockLabel(doorIndex(t.dir, t.dock));
     if (t.dir === 'in') { var left = S.pallets.filter(function (p) { return p.place === 'truck' && p.truck === t.id && p.n > 0; }).length; if (left) toast('The truck at ' + lbl + ' leaves in half an hour with ' + left + ' pallet' + (left > 1 ? 's' : '') + ' still aboard', 'bad'); return; }
+    if (t.dir === 'ret') { var rl = (t.returns || []).length; if (rl) toast('The returns truck leaves in half an hour with ' + rl + ' return' + (rl > 1 ? 's' : '') + ' still aboard: the driver will set them down inside the door', ''); return; }
     var waiting = S.orders.filter(function (o) { return o.state === 'packed' && orderMode(o) === t.mode; }).length;
     if (waiting) toast('The ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck at ' + lbl + ' leaves in half an hour · ' + waiting + ' ' + t.mode + ' parcel' + (waiting > 1 ? 's' : '') + ' not aboard yet', 'bad');
   }
@@ -167,11 +172,11 @@
       if (left.length) { left.forEach(function (p) { removePallet(p.id); }); addRep(-Math.min(5, 0.5 * left.length)); S.stats.lost += left.length; logEvent(left.length + ' pallet' + (left.length > 1 ? 's' : '') + ' went back on the truck unreceived', 'bad'); toast('Refused delivery: ' + left.length + ' pallet' + (left.length > 1 ? 's' : '') + ' went back', 'bad'); }
       else { logEvent(t.driver + ' left ' + dockLabel(doorIndex('in', t.dock)) + ' empty', 'good'); }
     } else {
-      if (t.parcels.length) { var n = t.parcels.length, sum = 0; t.parcels.forEach(function (oid) { var o = orderById(oid); if (o) sum += shipOrder(o, doorIndex('out', t.dock)); }); toast('Truck out with ' + n + ' parcel' + (n > 1 ? 's' : '') + ' · ' + money(sum), 'good'); logEvent('Outbound truck left ' + dockLabel(doorIndex('out', t.dock)) + ' with ' + n + ' parcel' + (n > 1 ? 's' : '') + ', ' + money(sum) + ' paid', 'good'); if (why === 'dispatched') addXp(XP.truck); }
-      else logEvent('Outbound truck left ' + dockLabel(doorIndex('out', t.dock)) + ' empty');
+      if (t.parcels.length) { var n = t.parcels.length, sum = 0; t.parcels.forEach(function (oid) { var o = orderById(oid); if (o) sum += shipOrder(o, doorIndex(t.dir, t.dock)); }); toast('Truck out with ' + n + ' parcel' + (n > 1 ? 's' : '') + ' · ' + money(sum), 'good'); logEvent('Outbound truck left ' + dockLabel(doorIndex(t.dir, t.dock)) + ' with ' + n + ' parcel' + (n > 1 ? 's' : '') + ', ' + money(sum) + ' paid', 'good'); if (why === 'dispatched') addXp(XP.truck); }
+      else logEvent((t.dir === 'ret' ? 'The returns truck left ' : 'Outbound truck left ') + dockLabel(doorIndex(t.dir, t.dock)) + ' empty');
       t.parcels = [];
       // a return nobody took off: the driver sets it down inside the door
-      if (t.returns && t.returns.length) { var rat = doorInside(doorIndex('out', t.dock)), rn = t.returns.length; t.returns.forEach(function (rid, k) { S.floor.push({ kind: 'return', id: rid, x: rat[0] - 1.3, y: 0, z: rat[1] - 0.9 + k * 0.9, rot: 0 }); }); toast(t.driver + ' set ' + rn + ' return' + (rn > 1 ? 's' : '') + ' down inside ' + dockLabel(doorIndex('out', t.dock)), ''); logEvent(rn + ' return' + (rn > 1 ? 's' : '') + ' left on the dock floor at ' + dockLabel(doorIndex('out', t.dock)) + ': take them to the returns desk'); t.returns = []; }
+      if (t.returns && t.returns.length) { var rat = doorInside(doorIndex(t.dir, t.dock)), rn = t.returns.length; t.returns.forEach(function (rid, k) { S.floor.push({ kind: 'return', id: rid, x: rat[0] - 1.3, y: 0, z: rat[1] + (t.dir === 'ret' ? 0.9 + k * 0.9 : -0.9 + k * 0.9), rot: 0 }); }); toast(t.driver + ' set ' + rn + ' return' + (rn > 1 ? 's' : '') + ' down inside ' + dockLabel(doorIndex(t.dir, t.dock)), ''); logEvent(rn + ' return' + (rn > 1 ? 's' : '') + ' left on the dock floor at ' + dockLabel(doorIndex(t.dir, t.dock)) + ': take them to the returns desk'); t.returns = []; }
     }
     // nobody rides along
     var b = trailerBounds(t);
@@ -180,6 +185,7 @@
     // nothing else rides along either: a box, a parcel, a pallet or a tool left in the trailer is set down inside the door
     var inT = function (o) { return o && typeof o.x === 'number' && o.x > b.x0 - 0.3 && o.x < b.x1 + 0.3 && Math.abs((o.z || 0) - t.z) < 1.6; };
     S.floor.concat(S.pallets.filter(function (p) { return p.place === 'floor'; }), [S.jack, S.jack2, S.cart]).forEach(function (o) { if (inT(o)) { o.x = t.side * (HALL.x - 1.6); if (o.y !== undefined) o.y = 0; } });
+    S.staff.forEach(function (st) { if (inT(st)) { st.x = t.side * (HALL.x - 1.6); st.path = []; } if (st.jackAt && inT(st.jackAt)) st.jackAt.x = t.side * (HALL.x - 1.6); });   // a worker fetching in the trailer, or a jack parked in it at a clock-out, would be left in the yard
     t.state = 'leaving'; sfx('truck'); rebuildBoardSoon();
   }
   // the receiving fee is paid the first time a pallet is touched, once. Taking a box by hand used to call onPalletLeftTruck, which
@@ -193,22 +199,23 @@
   function onPalletLeftTruck(p) { receivePallet(p); p.place = 'floor'; p.truck = null; }
   function loadPrompt(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return null;
-    if (S.hand && S.hand.kind === 'parcel') { var o = orderById(S.hand.order), om = o ? orderMode(o) : null, wrongLane = om && MODES[om].door !== doorIndex('out', t.dock) && !sorterOwned(); return 'Load ' + (om ? om.toUpperCase() + ' ' : '') + 'parcel #' + (o ? o.num : '?') + ' into the ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck' + (wrongLane ? ' · wrong lane: forwarding fee' : ''); }
-    if (!S.hand && !player.tool && t.returns && t.returns.length) { var r0 = returnById(t.returns[0]); return 'Take return #' + (r0 ? r0.num : '?') + ' off the truck' + (t.returns.length > 1 ? ' (' + t.returns.length + ' aboard)' : '') + ' · it goes to the returns desk'; }
-    if (player.tool === 'cart' && cartParcels().length) return 'Unload ' + cartParcels().length + ' parcel' + (cartParcels().length === 1 ? '' : 's') + ' from the cart into the truck';
+    if (S.hand && S.hand.kind === 'parcel') { if (t.dir === 'ret') return 'The returns truck takes nothing out'; var o = orderById(S.hand.order), om = o ? orderMode(o) : null, wrongLane = om && MODES[om].door !== doorIndex(t.dir, t.dock) && !sorterOwned(); return 'Load ' + (om ? om.toUpperCase() + ' ' : '') + 'parcel #' + (o ? o.num : '?') + ' into the ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck' + (wrongLane ? ' · wrong lane: forwarding fee' : ''); }
+    if (!S.hand && !player.tool && t.returns && t.returns.length) { var r0 = returnById(t.returns[0]); return 'Take return #' + (r0 ? r0.num : '?') + ' off the truck' + (t.returns.length > 1 ? ' (' + t.returns.length + ' aboard)' : '') + (t.dir === 'ret' ? ' · the belt takes them in by itself while the door is up' : ' · it goes to the returns ' + (returnsHall() ? 'hall' : 'desk')); }
+    if (player.tool === 'cart' && cartParcels().length && t.dir !== 'ret') return 'Unload ' + cartParcels().length + ' parcel' + (cartParcels().length === 1 ? '' : 's') + ' from the cart into the truck';
+    if (t.dir === 'ret') return 'Returns trailer · ' + (t.returns || []).length + ' return' + ((t.returns || []).length === 1 ? '' : 's') + ' aboard · the belt takes them in while the door is up and the power is on · leaves ' + fmtTime(t.leave);
     return 'Outbound trailer · ' + t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave);
   }
   function loadUse(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return;
-    if (player.tool === 'cart' && cartParcels().length) { var n = 0; cartParcels().slice().forEach(function (oid) { var oc = orderById(oid); if (oc) { t.parcels.push(oc.id); oc.state = 'loaded'; n++; addXp(XP.ship); laneWarn(oc, t); } }); cartParcels().length = 0; sfx('crate'); introStep('load'); rebuildBoardSoon(); feedPush(n + ' parcel' + (n === 1 ? '' : 's') + ' loaded from the cart', 'good'); hudDirty = true; return; }
+    if (player.tool === 'cart' && cartParcels().length && t.dir !== 'ret') { var n = 0; cartParcels().slice().forEach(function (oid) { var oc = orderById(oid); if (oc) { t.parcels.push(oc.id); oc.state = 'loaded'; n++; addXp(XP.ship); laneWarn(oc, t); } }); cartParcels().length = 0; sfx('crate'); introStep('load'); rebuildBoardSoon(); feedPush(n + ' parcel' + (n === 1 ? '' : 's') + ' loaded from the cart', 'good'); hudDirty = true; return; }
     if (!S.hand && !player.tool && t.returns && t.returns.length) { var rid = t.returns.shift(), rr = returnById(rid); handSet({ kind: 'return', id: rid }); sfx('pickup'); feedPush('Return #' + (rr ? rr.num : '?') + ' off the truck: it goes to the returns desk', ''); hudDirty = true; return; }
-    if (!(S.hand && S.hand.kind === 'parcel')) return;
+    if (!(S.hand && S.hand.kind === 'parcel') || t.dir === 'ret') return;
     var o = orderById(S.hand.order); if (!o) { handSet(null); return; }
     t.parcels.push(o.id); o.state = 'loaded'; handSet(null); sfx('crate'); addXp(XP.ship); introStep('load'); rebuildBoardSoon();
     feedPush('Parcel #' + o.num + ' loaded for ' + clientName(o.client), 'good'); laneWarn(o, t);
   }
   // a parcel loaded out of the wrong door still ships, for a forwarding fee at departure; say so when it goes aboard
-  function laneWarn(o, t) { var m = orderMode(o); if (MODES[m].door === doorIndex('out', t.dock) || sorterOwned()) return; feedPush('#' + o.num + ' is a ' + m.toUpperCase() + ' parcel: out of ' + dockLabel(doorIndex('out', t.dock)) + ' it pays a forwarding fee (' + Math.round((1 - MODE_FEE) * 100) + '%)', 'bad'); }
+  function laneWarn(o, t) { var m = orderMode(o); if (MODES[m].door === doorIndex(t.dir, t.dock) || sorterOwned()) return; feedPush('#' + o.num + ' is a ' + m.toUpperCase() + ' parcel: out of ' + dockLabel(doorIndex(t.dir, t.dock)) + ' it pays a forwarding fee (' + Math.round((1 - MODE_FEE) * 100) + '%)', 'bad'); }
   function consolePrompt(i) {
     var t = truckAtDoor(i);
     if (!t) { var k = i - 2; if (!dockOwned(k)) return 'Dock ' + dockLabel(i) + ' · opens with the sortation deck'; return 'Dock ' + dockLabel(i) + ' · ' + MODES[TRUCK_OUT[k].mode].name.toLowerCase() + ' lane · no truck · ' + outNextText(k); }

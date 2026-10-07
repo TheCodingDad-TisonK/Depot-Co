@@ -48,14 +48,16 @@
     function lineX(x0, x1, z, w) { plane(x1 - x0, w || 0.1, MAT.yellowLine, (x0 + x1) / 2, 0.006, z, -Math.PI / 2); }
     function lineZ(z0, z1, x, w) { plane(w || 0.1, z1 - z0, MAT.yellowLine, x, 0.006, (z0 + z1) / 2, -Math.PI / 2); }
     function square(cx, cz, s) { lineX(cx - s / 2, cx + s / 2, cz - s / 2); lineX(cx - s / 2, cx + s / 2, cz + s / 2); lineZ(cz - s / 2, cz + s / 2, cx - s / 2); lineZ(cz - s / 2, cz + s / 2, cx + s / 2); }
-    square(SPOT.stageIn.x, SPOT.stageIn.z, 3.4); square(SPOT.stageOut.x, SPOT.stageOut.z, 3.4);
+    square(SPOT.stageIn.x, SPOT.stageIn.z, 3.4); square(SPOT.stageOut.x, SPOT.stageOut.z, 3.0);   // SHIPPING stood under the sea spiral and the OUT 1 bay since 1.14: it is by OUT 2 now, between the land spiral and the bench
     lineX(-X + 0.3, X - 7.8, 18.2); lineX(-X + 0.3, X - 7.8, 19.4);                      // the pedestrian walkway along the south strip, lobby to office
-    lineZ(-Z + 1.6, 18.2, 24.4); lineZ(-Z + 1.6, 19.4, 25.6); lineX(WING.door.x1 + 0.4, 24.4, -Z + 1.6); lineX(WING.door.x1 + 0.4, 25.6, -Z + 2.8);   // up the east side and along the north wall to the production door
-
-    lineZ(-Z + 0.3, Z - 0.3, RACK.x0 - 0.4); lineZ(-Z + 0.3, Z - 0.3, -RACK.x0 + 0.4);              // the rack block edges
+    lineZ(-Z + 1.6, 18.2, 24.4); lineZ(-Z + 1.6, 19.4, 25.6);                              // up the east side to the fire exit; the strip under the deck is the machines' since 1.14 (cells, wrapper, jack 2), so no walkway is painted along the north wall any more
+    plane(1.6, 1.4, MAT.hazard, 23.5, 0.0065, -Z + 1.0, -Math.PI / 2);                     // keep clear in front of the fire exit
+    var rz0 = RACK.rows[0] - 1.0, rz1 = RACK.rows[RACK.rows.length - 1] + 1.0, rx1 = RACK.x0 + RACK.bays * RACK.bayW;
+    lineZ(rz0, rz1, RACK.x0 - 0.4); lineZ(rz0, rz1, rx1 + 0.4); lineZ(rz0, rz1, RACK.x0 - 1.6);   // the rack block edges along the block only (the east one stood 3.4 m past the last bay, on the walkway line), and the outer line of the west walkway
     // dock doors
     DOCKS.in.forEach(function (d, i) { if (i === 2 && !S.up.hall3) return; buildDoor(doorIndex('in', i), -1, d.z); });   // IN 3 comes with Hall 3
     DOCKS.out.forEach(function (d, i) { buildDoor(doorIndex('out', i), 1, d.z); });
+    if (S.up.hall2) buildDoor(6, 1, DOCKS.ret[0].z);   // the returns dock comes with the returns hall
     // the staff door: a frame, and a ramp down to the yard outside it
     box(0.1, 2.3, 0.08, MAT.steelDark, -X, 1.15, SPOT.staffDoor.z - 0.62); box(0.1, 2.3, 0.08, MAT.steelDark, -X, 1.15, SPOT.staffDoor.z + 0.62); box(0.1, 0.08, 1.3, MAT.steelDark, -X, 2.32, SPOT.staffDoor.z);
     var ramp = box(7.2, 0.2, 2, MAT.grey, -X - 3.6, -0.7, SPOT.staffDoor.z); ramp.rotation.z = Math.atan2(1.2, 7); ramp.position.y = -0.6 - 0.1;
@@ -133,12 +135,12 @@
     addInter(knob, { prompt: function () { return S.doors[i] ? 'Pull the cord: close dock door ' + dockLabel(i) : null; }, use: function () { if (S.doors[i]) setDoor(i, false); } });
     // bumpers, the number outside, the leveller plate, the sign inside
     box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z - DOCKS.w / 2 + 0.3); box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z + DOCKS.w / 2 - 0.3);
-    sign([String(DOOR_MAP[i].dock + 1)], 1.2, 1.2, x + side * 0.17, DOCKS.h + 1.3, z, side < 0 ? -Math.PI / 2 : Math.PI / 2, { w: 128, h: 128, bg: '#f5b53d', fg: '#1a1205' });
+    sign([DOOR_MAP[i].dir === 'ret' ? 'R' : String(DOOR_MAP[i].dock + 1)], 1.2, 1.2, x + side * 0.17, DOCKS.h + 1.3, z, side < 0 ? -Math.PI / 2 : Math.PI / 2, { w: 128, h: 128, bg: '#f5b53d', fg: '#1a1205' });
     plane(1.6, DOCKS.w - 0.4, MAT.hazard, x - side * 0.8, 0.008, z, -Math.PI / 2);
-    sign([dockLabel(i) + (dockLane(i) ? ' · ' + dockLane(i).name.toUpperCase() : '')], 2.4, 0.7, x - side * 0.17, DOCKS.h + 0.6, z, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: i < 2 ? '#f5b53d' : (dockLane(i) ? dockLane(i).col : '#5fd38d') });
+    sign([dockLabel(i) + (dockLane(i) ? ' · ' + dockLane(i).name.toUpperCase() : '')], 2.4, 0.7, x - side * 0.17, DOCKS.h + 0.6, z, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: DOOR_MAP[i].dir !== 'out' ? '#f5b53d' : (dockLane(i) ? dockLane(i).col : '#5fd38d') });
     doors[i] = d;
   }
-  function dockLabel(i) { var d = DOOR_MAP[i]; return d ? (d.dir === 'in' ? 'IN ' : 'OUT ') + (d.dock + 1) : '?'; }
+  function dockLabel(i) { var d = DOOR_MAP[i]; return d ? (d.dir === 'ret' ? 'RETURNS' : (d.dir === 'in' ? 'IN ' : 'OUT ') + (d.dock + 1)) : '?'; }
   function dockLane(i) { var d = DOOR_MAP[i]; return d && d.dir === 'out' && TRUCK_OUT[d.dock] ? MODES[TRUCK_OUT[d.dock].mode] : null; }
   function setDoor(i, open) { if (S.doors[i] === open) return; if (open && DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock)) { toast('OUT 3 opens with the sortation deck (shop).', 'bad'); return; } S.doors[i] = open; sfx('roller'); logEvent('Dock door ' + dockLabel(i) + (open ? ' opened' : ' closed')); if (open && i < 2) introStep('door'); rebuildDyn(); }
   function doorAnim(dt) {

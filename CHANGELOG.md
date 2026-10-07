@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.17.0 (2026-10-07)
+
+The returns hall, the floor put right, and a sweep of the crew.
+
+**New**
+- **The returns hall.** Hall 2, the east annex, is given over to returns the day it is bought: its two rack rows are gone (stock a save had in them moves to other rows, or stands on pallets on its floor) and in their place stand a returns dock of its own on the east wall, in line with the OUT docks, a belt from the dock to an intake, three inspection desks sharing one queue, a restock cage against the far wall and a compactor for the damaged boxes. The returns truck comes twice a day (09:30 and 15:00) with three to six returns out of everything you have shipped; while its door is up and the power is on, the belt carries them off the trailer to the intake by itself. E on any desk inspects the next in the queue; the queue holds eight, the cage twenty-four. The desk by the bench goes with it, and the outbound trucks still bring the odd return back to their own doors: carry those to the hall, or let the packer. The shop entry, the scanner's Docks page and map, the cabinet and the yard (a seventh lane, a gap in the east fence, an R on the apron) know the new door.
+
+**The floor**
+- Every painted line, square and bay was checked against the 72 m hall from above. The SHIPPING square sat under the sea spiral and the OUT 1 bay since 1.14: it is by OUT 2 now, its label along the walkway. The east rack-edge line stood on the walkway, 3.4 m past the last bay; both edge lines now run the rack block's length only. The walkway along the north wall ran under the deck through the packing cells, the wrapper and jack 2's bay: it is gone, the east walkway runs to the fire exit alone and the exit has a keep-clear plane. The forklift bay crossed the south walkway: 3.2 m long now, with the forklift parked in its middle. The JACK 2 bay was painted at the old spot under the OUT 3 shipping bay and the air spiral: it follows the jack to the north wall. The west walkway has its outer line and the stripes sit between their lines on both sides. The compressor stood on the wing's east walkway: it is on the south wall west of the wing door. The deck's edge is a dashed line on the ground.
+- Hall 3 painted a second hazard plane and a second pair of bollards on top of the dock door's own and they flickered. A dock door in a hall wall gets its kit from the door now, and a door built mid-game (IN 3, the returns dock) gets its bollards, beacon, chocks and rails at once instead of at the next reload.
+
+**Fixes: the crew**
+- "A worker carrying three jacks": three receivers idled on the same point, each with their own jack parked behind them along their own heading. Every worker now has an idle spot of their own; pickers and packers too, who stood on one point without the jacks giving it away.
+- What a worker holds when the shift ends goes back where it belongs (a box to a rack, a parcel to the shelf, a return to the queue) instead of lying on the floor for good; a pallet on the jack is set down where the worker stands, not two metres ahead inside the rack they faced.
+- A driver finishes the lift before clocking out, and one holding a pallet nobody has a slot for parks it at the bay instead of idling with it on the forks all day.
+- Pickers pick from the annex rows too: the receivers filled them while the pickers skipped them and stood idle over starving orders.
+- A worker saved in the clock-in wait stood at the clock all day unpaid after a reload; they clock in now. An old save without a punctuality value sent the whole crew home unpaid on its first tick.
+- A worker, or a parked jack, in a trailer when the truck left was carried into the yard: both are set down inside the door with everything else.
+- A worker who covers receiving has a jack of their own, and a receiver doing other work parks theirs instead of towing it through the bench. The second-role toast was inside a comment; a worker mid-task keeps the task when the role changes.
+- Overtime starts a quarter hour past the shift's ten hours: an early arrival and the clock-out walk were paid at time and a half nearly every day.
+
+**Tooling**
+- The screenshot tool waits for painted frames instead of a timer (a heavy build under software rendering returned the previous shot's frame) and can take top-down floor frames with the roof hidden. 297 smoke checks (was 286).
+
 ## 1.16.0 (2026-10-07)
 
 Returns come back on the trucks, the scanner has a map, every day closes with a report, F9 is a photo mode, and a full pass over the game: about ninety bugs fixed, the yard and the halls put straight, the help brought up to date.

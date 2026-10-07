@@ -261,7 +261,7 @@
   }
   function fireStaff(id) {
     var st = staffById(id); if (!st) return;
-    staffDropAll(st); var fh = st.hoursToday || 0; if (fh > 0.05 && st.clocked !== undefined) { var fpay = Math.round(hourly(st) * (Math.min(fh, 10) + Math.max(0, fh - 10) * 1.5)); if (fpay > 0) pay(-fpay, 'Final pay, ' + st.name + ' (' + (Math.round(fh * 10) / 10) + ' h)'); }   // the hours worked today are paid on the way out
+    staffDropAll(st); var fh = st.hoursToday || 0; if (fh > 0.05 && st.clocked !== undefined) { var fpay = Math.round(hourly(st) * (Math.min(fh, 10.25) + Math.max(0, fh - 10.25) * 1.5)); if (fpay > 0) pay(-fpay, 'Final pay, ' + st.name + ' (' + (Math.round(fh * 10) / 10) + ' h)'); }   // the hours worked today are paid on the way out
     var m = staffMeshes[id]; if (m) { if (m.userData.jack) scene.remove(m.userData.jack); scene.remove(m); delete staffMeshes[id]; }
     S.staff.splice(S.staff.indexOf(st), 1); logEvent(st.name + ' let go'); hudDirty = true;
   }
@@ -269,7 +269,7 @@
     var vest = st.role === 'receiver' ? MAT.hivisOrange : st.role === 'picker' ? MAT.hivis : st.role === 'driver' ? MAT.hivis : MAT.green;
     var look = st.look || {};
     var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' || st.role === 'driver' ? (st.role === 'driver' ? MAT.yellow : MAT.white) : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
-    if (st.role === 'receiver' && jackModel) g.userData.jack = jackModel('staffjack', true);   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
+    if ((st.role === 'receiver' || st.cross === 'receiver') && jackModel) g.userData.jack = jackModel('staffjack', true);   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
   }
   // the receiver's jack. Loaded: pushed ahead with the tiller lowered to 31 degrees, so its grip meets both hands half a metre in
   // front at hip height. Empty and walking: towed behind on one trailing arm, tiller at 20 degrees, the grip in that hand just
@@ -293,8 +293,15 @@
   function staffDriving() { for (var i = 0; i < S.staff.length; i++) if (S.staff[i].state === 'drive') return S.staff[i]; return null; }
   function staffDropAll(st) {
     if (st.state === 'drive') driverDismount(st);
-    S.pallets.forEach(function (p) { if (p.place === 'staff' && p.staff === st.id) { p.place = 'floor'; p.x = st.x + Math.sin(st.yaw) * STAFF_JACK.push; p.z = st.z + Math.cos(st.yaw) * STAFF_JACK.push; p.y = floorY(p.x, p.z); p.rot = st.yaw; p.staff = null; } });   // a pallet on the jack is set down where the jack stands
-    if (st.carry) { if (st.carry.kind === 'box') S.floor.push({ kind: 'box', sku: st.carry.sku, damaged: !!st.carry.damaged, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); else if (st.carry.kind === 'return') S.floor.push({ kind: 'return', id: st.carry.id, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); else S.floor.push({ kind: 'parcel', order: st.carry.order, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); st.carry = null; }
+    S.pallets.forEach(function (p) { if (p.place === 'staff' && p.staff === st.id) { p.place = 'floor'; p.x = st.x; p.z = st.z; p.y = floorY(p.x, p.z); p.rot = st.yaw; p.staff = null; } });   // a pallet on the jack is set down where the worker stands (two metres ahead put it inside the rack they were facing)
+    if (st.carry) {
+      var cy = st.carry, bk = cy.kind === 'box' && !cy.damaged ? findSlotFor(cy.sku, 1, 1) : null;
+      if (cy.kind === 'box') { if (bk) slotAdd(bk, cy.sku, 1); else S.floor.push({ kind: 'box', sku: cy.sku, damaged: !!cy.damaged, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); }
+      else if (cy.kind === 'return') { if (rdesk().queue.length < rdeskCap()) rdesk().queue.push(cy.id); else S.floor.push({ kind: 'return', id: cy.id, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); }
+      else if (orderById(cy.order) && S.bench.parcels.length < 12) S.bench.parcels.push(cy.order);
+      else if (orderById(cy.order)) S.floor.push({ kind: 'parcel', order: cy.order, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw });
+      st.carry = null;
+    }
     st.task = null; st.state = 'idle'; st.path = [];
   }
   function staffGo(st, to, then) { st.path = route({ x: st.x, z: st.z }, to); st.state = 'walk'; st.then = then; }
@@ -324,7 +331,7 @@
   function tickStaff(dt) {
     S.staff.forEach(function (st) {
       var m = staffMeshes[st.id]; if (!m) { buildStaffMesh(st); m = staffMeshes[st.id]; }
-      if (st.punct === undefined) staffNewDay();
+      if (st.punct === undefined) { st.punct = randf(0.2, 1); st.arriveOff = st.arriveOff || 0; }   // an old save: a value, not a new day (staffNewDay sent everyone home unpaid on the first tick)
       var brk = onBreak(st), off = isSunday() || st.sick || st.dayOff, end = shiftEnd(st);
       // not here: at home until the arrival time, then the walk in from the yard to the clock
       if (st.state === 'home') {
@@ -339,14 +346,14 @@
       if (st.state === 'clockin') { staffWait(st, 1.4, function () { staffClockIn(st); st.state = 'idle'; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       // a pallet being set into a rack finishes first, or it is dropped half through the rack face
       // planned once: a walker already on the way, at the clock, or in the clock-out wait is left alone (re-planning every tick from a clipped door jamb bounced them in the doorway for hours)
-      if (st.clocked && S.time >= end && st.state !== 'clockout' && !(st.state === 'walk' && st.then === 'clockout') && !(st.state === 'wait' && st.leavingWait) && !(st.state === 'wait' && st.task && st.task.kind === 'store')) { staffDropAll(st); st.jackParked = true; st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
+      if (st.clocked && S.time >= end && st.state !== 'clockout' && st.state !== 'drive' && !(st.state === 'walk' && st.then === 'clockout') && !(st.state === 'wait' && st.leavingWait) && !(st.state === 'wait' && st.task && st.task.kind === 'store')) { staffDropAll(st); st.jackParked = true; st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && S.time < end;   // on the clock and inside the shift. Not the old st.leaving flag: set at every shift end since 1.4.0 and never cleared, it kept a worker idle at the clock from their second morning on
       if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait' && st.state !== 'drive') { st.task = null; st.jackParked = true; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -HALL.x + 3.7 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
       if (!brk && st.state === 'break') st.state = 'idle';
       // the driver: at the forklift, climbs on; on it, the forklift does the walking and the figure sits on the seat
-      if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st) || dist2(player.x, player.z, S.fork.x, S.fork.z) < 6.5) { st.state = 'idle'; st.task = null; } else { if (S.fork.plugged) cableUnplugFork(st.name + ' drove off with the charger plugged in. The plug came out.'); st.jackParked = true; st.state = 'drive'; st.drive = { phase: st.task && st.task.held ? 'toSlot' : 'toPallet', path: null }; sfx('forklift'); } }   // a pallet already on the forks is the job
+      if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st) || dist2(player.x, player.z, S.fork.x, S.fork.z) < 6.5) { st.state = 'idle'; st.task = null; } else { if (S.fork.plugged) cableUnplugFork(st.name + ' drove off with the charger plugged in. The plug came out.'); st.jackParked = true; st.state = 'drive'; st.drive = { phase: st.task && st.task.park ? 'park' : st.task && st.task.held ? 'toSlot' : 'toPallet', path: null }; sfx('forklift'); } }   // a pallet already on the forks is the job
       if (st.state === 'drive') { driveTick(st, dt); var fy = floorY(S.fork.x, S.fork.z); m.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.42, fy + 0.56, S.fork.z - Math.cos(S.fork.yaw) * 0.42); m.userData.baseY = fy + 0.56; m.rotation.y = S.fork.yaw; st.x = S.fork.x - Math.sin(S.fork.yaw) * 1.7; st.z = S.fork.z - Math.cos(S.fork.yaw) * 1.7; st.yaw = S.fork.yaw; animateHuman(m, dt, 'sit', 0, null, false); jackFollow(st, m, false, dt, false); return; }
       var mode = st.state === 'walk' ? 'walk' : st.state === 'wait' ? (st.working ? 'work' : 'wait') : 'idle';
       if (st.state === 'walk') staffWalk(st, dt);
@@ -373,7 +380,9 @@
     // whatever is in hand finishes first, whichever role picked it up: a pallet on the jack is racked, a box or parcel goes where it was going
     if (S.pallets.some(function (p) { return p.place === 'staff' && p.staff === st.id; })) { receiverThink(st); return; }
     if (st.carry) { (st.carry.kind === 'parcel' || st.carry.kind === 'return' || st.carry.bin ? packerThink : pickerThink)(st); return; }
-    var r = st.role; if (st.cross && THINK[st.cross] && !roleHasWork(r) && roleHasWork(st.cross)) r = st.cross; THINK[r](st);
+    var r = st.role; if (st.cross && THINK[st.cross] && !roleHasWork(r) && roleHasWork(st.cross)) r = st.cross;
+    if (r !== 'receiver') { var jm = staffMeshes[st.id]; if (jm && jm.userData.jack && !st.jackParked && st.jackAt) st.jackParked = true; }   // the jack stays where it is while they do other work; receiverThink walks them back to it
+    THINK[r](st);
   }
   // ── The forklift driver ───────────────────────────────────────────
   // Takes the pallets left on the hall floor (receiving, the palletiser drop, wherever you set one down) to a rack slot on any
@@ -396,7 +405,7 @@
     if (driving || staffDriving() || dist2(player.x, player.z, S.fork.x, S.fork.z) < 6.5) { idleAt(st, driverSpot()); return; }
     // a pallet you left on the forks is the first job: it goes to a rack, not under the next one
     var held = S.fork.pallet ? palletById(S.fork.pallet) : null;
-    if (held) { var hk = held.n > 0 ? findSlotFor(held.sku, held.n, 2) : null; if (!hk) { idleAt(st, driverSpot()); return; } st.task = { kind: 'drive', pallet: held.id, key: hk, held: true }; staffGo(st, { x: S.fork.x - Math.sin(S.fork.yaw) * 1.6, z: S.fork.z - Math.cos(S.fork.yaw) * 1.6 }, 'mountFork'); return; }
+    if (held) { var hk = held.n > 0 ? findSlotFor(held.sku, held.n, 2) : null; if (!hk) { st.task = { kind: 'drive', pallet: held.id, held: true, park: true }; staffGo(st, { x: S.fork.x - Math.sin(S.fork.yaw) * 1.6, z: S.fork.z - Math.cos(S.fork.yaw) * 1.6 }, 'mountFork'); return; } st.task = { kind: 'drive', pallet: held.id, key: hk, held: true }; staffGo(st, { x: S.fork.x - Math.sin(S.fork.yaw) * 1.6, z: S.fork.z - Math.cos(S.fork.yaw) * 1.6 }, 'mountFork'); return; }
     var job = driverJob(); if (!job) { idleAt(st, driverSpot()); return; }
     st.task = { kind: 'drive', pallet: job.pallet.id, key: job.key }; if (Math.random() < 0.5) staffSay(st, voice(st).onit, '#5fd38d');
     staffGo(st, { x: S.fork.x - Math.sin(S.fork.yaw) * 1.6, z: S.fork.z - Math.cos(S.fork.yaw) * 1.6 }, 'mountFork');
@@ -445,6 +454,10 @@
   function benchSide(lz) { var P = PROPS.bench ? propPlacement('bench') : { x: SPOT.bench.x, z: SPOT.bench.z, rot: 0 }, a = P.rot * Math.PI / 2, lx = -1.0; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a) }; }
   function clockStand() { var P = propPlacement('timeclock'), a = P.rot * Math.PI / 2; return { x: P.x + Math.sin(a) * 1.0, z: P.z + Math.cos(a) * 1.0 }; }
   function clockFaceYaw() { var P = propPlacement('timeclock'); return P.rot * Math.PI / 2 + Math.PI; }
+  // a worker's place in their role's line-up, and an idle spot of their own from it: three receivers idling on the same point looked
+  // like one figure with three jacks fanned out behind it (the jack parks behind its owner along their own heading)
+  function staffRank(st) { var n = 0; for (var i = 0; i < S.staff.length; i++) { var o = S.staff[i]; if (o === st) return n; if (o.role === st.role) n++; } return n; }
+  function spreadSpot(st, base, step, row) { var k = staffRank(st), a = k % 3, b = Math.floor(k / 3); return { x: base.x + step.x * a + row.x * b, z: base.z + step.z * a + row.z * b }; }
   function staffWait(st, sec, after, working) { st.state = 'wait'; st.timer = sec; st.after = after; st.working = !!working; }
   function idleAt(st, spot) { if (dist2(st.x, st.z, spot.x, spot.z) > 1) { staffGo(st, spot, 'wait'); st.timer = 1.5; } else staffWait(st, 1.5 + Math.random()); }
   function receiverThink(st) {
@@ -460,7 +473,7 @@
     }
     var pickP = null;
     for (var i = 0; i < S.pallets.length; i++) { var p = S.pallets[i]; if (p.place !== 'truck' || p.n <= 0) continue; var t = truckById(p.truck); if (!t || t.state !== 'docked' || !S.doors[doorIndex('in', t.dock)] || !t.signed) continue; if (S.staff.some(function (o) { return o !== st && o.task && o.task.pallet === p.id; })) continue; pickP = p; break; }
-    if (!pickP) { idleAt(st, { x: SPOT.stageIn.x, z: SPOT.stageIn.z + 2.6 }); return; }
+    if (!pickP) { idleAt(st, spreadSpot(st, { x: SPOT.stageIn.x - 1.8, z: SPOT.stageIn.z + 2.6 }, { x: 1.8, z: 0 }, { x: 0, z: 1.6 })); return; }
     var w = truckPalletPos(truckById(pickP.truck), pickP.idx), tr = truckById(pickP.truck);
     st.task = { kind: 'fetch', pallet: pickP.id }; if (Math.random() < 0.5) staffSay(st, voice(st).onit, '#5fd38d');
     staffGo(st, { x: w.x, z: w.z + (w.z > tr.z ? -1.0 : 1.0) }, 'wait'); st.timer = 1.4; st.working = true;
@@ -473,7 +486,7 @@
     st.after = function () { if (!st.carry) return; var k = slotSpace(bk, bsku) > 0 ? bk : findSlotFor(bsku, 1, 1); if (k) { slotAdd(k, bsku, 1); st.carry = null; sfx('putdown'); S.stats.putaway++; } else { S.floor.push({ kind: 'box', sku: bsku, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); st.carry = null; staffSay(st, voice(st).nospace, '#ff6b5e'); } st.task = null; };
   }
   // a damaged box to the bin by the bench: no charge, the return was the customer's
-  function carryToBin(st) { var w = propWorld('binDamaged', 0, 1.0); staffGo(st, { x: w.x, z: w.z }, 'wait'); st.timer = 0.6; st.working = true; st.after = function () { if (st.carry && st.carry.kind === 'box') { S.binned = (S.binned || 0) + 1; addWaste(2); st.carry = null; sfx('crate'); } st.task = null; }; }
+  function carryToBin(st) { var w = binSpotFor(st); staffGo(st, { x: w.x, z: w.z }, 'wait'); st.timer = 0.6; st.working = true; st.after = function () { if (st.carry && st.carry.kind === 'box') { S.binned = (S.binned || 0) + 1; addWaste(2); st.carry = null; sfx('crate'); } st.task = null; }; }
   function pickerThink(st) {
     if (st.carry && st.carry.bin) { carryToBin(st); return; }
     if (st.carry && st.carry.back) { carryBack(st); return; }
@@ -484,13 +497,13 @@
     }
     var want = null;
     var orders = openOrders().slice().sort(function (a, b) { return (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due; });
-    for (var i = 0; i < orders.length && !want; i++) orders[i].lines.forEach(function (l) { if (want) return; if (skuDemand(l.sku) > 0) { var keys = slotsWith(l.sku).filter(function (k) { var sp = slotParse(k); return sp.l < RACK.top && sp.r < UPPER.row; });   /* the upper row is the upper crane's */ if (keys.length) { keys.sort(function (a, b) { var A = slotStand(a), B = slotStand(b); return dist2(A.x, A.z, st.x, st.z) - dist2(B.x, B.z, st.x, st.z); }); want = { sku: l.sku, key: keys[0] }; } } });   // the nearest slot that holds it, not the first in rack order
+    for (var i = 0; i < orders.length && !want; i++) orders[i].lines.forEach(function (l) { if (want) return; if (skuDemand(l.sku) > 0) { var keys = slotsWith(l.sku).filter(function (k) { var sp = slotParse(k); return sp.l < RACK.top && sp.r !== UPPER.row; });   /* the upper row is the upper crane's; the annex rows are a walker's since 1.17.0 */ if (keys.length) { keys.sort(function (a, b) { var A = slotStand(a), B = slotStand(b); return dist2(A.x, A.z, st.x, st.z) - dist2(B.x, B.z, st.x, st.z); }); want = { sku: l.sku, key: keys[0] }; } } });   // the nearest slot that holds it, not the first in rack order
     if (!want) {
       // nothing to pick: a box on the bench that no open order wants goes back on the racks, one at a time
       var sur = benchSurplus(), rsku = null; for (var sk in sur) if (sur[sk] > 0) { rsku = sk; break; }
       var rkey = rsku ? findSlotFor(rsku, 1, 1) : null;
       if (rkey && !S.staff.some(function (o) { return o !== st && o.task && o.task.kind === 'return'; })) { st.task = { kind: 'return', sku: rsku, key: rkey }; staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true; st.after = function () { if (benchTake(rsku, 1)) { st.carry = { kind: 'box', sku: rsku, back: rkey }; sfx('pickup'); } else st.task = null; }; return; }
-      idleAt(st, { x: SPOT.bench.x - 2.0, z: 2.6 }); return;
+      idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 2.0, z: 2.6 }, { x: 0, z: -1.2 }, { x: -1.4, z: 0 })); return;
     }
     st.task = { kind: 'pick', sku: want.sku, key: want.key };
     staffGo(st, slotStand(want.key), 'wait'); st.timer = 1.0; st.working = true;
@@ -520,5 +533,5 @@
       return;
     }
     var rj = returnsJob(st); if (rj) { packerReturns(st, rj); return; }
-    idleAt(st, { x: SPOT.bench.x - 1.8, z: 7.4 });
+    idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 1.8, z: 7.4 }, { x: 0, z: 1.2 }, { x: -1.4, z: 0 }));
   }

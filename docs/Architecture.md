@@ -13,7 +13,7 @@ Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built fro
 | `game/version.js` | **Generated** from `package.json` by `tools/sync-version.js`. |
 | `game/logo-256.png`, `logo.png`, `wordmark.png` | **Generated** by `tools/render-brand.js` (a canvas drawing in a hidden Electron window). |
 | `main.js` | The Electron shell: one window, no menu bar, screenshots to `Pictures\Depot Co`. |
-| `tools/smoke.js` | `npm test`. Boots the real page headless and plays several days through the test handle: 286 checks, from the first truck to the sortation deck, the annex halls, the scanner, the returns desk and the day report. |
+| `tools/smoke.js` | `npm test`. Boots the real page headless and plays several days through the test handle: 297 checks, from the first truck to the sortation deck, the annex halls, the scanner, the returns desk and the day report. |
 
 ## The parts of `src/`
 
@@ -33,10 +33,11 @@ They join in file-name order into one function scope, so every `function` is hoi
 | `07-items` | Boxes, pallets and parcels as three instanced meshes laid out from `S` every frame (`syncInstances`), the hand, the rack-slot logic, the floor. |
 | `08-trucks` | The timetable, the truck mesh, docking, departure, the receiving fee, loading parcels, the dock consoles. |
 | `09-orders` | Clients, order generation, lateness, the packing bench, packing, the parcel shelf, shipping and pay. |
-| `09-returns` | Returns: the parcels customers send back ride in on the outbound trucks, the returns desk inspects them, the packer's returns work (1.16.0). |
+| `09-returns` | Returns: the parcels customers send back ride in on the outbound trucks (and the returns truck), the inspection desks check them, the packer's returns work (1.16.0; stations since 1.17.0, so the returns hall's three desks share one queue). |
 | `10-vehicles` | The jack and the cart you push, the forklift you drive. |
 | `11-staff` | The human model, the aisle router, the receiver, the picker, the packer. |
 | `12-player` | Movement, collision against `solids` and `dyn`, the centre raycast that sets `focus`, the keys. |
+| `12-machines7-returns` | The returns hall (1.17.0): Hall 2 without its racks, the returns dock and its truck, the belt to the intake, three inspection desks, the restock cage, the compactor, the floor zones; `dockStepSide`, `doorOwned`, the row migration. |
 | `12-photo` | Photo mode: F9 frees the camera, hides the HUD and holds the clock (1.16.0). |
 | `13-scanner-device` | The handheld scanner in the hand and its canvas display. |
 | `13-scanner-map` | The scanner's map page: the site from above with you, the crew, the trucks and the waypoint (1.16.0). |

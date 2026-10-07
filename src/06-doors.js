@@ -79,7 +79,7 @@
       scButton(sc, 148, 80, 120, 40, 'Yard lights', !S.flags.yardOff, function () { S.flags.yardOff = !S.flags.yardOff; }, '#5fd38d');
       scButton(sc, 280, 80, 124, 40, 'Night mode', !!S.flags.night, function () { S.flags.night = !S.flags.night; lockAll(S.flags.night); }, '#ff6b5e');
       scText(c, 16, 150, 'Dock doors', '#f5b53d', 14);
-      doors.forEach(function (d, i) { scButton(sc, 16 + i * 66, 160, 62, 38, dockLabel(i).replace(' ', '') + (S.doors[i] ? ' ●' : ''), !!S.doors[i], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(i, !S.doors[i]); }); });
+      doors.forEach(function (d, i) { scButton(sc, 10 + i * 58, 160, 54, 38, dockLabel(i).replace(' ', '').replace('RETURNS', 'RET') + (S.doors[i] ? ' ●' : ''), !!S.doors[i], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(i, !S.doors[i]); }); });
       scText(c, 16, 226, 'Doors', '#f5b53d', 14);
       hdoors.forEach(function (d, i) { var s = hd(d.id); scButton(sc, 16 + (i % 4) * 98, 236 + Math.floor(i / 4) * 44, 90, 36, d.label.replace(/^the | door$/g, '') + (s.locked ? ' 🔒' : s.open ? ' open' : ''), s.locked, function () { doorLock(d); }, '#ff6b5e'); });
     } });

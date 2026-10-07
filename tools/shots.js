@@ -49,7 +49,11 @@ const SHOTS = [
   { name: '33-pc-panel', x: 33.5, z: 20.6, yaw: Math.PI, pitch: 0, time: 9.5, pre: 'T.openPanel("pc","shop");', post: 'T.closePanel();' },
   { name: '34-menu', x: -20, z: 0, yaw: -Math.PI / 2, pitch: 0, time: 9.5, pre: 'document.getElementById("dc-mainmenu").hidden=false;', post: 'document.getElementById("dc-mainmenu").hidden=true;' },
   { name: '35-deck', x: 2, z: -19.2, y: 4.6, yaw: Math.PI / 2 + 0.4, pitch: -0.1, time: 11, wait: 90000, pre: 'S.bank+=60000; S.level=Math.max(S.level,8); S.events.power=false; ["gantry","upper","sorter"].forEach(function(u){ if(!S.up[u]) T.buyUpgrade(u); }); T.run(0.2);' },
-  { name: '36-hall2', x: 19, z: -26, y: 0, yaw: 0, pitch: 0, time: 11, wait: 90000, pre: 'S.bank+=60000; S.level=Math.max(S.level,8); ["fork","hall2","hall3"].forEach(function(u){ if(!S.up[u]) T.buyUpgrade(u); }); T.run(0.2);' },
+  { name: '38-rh-returns-dock', x: 30.5, z: -31.0, y: 0, yaw: -1.9, pitch: -0.05, time: 11, wait: 90000, pre: 'S.bank+=60000; S.level=Math.max(S.level,8); ["fork","hall2"].forEach(function(u){ if(!S.up[u]) T.buyUpgrade(u); }); S.events.power=false; T.run(0.2); var rt = T.spawnTruck("ret", 0, 23); rt.x = T.HALL.x + 0.4; T.run(3); T.setDoor(6, true); T.run(4); while (rt.returns.length < 4) T.addReturn(rt, { num: 90 + rt.returns.length, client: "grocer", mode: "land", lines: [{ sku: "bolts", qty: 1 }], reason: "unwanted" }); T.run(12);' },
+  { name: '39-rh-inspection-desks', x: 23.4, z: -33.4, y: 0, yaw: 0, pitch: -0.1, time: 11, wait: 90000, pre: 'T.rdesk().queue.length = 0; var rt2 = S.trucks.filter(function (t) { return t.dir === "ret"; })[0]; if (rt2) { while (T.rdesk().queue.length < 3) T.rdesk().queue.push(T.addReturn(rt2, { num: 95 + T.rdesk().queue.length, client: "grocer", mode: "land", lines: [{ sku: "cereal", qty: 2 }], reason: "unwanted" })); rt2.returns.length = 0; } T.rdeskStart(1); T.run(0.5);' },
+  { name: '40-rh-restock-cage', x: 30.5, z: -39.8, y: 0, yaw: 0, pitch: -0.02, time: 11, wait: 90000, pre: 'var D = T.rdesk(); while (D.shelf.length < 11) D.shelf.push({ sku: D.shelf.length % 3 ? "cereal" : "books", damaged: D.shelf.length % 5 === 4 }); T.run(0.2);' },
+  { name: '41-rh-yard-returns-lane', x: 50, z: -40, y: 0, yaw: -2.3, pitch: -0.08, time: 11, wait: 90000 },
+  { name: '36-rh-hall2', x: 19, z: -26, y: 0, yaw: 0, pitch: 0, time: 11, wait: 90000, pre: 'S.bank+=60000; S.level=Math.max(S.level,8); ["fork","hall2","hall3"].forEach(function(u){ if(!S.up[u]) T.buyUpgrade(u); }); T.run(0.2);' },
   { name: '37-photo-aerial', x: 0, z: 0, yaw: 0, pitch: 0, time: 15, wait: 20000, pre: 'T.photoToggle(true); T.photo.x=58; T.photo.y=30; T.photo.z=52; T.photo.yaw=0.84; T.photo.pitch=-0.5;', post: 'T.photoToggle(false);' }
 ];
 
@@ -63,7 +67,7 @@ app.whenReady().then(async () => {
   // headless there is no pointer lock, and losing it opens the pause menu: suppress that, and close the menu if it opened anyway
   await win.webContents.executeJavaScript('document.getElementById("dc-splash").hidden = true; document.getElementById("dc-mainmenu").hidden = true; window.DEPOT.enter(); window.T = window.DEPOT.T; window.S = window.DEPOT.T.S; S.intro.off = true; T.ui.suppressMenu = true; document.exitPointerLock && document.exitPointerLock(); window.__f = 0; (function tick() { window.__f++; requestAnimationFrame(tick); })(); "ok"', true);   // __f counts painted frames, so a shot is captured after the page really drew its new state
   await new Promise((r) => setTimeout(r, 300));
-  const unpause = 'if (T.ui.menuOpen) document.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape", bubbles: true })); if (T.ui.menuOpen) { T.ui.menuOpen = false; document.getElementById("dc-menu").hidden = true; }';
+  const unpause = 'document.getElementById("dc-mainmenu").hidden = true; if (T.ui.menuOpen) document.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape", bubbles: true })); if (T.ui.menuOpen) { T.ui.menuOpen = false; document.getElementById("dc-menu").hidden = true; }';
   await win.webContents.executeJavaScript(unpause + ' "ok"', true);
   for (const s of SHOTS) {
     if (only && !s.name.toLowerCase().includes(only)) continue;

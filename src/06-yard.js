@@ -44,7 +44,7 @@
     // the steps go on the side with room: IN 1's and OUT 3's north, the rest south, and OUT 1 has none (shelters on both sides)
     function yardDock(d) {
       // the steps: 6 risers from the yard to the landing at hall level, outside the dock door on its +z side, with a tube handrail
-      var fz = d.i === 0 || d.i === 4 ? -1 : 1, sx = side_(d.side), ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });
+      var fz = dockStepSide(d.i), sx = side_(d.side), ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });
       if (d.i !== 2) { for (var st = 0; st < 6; st++) { box(1.1, 0.2, (6 - st) * 0.3, ST, sx * (X + 0.85), YARD_Y + 0.1 + st * 0.2, d.z + fz * 4.4 + (6 - st) * 0.15); }
       box(1.1, 1.2, 1.6, ST, sx * (X + 0.85), YARD_Y + 0.6, d.z + fz * 3.6);
       [-0.5, 0.5].forEach(function (hx) { var px = sx * (X + 0.85 + hx); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 3.0, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 4.3, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 0.5, d.z + fz * 6.1, null, 8); var rail = cyl(0.025, 1.5, HR, px, YARD_Y + 2.2, d.z + fz * 3.65, null, 8); rail.rotation.x = Math.PI / 2; var rail2 = cyl(0.025, 2.2, HR, px, YARD_Y + 1.6, d.z + fz * 5.2, null, 8); rail2.rotation.x = Math.PI / 2 + 0.58 * fz; });
@@ -53,7 +53,7 @@
       plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z - 2.2, -Math.PI / 2); plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z + 2.2, -Math.PI / 2);
       for (var x = side * (X + 8); Math.abs(x) < 74; x += side * 4) plane(2, 0.12, MAT.whiteLine, x, YARD_Y + 0.012, d.z, -Math.PI / 2);
       for (var k = 0; k < 6; k++) { var hp = plane(5, 0.14, MAT.yellowLine, side * (X + 3.5), YARD_Y + 0.013, d.z - 2 + k * 0.8, -Math.PI / 2); hp.rotation.z = side * 0.6; }
-      sign([String(DOOR_MAP[d.i].dock + 1)], 2.4, 2.4, side * (X + 4), YARD_Y + 0.014, d.z - 1, 0, { w: 128, h: 128, bg: '#3b3d40', fg: '#d8dbdf' }).rotation.set(-Math.PI / 2, 0, side > 0 ? -Math.PI / 2 : Math.PI / 2);
+      sign([DOOR_MAP[d.i].dir === 'ret' ? 'R' : String(DOOR_MAP[d.i].dock + 1)], 2.4, 2.4, side * (X + 4), YARD_Y + 0.014, d.z - 1, 0, { w: 128, h: 128, bg: '#3b3d40', fg: '#d8dbdf' }).rotation.set(-Math.PI / 2, 0, side > 0 ? -Math.PI / 2 : Math.PI / 2);
       // the dock shelter and its lamp
       var sx = side * (X + 0.75); box(0.5, 0.6, DOCKS.w + 1.4, MAT.rubber, sx + side * 0.25, DOCKS.h + 0.5, d.z); box(1.0, DOCKS.h + 0.8, 0.5, MAT.rubber, sx, DOCKS.h / 2 + 0.4, d.z - DOCKS.w / 2 - 0.45); box(1.0, DOCKS.h + 0.8, 0.5, MAT.rubber, sx, DOCKS.h / 2 + 0.4, d.z + DOCKS.w / 2 + 0.45);
       plane(DOCKS.w + 1.4, 0.6, MAT.hazard, side * (X + 1.26), DOCKS.h + 0.5, d.z, 0, side > 0 ? Math.PI / 2 : -Math.PI / 2);
@@ -82,7 +82,7 @@
     }
     fenceRun(-84, -68, 84, -68); fenceRun(-84, 60, 84, 60);
     [-1, 1].forEach(function (side) {
-      var gx = side * 84; if (side < 0) { fenceRun(gx, -68, gx, -37.6); fenceRun(gx, -30.4, gx, -17.6); solid(gx - 0.5, gx + 0.5, -37.6, -30.4, YARD_Y, YARD_Y + 1.1); solid(gx - 0.5, gx + 0.5, -17.6, -2.4, YARD_Y, YARD_Y + 1.1); } else { fenceRun(gx, -68, gx, -25.2); solid(gx - 0.5, gx + 0.5, -25.2, -2.4, YARD_Y, YARD_Y + 1.1); } fenceRun(gx, -2.4, gx, 60);   // gaps where the lanes run: IN 3 at z -34, the docks at -14 and -6, OUT 3 at -21.6; a waist-high bar keeps you in
+      var gx = side * 84; if (side < 0) { fenceRun(gx, -68, gx, -37.6); fenceRun(gx, -30.4, gx, -17.6); solid(gx - 0.5, gx + 0.5, -37.6, -30.4, YARD_Y, YARD_Y + 1.1); solid(gx - 0.5, gx + 0.5, -17.6, -2.4, YARD_Y, YARD_Y + 1.1); } else { fenceRun(gx, -68, gx, -37.6); fenceRun(gx, -30.4, gx, -25.2); solid(gx - 0.5, gx + 0.5, -37.6, -30.4, YARD_Y, YARD_Y + 1.1); solid(gx - 0.5, gx + 0.5, -25.2, -2.4, YARD_Y, YARD_Y + 1.1); } fenceRun(gx, -2.4, gx, 60);   // gaps where the lanes run: IN 3 at z -34, the docks at -14 and -6, OUT 3 at -21.6; a waist-high bar keeps you in
       // two barrier lanes on the dock lines, an island between them, and the gatehouse with the guard
       [[-14, 'DOCK 1'], [-6, 'DOCK 2']].forEach(function (lane) {
         var lz = lane[0], post = cyl(0.1, 1.2, MAT.steelDark, gx, YARD_Y + 0.6, lz + 3.2, null, 10); box(0.5, 0.9, 0.4, MAT.hazard, gx, YARD_Y + 0.45, lz + 3.2); box(0.3, 0.35, 0.3, MAT.steelDark, gx, YARD_Y + 1.1, lz + 3.2);

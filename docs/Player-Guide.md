@@ -50,7 +50,7 @@ The **sortation deck** (level 6, on the mezzanine) is where the lanes run themse
 
 ## The annex halls
 
-From level 7 the building grows off its north side, one hall at a time in the shop. **Hall 2** stands east of the production wing (two rows of seven bays), **Hall 3** west of it (two rows of five) with **IN 3** on its west wall, so a third inbound truck a day docks straight into the new rows, and **Hall 4** sits behind the wing, reached through the wing's north wall. Their doorways are already cut and shuttered; buying the hall opens the shutter. The new rows are plain storage for the forklift, the AGV, the receivers and the pickers; the cranes stay over the main rows. The main rows fill first.
+From level 7 the building grows off its north side, one hall at a time in the shop. **Hall 2** stands east of the production wing and is the **returns hall** (no racks: see Returns below), **Hall 3** west of it (two rows of five) with **IN 3** on its west wall, so a third inbound truck a day docks straight into the new rows, and **Hall 4** sits behind the wing, reached through the wing's north wall. Their doorways are already cut and shuttered; buying the hall opens the shutter. The new rows in Halls 3 and 4 are plain storage for the forklift, the AGV, the receivers and the pickers; the cranes stay over the main rows. The main rows fill first.
 
 ## Staff options and the plant page
 
@@ -111,7 +111,7 @@ The dock consoles and the bench terminal are touch screens: look at a button and
 | Mezzanine level (needs the gantry pickers) | $6,000 | 6 |
 | Sortation deck and air dock (needs the mezzanine) | $7,500 | 6 |
 | Deck night shift (needs the deck) | $1,800 | 6 |
-| Hall 2, east annex (needs the forklift) | $9,000 | 7 |
+| Returns hall, east annex (needs the forklift) | $9,000 | 7 |
 | Hall 3, west annex, and IN 3 (needs Hall 2) | $9,500 | 7 |
 | Hall 4, behind the wing (needs Hall 3) | $9,500 | 8 |
 
@@ -161,6 +161,8 @@ Build mode (`F2`), then `C`: the Conveyors group sells belts by the piece, strai
 ## Returns
 
 From level 3 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong item, or damaged in transit. The truck's toast and the Docks page say so. With empty hands, `E` in the trailer takes the return off. Carry it to the **returns desk** between the bench and the office: `E` puts it on the desk (it holds four), `E` again starts the inspection, which runs by itself for a few seconds and needs power. The client pays $10 a return and $4 a box. The boxes come out on the desk's two shelves: good ones go back on a rack by hand or on the cart (`E` with the cart at the shelf takes one), damaged ones go in the bin by the bench at no charge. A return left lying for a day costs a point of reputation. A truck that leaves with a return still aboard has its driver set it down inside the door. The scanner's Home page counts the returns in play and the Orders page lists them with a waypoint to each; the office PC shows them under Orders. The packer fetches returns off the floor and the trucks, runs the desk, and racks or bins what comes off the shelf when the bench has nothing for them.
+
+**The returns hall (level 7, in the shop as the east annex).** The day it is bought Hall 2 is given over to returns: its rack rows go (stock you had in them moves to other rows, or stands on pallets on its floor) and the hall gets a **returns dock** of its own on the east wall, in line with the OUT docks, a **belt** from inside the dock door to an **intake**, three **inspection desks**, a **restock cage** against the far wall and a **compactor** for the damaged boxes. The returns truck docks at 09:30 and 15:00 with three to six returns out of everything you have shipped; open its door (the door itself, the cabinet or the consoles) and, with the power on, the belt carries the returns off the trailer to the intake by itself. E on any desk inspects the next one in the queue (the queue holds eight; E on the intake with a return in hand queues it too). Good boxes land in the cage (it holds twenty-four): take them back to a rack by hand or on the cart. Damaged ones go in the compactor at no charge. The desk by the bench goes with the hall; the outbound trucks still bring the odd return back to their own doors, and those are carried to the hall. The packer covers the lot: fetches returns off the floor and the trucks, runs a free desk, racks and scraps what comes out of the cage.
 
 ## The map
 

@@ -20,7 +20,11 @@
     var roles = Object.keys(STAFF_ROLES).filter(function (r) { return r !== st.role && !(STAFF_ROLES[r].needs && !S.up[STAFF_ROLES[r].needs]); }); if (!roles.length) return;
     var i = roles.indexOf(st.cross || ''), next = i < 0 ? roles[0] : i + 1 < roles.length ? roles[i + 1] : null;
     if (next && !st.crossPaid) { if (S.bank < CROSS_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-CROSS_PRICE, 'Cross-training, ' + st.name); st.crossPaid = true; }
-    st.cross = next; if (st.state !== 'drive') st.task = null; sfx('click');   // a driver mid-lift keeps the job, or the pallet on the forks is orphaned toast(next ? st.name + ' also covers ' + STAFF_ROLES[next].name.toLowerCase() + ' work when their own queue is empty' : st.name + ' sticks to ' + STAFF_ROLES[st.role].name.toLowerCase() + ' work', 'good');
+    st.cross = next; if (st.state === 'idle') st.task = null; sfx('click');   // a worker mid-task keeps it: dropping a fetch or a pick orphaned the claim
+    var cm = staffMeshes[st.id], wantJack = st.role === 'receiver' || st.cross === 'receiver';
+    if (cm && wantJack && !cm.userData.jack && jackModel) cm.userData.jack = jackModel('staffjack', true);
+    if (cm && !wantJack && cm.userData.jack) { scene.remove(cm.userData.jack); cm.userData.jack = null; st.jackParked = false; st.jackAt = null; }
+    toast(next ? st.name + ' also covers ' + STAFF_ROLES[next].name.toLowerCase() + ' work when their own queue is empty' : st.name + ' sticks to ' + STAFF_ROLES[st.role].name.toLowerCase() + ' work', 'good');
   }
   function staffStatus(st) {
     if (isSunday()) return 'Sunday';
@@ -52,7 +56,7 @@
   // pay for yesterday from the timesheet
   function payStaffWages() {
     S.staff.forEach(function (st) {
-      var h = st.hoursToday || 0, base = Math.min(h, 10), ot = Math.max(0, h - 10), amount = Math.round(hourly(st) * (base + ot * 1.5));
+      var h = st.hoursToday || 0, base = Math.min(h, 10.25), ot = Math.max(0, h - 10.25), amount = Math.round(hourly(st) * (base + ot * 1.5));   // a quarter hour's grace: an early arrival and the clock-out walk are on the clock too
       if (!st.sheet) st.sheet = []; st.sheet.unshift({ day: S.day - 1, h: Math.round(h * 10) / 10, late: !!st.lateToday, sick: !!st.sick, off: !!st.dayOff, ot: Math.round(ot * 10) / 10, pay: amount }); if (st.sheet.length > 7) st.sheet.pop();
       st.hoursTotal = (st.hoursTotal || 0) + h;
       if (amount > 0) pay(-amount, 'Wages, ' + st.name + ' (' + (Math.round(h * 10) / 10) + ' h' + (ot ? ', ' + (Math.round(ot * 10) / 10) + ' h overtime' : '') + ')');

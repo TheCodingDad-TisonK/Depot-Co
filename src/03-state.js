@@ -25,7 +25,7 @@
       layout: {}, custom: [],
       hand: null,                // { kind: 'box', sku } | { kind: 'parcel', order }
       orders: [], shipped: [],   // shipped keeps the last 40 for the ledger
-      trucks: [], doors: [false, false, false, false, false, false],   // IN 1, IN 2, OUT 1, OUT 2, OUT 3, IN 3 (see DOOR_MAP)
+      trucks: [], doors: [false, false, false, false, false, false, false],   // IN 1, IN 2, OUT 1, OUT 2, OUT 3, IN 3, RETURNS (see DOOR_MAP)
       sort: null,                // the sortation deck's cells, turntable and counts (1.14.0)
       stage: {},                 // parcels staged beside each dock loader, by loader id
       staff: [], nextStaffName: 0,
@@ -73,12 +73,13 @@
         (s.staff || []).forEach(function (st) { st.task = null; if (st.carry && st.carry.back) delete st.carry.back; });
       }
       // 1.14.0: the lanes. Five dock doors; every order carries its lane; the upper pack line of the uncommitted step 2 is gone
-      while ((s.doors || (s.doors = [])).length < 6) s.doors.push(false); if (!s.stage) s.stage = {};
+      while ((s.doors || (s.doors = [])).length < 7) s.doors.push(false); if (!s.stage) s.stage = {};
+      (s.staff || []).forEach(function (st) { if (st.state === 'wait' && !st.clocked && !st.clockedOutAt) st.state = 'clockin'; });   // saved in the clock-in wait: the wait's closure is gone, so they clock in again
       (s.orders || []).forEach(function (o) { if (o.state === 'upper') { o.state = 'open'; } if (!o.mode) { var cm = (CLIENTS.filter(function (c) { return c.id === o.client; })[0] || {}).mode || 'land'; o.mode = cm === 'air' && !s.up.sorter ? 'land' : cm; } });
       if (s.up.upperPack) { delete s.up.upperPack; } delete s.upack; delete s.udiv; if (s.belts) { delete s.belts.upackIn; delete s.belts.upackOut; }
       // belt items whose piece is gone (a removal that crashed before 1.13.5 left them behind): boxes and parcels go to the receiving floor
       if (s.belts) for (var bk in s.belts) { if (BELTS[bk] || (s.custom || []).some(function (c) { return c.id === bk; })) continue; (s.belts[bk] || []).forEach(function (it, n) { var fx = SPOT.stageIn.x - 0.9 + (n % 4) * 0.6, fz = SPOT.stageIn.z + 1.5 + Math.floor(n / 4) * 0.6; if (it.kind === 'box') s.floor.push({ kind: 'box', sku: it.sku, x: fx, y: 0, z: fz, rot: 0 }); else if (it.kind === 'parcel' && it.order) s.floor.push({ kind: 'parcel', order: it.order, x: fx, y: 0, z: fz, rot: 0 }); }); delete s.belts[bk]; }
-      S = s; return true;
+      S = s; migrateReturnsHall(); return true;   // 1.17.0: Hall 2's rows are gone
     } catch (e) {
       // a save that will not load is kept beside the slot rather than lost: the fresh game that follows saves over the slot itself
       try { if (typeof console !== 'undefined') console.error('Depot Co.: the save in ' + SAVE + ' could not be loaded', e); var brokenRaw = localStorage.getItem(SAVE); if (brokenRaw) localStorage.setItem(SAVE + '-broken', brokenRaw); } catch (e2) {}

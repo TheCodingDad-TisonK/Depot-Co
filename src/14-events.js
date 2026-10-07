@@ -16,7 +16,7 @@
     if (S.insured) pay(-40, 'Insurance premium');
     closeDay();
     if (isSunday()) { toast('Sunday. The depot is closed: no trucks, no orders.', ''); logEvent('Sunday. Nothing moves today. A good day to sleep through.'); }
-    for (var f in S.flags) if (/^(in|out)\d+-/.test(f) && +f.replace(/^(in|out)/, '').split('-')[0] < S.day - 1) delete S.flags[f];
+    for (var f in S.flags) if (/^(in|out|ret)\d+-/.test(f) && +f.replace(/^(in|out|ret)/, '').split('-')[0] < S.day - 1) delete S.flags[f];
     S.events.inspected = false; S.events.prowled = false;
     logEvent('Day ' + S.day + '. Rent and wages paid.', 'rare'); toast('Day ' + S.day, 'rare'); rebuildBoardSoon(); hudDirty = true; save();
     if (S.bank < -600) { toast('The bank is getting nervous: ' + money(S.bank), 'bad'); }

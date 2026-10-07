@@ -65,7 +65,7 @@
   // loading line and a run from IN 2 to a rack bay is an unloading line, with nothing bought but the pieces.
   function doorInside(i) { var d = doors[i]; return d ? [d.side * (HALL.x - 1.2), d.z] : null; }
   for (var dmi = 0; dmi < DOOR_MAP.length; dmi++) (function (i) {
-    defMachine('door' + i, { door: i, atFn: function () { return doorInside(i); }, accept: DOOR_MAP[i].dir === 'in' ? null : function (it) {
+    defMachine('door' + i, { door: i, atFn: function () { return doorInside(i); }, accept: DOOR_MAP[i].dir !== 'out' ? null : function (it) {
       if (it.kind !== 'parcel' || !powered()) return false;
       var t = truckAtDoor(i); if (!t || !S.doors[i] || !doorPassable(i)) return false;
       var o = orderById(it.order); if (!o) return true;
@@ -115,8 +115,8 @@
     if (S.pal && S.pal.n > 0 && propInst.palletiser) { var cw = propWorld('palletiser', 0, 0); drawPalletWithBoxes(S.pal.sku, S.pal.n, cw.x, 0.42, cw.z, cw.a, { kind: 'palletiser' }); }
   }
   // a box or a parcel riding a belt can be lifted off by hand
-  function beltItemPrompt(src) { if (S.hand) return null; var it = src.item; if (it.kind === 'pallet') return null; if (it.kind === 'box') return 'Take the box of ' + skuName(it.sku) + ' off the belt'; if (it.kind === 'parcel' && it.order) return 'Take the parcel off the belt'; return null; }
-  function beltItemUse(src) { if (S.hand) return; var arr = beltItems(src.belt), i = arr.indexOf(src.item); if (i < 0) return; var it = arr[i]; if (it.kind === 'box') handSet({ kind: 'box', sku: it.sku }); else if (it.kind === 'parcel' && it.order) handSet({ kind: 'parcel', order: it.order }); else return; arr.splice(i, 1); sfx('pickup'); }
+  function beltItemPrompt(src) { if (S.hand) return null; var it = src.item; if (it.kind === 'pallet') return null; if (it.kind === 'box') return 'Take the box of ' + skuName(it.sku) + ' off the belt'; if (it.kind === 'parcel' && it.order) return 'Take the parcel off the belt'; if (it.kind === 'parcel' && it.ret) { var rr = returnById(it.ret); return 'Take return #' + (rr ? rr.num : '?') + ' off the belt'; } return null; }
+  function beltItemUse(src) { if (S.hand) return; var arr = beltItems(src.belt), i = arr.indexOf(src.item); if (i < 0) return; var it = arr[i]; if (it.kind === 'box') handSet({ kind: 'box', sku: it.sku }); else if (it.kind === 'parcel' && it.order) handSet({ kind: 'parcel', order: it.order }); else if (it.kind === 'parcel' && it.ret) handSet({ kind: 'return', id: it.ret }); else return; arr.splice(i, 1); sfx('pickup'); }
   function lampSet(m, status) { if (!m.lamps) return; m.lamps.g.visible = status === 'run'; m.lamps.a.visible = status === 'idle'; m.lamps.r.visible = status === 'jam' || status === 'off'; }
 
   // ── The pack line: the bench feeds boxes onto the infeed, the case taper closes the order into one parcel, the outfeed drops it on the shelf
