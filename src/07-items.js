@@ -10,13 +10,15 @@
   var palletInst = mkInst(PALLET_GEO, MAT.wood, 400); palletInst.userData.pallet = true;
   var parcelInst = mkInst(PARCEL_GEO, MAT.parcel, 400); parcelInst.userData.parcel = true;
   // the sortation deck's forms: a sea crate, a strapped land parcel, an air bag; one instanced mesh each, looked at like any parcel
-  var CRATE_GEO = boxGeo(0.72, 0.56, 0.6), FORM_INST = { crate: mkInst(CRATE_GEO, MAT.crate, 200), strap: mkInst(PARCEL_GEO, MAT.strapped, 200), pouch: mkInst(PARCEL_GEO, MAT.airbox, 200) };
+  var CRATE_GEO = boxGeo(0.72, 0.56, 0.6), FORM_INST = { crate: mkInst(CRATE_GEO, MAT.crate, 200), strap: mkInst(PARCEL_GEO, MAT.strapped, 200), pouch: mkInst(PARCEL_GEO, MAT.airbox, 200), ret: mkInst(PARCEL_GEO, MAT.returned, 100) };   // ret: a parcel a customer sent back (1.16.0)
   for (var fk in FORM_INST) { FORM_INST[fk].userData.parcelForm = fk; instSrc[fk] = []; }
   var counts = {};
   function setInst(im, i, x, y, z, ry) { _e.set(0, ry || 0, 0); _q.setFromEuler(_e); _m4.compose(_v.set(x, y, z), _q, _s1); im.setMatrixAt(i, _m4); }
   function putBox(sku, x, y, z, ry, src) { var im = boxInst[sku]; if (!im) return; var i = counts[sku]++; if (i >= 1400) return; setInst(im, i, x, y, z, ry); instSrc.box[sku][i] = src; }
   function putPallet(x, y, z, ry, src) { var i = counts.pallet++; if (i >= 400) return; setInst(palletInst, i, x, y, z, ry); instSrc.pallet[i] = src; }
   function putParcel(x, y, z, ry, src, form) { if (form && FORM_INST[form]) { var j = counts[form]++; if (j >= 200) return; setInst(FORM_INST[form], j, x, y + (form === 'crate' ? 0.05 : 0), z, ry); instSrc[form][j] = src; return; } var i = counts.parcel++; if (i >= 400) return; setInst(parcelInst, i, x, y, z, ry); instSrc.parcel[i] = src; }
+  // a damaged box: squashed, tilted, drawn from its base height (loose on the floor, or on the returns desk shelf)
+  function putBoxDamaged(sku, x, y, z, ry, src) { var im = boxInst[sku]; if (!im) return; var ii = counts[sku]++; if (ii >= 1400) return; _e.set(0, ry || 0, 0.35); _q.setFromEuler(_e); _v2.set(1, 0.72, 1.08); _m4.compose(_v.set(x, y + BOX.h * 0.36, z), _q, _v2); im.setMatrixAt(ii, _m4); instSrc.box[sku][ii] = src; }
   // boxes on a pallet: four to a layer, up to three layers
   function boxOffset(i, ry) { var layer = Math.floor(i / 4), k = i % 4, ox = k % 2 ? 0.29 : -0.29, oz = k < 2 ? -0.24 : 0.24; var c = Math.cos(ry || 0), s = Math.sin(ry || 0); return { x: ox * c + oz * s, z: -ox * s + oz * c, y: 0.14 + BOX.h / 2 + layer * BOX.h }; }
   function drawPalletWithBoxes(sku, n, x, y, z, ry, src) { putPallet(x, y + 0.07, z, ry, src); for (var i = 0; i < n; i++) { var o = boxOffset(i, ry); putBox(sku, x + o.x, y + o.y, z + o.z, ry, src); } }
@@ -32,7 +34,7 @@
     return null;
   }
   function syncInstances() {
-    SKUS.forEach(function (s) { counts[s.id] = 0; }); counts.pallet = 0; counts.parcel = 0; counts.crate = 0; counts.strap = 0; counts.pouch = 0;
+    SKUS.forEach(function (s) { counts[s.id] = 0; }); counts.pallet = 0; counts.parcel = 0; counts.crate = 0; counts.strap = 0; counts.pouch = 0; counts.ret = 0;
     for (var key in S.slots) { var sl = S.slots[key]; if (!sl || (!sl.n && !sl.pal)) continue; var p = slotParse(key), sp = rackSlotPos(p.r, p.b, p.l); drawPalletWithBoxes(sl.sku, sl.n, sp.x, sp.y, sp.z, sp.ry || 0, { kind: 'slot', key: key }); }
     S.pallets.forEach(function (pl) { var w = palletWorld(pl); if (!w) return; drawPalletWithBoxes(pl.sku, pl.n, w.x, w.y, w.z, w.ry, { kind: 'pallet', id: pl.id, carried: pl.place !== 'floor' && pl.place !== 'truck' }); });
     // the bench and its shelf follow the bench prop: box positions are local to it, clear of the terminal at its near end
@@ -41,12 +43,12 @@
     var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) { var w = benchW(bi % 2 ? 0.23 : -0.23, -0.72 + (Math.floor(bi / 2) % 4) * 0.6); putBox(s.id, w.x, 0.94 + BOX.h / 2 + Math.floor(bi / 8) * BOX.h, w.z, ba, { kind: 'bench', sku: s.id }); } });
     var LP = PROPS.packline ? propPlacement('packline') : BP, la = LP.rot * Math.PI / 2, lc = Math.cos(la), ls = Math.sin(la);
     S.bench.parcels.forEach(function (oid, i) { var s = shelfSlot(i); putParcel(LP.x + s.lx * lc + s.lz * ls, s.y, LP.z - s.lx * ls + s.lz * lc, la, { kind: 'shelf', order: oid }, parcelForm(oid)); });
-    drawBeltItems(); drawSorterItems();
-    S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) { var im = boxInst[f.sku]; if (im) { var ii = counts[f.sku]++; if (ii < 1400) { _e.set(0, f.rot, 0.35); _q.setFromEuler(_e); _v2.set(1, 0.72, 1.08); _m4.compose(_v.set(f.x, f.y + BOX.h * 0.36, f.z), _q, _v2); im.setMatrixAt(ii, _m4); instSrc.box[f.sku][ii] = { kind: 'floor', idx: i }; } } } else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }, parcelForm(f.order)); });
+    drawBeltItems(); drawSorterItems(); drawReturnsDesk();
+    S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) putBoxDamaged(f.sku, f.x, f.y, f.z, f.rot, { kind: 'floor', idx: i }); else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else if (f.kind === 'return') putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }, 'ret'); else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }, parcelForm(f.order)); });
     var cw = toolWorld('cart'), cartY = [0.3, 0.82, 1.34]; S.cart.boxes.forEach(function (sku, i) { var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 4 - 1.5) * 0.4, ly = cartY[Math.floor(i / 4)] || 1.34; putBox(sku, cw.x + lx * c, ly + BOX.h / 2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
     (S.cart.parcels || []).forEach(function (oid, j) { var i = S.cart.boxes.length + j; if (i >= ECON.cartCap) return; var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 4 - 1.5) * 0.4, ly = cartY[Math.floor(i / 4)] || 1.34; putParcel(cw.x + lx * c, ly + 0.2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }, parcelForm(oid)); });
-    S.trucks.forEach(function (t) { if (t.dir !== 'out') return; t.parcels.forEach(function (oid, i) { var pp = truckParcelPos(t, i), po = orderById(oid); putParcel(pp.x, pp.y + 0.23, pp.z, 0, { kind: 'truck' }, po && po.form); }); });
-    S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') putBox(st.carry.sku, st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); if (st.carry && st.carry.kind === 'parcel') putParcel(st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }, parcelForm(st.carry.order)); });
+    S.trucks.forEach(function (t) { if (t.dir !== 'out') return; t.parcels.forEach(function (oid, i) { var pp = truckParcelPos(t, i), po = orderById(oid); putParcel(pp.x, pp.y + 0.23, pp.z, 0, { kind: 'truck' }, po && po.form); }); (t.returns || []).forEach(function (rid, i) { var rp = truckParcelPos(t, 18 + i); putParcel(rp.x, rp.y + 0.23, rp.z, 0.1, { kind: 'truckReturn', truck: t.id, id: rid }, 'ret'); }); });   // the returns ride deep in the trailer, past the loaded parcels
+    S.staff.forEach(function (st) { if (st.carry && st.carry.kind === 'box') putBox(st.carry.sku, st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }); if (st.carry && st.carry.kind === 'parcel') putParcel(st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }, parcelForm(st.carry.order)); if (st.carry && st.carry.kind === 'return') putParcel(st.x + Math.sin(st.yaw) * 0.45, 1.05, st.z + Math.cos(st.yaw) * 0.45, st.yaw, { kind: 'carried' }, 'ret'); });
     SKUS.forEach(function (s) { var im = boxInst[s.id]; im.count = Math.min(counts[s.id], 1400); im.instanceMatrix.needsUpdate = true; });
     palletInst.count = Math.min(counts.pallet, 400); palletInst.instanceMatrix.needsUpdate = true;
     parcelInst.count = Math.min(counts.parcel, 400); parcelInst.instanceMatrix.needsUpdate = true;
@@ -62,9 +64,9 @@
   box(0.06, 0.06, 0.14, MAT.black, 0, 0, 0, handPlug); box(0.08, 0.08, 0.04, MAT.red, 0, 0, 0.09, handPlug); cyl(0.012, 0.3, MAT.black, 0, -0.1, -0.1, handPlug, 6).rotation.x = 0.8;
   function parcelForm(oid) { var o = oid ? orderById(oid) : null; return o && o.form || null; }   // the crate, strap or bag the deck gave it, kept on the order
   function formMat(f) { return f === 'crate' ? MAT.crate : f === 'strap' ? MAT.strapped : f === 'pouch' ? MAT.airbox : MAT.parcel; }
-  function updateHandMesh() { var h = S.hand; handBox.visible = !!(h && h.kind === 'box'); handParcel.visible = !!(h && h.kind === 'parcel'); if (h && h.kind === 'box') handBox.material = CARD[h.sku] || CARD.paint; if (h && h.kind === 'parcel') handParcel.material = formMat(parcelForm(h.order)); }
+  function updateHandMesh() { var h = S.hand; handBox.visible = !!(h && h.kind === 'box'); handParcel.visible = !!(h && (h.kind === 'parcel' || h.kind === 'return')); if (h && h.kind === 'box') handBox.material = CARD[h.sku] || CARD.paint; if (h && h.kind === 'parcel') handParcel.material = formMat(parcelForm(h.order)); if (h && h.kind === 'return') handParcel.material = MAT.returned; }
   function handSet(h) { S.hand = h; hudDirty = true; updateHandMesh(); }
-  function handLabel() { var h = S.hand; if (!h) return null; if (h.kind === 'box') return { t: (h.damaged ? 'A damaged box of ' : 'A box of ') + skuName(h.sku), s: h.damaged ? 'bin it by the bench' : 'G puts it down' }; var o = orderById(h.order); return { t: 'Parcel #' + (o ? o.num : '?'), s: o ? 'for ' + clientName(o.client) + ' · G puts it down' : '' }; }
+  function handLabel() { var h = S.hand; if (!h) return null; if (h.kind === 'return') { var rr = returnById(h.id); return { t: rr ? returnLabel(rr) : 'A return', s: 'to the returns desk · G puts it down' }; } if (h.kind === 'box') return { t: (h.damaged ? 'A damaged box of ' : 'A box of ') + skuName(h.sku), s: h.damaged ? 'bin it by the bench' : 'G puts it down' }; var o = orderById(h.order); return { t: 'Parcel #' + (o ? o.num : '?'), s: o ? 'for ' + clientName(o.client) + ' · G puts it down' : '' }; }
 
   // ── Rack slots ────────────────────────────────────────────────────
   function slotGet(key) { return S.slots[key] || null; }
@@ -93,7 +95,7 @@
     var p = slotParse(key), s = S.slots[key], has = s && s.n > 0, tool = player.tool;
     if (p.l === RACK.top && !driving) return has ? skuName(s.sku) + ' × ' + s.n + ' · top level: forklift only' : 'Top level: forklift only';
     if (tool === 'cart') { if (has && cartLoad() < ECON.cartCap) return 'Pick a box of ' + skuName(s.sku) + ' onto the cart (' + s.n + ' here)'; return has ? 'Cart is full' : null; }
-    if (tool === 'jack') { var jp = jackPallet(); if (jp) return jackReach(p.l) ? (slotSpace(key, jp.sku) >= jp.n ? 'Set the pallet into the rack' : (has ? 'Slot holds ' + skuName(s.sku) + ': no room' : null)) : jackReachText(); return has && jackReach(p.l) ? 'Pull the pallet out (' + Math.min(s.n, ECON.palletCap) + ' boxes)' : (s && s.pal && jackReach(p.l) ? 'Take the empty pallet out' : null); }
+    if (isJack(tool)) { var jp = jackPallet(tool); if (jp) return jackReach(p.l) ? (slotSpace(key, jp.sku) >= jp.n && !(jp.n === 0 && s) ? 'Set the pallet into the rack' : (has ? 'Slot holds ' + skuName(s.sku) + ': no room' : null)) : jackReachText(); return has && jackReach(p.l) ? 'Pull the pallet out (' + Math.min(s.n, ECON.palletCap) + ' boxes)' : (s && s.pal && jackReach(p.l) ? 'Take the empty pallet out' : null); }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'A damaged box does not go on the rack: bin it';
     if (S.hand && S.hand.kind === 'box') return slotSpace(key, S.hand.sku) > 0 ? 'Put the box on the rack' + (has ? ' (' + s.n + ' here)' : '') : 'Slot holds ' + skuName(s.sku) + ': no room';
     if (S.hand) return null;
@@ -121,7 +123,7 @@
   function palletById(id) { for (var i = 0; i < S.pallets.length; i++) if (S.pallets[i].id === id) return S.pallets[i]; return null; }
   function newPallet(sku, n, props) { var p = { id: uid('pl'), sku: sku, n: n, place: 'floor', x: 0, y: 0, z: 0, rot: 0 }; for (var k in props) p[k] = props[k]; S.pallets.push(p); return p; }
   function removePallet(id) { for (var i = 0; i < S.pallets.length; i++) if (S.pallets[i].id === id) { S.pallets.splice(i, 1); return; } }
-  function storePallet(p, key) { if (!slotOwned(key) || slotSpace(key, p.sku) < p.n) return false; slotAdd(key, p.sku, p.n); S.slots[key].pal = true; S.slots[key].wrapped = !!p.wrapped; S.stats.putaway += p.n; removePallet(p.id); return true; }
+  function storePallet(p, key) { if (!slotOwned(key) || slotSpace(key, p.sku) < p.n || (p.n === 0 && S.slots[key])) return false; slotAdd(key, p.sku, p.n); S.slots[key].pal = true; S.slots[key].wrapped = !!p.wrapped; S.stats.putaway += p.n; removePallet(p.id); return true; }   // an empty pallet only goes into an empty slot
   function pullPallet(key) { var s = S.slots[key]; if (!s || !s.n) return null; var sku = s.sku, n = Math.min(s.n, ECON.palletCap), wrapped = !!s.wrapped; slotTake(key, n); if (S.slots[key] && S.slots[key].n <= 0) delete S.slots[key]; return newPallet(sku, n, { place: 'floor', wrapped: wrapped }); }   // the pallet under the boxes goes with them; an empty one used to stay behind, to be pulled again and again
   function jackPallet(tool) { var t = tool || jackTool(), js = S[t]; return js && js.pallet ? palletById(js.pallet) : null; }
   function forkPallet() { return S.fork.pallet ? palletById(S.fork.pallet) : null; }
@@ -133,20 +135,23 @@
     if (isJack(player.tool)) return jackPallet() ? null : (p.n > 0 ? 'Lift the pallet with the jack (' + p.n + ' × ' + skuName(p.sku) + ')' : 'Lift the empty pallet with the jack');
     if (player.tool === 'cart') { var cu = cartUnloadable(p); if (cu.n) return 'Unload ' + cu.n + ' × ' + skuName(cu.sku) + ' from the cart onto the pallet'; if (p.n === 0) return 'Empty pallet · boxes on the cart go onto it'; return cartLoad() < ECON.cartCap ? 'Take a box of ' + skuName(p.sku) + ' onto the cart (' + p.n + ' left)' : 'Cart is full'; }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return p.n === 0 ? 'A damaged box does not go on a pallet: bin it' : null;
-    if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12) return p.n === 0 ? 'Put the box on the empty pallet' : 'Put the box back on the pallet';
+    if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12 && p.place !== 'truck') return p.n === 0 ? 'Put the box on the empty pallet' : 'Put the box back on the pallet';
     if (S.hand) return null;
+    if (SKU[p.sku] && SKU[p.sku].raw && p.n > 0) return 'Raw granulate: it goes to the hopper by the pallet, on the jack';
     if (p.n === 0) return 'Empty pallet' + (p.place === 'floor' ? ' · the jack lifts it, loose boxes go on it by hand' : '');
     return 'Take a box of ' + skuName(p.sku) + ' off the pallet (' + p.n + ' left)';
   }
   function palletUse(src) {
     var p = palletById(src.id); if (!p || src.carried) return;
-    if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return; if (!t.signed) { toast('Sign the delivery note with the driver first. He is by the dock outside.', 'bad'); return; } }
+    if (p.place === 'truck') { var t = truckById(p.truck); if (!t || t.state !== 'docked') return; if (!t.signed) { toast('Sign the delivery note with the driver first. They are by the dock outside, or the console signs it.', 'bad'); return; } }
     if (isJack(player.tool)) { if (!jackPallet()) { if (p.place === 'truck') { onPalletLeftTruck(p); } var jt = jackTool(); p.place = 'jack'; p.jack = jt; S[jt].pallet = p.id; sfx('jack'); introStep('unload'); } return; }
-    var take = function () { if (p.place === 'truck') onPalletLeftTruck(p); p.n--; p.wrapped = false; S.stats.picked++; addXp(XP.box); if (p.n <= 0) { p.n = 0; if (p.place === 'truck') toast('That pallet is empty: take it out with the jack, or the truck takes it back', ''); } introStep('unload'); };
+    var take = function () { if (p.place === 'truck') receivePallet(p); p.n--; p.wrapped = false; S.stats.picked++; addXp(XP.box); if (p.n <= 0) { p.n = 0; if (p.place === 'truck') toast('That pallet is empty: take it out with the jack, or the truck takes it back', ''); } introStep('unload'); };
+    if (player.tool === 'cart' && SKU[p.sku] && SKU[p.sku].raw && p.n > 0) { toast('Raw granulate goes to the hopper by the pallet. Use the jack.', 'bad'); return; }
     if (player.tool === 'cart') { var cu2 = cartUnloadable(p); if (cu2.n) { for (var ci = S.cart.boxes.length - 1; ci >= 0 && p.n < 12; ci--) if (S.cart.boxes[ci] === cu2.sku) { S.cart.boxes.splice(ci, 1); p.sku = cu2.sku; p.n++; } sfx('putdown'); hudDirty = true; return; } if (p.n === 0) { sfx('click'); return; } if (cartLoad() < ECON.cartCap) { S.cart.boxes.push(p.sku); take(); sfx('pickup'); } return; }
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. The bin is by the bench.', 'bad'); return; }
-    if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12) { if (p.n === 0) p.sku = S.hand.sku; p.n++; handSet(null); sfx('putdown'); return; }
+    if (S.hand && S.hand.kind === 'box' && (p.n === 0 || S.hand.sku === p.sku) && p.n < 12 && p.place !== 'truck') { if (p.n === 0) p.sku = S.hand.sku; p.n++; handSet(null); sfx('putdown'); return; }
     if (S.hand) return;
+    if (SKU[p.sku] && SKU[p.sku].raw && p.n > 0) { toast('Raw granulate goes to the hopper a pallet at a time. Lift it with the jack.', 'bad'); return; }
     if (p.n === 0) { sfx('click'); return; }
     handSet({ kind: 'box', sku: p.sku }); take(); sfx('pickup');
   }
@@ -159,10 +164,11 @@
   function dropAhead(item) {
     var d = dropPoint(); item.x = d.x; item.z = d.z; item.y = d.y; item.rot = player.yaw; S.floor.push(item);
   }
-  function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'box') { if (player.tool === 'cart') return cartLoad() < ECON.cartCap && !f.damaged ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : (f.damaged ? 'Pick up the damaged box (it goes in the bin)' : 'Pick up the box of ' + skuName(f.sku)); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
+  function floorPrompt(src) { var f = S.floor[src.idx]; if (!f) return null; if (f.kind === 'return') { var fr = returnById(f.id); return S.hand || player.tool ? null : 'Pick up return #' + (fr ? fr.num : '?') + ' · it goes to the returns desk'; } if (f.kind === 'box') { if (player.tool === 'cart') return cartLoad() < ECON.cartCap && !f.damaged ? 'Put the box on the cart' : null; return S.hand || player.tool ? null : (f.damaged ? 'Pick up the damaged box (it goes in the bin)' : 'Pick up the box of ' + skuName(f.sku)); } var o = orderById(f.order); return S.hand || player.tool ? null : 'Pick up parcel #' + (o ? o.num : '?'); }
   function floorUse(src) {
     var f = S.floor[src.idx]; if (!f) return;
     if (f.kind === 'box') { if (player.tool === 'cart') { if (f.damaged) { toast('Damaged: carry it to the bin by hand.', 'bad'); return; } if (S.cart.boxes.length >= ECON.cartCap) return; S.cart.boxes.push(f.sku); } else if (S.hand || player.tool) return; else handSet({ kind: 'box', sku: f.sku, damaged: !!f.damaged }); }
+    else if (f.kind === 'return') { if (S.hand || player.tool) return; handSet({ kind: 'return', id: f.id }); }
     else { if (S.hand || player.tool) return; handSet({ kind: 'parcel', order: f.order }); }
     S.floor.splice(src.idx, 1); sfx('pickup');
   }
@@ -170,6 +176,6 @@
     if (player.tool) { releaseTool(); return; }
     if (!S.hand) return;
     var h = S.hand; handSet(null);
-    if (h.kind === 'box') { var dmg = h.damaged || (!player.grounded && Math.random() < 0.6); if (dmg && !h.damaged) { toast('That box landed badly.', 'bad'); burst(player.x, 0.4, player.z, 0xc69c6d, 10, 'out'); sfx('crate'); } dropAhead({ kind: 'box', sku: h.sku, damaged: dmg }); } else dropAhead({ kind: 'parcel', order: h.order });
+    if (h.kind === 'box') { var dmg = h.damaged || (!player.grounded && Math.random() < 0.6); if (dmg && !h.damaged) { toast('That box landed badly.', 'bad'); burst(player.x, 0.4, player.z, 0xc69c6d, 10, 'out'); sfx('crate'); } dropAhead({ kind: 'box', sku: h.sku, damaged: dmg }); } else if (h.kind === 'return') dropAhead({ kind: 'return', id: h.id }); else dropAhead({ kind: 'parcel', order: h.order });
     sfx('putdown');
   }

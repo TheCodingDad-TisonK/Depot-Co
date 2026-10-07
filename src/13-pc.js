@@ -27,7 +27,7 @@
     if (S.events.power) { toast('No power.', 'bad'); return; }
     pc.on = true; pc.app = pc.app || 'home'; pc.scroll = 0; pc.look.yaw = 0; pc.look.pitch = 0;
     pc.saved = { x: player.x, z: player.z, yaw: player.yaw, pitch: player.pitch };
-    if (player.tool) releaseTool();
+    if (player.tool) releaseTool(); scanToggle(false);
     sfx('click'); introStep('pc'); screenDirtyAll(); hudDirty = true;
     $('h-drive').hidden = false; $('h-drive').innerHTML = 'Office PC · aim at a button and <b>E</b> taps it · mouse wheel scrolls a list · <b>Esc</b> or <b>WASD</b> stands up';
   }
@@ -67,6 +67,7 @@
     } else if (app === 'orders') {
       scHead(c, w, 'ORDERS', openOrders().length + ' open');
       var rows = S.orders.slice().sort(function (a, b) { return a.due - b.due; }).map(function (o) { return { text: '#' + o.num + '  ' + clientName(o.client) + (o.rush ? '  RUSH' : '') + (o.late ? '  LATE' : ''), sub: o.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · due ' + dueText(o.due) + ' · ' + o.state, right: money(o.pay), col: o.late || o.rush ? '#ff6b5e' : '#eef1f5', hi: o.state !== 'open' }; });
+      returnsPending().forEach(function (r) { rows.push({ text: 'RETURN #' + r.num + '  ' + clientName(r.client), sub: r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r), right: money(returnFee(r)), rcol: '#f5b53d', col: r.late ? '#ff6b5e' : '#f5b53d' }); });
       S.shipped.slice(0, 6).forEach(function (s) { rows.push({ text: 'shipped #' + s.num + '  ' + clientName(s.client) + (s.late ? '  late' : '') + (s.short ? '  short' : ''), sub: 'day ' + s.day, right: money(s.paid), rcol: '#5fd38d', col: '#a0acb8' }); });
       pcRows(sc, rows, 60, 46);
     } else if (app === 'contracts') {
@@ -78,17 +79,17 @@
       pcRows(sc, rows2, 60, 50);
     } else if (app === 'shop') {
       scHead(c, w, 'SHOP', money(S.bank) + ' · level ' + S.level);
-      var rows3 = UPGRADES.map(function (u) { var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[u.id]; var needs = rowN && S.up.rows < rowN - 1 ? 'needs the previous row' : u.needs && !S.up[u.needs] ? 'needs ' + upgradeName(u.needs).toLowerCase() : S.level < u.lvl ? 'level ' + u.lvl : S.bank < u.price ? 'not enough money' : ''; return { text: u.name + (owned ? '  ·  owned' : ''), sub: u.desc, right: money(u.price), btn: owned ? null : { label: needs ? needs.toUpperCase().slice(0, 14) : 'BUY', on: !needs, act: function () { if (!needs) buyUpgrade(u.id); }, col: '#5fd38d' } }; });
+      var rows3 = UPGRADES.map(function (u) { var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[u.id]; var needs = rowN && S.up.rows < rowN - 1 ? 'needs the previous row' : u.needs && !S.up[u.needs] ? 'needs ' + upgradeName(u.needs).toLowerCase() : S.level < u.lvl ? 'level ' + u.lvl : S.bank < u.price ? 'not enough money' : ''; return { text: u.name + (owned ? '  ·  owned' : ''), sub: (needs ? needs + ' · ' : '') + u.desc, right: money(u.price), btn: owned ? null : { label: !needs ? 'BUY' : needs === 'not enough money' ? 'NO MONEY' : 'LOCKED', on: !needs, act: function () { if (!needs) buyUpgrade(u.id); }, col: '#5fd38d' } }; });
       pcRows(sc, rows3, 60, 50);
     } else if (app === 'staff') {
       scHead(c, w, 'STAFF', S.staff.length + ' of ' + staffCap());
-      var rows4 = Object.keys(STAFF_ROLES).map(function (r) { var d = STAFF_ROLES[r], locked = S.level < d.lvl || (d.needs && !S.up[d.needs]); return { text: 'Hire a ' + d.name.toLowerCase() + '  ·  ' + money(d.wage / 10) + '/h', sub: d.desc, btn: { label: locked ? (S.level < d.lvl ? 'LEVEL ' + d.lvl : 'NEEDS THE FORKLIFT') : S.staff.length >= staffCap() ? 'FULL' : 'HIRE', on: !locked && S.staff.length < staffCap(), act: function () { if (!locked && S.staff.length < staffCap()) { hireStaff(r); toast('Hired a ' + d.name.toLowerCase(), 'good'); } }, col: '#5fd38d' } }; });
+      var rows4 = Object.keys(STAFF_ROLES).map(function (r) { var d = STAFF_ROLES[r], locked = S.level < d.lvl || (d.needs && !S.up[d.needs]); return { text: 'Hire a ' + d.name.toLowerCase() + '  ·  ' + money(d.wage / 10) + '/h', sub: d.desc, btn: { label: locked ? (S.level < d.lvl ? 'LEVEL ' + d.lvl : 'NEEDS FORK') : S.staff.length >= staffCap() ? 'FULL' : 'HIRE', on: !locked && S.staff.length < staffCap(), act: function () { if (!locked && S.staff.length < staffCap()) { hireStaff(r); toast('Hired a ' + d.name.toLowerCase(), 'good'); } }, col: '#5fd38d' } }; });
       S.staff.forEach(function (st) { var sheet = st.sheet || [], hrs = sheet.reduce(function (a, r) { return a + r.h; }, 0), paid = sheet.reduce(function (a, r) { return a + r.pay; }, 0);
-        rows4.push({ text: '   ' + st.name + ': ' + (st.shift || 'day') + ' shift' + (st.trained ? ' · trained' : '') + (st.raise ? ' · raised' : '') + (st.cross ? ' · also ' + STAFF_ROLES[st.cross].name.toLowerCase() : ''), sub: 'shift ' + fmtTime(shiftStart(st)) + ' to ' + fmtTime(shiftOf(st).end) + ' · course $' + TRAIN_PRICE + ' · raise $' + RAISE_PRICE + ' · second role $' + CROSS_PRICE, col: '#a0acb8', btn: { label: 'SHIFT ▸', on: true, act: function () { staffShiftCycle(st); }, col: '#78bdf5' } });
+        rows4.push({ text: '   ' + st.name + ': ' + (st.shift || 'day') + ' shift' + (st.shiftNext ? ' (' + st.shiftNext + ' from tomorrow)' : '') + (st.trained ? ' · trained' : '') + (st.raise ? ' · raised' : '') + (st.cross ? ' · also ' + STAFF_ROLES[st.cross].name.toLowerCase() : ''), sub: 'shift ' + fmtTime(shiftStart(st)) + ' to ' + fmtTime(shiftOf(st).end) + ' · course $' + TRAIN_PRICE + ' · raise $' + RAISE_PRICE + ' · second role $' + CROSS_PRICE, col: '#a0acb8', btn: { label: 'SHIFT ▸', on: true, act: function () { staffShiftCycle(st); }, col: '#78bdf5' } });
         rows4.push({ text: '   ' + st.name + ': ' + (st.trained ? 'trained' : 'training course'), sub: st.trained ? 'walks a fifth faster and finishes every task step a third sooner' : 'quicker on their feet and at every task', col: '#a0acb8', btn: { label: st.trained ? 'DONE' : 'TRAIN', on: !st.trained && S.bank >= TRAIN_PRICE, act: function () { staffTrain(st); }, col: '#5fd38d' } });
         rows4.push({ text: '   ' + st.name + ': ' + (st.raise ? 'on the raised rate' : 'a raise'), sub: st.raise ? money(hourly(st)) + ' an hour, on time every day' : '10% more an hour, and timekeeping stops being a problem', col: '#a0acb8', btn: { label: st.raise ? 'DONE' : 'RAISE', on: !st.raise && S.bank >= RAISE_PRICE, act: function () { staffRaise(st); }, col: '#5fd38d' } });
         rows4.push({ text: '   ' + st.name + ': second role' + (st.cross ? ' · ' + STAFF_ROLES[st.cross].name.toLowerCase() : ''), sub: 'covers the other job when their own queue is empty; tap to choose the role', col: '#a0acb8', btn: { label: st.cross ? 'NEXT ▸' : 'CHOOSE', on: st.crossPaid || S.bank >= CROSS_PRICE, act: function () { staffCrossCycle(st); }, col: '#78bdf5' } });
-        rows4.push({ text: st.name + '  ·  ' + STAFF_ROLES[st.role].name + '  ·  ' + staffStatus(st), sub: 'today ' + (Math.round((st.hoursToday || 0) * 10) / 10) + ' h · last 7 days ' + (Math.round(hrs * 10) / 10) + ' h, ' + money(paid) + ' · punctuality ' + Math.round((st.punct || 0.5) * 100) + '%' + (st.lateToday ? ' · late today' : ''), hi: !!st.clocked, btn: { label: 'LET GO', on: false, act: function () { fireStaff(st.id); }, col: '#ff6b5e' } }); });
+        rows4.push({ text: st.name + '  ·  ' + STAFF_ROLES[st.role].name + '  ·  ' + staffStatus(st), sub: 'today ' + (Math.round((st.hoursToday || 0) * 10) / 10) + ' h · last 7 days ' + (Math.round(hrs * 10) / 10) + ' h, ' + money(paid) + ' · punctuality ' + Math.round((st.punct || 0.5) * 100) + '%' + (st.lateToday ? ' · late today' : ''), hi: !!st.clocked, btn: { label: 'LET GO', on: false, act: function () { if (pc.confirm !== st.id) { pc.confirm = st.id; toast('Tap LET GO again to let ' + st.name + ' go', 'bad'); return; } pc.confirm = null; fireStaff(st.id); }, col: '#ff6b5e' } }); });
       pcRows(sc, rows4, 60, 50);
     } else if (app === 'plant') {
       scHead(c, w, 'PLANT', powered() ? 'mains ok' : 'NO POWER');
@@ -103,7 +104,7 @@
       S.ledger.slice(0, 8).forEach(function (l) { rows5.push({ text: l.why, sub: 'day ' + l.day + ' · ' + l.t, right: money(l.n), rcol: l.n < 0 ? '#ff6b5e' : '#5fd38d', col: '#a0acb8' }); });
       pcRows(sc, rows5, 60, 48);
     } else if (app === 'stock') {
-      var sum = stockSummary(), keys = Object.keys(sum).sort(); scHead(c, w, 'STOCK', totalStock() + ' boxes · ' + Object.keys(S.slots).filter(function (k) { return S.slots[k].n > 0; }).length + '/' + (S.up.rows * RACK.bays * RACK.levels.length) + ' slots');
+      var sum = stockSummary(), keys = Object.keys(sum).sort(); scHead(c, w, 'STOCK', totalStock() + ' boxes · ' + Object.keys(S.slots).filter(function (k) { return S.slots[k].n > 0; }).length + '/' + slotTotal() + ' slots');
       var rows6 = keys.map(function (k) { var need = 0; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { if (l.sku === k) need += l.qty; }); }); return { sw: SKU[k].col, text: skuName(k) + '  ·  ' + money(SKU[k].val) + ' each', sub: slotsWith(k).map(slotName).slice(0, 4).join(', '), right: sum[k] + (need ? '  (' + need + ' needed)' : ''), rcol: need > sum[k] ? '#ff6b5e' : '#f5b53d' }; });
       pcRows(sc, rows6, 60, 44);
     } else if (app === 'factory') {
@@ -118,8 +119,8 @@
       pcRows(sc, rowsF, 60, 50);
     } else if (app === 'stats') {
       scHead(c, w, 'STATS', 'day ' + S.day); var st2 = S.stats;
-      var rows7 = [['Pallets received', st2.received], ['Boxes put away', st2.putaway], ['Boxes picked', st2.picked], ['Orders packed', st2.packed], ['Orders shipped', st2.shipped], ['Late', st2.late], ['Pallets refused', st2.lost], ['Damaged boxes binned', S.binned || 0], ['Your hours on the clock', Math.round((st2.hoursWorked || 0) * 10) / 10], ['Reputation', Math.round(S.rep)], ['Level', S.level]].map(function (k) { return { text: k[0], right: String(k[1]) }; });
-      pcRows(sc, rows7, 60, 34);
+      var rows7 = [['Pallets received', st2.received], ['Boxes put away', st2.putaway], ['Boxes picked', st2.picked], ['Orders packed', st2.packed], ['Orders shipped', st2.shipped], ['Late', st2.late], ['Pallets refused', st2.lost], ['Boxes stolen', st2.stolen || 0], ['Returns inspected', st2.returns || 0], ['Damaged boxes binned', S.binned || 0], ['Your hours on the clock', Math.round((st2.hoursWorked || 0) * 10) / 10], ['Reputation', Math.round(S.rep)], ['Level', S.level]].map(function (k) { return { text: k[0], right: String(k[1]) }; });
+      pcRows(sc, reportRows().concat(rows7), 60, 40);   // the last seven day reports first, then the lifetime counts
     }
   }
   function tickPc(dt) {

@@ -111,14 +111,14 @@ b { font-weight: 600; }
 .dc-xpbar { height: 4px; border-radius: 2px; background: var(--sink); margin-top: 4px; overflow: hidden; }
 .dc-xpbar span { display: block; height: 100%; width: 0; background: var(--amber); transition: width .3s; }
 .dc-event { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border: 1px solid var(--red-line); border-radius: 999px; background: rgba(60, 14, 10, 0.85); color: #ffd7d2; font: 14px var(--display); }
-.dc-prompt { position: absolute; left: 50%; top: 55%; transform: translateX(-50%); padding: 8px 14px; border: 1px solid var(--panel-line); border-radius: var(--r2); background: var(--panel); font-size: 14px; white-space: nowrap; backdrop-filter: blur(8px); }
+.dc-prompt { position: absolute; left: 50%; top: 55%; transform: translateX(-50%); max-width: 80vw; padding: 8px 14px; border: 1px solid var(--panel-line); border-radius: var(--r2); background: var(--panel); font-size: 14px; white-space: normal; text-align: center; backdrop-filter: blur(8px); }
 .dc-prompt b { display: inline-block; min-width: 20px; text-align: center; font: 12px var(--mono); padding: 1px 5px; margin-right: 6px; border: 1px solid var(--panel-line); border-radius: 4px; background: var(--sink); color: var(--amber); }
 .dc-prompt .sub { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; white-space: normal; }
-.dc-held { position: absolute; right: 16px; bottom: 16px; padding: 8px 12px; border: 1px solid var(--amber-line); border-radius: var(--r2); background: var(--panel); font: 14px var(--display); }
+.dc-held { position: absolute; right: 16px; bottom: 16px; max-width: 26vw; padding: 8px 12px; border: 1px solid var(--amber-line); border-radius: var(--r2); background: var(--panel); font: 14px var(--display); }
 .dc-held small { display: block; color: var(--muted); font: 12px var(--sans); }
-.dc-editbanner { position: absolute; top: 74px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border: 1px solid var(--amber-line); border-radius: 999px; background: rgba(60, 44, 10, 0.88); color: #ffe9b8; font: 14px var(--display); white-space: nowrap; }
+.dc-editbanner { position: absolute; top: 112px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border: 1px solid var(--amber-line); border-radius: 999px; background: rgba(60, 44, 10, 0.88); color: #ffe9b8; font: 14px var(--display); white-space: nowrap; }
 .dc-editbanner b { color: var(--amber); font: 12px var(--mono); padding: 0 5px; border: 1px solid var(--amber-line); border-radius: 4px; }
-.dc-objective { position: absolute; left: 16px; bottom: 16px; max-width: 360px; padding: 8px 12px; border: 1px solid var(--panel-line); border-left: 3px solid var(--amber); border-radius: var(--r2); background: var(--panel); font-size: 13px; }
+.dc-objective { position: absolute; left: 16px; bottom: 16px; max-width: min(360px, 26vw); padding: 8px 12px; border: 1px solid var(--panel-line); border-left: 3px solid var(--amber); border-radius: var(--r2); background: var(--panel); font-size: 13px; }
 .dc-objective:empty { display: none; }
 .dc-objective b { color: var(--amber); }
 .dc-feed { position: absolute; left: 16px; top: 80px; width: 360px; display: flex; flex-direction: column; gap: 3px; }
@@ -131,18 +131,21 @@ b { font-weight: 600; }
 .dc-toasts div.good { border-color: var(--green-line); color: var(--green); } .dc-toasts div.bad { border-color: var(--red-line); color: var(--red); } .dc-toasts div.rare { border-color: var(--amber-line); color: var(--amber); }
 @keyframes pop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
 .dc-fps { position: absolute; right: 16px; top: 80px; font: 12px var(--mono); color: var(--faint); }
-.dc-drive { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 8px 14px; border: 1px solid var(--panel-line); border-radius: var(--r2); background: var(--panel); font: 13px var(--display); color: var(--muted); }
+.dc-drive { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: 44vw; text-align: center; padding: 8px 14px; border: 1px solid var(--panel-line); border-radius: var(--r2); background: var(--panel); font: 13px var(--display); color: var(--muted); }
 .dc-drive b { color: var(--amber); }
+/* the day report card: top right, under the FPS counter, non-modal */
+.dc-report { position: absolute; right: 16px; top: 100px; width: 300px; padding: 10px 12px 8px; border: 1px solid var(--amber-line); border-left: 3px solid var(--amber); border-radius: var(--r2); background: var(--panel); backdrop-filter: blur(8px); font-size: 13px; animation: fadein .25s; }
+.dc-report .rep-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+.dc-report .rep-head b { font: 600 15px var(--display); }
+.dc-report .rep-head span { font: 600 15px var(--display); } .dc-report .rep-head span.good { color: var(--green); } .dc-report .rep-head span.bad { color: var(--red); }
+.dc-report .rep-grid { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 2px 8px; }
+.dc-report .rep-grid i { font: 10px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); align-self: center; }
+.dc-report .rep-grid em { font-style: normal; color: var(--ink); font-size: 12px; text-align: right; }
+.dc-report small { display: block; margin-top: 6px; color: var(--faint); font-size: 11px; }
+/* the black fade over a sleep */
+#dc-fade { position: fixed; inset: 0; z-index: 30; background: #000; pointer-events: none; }
 
-/* ── scanner ────────────────────────────────────────────── */
-.dc-scan { position: fixed; inset: 0; z-index: 15; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 60px 20px 0; pointer-events: none; }
-.dc-scan-dev { width: 420px; max-height: 70vh; display: flex; flex-direction: column; border: 2px solid #2b3744; border-radius: 18px; background: #1b232c; box-shadow: var(--lift); pointer-events: auto; animation: rise .2s; }
-.dc-scan-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--hair); font: 600 15px var(--display); color: var(--amber); }
-.dc-scan-tabs { margin-left: auto; display: flex; gap: 4px; }
-.dc-scan-tabs button { padding: 3px 9px; border: 1px solid var(--panel-line); border-radius: 999px; background: transparent; color: var(--muted); font: 12px var(--display); }
-.dc-scan-tabs button.on { background: var(--amber); color: #1a1205; border-color: transparent; }
-.dc-scan-body { flex: 1; overflow: auto; padding: 10px 14px; font-size: 13px; background: #0d1216; }
-.dc-scan-foot { padding: 6px 14px; font-size: 11px; color: var(--faint); text-align: center; }
+/* ── rows and sections shared by the panels ─────────────── */
 .dc-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin-bottom: 4px; border: 1px solid var(--hair); border-radius: var(--r1); background: var(--raise); }
 .dc-row.hi { border-color: var(--amber-line); }
 .dc-row.done { opacity: .55; }
@@ -192,8 +195,13 @@ b { font-weight: 600; }
 textarea.dc-ta { width: 100%; height: 140px; font: 12px var(--mono); padding: 8px; border: 1px solid var(--panel-line); border-radius: var(--r1); background: var(--sink); color: var(--ink); resize: vertical; }
 
 /* ── pause menu ───────────────────────────────────────────── */
-.dc-menu-card.pause { }
 #dc-menu .dc-menu-card { text-align: center; width: min(560px, 94vw); }
 #dc-menu h2 { margin: 0; font: 600 28px var(--display); }
 .dc-menu-btns { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
-.dc-menu-body { margin-top: 14px; text-align: left; max-height: 50vh; overflow: auto; }
+.dc-menu-body { margin-top: 14px; text-align: left; max-height: 62vh; overflow: auto; }
+.dc-menu-body .dc-how { max-height: none; }
+.dc-menu-body h3 { margin: 12px 0 6px; font: 600 15px var(--display); color: var(--amber); }
+.dc-menu-body table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dc-menu-body td, .dc-menu-body th { padding: 4px 6px; border-bottom: 1px solid var(--hair); text-align: left; }
+.dc-menu-body th { font: 11px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.dc-menu-body td.r, .dc-menu-body th.r { text-align: right; }

@@ -72,16 +72,19 @@
     if (src.kind === 'belt') return { prompt: function () { return beltItemPrompt(src); }, use: function () { beltItemUse(src); } };
     if (src.kind === 'stage') return { prompt: function () { return stagePrompt(src); }, use: function () { stageUse(src); } };
     if (src.kind === 'bench') return { prompt: function () { return benchBoxPrompt(src); }, use: function () { benchBoxUse(src); } };
+    if (src.kind === 'rdesk') return { prompt: function () { return rdeskBoxPrompt(src); }, use: function () { rdeskBoxUse(src); } };
+    if (src.kind === 'rdeskq') return { prompt: function () { return rdeskQueuePrompt(src); }, use: function () { rdeskUse(); } };
+    if (src.kind === 'truckReturn') return { prompt: function () { var t = truckById(src.truck); return t && t.state === 'docked' ? loadPrompt(src.truck) : null; }, use: function () { loadUse(src.truck); } };
     return null;
   }
   function interact() {
     focus = null; focusText = '';
-    if (!ui.started || ui.blocked() || driving) return;
+    if (!ui.started || ui.blocked() || driving || photo.on) return;
     ray.setFromCamera(centre, camera);
     if (edit.on) {
       if (edit.grabbed) { if (edit.snapText) { focus = { prompt: function () { return edit.snapText; }, use: function () {} }; focusText = edit.snapText; } return; }
       ray.far = 7; var ph = ray.intersectObjects(scene.children, true); ray.far = 3.4;
-      for (var q = 0; q < ph.length; q++) { var pid = propIdOf(ph[q].object); if (!pid) continue; if (ph[q].object.userData.baked || !ph[q].object.visible) continue; var pdef = propDef(pid); if (!pdef) continue; focus = { editId: pid, prompt: function () { return ''; }, use: function () {} }; focusText = 'Grab the ' + pdef.label + '  ·  R turn · Backspace put back · Del remove'; return; }
+      for (var q = 0; q < ph.length; q++) { var pid = propIdOf(ph[q].object); if (!pid) continue; if (ph[q].object.userData.baked || !ph[q].object.visible) continue; var pdef = propDef(pid); if (!pdef || pdef.fixed) continue; focus = { editId: pid, prompt: function () { return ''; }, use: function () {} }; focusText = 'Grab the ' + pdef.label + '  ·  R turn · Backspace put back · Del remove'; return; }
       return;
     }
     var hits = ray.intersectObjects(inter.concat(instList), false);
@@ -114,6 +117,7 @@
   document.addEventListener('mousemove', function (e) {
     if (!player.locked || ui.blocked()) return;
     var sx = 0.0022 * SET.sens, iy = SET.invertY ? -1 : 1;
+    if (photo.on) { photo.yaw -= e.movementX * sx; photo.pitch = clamp(photo.pitch - e.movementY * sx * iy, -1.5, 1.5); return; }
     if (pc.on) { pc.look.yaw = clamp(pc.look.yaw - e.movementX * sx, -0.5, 0.5); pc.look.pitch = clamp(pc.look.pitch - e.movementY * sx * iy, -0.35, 0.35); return; }
     if (driving) { forkLook.yaw = clamp(forkLook.yaw - e.movementX * sx, -2.4, 2.4); forkLook.pitch = clamp(forkLook.pitch - e.movementY * sx * iy, -1.2, 1.2); return; }
     player.yaw -= e.movementX * sx; player.pitch = clamp(player.pitch - e.movementY * sx * iy, -1.5, 1.5);
@@ -125,8 +129,11 @@
     var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT');
     if (typing && e.code !== 'Escape') return;
     if (!ui.started) return;
-    if (e.code === 'Escape') { e.preventDefault(); if (pc.on) { closePc(); return; } if (edit.on && edit.grabbed) { editDrop(true); return; } if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
+    if (reportT > 0) hideDayReport();
+    if (e.code === 'F9') { e.preventDefault(); photoToggle(); return; }
+    if (e.code === 'Escape') { e.preventDefault(); if (photo.on) { photoToggle(false); return; } if (pc.on) { closePc(); return; } if (edit.on && edit.grabbed) { editDrop(true); return; } if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
     if (ui.blocked()) return;
+    if (photo.on) { player.keys[e.code] = true; return; }
     if (e.code === 'F2') { e.preventDefault(); if (!driving && !pc.on) editToggle(); return; }
     if (edit.on) {
       if (e.code === 'KeyR') { editRotate(); return; }
@@ -137,7 +144,7 @@
       if (e.code === 'KeyG' && !e.repeat) { if (edit.grabbed) editDrop(true); return; }
     }
     if (e.code === 'Tab') { e.preventDefault(); if (!pc.on) scanToggle(!ui.scanOpen); return; }
-    if (ui.scanOpen && /^Digit[1-8]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return; }
+    if (ui.scanOpen && /^Digit[1-9]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return; }
     if (ui.scanOpen && e.code === 'KeyF') { e.preventDefault(); scanGo(); return; }
     if (ui.scanOpen && e.code === 'KeyX') { e.preventDefault(); scanClearNav(); return; }
     if (!ui.scanOpen && e.code === 'KeyX' && scan.nav && !pc.on) { scanClearNav(); return; }
@@ -145,7 +152,7 @@
     if (e.repeat) return;
     if (e.code === 'KeyE') useFocus();
     else if (e.code === 'KeyG') { if (driving) stopDrive(); else if (focus && focus.alt) focus.alt(); else putDown(); }
-    else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving && !e.repeat) forkGearCycle();
+    else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
   document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanScroll(e.deltaY > 0 ? 1 : -1); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });

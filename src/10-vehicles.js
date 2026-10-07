@@ -101,7 +101,7 @@
     sign(['2.5 t', 'max 3.3 m'], 0.3, 0.16, -0.57, 0.5, -0.4, -Math.PI / 2, { w: 256, h: 128, bg: '#1b232c', fg: '#f5b53d', size: 40 }, f); sign(['ELECTRIC'], 0.4, 0.08, 0.57, 0.5, -0.5, Math.PI / 2, { w: 256, h: 64, bg: '#f2b705', fg: '#1a1205' }, f);
     cyl(0.04, 0.3, MAT.red, 0.5, 1.4, -1.15, f, 10); box(0.03, 0.12, 0.1, MAT.chrome, -0.6, 1.9, 0.1, f); cyl(0.01, 0.3, FS, -0.6, 1.95, 0.05, f, 4).rotation.z = 0.3;
     groundBlob(2.0, 2.9, 0, -0.2, f, 0);
-    hitBox(1.1, 1.4, 1.4, 0, 1.2, -0.3, { prompt: function () { if (!S.up.fork) return null; if (player.tool === 'cable') return 'Plug the forklift in'; if (S.fork.plugged) return 'Forklift on charge · unplug at the charger · E drives off anyway'; return S.hand || player.tool ? 'Hands full' : 'Drive the forklift'; }, use: function () { if (player.tool === 'cable') { cablePlugInto('fork'); return; } startDrive(); } }, f);
+    hitBox(1.1, 1.4, 1.4, 0, 1.2, -0.3, { prompt: function () { if (!S.up.fork) return null; var drv = staffDriving(); if (drv) return drv.name + ' is on the forklift: they park it when the job is done'; if (player.tool === 'cable') return 'Plug the forklift in'; if (S.fork.plugged) return 'Forklift on charge · unplug at the charger · E drives off anyway'; return S.hand || player.tool ? 'Hands full' : 'Drive the forklift'; }, use: function () { if (player.tool === 'cable') { cablePlugInto('fork'); return; } startDrive(); } }, f);
     forkM = { g: f, car: car, beacon: beaconLens, wheel: wheel };
     placeTools();
   }
@@ -128,7 +128,7 @@
     if (!S.up.fork || S.hand || player.tool || driving) return;
     var drv = staffDriving(); if (drv) { toast(drv.name + ' is on the forklift. They park it when the job is done.', 'bad'); sfx('bad'); return; }
     if (S.fork.plugged) cableUnplugFork('You drove off with the charger plugged in. The plug came out.');
-    driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = -0.14; sfx('forklift'); introStep('fork'); hudDirty = true;
+    scanToggle(false); driving = true; forkSpeed = 0; forkLook.yaw = 0; forkLook.pitch = -0.14; sfx('forklift'); introStep('fork'); hudDirty = true;   // the scanner down, or F lowers nothing and the digits change pages
     $('h-drive').hidden = false;
   }
   function stopDrive() {
@@ -138,7 +138,7 @@
     var c = Math.cos(S.fork.yaw), s = Math.sin(S.fork.yaw);
     var spots = [[-c * 1.4, s * 1.4], [c * 1.4, -s * 1.4], [-s * 2.2, -c * 2.2]];
     for (var i = 0; i < spots.length; i++) { var x = S.fork.x + spots[i][0], z = S.fork.z + spots[i][1]; if (!collides(x, z, true) && floorY(x, z) > -0.5) { player.x = x; player.z = z; player.y = floorY(x, z); player.yaw = S.fork.yaw + Math.PI; return; } }
-    player.x = S.fork.x; player.z = S.fork.z;
+    driving = true; $('h-drive').hidden = false; toast('No room to step off here. Move the forklift first.', 'bad');   // never inside the forklift's own collision box
   }
   // an obstacle the truck is already inside (it has to nose up to the wrapper, the racks and the docks) cannot block it, so it can always back out
   function forkCollides(x, z) {
@@ -149,16 +149,16 @@
     return false;
   }
   var FORK_GEARS = [0.6, 1.0, 1.5];   // top-speed multipliers: creep, normal, fast
-  function forkGearCycle() { var F = S.fork; F.gear = ((F.gear || 1) % 3) + 1; sfx('click'); toast('Gear ' + F.gear + (F.gear === 3 ? ': fast. Mind unwrapped loads on the corners.' : F.gear === 1 ? ': creep' : ''), ''); hudDirty = true; }
+  function forkGearCycle() { var F = S.fork; F.gear = ((F.gear || 1) % 3) + 1; sfx('click'); toast('Gear ' + F.gear + (F.gear === 3 ? ': fast. Mind unwrapped loads on the corners.' : F.gear === 1 ? ': creep' : ': normal'), ''); hudDirty = true; }
   function updateFork(dt) {
     var k = player.keys, F = S.fork;
     var throttle = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), batt = F.batt === undefined ? 1 : F.batt, cap = batt <= 0 ? 0.15 : batt < 0.15 ? 0.5 : 1;
     var gear = F.gear || 1, gm = FORK_GEARS[gear - 1];
     if (throttle) forkSpeed = clamp(forkSpeed + throttle * 3.2 * gm * dt, -2.6 * cap, 4.2 * gm * cap); else forkSpeed *= Math.max(0, 1 - 3 * dt);
-    if (throttle && batt <= 0 && !forkLook.flatSaid) { forkLook.flatSaid = true; toast('Flat battery: crawl mode. Park it in its bay by the charger.', 'bad'); }
+    if (throttle && batt <= 0 && !forkLook.flatSaid) { forkLook.flatSaid = true; toast('Forklift battery flat: crawl mode. Bring it within cable reach of the charger and plug it in.', 'bad'); }
     // an unwrapped load sheds a box on a fast corner
     var p0 = forkPallet();
-    if (p0 && !p0.wrapped && p0.n > 0 && (k.KeyA || k.KeyD) && Math.abs(forkSpeed) > 3.2 && Math.random() < dt * 0.9) { p0.n--; var tip0 = forkTip(); S.floor.push({ kind: 'box', sku: p0.sku, x: tip0.x + randf(-0.8, 0.8), y: floorY(tip0.x, tip0.z), z: tip0.z + randf(-0.8, 0.8), rot: Math.random() * 6, damaged: Math.random() < 0.5 }); sfx('crate'); burst(tip0.x, tip0.y + 0.5, tip0.z, 0xc69c6d, 10, 'out'); toast('A box fell off the load. Wrap pallets before you move them.', 'bad'); if (p0.n <= 0) { removePallet(p0.id); F.pallet = null; } }
+    if (p0 && !p0.wrapped && p0.n > 0 && (k.KeyA || k.KeyD) && Math.abs(forkSpeed) > 4.3 && Math.random() < dt * 0.9) { p0.n--; var tip0 = forkTip(); S.floor.push({ kind: 'box', sku: p0.sku, x: tip0.x + randf(-0.8, 0.8), y: floorY(tip0.x, tip0.z), z: tip0.z + randf(-0.8, 0.8), rot: Math.random() * 6, damaged: Math.random() < 0.5 }); sfx('crate'); burst(tip0.x, tip0.y + 0.5, tip0.z, 0xc69c6d, 10, 'out'); toast('A box fell off the load. Wrap pallets before you move them.', 'bad'); if (p0.n <= 0) { removePallet(p0.id); F.pallet = null; } }
     if (forkSpeed < -0.3 && Math.floor(worldTime * 2) !== forkLook.beepT) { forkLook.beepT = Math.floor(worldTime * 2); sfx('beepback'); }
     if (k.Space) forkSpeed *= Math.max(0, 1 - 8 * dt);
     if (Math.abs(forkSpeed) < 0.02) forkSpeed = 0;
@@ -170,7 +170,7 @@
     if (lift) { F.lift = clamp(F.lift + lift * 1.1 * dt, 0.1, 3.7); if (!forkLook.hyd) { forkLook.hyd = true; sfx('hydraulic'); } } else forkLook.hyd = false;
     if (forkSpeed && Math.random() < dt * 1.5) sfx('forklift');
     var p = forkPallet();
-    $('h-drive').innerHTML = '<b>W/S</b> drive · <b>A/D</b> steer · <b>R/F</b> forks at ' + F.lift.toFixed(1) + ' m · <b>E</b> ' + (p ? 'set the pallet down' : 'lift a pallet') + ' · <b>G</b> get off · battery <b>' + Math.round((F.batt === undefined ? 1 : F.batt) * 100) + '%</b> · <b>Shift</b> gear <b>' + (F.gear || 1) + '</b>' + (p && !p.wrapped ? ' · <span style="color:var(--amber)">unwrapped load</span>' : '');
+    $('h-drive').innerHTML = '<b>W/S</b> drive · <b>A/D</b> steer · <b>R/F</b> forks at ' + F.lift.toFixed(1) + ' m · <b>E</b> ' + (p ? 'set the pallet down' : 'lift a pallet') + ' · <b>Space</b> brake · <b>G</b> get off · battery <b>' + Math.round((F.batt === undefined ? 1 : F.batt) * 100) + '%</b> · <b>Shift</b> gear <b>' + (F.gear || 1) + '</b>' + (p && !p.wrapped ? ' · <span style="color:var(--amber)">unwrapped load</span>' : '');
   }
   function forkUse() {
     var tip = forkTip(), F = S.fork, p = forkPallet();

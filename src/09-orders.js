@@ -5,9 +5,10 @@
   function unlockedSkus() { var tier = tierFor(S.level); return SKUS.filter(function (s) { return s.tier <= tier; }).map(function (s) { return s.id; }); }
   function openOrders() { return S.orders.filter(function (o) { return o.state === 'open'; }); }
   function activeClients() { return CLIENTS.filter(function (c) { return !c.deck || sorterOwned(); }); }   // the deck accounts wait for the sortation deck
-  function dueText(abs) { var day = Math.floor(abs / 24), t = abs % 24; return fmtTime(t) + (day > S.day ? ' tomorrow' : day < S.day ? ' (overdue)' : ''); }
+  function dueText(abs) { var day = Math.floor(abs / 24), t = abs % 24; return fmtTime(t) + (day > S.day + 1 ? ' in ' + (day - S.day) + ' days' : day > S.day ? ' tomorrow' : abs < nowAbs() ? ' (overdue)' : ''); }
+  function orderLate(o) { return nowAbs() > o.due + 0.05; }   // three minutes' grace: a truck leaves on the tick that crosses its hour, and the order due at that hour is on time
   function nextOutLeave(minAbs, dock) {   // the next departure from one dock (the order's lane), or from any dock you own
-    for (var d = 0; d < 4; d++) for (var k = 0; k < TRUCK_OUT.length; k++) { if ((dock !== undefined && k !== dock) || !dockOwned(k)) continue; var ws = TRUCK_OUT[k].windows; for (var w = 0; w < ws.length; w++) { var abs = (S.day + d) * 24 + ws[w].leave; if (abs >= minAbs) return abs; } }
+    for (var d = 0; d < 5; d++) { if ((S.day + d) % 7 === 0) continue; for (var k = 0; k < TRUCK_OUT.length; k++) { if ((dock !== undefined && k !== dock) || !dockOwned(k)) continue; var ws = TRUCK_OUT[k].windows; for (var w = 0; w < ws.length; w++) { var abs = (S.day + d) * 24 + ws[w].leave; if (abs >= minAbs) return abs; } } }   // no trucks on a Sunday, so nothing is due then
     return minAbs + 24;
   }
   // What an order may ask for: stock on site (the racks, the bench, the floor, the cart, and the pallets on a signed truck) less
@@ -42,7 +43,7 @@
     }
     if (!lines.length) return null;
     var value = 0; lines.forEach(function (l) { value += l.qty * SKU[l.sku].val; });
-    var mode = clientMode(client.id), due = rush ? nowAbs() + 2 : nextOutLeave(nowAbs() + 1.5, MODES[mode].door - 2);   // due at the next truck of its own lane
+    var mode = clientMode(client.id), due = nextOutLeave(nowAbs() + (rush ? 0.5 : 1.5), MODES[mode].door - 2);   // due at the next truck of its own lane; a rush order must make the very next one
     var o = { id: uid('or'), num: S.orderSeq++, client: client.id, mode: mode, lines: lines, created: nowAbs(), due: due, state: 'open', pay: Math.round((value * ECON.margin + ECON.handling) * (mode === 'air' ? AIR_RATE : 1) * (client.deck ? DECK_RATE : 1)) * (rush ? 2 : 1), rush: !!rush, late: false, short: false };
     S.orders.push(o);
     logEvent('Order #' + o.num + ' from ' + client.name + ' (' + MODES[mode].name.toUpperCase() + ' lane, ' + dockLabel(MODES[mode].door) + '): ' + lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + (rush ? ' · RUSH, due ' + fmtTime(due) : ''), 'rare');
@@ -58,11 +59,14 @@
   function contractTick() {
     var c = S.contract; if (!c) { if (S.level >= 3 && S.day >= S.nextOffer && S.time >= 9 && S.time < 9.2 && !isSunday()) offerContract(); return; }
     if (!c.accepted && S.day > c.offeredDay) { S.contract = null; S.nextOffer = S.day + 2; logEvent('The contract offer from ' + clientName(c.client) + ' lapsed'); return; }
-    if (c.accepted && nowAbs() > c.until) {
-      if (c.done >= c.need) { pay(c.bonus, 'Contract bonus, ' + clientName(c.client)); addRep(6); toast('Contract complete: ' + money(c.bonus) + ' bonus', 'rare'); logEvent('Contract with ' + clientName(c.client) + ' complete: ' + money(c.bonus) + ' bonus', 'rare'); sfx('fanfare'); addXp(40); }
-      else { pay(-c.penalty, 'Contract penalty, ' + clientName(c.client)); addRep(-4); toast('Contract missed: ' + c.done + ' of ' + c.need + '. Penalty ' + money(c.penalty), 'bad'); logEvent('Contract with ' + clientName(c.client) + ' missed (' + c.done + ' of ' + c.need + ')', 'bad'); }
-      S.contract = null; S.nextOffer = S.day + randi(2, 4);
-    }
+    if (c.accepted && nowAbs() > c.until) contractSettle();
+  }
+  // the contract pays out the moment the count is met, or charges when the window closes short
+  function contractSettle() {
+    var c = S.contract; if (!c) return;
+    if (c.done >= c.need) { pay(c.bonus, 'Contract bonus, ' + clientName(c.client)); addRep(6); toast('Contract complete: ' + money(c.bonus) + ' bonus', 'rare'); logEvent('Contract with ' + clientName(c.client) + ' complete: ' + money(c.bonus) + ' bonus', 'rare'); sfx('fanfare'); addXp(40); }
+    else { pay(-c.penalty, 'Contract penalty, ' + clientName(c.client)); addRep(-4); toast('Contract missed: ' + c.done + ' of ' + c.need + '. Penalty ' + money(c.penalty), 'bad'); logEvent('Contract with ' + clientName(c.client) + ' missed (' + c.done + ' of ' + c.need + ')', 'bad'); }
+    S.contract = null; S.nextOffer = S.day + randi(2, 4);
   }
   function tickOrders() {
     var n = nowAbs();
@@ -76,7 +80,7 @@
     }
     for (var i = S.orders.length - 1; i >= 0; i--) {
       var o = S.orders[i];
-      if ((o.state === 'open' || o.state === 'packing' || o.state === 'packed') && !o.late && n > o.due) { o.late = true; addRep(-1); logEvent('Order #' + o.num + ' is late', 'bad'); rebuildBoardSoon(); }
+      if ((o.state === 'open' || o.state === 'packing' || o.state === 'packed') && !o.late && orderLate(o)) { o.late = true; addRep(-1); logEvent('Order #' + o.num + ' is late', 'bad'); rebuildBoardSoon(); }
       if (o.state === 'open' && n > o.due + 30) { S.orders.splice(i, 1); addRep(-3); S.stats.late++; logEvent(clientName(o.client) + ' cancelled order #' + o.num, 'bad'); toast('Order #' + o.num + ' cancelled', 'bad'); rebuildBoardSoon(); }
     }
   }
@@ -94,7 +98,7 @@
     if (S.hand && S.hand.kind === 'box') return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
     if (S.hand) return null;
     var sur = benchSurplus(), sn = 0; for (var k in sur) sn += sur[k];
-    return 'Packing bench · ' + benchCount() + ' boxes · ' + openOrders().length + ' open orders' + (sn ? ' · ' + sn + ' surplus (look at a box to take it back)' : '');
+    return 'Packing bench · ' + benchCount() + (benchCount() === 1 ? ' box' : ' boxes') + ' · ' + openOrders().length + (openOrders().length === 1 ? ' open order' : ' open orders') + (sn ? ' · ' + sn + ' surplus (look at a box to take it back)' : '');
   }
   function benchUse() {
     if (player.tool === 'cart') {
@@ -147,14 +151,14 @@
 
   // ── Shipping ──────────────────────────────────────────────────────
   function shipOrder(o, door) {   // door: the outbound door the parcel left by; the wrong lane's door pays the forwarding fee
-    var late = nowAbs() > o.due, m = orderMode(o), wrong = door !== undefined && MODES[m].door !== door, amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1) * (wrong ? MODE_FEE : 1));
+    var late = orderLate(o), m = orderMode(o), wrong = door !== undefined && MODES[m].door !== door && !sorterOwned(), amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1) * (wrong ? MODE_FEE : 1));
     if (wrong) S.stats.misrouted = (S.stats.misrouted || 0) + 1;
     pay(amount, 'Order #' + o.num + ' shipped to ' + clientName(o.client) + (late ? ' (late)' : '') + (o.short ? ' (short)' : '') + (wrong ? ' (' + m + ' parcel out of ' + dockLabel(door) + ': forwarding fee)' : ''));
-    if (!late && S.contract && S.contract.accepted && S.contract.client === o.client) { S.contract.done++; feedPush('Contract: ' + S.contract.done + ' of ' + S.contract.need, 'good'); }
+    if (!late && S.contract && S.contract.accepted && S.contract.client === o.client) { S.contract.done++; if (S.contract.done >= S.contract.need) contractSettle(); else feedPush('Contract: ' + S.contract.done + ' of ' + S.contract.need, 'good'); }
     addRep(late ? -1 : o.rush ? 3 : 1.5); S.stats.shipped++; if (late) S.stats.late++; addXp(XP.ship);
     o.state = 'shipped'; o.shippedAt = nowAbs(); o.paid = amount;
     for (var i = 0; i < S.orders.length; i++) if (S.orders[i] === o) { S.orders.splice(i, 1); break; }
-    S.shipped.unshift({ num: o.num, client: o.client, paid: amount, late: late, short: o.short, day: S.day, mode: m, wrong: wrong }); if (S.shipped.length > 40) S.shipped.pop();
+    S.shipped.unshift({ num: o.num, client: o.client, paid: amount, late: late, short: o.short, day: S.day, mode: m, wrong: wrong, form: o.form || null, lines: o.lines.map(function (l) { return { sku: l.sku, qty: l.qty }; }) }); if (S.shipped.length > 40) S.shipped.pop();
     sfx('cash'); hudDirty = true;
     return amount;
   }
@@ -169,5 +173,6 @@
     if (S.pack && S.pack.out === oid) return true;
     for (var bk in (S.belts || {})) if (S.belts[bk].some(function (it) { return it.kind === 'parcel' && it.order === oid; })) return true;   // riding any belt, built-in or a piece
     for (var sk in (S.stage || {})) if (S.stage[sk].indexOf(oid) >= 0) return true;   // staged beside a dock loader
+    if (S.sort) { for (var ck in (S.sort.cells || {})) if ((S.sort.cells[ck].q || []).some(function (j) { return j.order === oid; })) return true; if ((S.sort.table || []).some(function (it) { return it.order === oid; })) return true; }   // in a sorter cell, or going round on the turntable
     return false;
   }

@@ -11,6 +11,7 @@
 <!-- The splash is plain markup so it is on screen from the first paint, before any script has run -->
 <div class="dc-front" id="dc-splash"><div class="dc-splash-grid"></div><div class="dc-splash-inner"><img class="dc-splash-logo" src="wordmark.png" alt="Depot Co."><div class="dc-splash-by">A game by <b>TheCodingDad</b></div><div class="dc-splash-bar"><span></span></div></div><div class="dc-splash-truck"><i></i><b></b></div><div class="dc-splash-skip">Click or press any key</div></div>
 <canvas id="dc-canvas"></canvas>
+<div id="dc-fade" hidden></div>
 
 <!-- ── Start screen (the main menu in menu.js sits on top of it) ── -->
 <div id="dc-start" class="dc-overlay show">
@@ -20,7 +21,7 @@
     <p class="dc-sub">First-person warehouse simulator</p>
     <div class="dc-start-stats" id="dc-start-stats"></div>
     <button class="dc-btn primary big" id="dc-start-btn">▶ Clock in</button>
-    <p class="dc-hint">Click to look around · <b>WASD</b> move · <b>Shift</b> run · <b>Space</b> jump · <b>E</b> use or pick up · <b>G</b> put down · <b>Tab</b> scanner · <b>F12</b> screenshot · <b>Esc</b> pause</p>
+    <p class="dc-hint">Click to look around · <b>WASD</b> move · <b>Shift</b> run · <b>Space</b> jump · <b>E</b> use or pick up · <b>G</b> put down · <b>Tab</b> scanner · <b>F9</b> photo mode · <b>F12</b> screenshot · <b>Esc</b> pause</p>
     <p class="dc-hint dim" id="dc-start-note"></p>
   </div>
 </div>
@@ -45,15 +46,7 @@
   <div class="dc-toasts" id="h-toasts"></div>
   <div class="dc-fps" id="h-fps" hidden>0 fps</div>
   <div class="dc-drive" id="h-drive" hidden></div>
-</div>
-
-<!-- ── Hand scanner (Tab) ──────────────────────────────────────── -->
-<div id="dc-scan" class="dc-scan" hidden>
-  <div class="dc-scan-dev">
-    <div class="dc-scan-head"><span id="dc-scan-title">Scanner</span><span class="dc-scan-tabs" id="dc-scan-tabs"></span></div>
-    <div class="dc-scan-body" id="dc-scan-body"></div>
-    <div class="dc-scan-foot">Tab closes · 1 2 3 4 switch pages</div>
-  </div>
+  <div class="dc-report" id="h-report" hidden></div>
 </div>
 
 <!-- ── Panels (the office PC, the bench, the dock console) ────── -->

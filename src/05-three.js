@@ -35,8 +35,9 @@
 
   // lights: a sun through the skylights, a sky bounce, and the hall's high bays
   var hemi = new THREE.HemisphereLight(0xdfeaff, 0x5a4d40, 0.45); scene.add(hemi);
+  // the shadow box covers the whole site since 1.16.0 (the annex halls and the wing used to get sun through their roofs); the sun aims at its target, which lighting() moves with it
   var sun = new THREE.DirectionalLight(0xfff0d8, 1.1); sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -36; sun.shadow.camera.right = 36; sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30; sun.shadow.camera.near = 1; sun.shadow.camera.far = 140; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
+  sun.shadow.mapSize.set(4096, 4096); sun.shadow.camera.left = -70; sun.shadow.camera.right = 70; sun.shadow.camera.top = 70; sun.shadow.camera.bottom = -70; sun.shadow.camera.near = 1; sun.shadow.camera.far = 230; sun.target.position.set(0, 0, -20); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
   // nine high bays on a 20 x 15 m grid: the hall is 60 x 48 since 2026-10-02, and six lights on the old 20 x 10 grid left the edges dark
@@ -64,7 +65,7 @@
     lightBudget.lights.forEach(function (l) {
       for (var p = l.parent; p; p = p.parent) if (p.visible === false) return;
       l.getWorldPosition(lightBudget.tmp); var d = lightBudget.tmp.distanceTo(lightBudget.cam);
-      l.userData.budgetScore = (l.intensity > 0 ? 0 : 1e6) + Math.max(0, d - (l.distance || 40) * 0.25); cand.push(l);
+      l.userData.budgetScore = (l.intensity > 0 ? 0 : 1e6) + Math.max(0, d - (l.distance || 40) * 0.25) - (l.visible ? 3 : 0); cand.push(l);   // a lamp already on keeps its place: two near-equal lamps at the cut used to swap every tick
     });
     cand.sort(function (a, b) { return a.userData.budgetScore - b.userData.budgetScore; });
     for (var i = 0; i < cand.length; i++) cand[i].visible = i < lightBudget.n;
@@ -107,6 +108,7 @@
     crate: tex(256, 256, function (c, w, h) { c.fillStyle = '#c9a26b'; c.fillRect(0, 0, w, h); grain(c, w, h, 2500, 0.1); c.fillStyle = 'rgba(70,45,15,0.55)'; for (var k = 1; k < 5; k++) c.fillRect(k * w / 5 - 2, 0, 4, h); c.fillStyle = 'rgba(70,45,15,0.35)'; c.fillRect(0, h * 0.12, w, 5); c.fillRect(0, h * 0.86, w, 5); c.fillStyle = '#2b3b4e'; for (var n = 0; n < 10; n++) { c.beginPath(); c.arc(w * (0.1 + (n % 5) * 0.2), h * (n < 5 ? 0.14 : 0.88), 2.5, 0, 6.3); c.fill(); } c.fillStyle = '#1f4e79'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('SEA FREIGHT', w / 2, h * 0.5); c.font = 'bold 13px sans-serif'; c.fillText('THIS WAY UP  ▲▲', w / 2, h * 0.64); c.textAlign = 'left'; }, 1, 1),
     strapped: tex(256, 256, function (c, w, h) { c.fillStyle = '#b7905f'; c.fillRect(0, 0, w, h); grain(c, w, h, 3000, 0.08); c.fillStyle = '#d9c4a0'; c.fillRect(0, h * 0.42, w, h * 0.16); c.fillStyle = '#17191c'; c.fillRect(w * 0.22, 0, w * 0.07, h); c.fillRect(w * 0.71, 0, w * 0.07, h); c.fillStyle = '#5fd38d'; c.fillRect(w * 0.36, h * 0.62, w * 0.28, h * 0.22); c.fillStyle = '#0d1b2a'; c.font = 'bold 18px sans-serif'; c.textAlign = 'center'; c.fillText('LAND', w * 0.5, h * 0.77); c.textAlign = 'left'; }, 1, 1),
     airbox: tex(256, 256, function (c, w, h) { c.fillStyle = '#f2f4f6'; c.fillRect(0, 0, w, h); grain(c, w, h, 1500, 0.04); c.fillStyle = '#ff6b5e'; c.beginPath(); c.moveTo(0, h * 0.78); c.lineTo(w, h * 0.5); c.lineTo(w, h * 0.66); c.lineTo(0, h * 0.94); c.closePath(); c.fill(); c.fillStyle = '#3fa7d6'; c.fillRect(0, 0, w, h * 0.08); c.fillStyle = '#0d1b2a'; c.font = 'bold 20px sans-serif'; c.textAlign = 'center'; c.fillText('AIR PRIORITY', w / 2, h * 0.3); c.font = '12px sans-serif'; c.fillText('SKYBRIDGE AIR CARGO', w / 2, h * 0.42); c.textAlign = 'left'; c.fillStyle = '#222'; for (var i = 0; i < 16; i++) c.fillRect(w * 0.6 + i * 5, h * 0.12, Math.random() < 0.5 ? 1.5 : 3, h * 0.1); }, 1, 1),
+    returned: tex(256, 256, function (c, w, h) { c.fillStyle = '#b7905f'; c.fillRect(0, 0, w, h); grain(c, w, h, 3000, 0.08); c.fillStyle = '#d9c4a0'; c.fillRect(0, h * 0.42, w, h * 0.16); c.fillStyle = '#ffffff'; c.fillRect(w * 0.55, h * 0.62, w * 0.36, h * 0.28); c.fillStyle = '#222'; for (var i = 0; i < 18; i++) c.fillRect(w * 0.57 + i * (w * 0.32 / 18), h * 0.66, Math.random() < 0.5 ? 2 : 4, h * 0.12); c.save(); c.translate(w * 0.5, h * 0.22); c.rotate(-0.18); c.fillStyle = '#c8342a'; c.fillRect(-w * 0.42, -h * 0.07, w * 0.84, h * 0.14); c.fillStyle = '#fff'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('RETURN TO SENDER', 0, 8); c.restore(); c.textAlign = 'left'; c.fillStyle = '#c8342a'; c.font = 'bold 12px sans-serif'; c.fillText('RETURNS DESK', w * 0.57, h * 0.87); }, 1, 1),
     parcel: tex(256, 256, function (c, w, h) { c.fillStyle = '#b7905f'; c.fillRect(0, 0, w, h); grain(c, w, h, 3000, 0.08); c.fillStyle = '#d9c4a0'; c.fillRect(0, h * 0.42, w, h * 0.16); c.fillStyle = '#ffffff'; c.fillRect(w * 0.55, h * 0.62, w * 0.36, h * 0.28); c.fillStyle = '#222'; for (var i = 0; i < 18; i++) c.fillRect(w * 0.57 + i * (w * 0.32 / 18), h * 0.66, Math.random() < 0.5 ? 2 : 4, h * 0.12); c.font = 'bold 14px sans-serif'; c.fillText('DEPOT CO.', w * 0.57, h * 0.87); c.strokeStyle = '#333'; c.lineWidth = 2; c.strokeRect(w * 0.08, h * 0.08, w * 0.3, h * 0.22); c.font = 'bold 11px sans-serif'; c.fillText('FRAGILE', w * 0.1, h * 0.2); c.fillText('▲ THIS WAY UP', w * 0.1, h * 0.27); }, 1, 1),
     grass: tex(512, 512, function (c, w, h) { c.fillStyle = '#4f6a3a'; c.fillRect(0, 0, w, h); var cols = ['#3f6f2e', '#5c8f44', '#6f9a4a', '#45752f', '#7ea25a']; for (var i = 0; i < 3000; i++) { var x = Math.random() * w, y = Math.random() * h; c.strokeStyle = cols[i % 5]; c.lineWidth = randf(0.8, 1.6); c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + randf(-4, 4), y - randf(4, 9), x + randf(-6, 6), y - randf(8, 16)); c.stroke(); } c.fillStyle = 'rgba(70,50,30,.16)'; for (var d = 0; d < 20; d++) { c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, randf(14, 40), randf(8, 22), Math.random() * 3, 0, 6.29); c.fill(); } }, 30, 30),
     skylight: tex(64, 64, function (c, w, h) { c.fillStyle = '#eef6ff'; c.fillRect(0, 0, w, h); }, 1, 1),
@@ -154,7 +156,7 @@
       var size = opt.size || Math.min(h * 0.6, w / (Math.max.apply(null, lines.map(function (l) { return l.length; })) * 0.6));
       c.font = (opt.weight || 'bold') + ' ' + Math.floor(size) + 'px ' + (opt.font || 'Bahnschrift, Arial, sans-serif');
       if (plate) { c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = Math.max(2, size * 0.08); c.shadowOffsetY = Math.max(1, size * 0.04); }
-      lines.forEach(function (l, i) { c.fillText(l, w / 2, h / 2 + (i - (lines.length - 1) / 2) * size * 1.15); });
+      lines.forEach(function (l, i) { c.fillText(l, w / 2, h / 2 + (i - (lines.length - 1) / 2) * size * 1.15, w * 0.92); });   // never off the plate
       c.shadowColor = 'rgba(0,0,0,0)'; c.shadowBlur = 0; c.shadowOffsetY = 0;
     });
   }
@@ -162,7 +164,7 @@
   function posterTex(kind) {
     return tex(256, 384, function (c, w, h) {
       var title = function (t, col, y, size) { c.fillStyle = col; c.font = 'bold ' + (size || 30) + 'px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.fillText(t, w / 2, y); };
-      var small = function (t, y, col) { c.fillStyle = col || '#333'; c.font = '15px "Segoe UI", Arial, sans-serif'; c.textAlign = 'center'; c.fillText(t, w / 2, y); };
+      var small = function (t, y, col) { c.fillStyle = col || '#333'; c.font = '15px "Segoe UI", Arial, sans-serif'; c.textAlign = 'center'; c.fillText(t, w / 2, y, w - 40); };
       if (kind === 'forklift') { c.fillStyle = '#f5b53d'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; c.beginPath(); c.moveTo(w / 2, 40); c.lineTo(w - 24, h * 0.55); c.lineTo(24, h * 0.55); c.closePath(); c.fill(); c.fillStyle = '#f5b53d'; c.beginPath(); c.moveTo(w / 2, 70); c.lineTo(w - 48, h * 0.52); c.lineTo(48, h * 0.52); c.closePath(); c.fill(); c.fillStyle = '#111'; c.fillRect(w * 0.3, h * 0.33, 70, 36); c.fillRect(w * 0.3 + 70, h * 0.38, 40, 20); c.beginPath(); c.arc(w * 0.36, h * 0.47, 10, 0, 6.3); c.arc(w * 0.55, h * 0.47, 10, 0, 6.3); c.fill(); title('CAUTION', '#111', h * 0.68, 34); title('FORKLIFTS', '#111', h * 0.78, 28); small('Look both ways at the aisle ends', h * 0.9, '#111'); }
       else if (kind === 'lifting') { c.fillStyle = '#2c5f9e'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.fillRect(16, 16, w - 32, h - 32); c.fillStyle = '#2c5f9e'; c.beginPath(); c.arc(w / 2, h * 0.25, 18, 0, 6.3); c.fill(); c.fillRect(w / 2 - 12, h * 0.3, 24, 60); c.fillRect(w / 2 - 36, h * 0.42, 72, 14); c.fillRect(w / 2 - 14, h * 0.45, 10, 50); c.fillRect(w / 2 + 4, h * 0.45, 10, 50); title('LIFT WITH', '#2c5f9e', h * 0.72, 28); title('YOUR LEGS', '#2c5f9e', h * 0.8, 28); small('Bend your knees, keep your back straight', h * 0.9); }
       else if (kind === 'exit') { c.fillStyle = '#2f9e44'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.fillRect(16, 16, w - 32, h - 32); c.fillStyle = '#2f9e44'; title('FIRE EXIT', '#2f9e44', h * 0.2, 34); c.fillRect(w * 0.2, h * 0.3, w * 0.6, 8); c.beginPath(); c.moveTo(w * 0.3, h * 0.6); c.lineTo(w * 0.7, h * 0.6); c.lineTo(w * 0.7, h * 0.5); c.lineTo(w * 0.86, h * 0.65); c.lineTo(w * 0.7, h * 0.8); c.lineTo(w * 0.7, h * 0.7); c.lineTo(w * 0.3, h * 0.7); c.closePath(); c.fill(); small('Keep this route clear at all times', h * 0.9); }
@@ -215,7 +217,7 @@
     wall: std({ map: TEX.corrugated, roughness: 0.55, metalness: 0.4, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(1, 1), roughnessMap: RGH.metal }),
     wallIn: std({ map: TEX.corrugated, roughness: 0.65, metalness: 0.3, color: 0xcfd6dd, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(1, 1) }),
     roof: std({ color: 0x3b4249, roughness: 0.9 }),
-    roofIn: std({ color: 0x5c6670, roughness: 0.9, side: THREE.BackSide }),
+    roofIn: std({ color: 0x5c6670, roughness: 0.9 }),   // the plane is turned to face down, so its front is what you see from the floor
     door: std({ map: TEX.corrugatedDoor, roughness: 0.55, metalness: 0.4, normalMap: NRM.ribs, normalScale: new THREE.Vector2(1, 1) }),
     plaster: std({ map: TEX.plaster, roughness: 0.9, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.4, 0.4) }),
     brick: std({ map: TEX.brick, roughness: 0.95, normalMap: NRM.brick, normalScale: new THREE.Vector2(0.9, 0.9) }),
@@ -228,6 +230,7 @@
     deck: std({ color: 0x6a737c, roughness: 0.7, metalness: 0.5 }),
     wood: std({ map: TEX.wood, roughness: 0.85, normalMap: NRM.wood, normalScale: new THREE.Vector2(0.6, 0.6) }),
     parcel: std({ map: TEX.parcel, roughness: 0.9, normalMap: NRM.cardboard, normalScale: new THREE.Vector2(0.5, 0.5) }),
+    returned: std({ map: TEX.returned, roughness: 0.9, normalMap: NRM.cardboard, normalScale: new THREE.Vector2(0.5, 0.5) }),
     crate: std({ map: TEX.crate, roughness: 0.85, normalMap: NRM.wood, normalScale: new THREE.Vector2(0.5, 0.5) }),
     strapped: std({ map: TEX.strapped, roughness: 0.9, normalMap: NRM.cardboard, normalScale: new THREE.Vector2(0.5, 0.5) }),
     airbox: std({ map: TEX.airbox, roughness: 0.6 }),
@@ -243,7 +246,7 @@
     yellowLine: new THREE.MeshBasicMaterial({ color: 0xd9a12c }),
     whiteLine: new THREE.MeshBasicMaterial({ color: 0xd8dbdf }),
     hazard: std({ map: TEX.hazard, roughness: 0.6 }),
-    mesh: std({ map: TEX.mesh, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.5 }),
+    mesh: std({ map: TEX.mesh, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.5 }),
     red: std({ color: 0xc8342a, roughness: 0.6 }),
     green: std({ color: 0x2f9e44, roughness: 0.6 }),
     blue: std({ color: 0x2f6fb3, roughness: 0.6 }),

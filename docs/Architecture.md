@@ -13,7 +13,7 @@ Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built fro
 | `game/version.js` | **Generated** from `package.json` by `tools/sync-version.js`. |
 | `game/logo-256.png`, `logo.png`, `wordmark.png` | **Generated** by `tools/render-brand.js` (a canvas drawing in a hidden Electron window). |
 | `main.js` | The Electron shell: one window, no menu bar, screenshots to `Pictures\Depot Co`. |
-| `tools/smoke.js` | `npm test`. Boots the real page headless and plays a day through the test handle: 91 checks, including the pack line, the moulding line and the palletiser. |
+| `tools/smoke.js` | `npm test`. Boots the real page headless and plays several days through the test handle: 286 checks, from the first truck to the sortation deck, the annex halls, the scanner, the returns desk and the day report. |
 
 ## The parts of `src/`
 
@@ -22,7 +22,7 @@ They join in file-name order into one function scope, so every `function` is hoi
 | Part | Holds |
 |---|---|
 | `01-head` | The closure, utilities, the save key for the active slot, the machine settings (`SET`). |
-| `02-config` | The twelve lines (`SKUS`), the six clients, the clock, the economy, the upgrades, staff roles, and every layout number (`HALL`, `RACK`, `DOCKS`, `SPOT`). |
+| `02-config` | The sixteen lines (`SKUS`), the nine clients, the three lanes, the clock, the economy, the upgrades, staff roles, and every layout number (`HALL`, `RACK`, `DOCKS`, `SPOT`). |
 | `03-state` | `freshState()`, `load()`, `save()`, `pay()`, `addXp()`, `addRep()`. The state is the single object `S`. |
 | `04-sound` | The feed, toasts, and every sound effect as a small Web Audio synth. |
 | `05-three` | Renderer, camera, lights, every texture drawn on a canvas, every material, the `box`/`plane`/`sign`/`hitBox` helpers, the `inter` list and the `solids` list. |
@@ -33,14 +33,18 @@ They join in file-name order into one function scope, so every `function` is hoi
 | `07-items` | Boxes, pallets and parcels as three instanced meshes laid out from `S` every frame (`syncInstances`), the hand, the rack-slot logic, the floor. |
 | `08-trucks` | The timetable, the truck mesh, docking, departure, the receiving fee, loading parcels, the dock consoles. |
 | `09-orders` | Clients, order generation, lateness, the packing bench, packing, the parcel shelf, shipping and pay. |
+| `09-returns` | Returns: the parcels customers send back ride in on the outbound trucks, the returns desk inspects them, the packer's returns work (1.16.0). |
 | `10-vehicles` | The jack and the cart you push, the forklift you drive. |
 | `11-staff` | The human model, the aisle router, the receiver, the picker, the packer. |
 | `12-player` | Movement, collision against `solids` and `dyn`, the centre raycast that sets `focus`, the keys. |
+| `12-photo` | Photo mode: F9 frees the camera, hides the HUD and holds the clock (1.16.0). |
 | `13-scanner-device` | The handheld scanner in the hand and its canvas display. |
-| `13-ui` | HUD, the PC and bench panels, the pause menu, settings, the guide. |
+| `13-scanner-map` | The scanner's map page: the site from above with you, the crew, the trucks and the waypoint (1.16.0). |
+| `13-ui` | HUD, the PC and bench panels, the pause menu, settings, the guide. (The HTML scanner that lived here until 1.16.0 is gone; the device in `13-scanner-device` is the scanner.) |
 | `14-bake` | The static-geometry bake: every mesh that never moves is merged by material. Groups flagged `userData.dynamic`, glowing materials and anything interactive are left alone. |
 | `14-events` | The clock, the day roll, lighting by the hour, sleep, coffee, power cuts, the inspector, the prowler, levels, the guided intro. |
 | `14-life` | Seasons and weather, rain ambience and thunder, the radio sequencer, the forklift battery, the stretch wrapper. |
+| `14-report` | The day report: the day closed off at every roll, the HUD card, the fortnight's table (1.16.0). |
 | `15-boot` | Load, build, the frame loop, autosave, `window.DEPOT`. |
 
 ## How things relate

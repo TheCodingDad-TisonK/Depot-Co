@@ -68,9 +68,9 @@
   function rTone(type, f0, t, dur, gain, lp, f1) { var o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); var dest = radio.gain; if (lp) { var f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; g.connect(f); f.connect(dest); } else g.connect(dest); o.connect(g); o.start(t); o.stop(t + dur + 0.05); }
   function rNoise(t, dur, gain, freq) { var len = Math.floor(AC.sampleRate * dur), buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0); for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len); var src = AC.createBufferSource(); src.buffer = buf; var f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = freq; var g = AC.createGain(); g.gain.value = gain; src.connect(f); f.connect(g); g.connect(radio.gain); src.start(t); }
   function tickRadio() {
-    if (!AC || !radio.gain) return;
+    if (!AC) return; if (!radio.gain) { if (!(S.radio && S.radio.on)) return; radioStart(); if (!radio.gain) return; }   // a radio saved as on plays again after a reload
     var on = S.radio && S.radio.on && !S.events.power && SET.sound;
-    var d = dress.radio ? Math.sqrt(dist2(player.x, player.z, dress.radio.position.x, dress.radio.position.z)) : 99;
+    var rw = dress.radio ? dress.radio.getWorldPosition(new THREE.Vector3()) : null, d = rw ? Math.sqrt(dist2(player.x, player.z, rw.x, rw.z)) : 99;   // world position: the mesh is local to the coffee counter
     var g = on ? clamp(1 - d / 16, 0, 1) * 0.5 * (insideHall(player.x, player.z) ? 1 : 0.25) : 0;
     radio.gain.gain.setTargetAtTime(g, AC.currentTime, 0.2);
   }
@@ -119,12 +119,12 @@
   }
 
   // ── The forklift battery ──────────────────────────────────────────
-  function forkCharging() { return !!S.up.fork && !driving && !!S.fork.plugged && S.fork.batt < 1; }
+  function forkCharging() { return !!S.up.fork && !driving && !staffDriving() && !!S.fork.plugged && S.fork.batt < 1; }
   function tickBattery(dt) {
     if (!S.up.fork) return;
     if (S.fork.batt === undefined) S.fork.batt = 1;
-    if (driving && Math.abs(forkSpeed) > 0.1) { S.fork.batt = clamp(S.fork.batt - dt / 1500 * (S.fork.gear === 3 ? 1.8 : S.fork.gear === 1 ? 0.7 : 1), 0, 1); if (S.fork.batt <= 0 && !S.flags.battDead) { S.flags.battDead = 1; toast('Forklift battery flat. Push it to the charger.', 'bad'); } }
-    else if (forkCharging() && !S.events.power) { S.fork.batt = clamp(S.fork.batt + dt / 110, 0, 1); if (S.fork.batt >= 1 && S.flags.battDead) { S.flags.battDead = 0; toast('Forklift charged.', 'good'); } }
+    if (driving && Math.abs(forkSpeed) > 0.1) { S.fork.batt = clamp(S.fork.batt - dt / 1500 * (S.fork.gear === 3 ? 1.8 : S.fork.gear === 1 ? 0.7 : 1), 0, 1); if (S.fork.batt <= 0 && !S.flags.battDead) { S.flags.battDead = 1; toast('Forklift battery flat: crawl mode. Bring it within cable reach of the charger and plug it in.', 'bad'); } }
+    else if (forkCharging() && !S.events.power) { S.fork.batt = clamp(S.fork.batt + dt / 110, 0, 1); if (S.fork.batt > 0.2) forkLook.flatSaid = false; if (S.fork.batt >= 1 && S.flags.battDead) { S.flags.battDead = 0; toast('Forklift charged.', 'good'); } }
   }
 
   // ── The stretch wrapper ───────────────────────────────────────────
@@ -156,6 +156,6 @@
   }
 
   function tickLife(dt) {
-    if (!ui.started || ui.blocked()) return;
+    if (!ui.started || ui.blocked()) { weatherFlash = 0; return; }   // a lightning flash must not freeze on screen behind the pause menu
     tickWeatherState(dt); tickRadio(); tickBattery(dt); tickWrapper(dt); tickCables(dt); tickMachines(dt);
   }

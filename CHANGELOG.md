@@ -1,5 +1,105 @@
 # Changelog
 
+## 1.16.0 (2026-10-07)
+
+Returns come back on the trucks, the scanner has a map, every day closes with a report, F9 is a photo mode, and a full pass over the game: about ninety bugs fixed, the yard and the halls put straight, the help brought up to date.
+
+**New**
+- **Returns.** From level 3 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong item, or damaged in transit. With empty hands, E in the trailer takes it off. A returns desk stands between the bench and the office: E puts the return on it, E again starts the inspection, which runs by itself. The client pays a fee for every return and every box. The boxes come out on the desk's two shelves: good ones go back on a rack by hand or on the cart, damaged ones go in the bin at no charge. A return left lying for a day costs reputation; a truck that leaves with one aboard has its driver set it down inside the door. The scanner's Home page counts them, the Orders page lists them with a waypoint to each, the office PC shows them, and the packer fetches them, runs the desk and racks or bins what comes off it when the bench has nothing for them.
+- **The map.** Page 9 on the scanner draws the whole site from above at the scale that fits what you own: the hall with its rack rows, docks and rooms, the production wing, the annex halls (dashed until bought), the mezzanine. On it live: you, the crew, the forklift, the AGV, the trucks at the docks and your waypoint.
+- **The day report.** At every day roll the day that ended is closed off: money in and out (the morning's rent and wages included), orders shipped and late, pallets received, boxes picked, returns inspected, the reputation change and the bank at the close. A card shows on the HUD for a while (any key closes it); the Stats app on the office PC and the pause menu keep the last fortnight as a table.
+- **Photo mode.** F9 frees the camera: WASD flies it, Space and C take it up and down, Shift is fast, the mouse looks. The HUD goes and the world holds still while you line up the shot; F12 takes it. F9 or Esc puts you back.
+- Half an hour before a truck leaves it says so: an inbound truck names the pallets still aboard, an outbound truck the parcels of its lane not yet loaded.
+- A contract pays out the moment the count is met, not at the end of the window.
+- The level-up message lists what the level actually opens, read off the shop and the roles.
+- A pallet you leave on the forklift's forks is the driver's first job: it goes to a rack instead of being lost under the next one.
+
+**Fixes: orders and trucks**
+- An order shipped by the scheduled truck of its lane was paid as late every time: the truck left on the tick that crossed its hour, a hair past the due time. Three minutes' grace.
+- Taking one box off a truck pallet by hand moved the whole pallet to the hall centre and the truck counted it as gone. The pallet stays aboard; the receiving fee is paid once, the first time it is touched.
+- The dock console named a window whose truck had already been and gone as the next one; it now names the next window with a truck still to come, and says tomorrow or closed Sunday.
+- A rush order was due two hours out whatever the lane's timetable said, so it could not ship on time; it is now due at the very next truck of its lane.
+- Nothing is due on a Sunday, since no trucks run.
+- Raw granulate you paid for could never arrive once the clients filled all eight pallet slots; room is kept for it.
+- Anything left inside a trailer when it departed, a box, a pallet, a jack, the cart, floated over the yard; it is set down inside the door.
+- Boxes could be put back onto a pallet still on an inbound truck, to be refused with it later; and raw granulate could be unpacked by hand onto the racks.
+- The IN 3 schedule checked the wrong door for a truck already in.
+- An empty pallet set into an occupied slot vanished.
+- Jack 2 read the racks differently from jack 1: the prompts were wrong while holding it.
+- A truck leaving on schedule with your parcel now finishes the intro's last step.
+- The sortation deck's description promised an end to forwarding fees that the code still charged; with the deck, no fee.
+
+**Fixes: the crew**
+- Sleeping, or the midnight roll, with workers still on the clock left them standing where they were for good; they go home at the roll.
+- A worker changing to a new shift pattern mid-shift clocked out on the spot and dropped what they held; the pattern starts tomorrow, as the message always said.
+- The overtime button had the day shift's times hard-coded and did nothing for the late shift.
+- Every new hire clocked in "late" on their first day; hiring between midnight and the shift brought them in at night.
+- Pickers never picked from the annex halls' racks.
+- A worker covering a second role switched role mid-job and kept a pallet riding in front of them; whatever is in hand finishes first.
+- A cross-trained worker sent to the forklift could lose the pallet already on its forks; the driver drives off with the charger plugged in no more, and the crew's driving drinks the battery like yours.
+- A packer whose truck left held the parcel all shift; it goes back on the shelf.
+- A word about lateness pinned punctuality for good, as a paid raise does; and every word paid reputation, now once a day.
+- Clocking in and out before 07:30 farmed the early-bird XP; once a day now.
+- Sleeping with your own card still in logged a 23-hour shift.
+- A day off booked for a Saturday was used up by the closed Sunday.
+- Someone let go is paid the hours they worked today; names are not reused while their owner is on the crew.
+- The time clock shows all eight workers; the timesheet's overtime reads hours plus overtime, not both twice.
+- The lunch break falls four hours into each worker's own shift.
+- A picker walks to the nearest slot holding the line, not the first in rack order.
+
+**Fixes: the forklift and the tools**
+- Getting on the forklift with the scanner up made F lower nothing and the digits change pages; the scanner goes down. Sitting at the PC with it up left it in front of the monitor.
+- Getting off the forklift with no room put you inside it; it keeps you in the seat and says so.
+- A flat battery now reads the same on every screen; the gear toast names the normal gear; the forklift prompt says who is driving it.
+
+**Fixes: the machines and the deck**
+- A parcel in a sorter cell or on the turntable did not count as existing, so a launch reopened its order and refilled the bench: duplicated stock. Parcels loaded on a truck that was evicted by a load are repaired too.
+- The night shift counted parcels already past the scanner twice.
+- The row D crane's belt was only built with row E, so the crane stalled holding a box until the next launch.
+- RESET JOB on a crane deleted the box it held; it goes back on the rack.
+- With the racks full the AGV picked the same pallet up every tick; it leaves a refused pallet alone for a while, and sets a dropped load down clear of itself.
+- The hopper took a pallet that did not fit and lost the rest; it refuses it whole. The empty pallet lands beside any already there.
+- The goods lift took granulate and empty pallets upstairs, and anything with no room up there jammed the feed; it refuses them. The shaft is closed at deck level on its open side.
+- A sea or air parcel whose spiral was backed up rode on to the land spiral and shipped from the wrong door; it waits at its gate.
+- The palletiser dropped pallets into one another on its apron; the belt waits instead.
+- Machine lamps go dark in a power cut; the loader's lamp runs only with something in the bay; the pack line screen counts the shelf against its real size; the wrapper says NO FILM, not JAM.
+- Deck geometry: the gate arms over the parcels instead of through them, the turntable's gap toward the spine, the stair risers under their treads, two signs off the walkways.
+
+**Fixes: the building and the yard**
+- Nothing stopped you walking through the fence and on forever: the fence, the gates and the gatehouse are solid.
+- The trucks spawned inside the fence line and the gate arms stood on lanes no truck used. Trucks come in from outside, the gates and the fence gaps sit on the dock lines, the arms lift the right way, and Hall 4 is inside the fence.
+- The traffic on the road and the gate guards were frozen by the static bake.
+- The sun disc shone all night and the moon never rose; the clouds stayed white at midnight; the horizon glowed and the skylights glowed at night.
+- Rain and snow fell inside the annex halls.
+- The sun's shadow box covered the main hall only: the annex halls and the wing had sun through their roofs with a hard edge across the floor.
+- The inner roof lining was invisible from the floor; every clerestory window flickered; the office window and the lobby blinds were built into the wrong walls; the north wall's windows showed sky into the halls behind them.
+- Staff could not path into any annex hall: the doorways were closed in the walking grid, so they walked through the walls after a long search.
+- The compressor in the wing had been commented out by a stray comment since 1.14.0; the Hall 2 and Hall 4 rack rows stood 1.2 m into the floor.
+- Build mode could rotate or delete a whole hall; nothing fixed can be moved now. Props can be placed in the wing and the annex halls.
+- A dozen props sat in or faced walls: the vending machine, the lockers, the filing cabinets, the lobby seat, two break-room chairs, the cot, the first-aid box, an extinguisher in the coffee counter, the desk built backwards, the aisle signs off by a row since row A went, the empties stack under the mezzanine stair, a lamp post in the OUT 3 trailer's way, the fire-exit posters in the halls, the no-smoking poster that showed the safety poster.
+- The road ran through two of the neighbours; their doors and signs faced into their own buildings.
+- The KPI whiteboard never updated after boot; the notice board had the old truck times; the dock beacons and apron numbers used the wrong door for IN 3 and OUT 3; the pigeons perched in mid-air; the extractor fans crossed the cable tray; the dock steps ran into the next shelter; the cabinet screen clipped its fifth door.
+- Text that ran off its plate, screen or button is fitted to it everywhere.
+
+**Fixes: the game and its screens**
+- A save pasted into the pause menu was overwritten by the autosave on reload.
+- A save that fails to load is kept beside its slot instead of being lost.
+- Sleeping flashed the title card; it fades to black. On a closed Sunday the cot works at any hour. Sleeping is no longer a way round the prowler. The inspector and the power cuts take Sunday off.
+- Stolen boxes were counted as refused pallets; they have their own count. Theft insurance pays for a theft through an unlocked door too.
+- A lightning flash froze on screen behind the pause menu. A height-only window resize stretched the picture.
+- A radio saved as on was silent after a reload.
+- Dragging a settings slider recompiled every shader at every notch.
+- The scanner's waypoint to a wall prop could land behind the wall, and to the sortation panel on the ground floor; a waypoint on a worker let go stays no more. The scanner shows the day with a due time, the gantry readout reads the right crane, the page counter no longer sits on the last row.
+- The dock consoles' shortcut buttons opened the old scanner pages.
+- The office PC's Stock app counted slots the mezzanine and the halls did not have; LET GO asks twice; locked shop buttons say LOCKED or NO MONEY and the reason, instead of cutting a word in half.
+- The pause menu no longer scrolls inside a scroll; a Back button takes you out of its pages.
+- The main menu showed a negative bank as $-1,234.
+
+**Changes**
+- The retired HTML scanner (markup, styles and code) is gone; the device in your hand is the scanner.
+- The help page and the Player Guide cover the returns, the map, the day report, photo mode, the mezzanine and the halls, the real truck wait, the cart's size, the packer's level, the second jack, the scanner's page numbers, and when pay is taken.
+- The whiteboard says SO FAR, the aisle signs match the rows, the rack end signs read ROW.
+
 ## 1.15.0 (2026-10-07)
 
 The hand scanner is a terminal in your hand.

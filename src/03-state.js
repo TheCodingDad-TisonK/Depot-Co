@@ -7,8 +7,8 @@
       up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false, upper: false, sorter: false, hall2: false, hall3: false, hall4: false },
       gantries: {}, speed: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
-      slots: {},                 // "row,bay,level" -> { sku, n }
-      pallets: [],               // { id, sku, n, place: 'truck'|'floor'|'jack'|'fork'|'staff', truck, idx, x, z, y, rot }
+      slots: {},                 // "row,bay,level" -> { sku, n, pal (a pallet under the boxes), wrapped }
+      pallets: [],               // { id, sku, n, place: 'truck'|'floor'|'jack'|'fork'|'staff'|'lift'|'agv', truck, idx, x, z, y, rot, wrapped, recv }
       floor: [],                 // loose boxes and parcels on the floor: { kind: 'box'|'parcel', sku|order, x, y, z, rot }
       bench: { boxes: {}, parcels: [] },
       pack: { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null },           // the pack line
@@ -32,7 +32,9 @@
       intro: { step: 0, done: false, off: false },
       events: { power: false, powerUntil: 0, nextInspect: 4, inspected: false, prowled: false },
       seenSkus: ['paint', 'bolts', 'cereal', 'lamps'],
-      stats: { received: 0, putaway: 0, picked: 0, packed: 0, shipped: 0, late: 0, earned: 0, spent: 0, fines: 0, days: 0, lost: 0, made: 0, palletised: 0 },
+      stats: { received: 0, putaway: 0, picked: 0, packed: 0, shipped: 0, late: 0, earned: 0, spent: 0, fines: 0, days: 0, lost: 0, stolen: 0, made: 0, palletised: 0, returns: 0 },
+      returns: [], rdesk: { queue: [], cur: null, t: 0, shelf: [], done: 0 },   // returns in play, and the returns desk (1.16.0)
+      days: [], dayStart: null,  // the day reports (1.16.0)
       ledger: [], log: [], sleptAt: 0, lastOrderAt: 0, orderSeq: 1, truckSeq: 1, flags: {}
     };
   }
@@ -77,7 +79,11 @@
       // belt items whose piece is gone (a removal that crashed before 1.13.5 left them behind): boxes and parcels go to the receiving floor
       if (s.belts) for (var bk in s.belts) { if (BELTS[bk] || (s.custom || []).some(function (c) { return c.id === bk; })) continue; (s.belts[bk] || []).forEach(function (it, n) { var fx = SPOT.stageIn.x - 0.9 + (n % 4) * 0.6, fz = SPOT.stageIn.z + 1.5 + Math.floor(n / 4) * 0.6; if (it.kind === 'box') s.floor.push({ kind: 'box', sku: it.sku, x: fx, y: 0, z: fz, rot: 0 }); else if (it.kind === 'parcel' && it.order) s.floor.push({ kind: 'parcel', order: it.order, x: fx, y: 0, z: fz, rot: 0 }); }); delete s.belts[bk]; }
       S = s; return true;
-    } catch (e) { return false; }
+    } catch (e) {
+      // a save that will not load is kept beside the slot rather than lost: the fresh game that follows saves over the slot itself
+      try { if (typeof console !== 'undefined') console.error('Depot Co.: the save in ' + SAVE + ' could not be loaded', e); var brokenRaw = localStorage.getItem(SAVE); if (brokenRaw) localStorage.setItem(SAVE + '-broken', brokenRaw); } catch (e2) {}
+      return false;
+    }
   }
   var saveT = 0;
   function save() {

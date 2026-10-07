@@ -6,13 +6,13 @@ The staff door on the west wall opens into the entrance lobby: the time clock, l
 
 ## Your first day
 
-You clock in at 06:00 with $600, two rack rows and a pallet jack. The intro in the bottom-left corner walks you through the first day; this is the same thing in full.
+You clock in at 06:00 with $600, two rack rows and two pallet jacks. The intro in the bottom-left corner walks you through the first day; this is the same thing in full.
 
 1. **07:30, the first truck.** Walk to dock **IN 1** on the west wall and open the door: `E` on the door itself or on the green button beside it. The truck backs in and the driver waits. It leaves at 11:30 whether you have emptied it or not, and anything still on it goes back unpaid.
 2. **Unload.** Walk into the trailer. `E` on a pallet takes one box; carry it to a rack and `E` on a slot puts it there. Or grab the pallet jack from the receiving square, `E` on a pallet lifts the whole thing, and `E` on a floor-level slot sets it in. You are paid $12 the moment a pallet is touched.
-3. **The racks.** A slot holds up to twelve boxes of one line. Floor and shelf levels are hand-reachable. The top level needs the forklift. The scanner (`Tab`, page 2) suggests a slot for every pallet.
-4. **The scanner.** `Tab` raises it. Eight pages on the number keys: Home with the day and the alerts, Orders with every line and the slot to pick it from, Picks (one list for every open order, in walking order), Putaway (what is on the docked trucks and where each pallet should go), Stock, Docks (every door, its lane, its truck and its shipping bay), Plant (every machine, jams first) and Crew. The wheel moves the cursor down the page; `F` sets a waypoint on the highlighted row, a green ring and beam on the floor with the heading and the distance on the HUD, and it clears itself when you get there (`X` clears it sooner). Point the beam at a rack slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it.
-5. **08:30, the first order.** It shows on the office PC, the wall board above the office, and the scanner (page 1), with the lines, the due time and the pay. The due time is the departure of an outbound truck.
+3. **The racks.** A slot holds up to twelve boxes of one line. Floor and shelf levels are hand-reachable. The top level needs the forklift. The scanner (`Tab`, page 4, Putaway) suggests a slot for every pallet.
+4. **The scanner.** `Tab` raises it. Nine pages on the number keys: Home with the day and the alerts, Orders with every line and the slot to pick it from (and the returns in play), Picks (one list for every open order, in walking order), Putaway (what is on the docked trucks and where each pallet should go), Stock, Docks (every door, its lane, its truck and its shipping bay), Plant (every machine, jams first), Crew, and the Map: the whole site from above, with you, the crew, the forklift, the trucks and your waypoint on it. The wheel moves the cursor down the page; `F` sets a waypoint on the highlighted row, a green ring and beam on the floor with the heading and the distance on the HUD, and it clears itself when you get there (`X` clears it sooner). Point the beam at a rack slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it.
+5. **08:30, the first order.** It shows on the office PC, the wall board above the office, and the scanner (page 2, Orders), with the lines, the due time and the pay. The due time is the departure of an outbound truck.
 6. **Pick.** Walk to the slot the scanner names and `E` takes a box. Carry it to the **packing bench** on the east side and `E` puts it down. One box per trip until you buy the cart.
 7. **Pack.** The terminal at the end of the bench lists the orders. Pick one and release it to the pack line: its boxes ride the infeed belt into the case taper, and the parcel rolls down the outfeed onto the gravity shelf at the end of the line. An order with at least half its boxes can be released short for 60% of the pay.
 8. **Ship.** Look at the board: every order wears its lane. **SEA** orders leave by OUT 1 (trucks 10:30 to 12:00 and 17:00 to 18:30), **LAND** orders by OUT 2 (09:00 to 10:30 and 16:00 to 18:00), **AIR** orders by OUT 3 once the sortation deck opens it (13:00 to 14:30 and 19:00 to 20:15). An order is due at the next truck of its own lane. Open that dock, pick the parcel up, walk into the trailer and `E` loads it. The wrong door ships it too, for a 25% forwarding fee. `E` on the dock console sends the truck now; otherwise it leaves on time. You are paid when it goes.
@@ -82,8 +82,9 @@ The dock consoles and the bench terminal are touch screens: look at a button and
 | Order pay | 22% of the goods' value plus $14 handling, doubled for a rush order |
 | Late | half pay, and reputation drops |
 | Short | 60% of pay |
-| Rent | $110 a day at 06:00 |
-| Wages | $75 to $85 a day per head at 06:00 |
+| Rent | $110 a day, at the day roll |
+| Wages | the crew's clocked hours at their hourly rate, time and a half past ten, at the day roll |
+| Returns | $10 a return and $4 a box, paid when the desk has inspected it |
 | Refused delivery | nothing, and reputation drops per pallet |
 
 ## The shop (office PC)
@@ -95,8 +96,24 @@ The dock consoles and the bench terminal are touch screens: look at a button and
 | Forklift | $2,800 | 2 |
 | LED high bays (halves inspection fines) | $600 | 2 |
 | Roadside sign (reputation grows faster) | $500 | 2 |
-| Second inbound bay (two trucks per slot, bigger loads) | $1,400 | 3 |
 | Fourth rack row | $950 | 3 |
+| Second inbound bay (two trucks per slot, bigger loads) | $1,400 | 3 |
+| Shipping belt and dock loader | $1,800 | 3 |
+| Powered pallet truck | $1,200 | 3 |
+| Fifth rack row | $950 | 4 |
+| AGV pallet mover | $3,200 | 4 |
+| High-lift stacker (needs the powered truck) | $2,200 | 4 |
+| Plant tune-up | $2,000 | 4 |
+| Gantry pickers over the racks | $5,000 | 5 |
+| AGV fast drive (needs the AGV) | $1,800 | 5 |
+| AGV floor sweep (needs fast drive) | $2,400 | 6 |
+| Plant automation suite (needs the tune-up) | $3,500 | 6 |
+| Mezzanine level (needs the gantry pickers) | $6,000 | 6 |
+| Sortation deck and air dock (needs the mezzanine) | $7,500 | 6 |
+| Deck night shift (needs the deck) | $1,800 | 6 |
+| Hall 2, east annex (needs the forklift) | $9,000 | 7 |
+| Hall 3, west annex, and IN 3 (needs Hall 2) | $9,500 | 7 |
+| Hall 4, behind the wing (needs Hall 3) | $9,500 | 8 |
 
 ## Staff and the time clock
 
@@ -111,7 +128,7 @@ The crew come in from the yard through the staff door and clock in at the reader
 | Packer | $75 | 4 | Packs complete orders and loads parcels into a docked outbound truck, if its door is open |
 | Forklift driver | $95 | 5 | Needs the forklift. Puts the pallets left on the hall floor away on any level, the top shelf included, and parks the forklift back in its bay. Will not take the forklift while you are on it or beside it |
 
-They work 08:00 to 18:00 and go home with nothing in their hands. Up to five at once. A receiver pushes a pallet jack of their own. A picker with nothing to pick walks surplus boxes back from the bench to the racks.
+They work their shift (day 08:00 to 18:00, early 06:00 to 16:00, late 12:00 to 22:00, a lunch break four hours in) and go home with nothing in their hands. Five at once, eight from level 7. A receiver pushes a pallet jack of their own. A picker with nothing to pick walks surplus boxes back from the bench to the racks.
 
 ## The bench, without a menu
 
@@ -139,7 +156,23 @@ Build mode (`F2`), then `C`: the Conveyors group sells belts by the piece, strai
 
 ## Keys
 
-`WASD` move · `Shift` run · `Space` jump · `E` use · `G` put down or let go · `Tab` scanner · `1`-`8` its pages, the wheel its cursor, `F` a waypoint, `X` clears it · `Esc` pause · `F3` FPS · `F12` screenshot · `F11` fullscreen. Forklift: `W S` drive, `A D` steer, `R F` forks, `E` lift or set down, `G` get off.
+`WASD` move · `Shift` run · `Space` jump · `E` use · `G` put down or let go · `Tab` scanner · `1`-`9` its pages, the wheel its cursor, `F` a waypoint, `X` clears it · `F9` photo mode · `Esc` pause · `F3` FPS · `F12` screenshot · `F11` fullscreen. Forklift: `W S` drive, `A D` steer, `R F` forks, `E` lift or set down, `G` get off.
+
+## Returns
+
+From level 3 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong item, or damaged in transit. The truck's toast and the Docks page say so. With empty hands, `E` in the trailer takes the return off. Carry it to the **returns desk** between the bench and the office: `E` puts it on the desk (it holds four), `E` again starts the inspection, which runs by itself for a few seconds and needs power. The client pays $10 a return and $4 a box. The boxes come out on the desk's two shelves: good ones go back on a rack by hand or on the cart (`E` with the cart at the shelf takes one), damaged ones go in the bin by the bench at no charge. A return left lying for a day costs a point of reputation. A truck that leaves with a return still aboard has its driver set it down inside the door. The scanner's Home page counts the returns in play and the Orders page lists them with a waypoint to each; the office PC shows them under Orders. The packer fetches returns off the floor and the trucks, runs the desk, and racks or bins what comes off the shelf when the bench has nothing for them.
+
+## The map
+
+Page 9 on the scanner draws the whole site from above at the scale that fits what you own: the main hall with its rack rows (lettered), the docks in their lane colours, the office, the lobby and the break room, the production wing, the annex halls (dashed until bought), the mezzanine. On it live: you (the white arrow points the way you look), the crew (green dots with their initials), the forklift, the AGV, the trucks at the docks and your waypoint. North is up and the inbound docks are on the left.
+
+## The day report
+
+At every day roll the day that ended is closed off: money in and out (the morning's rent and wages included), orders shipped and late, pallets received, boxes picked, returns inspected, the reputation change and the bank at the close. A card shows on the HUD for a while (any key closes it); the Stats app on the office PC and the pause menu's stats keep the last fortnight as a table. The first report comes at the second day roll, when there is a day to compare.
+
+## Photo mode
+
+`F9` frees the camera: `WASD` flies it, `Space` and `C` take it up and down, `Shift` is fast, the mouse looks. The HUD goes and the world holds still while you line up the shot; `F12` takes it. `F9` or `Esc` puts you back where you stood.
 
 ## Pallet jacks and empty pallets
 

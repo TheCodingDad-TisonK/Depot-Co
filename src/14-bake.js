@@ -6,7 +6,7 @@
   var baked = { meshes: [], hidden: 0, draws: 0 };
   function bakeable(o) {
     if (!o.isMesh || o.isInstancedMesh || o.isSprite || !o.visible) return false;
-    var m = o.material; if (!m || Array.isArray(m) || m.userData.glow || m.userData.noBake || m.transparent || m === MAT.hit || m === MAT.lamp || m === MAT.skylight || m === MAT.screen || m === MAT.exit) return false;
+    var m = o.material; if (!m || Array.isArray(m) || m.userData.glow || m.userData.noBake || m.transparent || m === MAT.hit || m === MAT.screen || m === MAT.exit) return false;
     if (o.userData.it || inter.indexOf(o) >= 0) return false;
     if (!(o.geometry && o.geometry.attributes && o.geometry.attributes.position)) return false;
     for (var p = o; p; p = p.parent) { if (p.userData && p.userData.dynamic) return false; if (!p.visible) return false; if (p === camera) return false; }
@@ -16,7 +16,7 @@
     scene.updateMatrixWorld(true);
     var byMat = {}, list = [];
     scene.traverse(function (o) { if (bakeable(o)) list.push(o); });
-    list.forEach(function (o) { var k = o.material.uuid; (byMat[k] = byMat[k] || { mat: o.material, items: [] }).items.push(o); });
+    list.forEach(function (o) { var k = o.material.uuid + (o.castShadow ? 'c' : '') + (o.receiveShadow ? 'r' : ''); (byMat[k] = byMat[k] || { mat: o.material, items: [] }).items.push(o); });
     Object.keys(byMat).forEach(function (k) {
       var grp = byMat[k]; if (grp.items.length < 2) return;
       var pos = [], nor = [], uv = [], hasUv = true;
@@ -33,7 +33,7 @@
       merged.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       merged.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
       if (hasUv && uv.length === pos.length / 3 * 2) merged.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-      var mesh = new THREE.Mesh(merged, grp.mat); mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.userData.baked = true;
+      var mesh = new THREE.Mesh(merged, grp.mat); mesh.castShadow = grp.items[0].castShadow; mesh.receiveShadow = grp.items[0].receiveShadow; mesh.frustumCulled = false; mesh.userData.baked = true;
       scene.add(mesh); baked.meshes.push(mesh);
       grp.items.forEach(function (o) { o.visible = false; o.userData.bakedAway = true; baked.hidden++; });
       baked.draws++;

@@ -7,7 +7,7 @@
   function $(id) { return document.getElementById(id); }
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function money(n) { return '$' + Math.round(n || 0).toLocaleString('en-US'); }
+  function money(n) { n = Math.round(n || 0); return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US'); }
   function ls(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function active() { var n = +(ls('depotco-slot') || 1); return n >= 1 && n <= SLOTS ? n : 1; }
   function readSlot(n) { try { var raw = ls('depotco-slot' + n); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
@@ -28,7 +28,7 @@
   function line(s) { return 'Day ' + (s.day || 1) + ' · level ' + (s.level || 1) + ' · ' + money(s.bank) + ' · rep ' + Math.round(s.rep || 0) + ' · ' + (s.stats && s.stats.shipped || 0) + ' orders shipped'; }
   function slotRow(n) {
     var s = readSlot(n), on = n === active();
-    return '<div class="dc-slot' + (on ? ' on' : '') + '"><div class="dc-slot-info"><b>Slot ' + n + (on ? ' · loaded' : '') + '</b><span>' + (s ? line(s) : 'Empty. A new depot starts with $600, two rack rows and a pallet jack.') + '</span></div>' +
+    return '<div class="dc-slot' + (on ? ' on' : '') + '"><div class="dc-slot-info"><b>Slot ' + n + (on ? ' · loaded' : '') + '</b><span>' + (s ? line(s) : 'Empty. A new depot starts with $600, two rack rows and two pallet jacks.') + '</span></div>' +
       '<button class="' + (on ? 'primary' : '') + '" data-dc="slot" data-n="' + n + '">' + (s ? '▶ Continue' : '▶ Start') + '</button>' + (s ? '<button class="danger" data-dc="del" data-n="' + n + '" title="Delete this save">🗑</button>' : '') + '</div>';
   }
   function showMain() {

@@ -67,7 +67,7 @@
     var Z = sortState(), spd = speedOf('sorter');
     // the scanner: a parcel coming onto the spine is read, and the board of the panel remembers it
     beltItems('spine').forEach(function (it) { if (it.kind === 'parcel' && !it.mode) { it.mode = modeOfParcel(it); Z.scanned++; var o = it.order ? orderById(it.order) : null; Z.last = { num: o ? o.num : '?', mode: it.mode, client: o ? clientName(o.client) : '' }; if (sortScreen) sortScreen.dirty = true; } });
-    if (!powered()) return;
+    if (!powered()) { SORT.cells.forEach(function (cd) { if (MACH['cell' + cd.mode]) lampSet(MACH['cell' + cd.mode], 'off'); }); if (MACH.sortTable) lampSet(MACH.sortTable, 'off'); return; }
     var spine = beltItems('spine'), i, it;
     // the cells: take a parcel of their lane off the spine, work on it, set it on the collector
     SORT.cells.forEach(function (cd) {
@@ -83,7 +83,7 @@
     });
     // the gates: a parcel of the lane passing the gate goes down its spiral
     var coll = beltItems('collector');
-    for (var g in SORT.gates) { var dG = sortD.gate[g], to = g === 'sea' ? 'spiralSea' : 'spiralAir'; if (!propInst[to]) continue; for (i = coll.length - 1; i >= 0; i--) { it = coll[i]; if (it.kind === 'parcel' && it.mode === g && Math.abs(it.d - dG) < 0.35) { if (beltPush(to, { kind: 'parcel', order: it.order, mode: it.mode, form: it.form })) { coll.splice(i, 1); sfx('click'); } break; } } }
+    for (var g in SORT.gates) { var dG = sortD.gate[g], to = g === 'sea' ? 'spiralSea' : 'spiralAir'; if (!propInst[to]) continue; for (i = coll.length - 1; i >= 0; i--) { it = coll[i]; if (it.kind === 'parcel' && it.mode === g && Math.abs(it.d - dG) < 0.35) { if (beltPush(to, { kind: 'parcel', order: it.order, mode: it.mode, form: it.form })) { coll.splice(i, 1); sfx('click'); } else it.d = Math.min(it.d, dG); break; } } }   // held at the gate while its spiral is backed up
     // the turntable at the end of the spine: whatever found its cell full goes round again
     if (Z.table.length) { Z.tableT += dt; if (Z.tableT > 2.5 && beltStartFree('spine')) { Z.tableT = 0; var back = Z.table.shift(); beltPush('spine', back); } }
     if (MACH.sortTable) lampSet(MACH.sortTable, Z.table.length ? 'run' : 'idle');
@@ -95,7 +95,7 @@
     if (propInst.sortTable) Z.table.forEach(function (it, i) { var a = i * 1.05; putParcel(SORT.table.x + Math.cos(a) * 0.55, Y + 0.98, SORT.table.z + Math.sin(a) * 0.55, a, { kind: 'cell' }, it.form); });
   }
   // ── Staging at the loaders ────────────────────────────────────────
-  // A loader with no truck at its door no longer stops its belt: it stages up to twelve parcels beside itself and pushes them into
+  // A loader with no truck at its door no longer stops its belt: it stages up to nine parcels beside itself and pushes them into
   // the next truck of its lane that docks with the door up. The deck's night shift fills these stages while you sleep.
   // The shipping bays (Tyson, 2026-10-06: the parcels must not land in front of the door by magic; a place where they sit). One a dock:
   // a three-lane gravity flow rack beside the loader, nine parcels, with a painted bay round it. The spirals and the shipping belt end
@@ -128,7 +128,7 @@
   defProp('bay3', { label: 'shipping bay OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, x: BAY.x0, z: BAY.at.dockLoader3.z0, rot: 0, build: bayBuild('dockLoader3'), when: function () { return !!S.up.sorter; } });
   function tickStaging(dt) {
     for (var id in STAGE_AT) {
-      var st = stageOf(id); if (!st.length || !propInst[id] || !powered()) { if (MACH[BAY.at[id].prop]) lampSet(MACH[BAY.at[id].prop], !powered() ? 'off' : st.length ? 'idle' : 'idle'); continue; } var door = LOADER_DOORS[id], t = truckAtDoor(door); if (MACH[BAY.at[id].prop]) lampSet(MACH[BAY.at[id].prop], t && S.doors[door] ? 'run' : 'idle'); if (!t || !S.doors[door] || !doorPassable(door)) continue;
+      var st = stageOf(id); if (!st.length || !propInst[id] || !powered()) { if (MACH[BAY.at[id].prop]) lampSet(MACH[BAY.at[id].prop], !powered() ? 'off' : 'idle'); continue; } var door = LOADER_DOORS[id], t = truckAtDoor(door); if (MACH[BAY.at[id].prop]) lampSet(MACH[BAY.at[id].prop], t && S.doors[door] ? 'run' : 'idle'); if (!t || !S.doors[door] || !doorPassable(door)) continue;
       stageT[id] = (stageT[id] || 0) + dt; if (stageT[id] < 1.2) continue; stageT[id] = 0;
       var oid = st.shift(), o = orderById(oid); if (!o) continue; t.parcels.push(o.id); o.state = 'loaded'; laneWarn(o, t); sfx('crate'); addXp(XP.ship); rebuildBoardSoon(); S.stats.autoLoaded = (S.stats.autoLoaded || 0) + 1; if (MACH[id].anim) MACH[id].anim.pushT = 1.2;
     }
@@ -136,12 +136,13 @@
   // the night shift: at bedtime every parcel on the shelf and on the deck is sorted and staged at the loader of its lane
   function deckNightRun() {
     if (!S.up.deckNight || !sorterOwned() || !propInst.spine || S.events.power) return 0;
-    var Z = sortState(), list = [], n = { sea: 0, land: 0, air: 0 }, take = function (oid) { var o = orderById(oid); if (o) list.push(o); };
-    S.bench.parcels.splice(0).forEach(take);
-    ['sortUp', 'spine', 'collector', 'spiralSea', 'spiralAir'].forEach(function (b) { var items = beltItems(b); for (var i = items.length - 1; i >= 0; i--) if (items[i].kind === 'parcel') { if (items[i].order) take(items[i].order); items.splice(i, 1); } });
-    SORT.cells.forEach(function (cd) { Z.cells[cd.mode].q.splice(0).forEach(function (j) { if (j.order) take(j.order); }); }); Z.table.splice(0).forEach(function (it) { if (it.order) take(it.order); });
+    // seen: already past the scanner; done: already counted out of its cell. Neither is counted twice.
+    var Z = sortState(), list = [], n = { sea: 0, land: 0, air: 0 }, take = function (oid, seen, done) { var o = orderById(oid); if (o) list.push({ o: o, seen: !!seen, done: !!done }); };
+    S.bench.parcels.splice(0).forEach(function (oid) { take(oid, false, false); });
+    ['sortUp', 'spine', 'collector', 'spiralSea', 'spiralAir', 'cellOutsea', 'cellOutland', 'cellOutair'].forEach(function (b) { if (!BELTS[b]) return; var items = beltItems(b); for (var i = items.length - 1; i >= 0; i--) if (items[i].kind === 'parcel') { if (items[i].order) take(items[i].order, b !== 'sortUp', b !== 'sortUp' && b !== 'spine'); items.splice(i, 1); } });
+    SORT.cells.forEach(function (cd) { Z.cells[cd.mode].q.splice(0).forEach(function (j) { if (j.order) take(j.order, true, false); }); }); Z.table.splice(0).forEach(function (it) { if (it.order) take(it.order, true, false); });
     var left = [];
-    list.forEach(function (o) { var m = orderMode(o), id = { sea: 'dockLoader1', land: 'dockLoader2', air: 'dockLoader3' }[m]; o.form = MODES[m].form; if (stagePush(id, o.id)) { n[m]++; Z.sorted++; Z.scanned++; Z.count[m] = (Z.count[m] || 0) + 1; S.stats.sorted = (S.stats.sorted || 0) + 1; } else left.push(o); });
+    list.forEach(function (e) { var o = e.o, m = orderMode(o), id = { sea: 'dockLoader1', land: 'dockLoader2', air: 'dockLoader3' }[m]; o.form = MODES[m].form; if (stagePush(id, o.id)) { n[m]++; if (!e.seen) Z.scanned++; if (!e.done) { Z.sorted++; Z.count[m] = (Z.count[m] || 0) + 1; S.stats.sorted = (S.stats.sorted || 0) + 1; } } else left.push(o); });
     left.forEach(function (o) { if (S.bench.parcels.length < 12) S.bench.parcels.push(o.id); else S.floor.push({ kind: 'parcel', order: o.id, x: 31.2 + Math.random() * 0.8, y: 0, z: 16.4 + Math.random() * 0.8, rot: 0 }); });
     var tot = n.sea + n.land + n.air; if (tot) logEvent('Night shift on the deck: ' + tot + ' parcel' + (tot > 1 ? 's' : '') + ' sorted and waiting in the shipping bays (sea ' + n.sea + ', land ' + n.land + ', air ' + n.air + ')', 'good');
     return tot;
@@ -197,7 +198,7 @@
   }; }
   function tableBuild(c) {
     var DG = MAT_MACH.frame; c.cyl(0.9, 0.08, DG, 0, BELT_Y - 0.06, 0, 32); c.cyl(0.86, 0.03, MAT_MACH.roller, 0, BELT_Y, 0, 32); c.cyl(0.25, BELT_Y - 0.1, DG, 0, (BELT_Y - 0.1) / 2, 0, 16);
-    var ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.025, 8, 40), MAT_MACH.guard); ring.rotation.x = Math.PI / 2; ring.position.y = BELT_Y + 0.14; c.group.add(ring); for (var k = 0; k < 8; k++) { var a = k / 8 * Math.PI * 2; if (k === 2) continue; c.box(0.03, 0.14, 0.03, DG, Math.cos(a) * 0.95, BELT_Y + 0.07, Math.sin(a) * 0.95); }
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.025, 8, 40), MAT_MACH.guard); ring.rotation.x = Math.PI / 2; ring.position.y = BELT_Y + 0.14; c.group.add(ring); for (var k = 0; k < 8; k++) { var a = k / 8 * Math.PI * 2; if (k === 0) continue; c.box(0.03, 0.14, 0.03, DG, Math.cos(a) * 0.95, BELT_Y + 0.07, Math.sin(a) * 0.95); }
     c.box(0.3, 0.5, 0.2, DG, -1.1, 0.9, 0.0); MACH.sortTable.lamps = lampStack(c, -1.1, 1.15, 0); c.sign(['TURNTABLE', 'round again'], 0.6, 0.2, -1.26, 0.8, 0, -Math.PI / 2, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' });
     c.hit(2.0, 1.4, 2.0, 0, 0.7, 0, { prompt: function () { var Z = sortState(); return 'Turntable · ' + (Z.table.length ? Z.table.length + ' parcel' + (Z.table.length > 1 ? 's' : '') + ' waiting to go round again' : 'empty'); }, use: function () { sfx('click'); } });
     c.solid(-1.0, 1.0, -1.0, 1.0, 0, 1.0);
@@ -212,8 +213,8 @@
     c.solid(-1.5, -1.0, -0.15, 0.15, 0, 1.9); c.solid(-0.82, -0.68, -0.08, 0.08, 0, 2.4); c.solid(0.68, 0.82, -0.08, 0.08, 0, 2.4);
   }
   function gateBuild(mode) { return function (c) {
-    var DG = MAT_MACH.frame; c.box(0.3, 0.9, 0.3, DG, 0, 0.45, 0); c.box(0.5, 0.08, 0.5, DG, 0, 0.04, 0); var arm = c.box(0.9, 0.06, 0.06, MAT.yellow, 0.45, BELT_Y + 0.25, 0); arm.rotation.y = 0;
-    c.box(0.06, 0.3, 0.5, std({ color: new THREE.Color(MODES[mode].col), roughness: 0.5 }), 0.9, BELT_Y + 0.25, 0); c.sign([MODES[mode].name.toUpperCase() + ' GATE'], 0.5, 0.14, 0, 1.05, 0.16, 0, { w: 256, h: 64, bg: '#1b232c', fg: MODES[mode].col });
+    var DG = MAT_MACH.frame; c.box(0.3, 0.9, 0.3, DG, 0, 0.45, 0); c.box(0.5, 0.08, 0.5, DG, 0, 0.04, 0); var arm = c.box(0.9, 0.06, 0.06, MAT.yellow, 0.45, BELT_Y + 0.62, 0); arm.rotation.y = 0;
+    c.box(0.06, 0.3, 0.5, std({ color: new THREE.Color(MODES[mode].col), roughness: 0.5 }), 0.9, BELT_Y + 0.62, 0); c.sign([MODES[mode].name.toUpperCase() + ' GATE'], 0.5, 0.14, 0, 1.05, 0.16, 0, { w: 256, h: 64, bg: '#1b232c', fg: MODES[mode].col });
     c.hit(0.5, 1.2, 0.5, 0, 0.6, 0, { prompt: function () { return MODES[mode].name + ' gate · kicks ' + mode + ' parcels down the spiral to ' + dockLabel(MODES[mode].door); }, use: function () { sfx('click'); } }); c.solid(-0.2, 0.2, -0.2, 0.2, 0, 1.0);
   }; }
   // ── The props ─────────────────────────────────────────────────────
@@ -221,7 +222,7 @@
   function sdef(id, extra) { var d = { label: extra.label, cat: SF.cat, abs: SF.abs, keep: SF.keep, fixed: SF.fixed, rot: 0, when: SF.when, x: extra.x || 0, z: extra.z || 0, build: extra.build, after: extra.after }; defProp(id, d); }
   sdef('sortUp', { label: 'parcel spiral and overhead run', build: function (c) { conveyorPath(c, BELTS.sortUp.path); spiralDress(c, SORT.spiral.up.x, SORT.spiral.up.z, R, Y, 0); c.sign(['UP TO THE SORTER'], 0.9, 0.14, 31.4, 1.3, 15.9, 0, { w: 320, h: 64, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['PARCELS · TO THE DECK'], 1.2, 0.18, SORT.inX + 0.5, Y + 1.5, 0, Math.PI / 2, { w: 384, h: 64, bg: '#1b232c', fg: '#f5b53d' }); } });
   sdef('spine', { label: 'sorter spine', build: function (c) { conveyorPath(c, BELTS.spine.path); c.sign(['SORTER SPINE · KEEP CLEAR'], 1.6, 0.2, 10, Y + 1.5, SORT.spineZ + 0.5, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#f5b53d' }); } });
-  sdef('collector', { label: 'collector and land spiral', build: function (c) { conveyorPath(c, BELTS.collector.path); spiralDress(c, SORT.spiral.land.x, SORT.spiral.land.z, R, Y, 0); c.sign(['LAND · DOWN TO OUT 2'], 1.0, 0.14, 32.0, Y + 1.2, -12.0, Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: MODES.land.col }); c.sign(['COLLECTOR · TO THE DOCKS'], 1.4, 0.18, 10, Y + 1.5, SORT.collZ + 0.5, 0, { w: 448, h: 64, bg: '#1b232c', fg: '#5fd38d' }); } });
+  sdef('collector', { label: 'collector and land spiral', build: function (c) { conveyorPath(c, BELTS.collector.path); spiralDress(c, SORT.spiral.land.x, SORT.spiral.land.z, R, Y, 0); c.sign(['LAND · DOWN TO OUT 2'], 1.0, 0.14, 29.95, Y + 1.2, -9.0, Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: MODES.land.col }); c.sign(['COLLECTOR · TO THE DOCKS'], 1.4, 0.18, 10, Y + 1.5, SORT.collZ + 0.5, 0, { w: 448, h: 64, bg: '#1b232c', fg: '#5fd38d' }); } });
   sdef('spiralSea', { label: 'sea spiral', build: function (c) { conveyorPath(c, BELTS.spiralSea.path); spiralDress(c, SORT.spiral.sea.x, SORT.spiral.sea.z, R, Y, 0); c.sign(['SEA · DOWN TO OUT 1'], 0.9, 0.14, SORT.spiral.sea.x, 1.6, SORT.spiral.sea.z + R + 0.5, 0, { w: 320, h: 64, bg: '#1b232c', fg: MODES.sea.col }); } });
   sdef('spiralAir', { label: 'air spiral', build: function (c) { conveyorPath(c, BELTS.spiralAir.path); spiralDress(c, SORT.spiral.air.x, SORT.spiral.air.z, R, Y, 0); c.sign(['AIR · DOWN TO OUT 3'], 0.9, 0.14, 32.2, 1.6, SORT.spiral.air.z - R - 0.5, Math.PI, { w: 320, h: 64, bg: '#1b232c', fg: MODES.air.col }); } });
   SORT.cells.forEach(function (cd) { sdef('cell' + cd.mode, { label: cd.mode + ' packing cell', x: cd.x, z: SORT.cellZ, build: cellBuild(cd), after: raiseToDeck }); defBelt('cellOut' + cd.mode, { prop: 'cellOut' + cd.mode, path: [[SORT.liftX, 0, Y + SORT.up], [SORT.liftX, SORT.collZ - SORT.cellZ, Y + SORT.up, 'hang']], speedKey: 'sorter', rate: 2, noSink: true }); sdef('cellOut' + cd.mode, { label: cd.mode + ' cell bridge belt', x: cd.x, z: SORT.cellZ, build: function (c) { conveyorPath(c, BELTS['cellOut' + cd.mode].path); } }); });   // the bridge belt from the lift head to the collector, over the corridor
