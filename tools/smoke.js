@@ -345,6 +345,16 @@ const SCENARIO = `(async () => {
     ok(!!M.layout.rack1 && !M.layout.rack2 && !M.layout.gantry0, 'moved racks shift down a row');
     ok(M.doors.length === 7 && M.orders.every((o) => !!o.mode), 'seven dock doors and a lane on every order after the load');
     localStorage.setItem('depotco-slot1', keep); T.load(); }
+  // 1.18.0: a worker can be looked at; the crew's jacks park in a row by the west wall at clock-out; off duty means home; the returns dock has a console
+  { const SL = T.S, rcv = SL.staff.filter((st) => st.role === 'receiver')[0], pk = SL.staff.filter((st) => st.role === 'picker')[0];   // after the load test S is the old object: read the live one
+    ok(!!T.propInst.consoleRet && Math.abs(T.propWorld('consoleRet', 0, 0).x - (T.HALL.x - 0.3)) < 0.01 && !T.collides(T.HALL.x - 1.4, T.RET.dockZ + 3.4), 'the returns dock has its console on the east wall');
+    if (rcv) { const m = T.staffMeshes[rcv.id]; ok(!!m && !!m.userData.hit && m.userData.hit.userData.it && m.userData.hit.userData.it.staffId === rcv.id && /reliable|timekeeper/.test(T.staffPrompt(rcv)), 'a worker has a hit box and a prompt with their timekeeping: ' + T.staffPrompt(rcv));
+      const jh = T.jackHome(rcv); ok(Math.abs(jh.x - (-T.HALL.x + 1.3)) < 0.01 && jh.z >= 11.3 && !T.collides(jh.x, jh.z) && T.insideHall(jh.x, jh.z), 'the receiver jack slot is by the west wall and clear: ' + jh.x.toFixed(1) + ',' + jh.z.toFixed(1));
+      const t0 = SL.time, d0 = rcv.dayOff; rcv.state = 'idle'; rcv.task = null; rcv.carry = null; rcv.clocked = true; rcv.clockedOutAt = null; rcv.jackParked = false; rcv.x = -20; rcv.z = 0; rcv.jackAt = { x: -21.5, z: 0, ry: 0 }; rcv.shift = 'day'; rcv.overtime = false; rcv.dayOff = false; rcv.sick = false; T.setTime(18.1); T.run(2);
+      ok(rcv.state === 'walk' && rcv.then === 'parkJack', 'at the end of the shift a receiver walks the jack to its slot first: ' + rcv.state + '/' + rcv.then);
+      T.run(45); ok(!!rcv.jackParked && !!rcv.jackAt && Math.abs(rcv.jackAt.x - jh.x) < 0.01 && Math.abs(rcv.jackAt.z - jh.z) < 0.01 && rcv.clocked === false, 'the jack stands in its slot and the receiver clocked out: ' + rcv.state + ' parked=' + rcv.jackParked + ' at ' + (rcv.jackAt ? rcv.jackAt.x.toFixed(1) + ',' + rcv.jackAt.z.toFixed(1) : '-'));
+      rcv.dayOff = d0; T.setTime(t0); }
+    if (pk) { const t1 = SL.time; pk.state = 'idle'; pk.task = null; pk.carry = null; pk.clocked = false; pk.clockedOutAt = null; pk.x = -10; pk.z = 5; pk.dayOff = true; T.setTime(10); T.run(1); ok(pk.state === 'home' || pk.state === 'gone' || (pk.state === 'walk' && pk.then === 'gone'), 'an off-duty worker standing in the hall walks out: ' + pk.state + '/' + pk.then); pk.dayOff = false; T.setTime(t1); } }
   const c = T.counts(); out.push('info draws=' + c.draws + ' inter=' + c.inter + ' dyn=' + c.dyn);
   } catch (e) { errs.push('scenario threw: ' + (e && e.stack || e)); }   // the checks that passed before the throw still print, and the stack says where
   return { out, errs };

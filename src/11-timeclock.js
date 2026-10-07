@@ -39,7 +39,7 @@
   // the day's roll: who is sick, who is off, when each one will turn up
   function staffNewDay() {
     S.staff.forEach(function (st) {
-      if (st.state !== 'home') { staffDropAll(st); st.jackParked = true; st.state = 'home'; }   // whoever was still in at the roll (a sleep at 17:00, a late shift at midnight) goes home now, or they stand frozen from then on
+      if (st.state !== 'home') { staffDropAll(st); st.state = 'home'; } if (hasJack(st)) { st.jackParked = true; st.jackAt = jackHome(st); }   // the jacks stand in their row overnight, wherever the day left them   // whoever was still in at the roll (a sleep at 17:00, a late shift at midnight) goes home now, or they stand frozen from then on
       if (st.shiftNext) { st.shift = st.shiftNext; st.shiftNext = null; }
       if (st.dayOffNext && !isSunday()) { st.dayOff = true; st.dayOffNext = false; } else st.dayOff = false;   // a day off booked for a Sunday keeps for Monday
       st.sick = !st.dayOff && Math.random() < 0.04;

@@ -238,7 +238,7 @@
       }
       // 1.14.0: the lanes. Five dock doors; every order carries its lane; the upper pack line of the uncommitted step 2 is gone
       while ((s.doors || (s.doors = [])).length < 7) s.doors.push(false); if (!s.stage) s.stage = {};
-      (s.staff || []).forEach(function (st) { if (st.state === 'wait' && !st.clocked && !st.clockedOutAt) st.state = 'clockin'; });   // saved in the clock-in wait: the wait's closure is gone, so they clock in again
+      (s.staff || []).forEach(function (st) { if (st.state === 'wait' && !st.clocked && !st.clockedOutAt) st.state = 'clockin'; if (hasJack(st) && st.state === 'home') { st.jackParked = true; st.jackAt = jackHome(st, s.staff); } });   // 1.18.0: a jack left on an idle spot overnight stands in the row by the wall instead   // saved in the clock-in wait: the wait's closure is gone, so they clock in again
       (s.orders || []).forEach(function (o) { if (o.state === 'upper') { o.state = 'open'; } if (!o.mode) { var cm = (CLIENTS.filter(function (c) { return c.id === o.client; })[0] || {}).mode || 'land'; o.mode = cm === 'air' && !s.up.sorter ? 'land' : cm; } });
       if (s.up.upperPack) { delete s.up.upperPack; } delete s.upack; delete s.udiv; if (s.belts) { delete s.belts.upackIn; delete s.belts.upackOut; }
       // belt items whose piece is gone (a removal that crashed before 1.13.5 left them behind): boxes and parcels go to the receiving floor
@@ -785,7 +785,7 @@
     box(2 * X + 0.6, 0.3, 2 * Z + 0.6, MAT.roof, 0, H + 0.15, 0);
     plane(2 * X, 2 * Z, MAT.roofIn, 0, H - 0.01, 0, Math.PI / 2);
     SKYLIGHT_Z.forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
-    for (var tx = -16; tx <= 16; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }
+    for (var tx = -32; tx <= 32; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }   // nine trusses across the 72 m: five covered the middle 32 m until 1.18.0
     // high-bay lamps under the trusses: a conduit drop off the truss, the ballast box, a spun reflector and the lens in its mouth
     hallLights.forEach(function (l) { highBay(l.position.x, l.position.y + 0.3, l.position.z); });
     buildHallLining();
@@ -833,7 +833,7 @@
   function buildHallLining() {
     var X = HALL.x, Z = HALL.z, H = HALL.h, DH = 2.4, sd = SPOT.staffDoor.z;
     var cutZ = { '-1': [[-15.8, -12.2], [-7.8, -4.2], [sd - 0.65, sd + 0.65], [18.4, Z], [-Z, -20.1]], '1': [[-15.8, -12.2], [-7.8, -4.2], [DOCKS.out[2].z - DOCKS.w / 2, DOCKS.out[2].z + DOCKS.w / 2], [18.4, Z]] };   // the docks (OUT 3 since 1.14.2: the dado and a column stood in its doorway), the staff door, the lobby, the break room; the office
-    var cutX = { '-1': [[WING.belt.x0 - 0.1, WING.belt.x1 + 0.1], [WING.door.x0 - 0.1, WING.door.x1 + 0.1], [23.3, 24.7], [-X, -28.9], [HALLS.hall2.door.x0 - 0.1, HALLS.hall2.door.x1 + 0.1], [HALLS.hall3.door.x0 - 0.1, HALLS.hall3.door.x1 + 0.1]], '1': [[X - 7.6, X], [-X, -31.4]] };   // the hall doorways too, since 1.14.1   // the belt opening, the wing door, the fire exit, the break room; the office, the lobby
+    var cutX = { '-1': [[WING.belt.x0 - 0.1, WING.belt.x1 + 0.1], [WING.door.x0 - 0.1, WING.door.x1 + 0.1], [23.3, 24.7], [-X, -28.9], [HALLS.hall2.door.x0 - 0.1, HALLS.hall2.door.x1 + 0.1], [HALLS.hall3.door.x0 - 0.1, HALLS.hall3.door.x1 + 0.1]], '1': [[X - 7.6, X], [-X, -31.4]] }; world.liningCuts = { cutZ: cutZ, cutX: cutX };   // the hall doorways too, since 1.14.1   // the belt opening, the wing door, the fire exit, the break room; the office, the lobby
     function segs(a0, a1, cuts) { var out = [[a0, a1]]; cuts.forEach(function (c) { var nx = []; out.forEach(function (s) { if (c[1] <= s[0] || c[0] >= s[1]) { nx.push(s); return; } if (c[0] > s[0]) nx.push([s[0], c[0]]); if (c[1] < s[1]) nx.push([c[1], s[1]]); }); out = nx; }); return out.filter(function (s) { return s[1] - s[0] > 0.3; }); }
     function dadoMat(len) { var m = MAT.block.clone(); m.map = MAT.block.map.clone(); m.map.needsUpdate = true; m.map.repeat.set(len / 1.6, DH / 0.8); m.normalMap = MAT.block.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set(len / 1.6, DH / 0.8); return m; }
     function wall(axis, side) {
@@ -868,7 +868,7 @@
     wall('x', -1); wall('x', 1); wall('z', -1); wall('z', 1);
   }
   function buildDoor(i, side, z) {
-    var x = side * HALL.x;
+    var x = side * HALL.x, ud = i < 6 && z < UPPER.z1 + 0.3;   // a main-hall door under the deck strip: its fittings keep under the deck plate at 4.6 m
     var panel = new THREE.Mesh(boxGeo(0.12, DOCKS.h, DOCKS.w), MAT.door); panel.castShadow = true; panel.receiveShadow = true;
     panel.position.set(x - side * 0.22, DOCKS.h / 2, z); scene.add(panel);
     // the dock leveller: a plate from the hall edge out over the slot to the trailer bed, with a hinged lip and a hazard edge
@@ -882,7 +882,7 @@
     box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z - DOCKS.w / 2 + 0.3); box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z + DOCKS.w / 2 - 0.3);
     sign([DOOR_MAP[i].dir === 'ret' ? 'R' : String(DOOR_MAP[i].dock + 1)], 1.2, 1.2, x + side * 0.17, DOCKS.h + 1.3, z, side < 0 ? -Math.PI / 2 : Math.PI / 2, { w: 128, h: 128, bg: '#f5b53d', fg: '#1a1205' });
     plane(1.6, DOCKS.w - 0.4, MAT.hazard, x - side * 0.8, 0.008, z, -Math.PI / 2);
-    sign([dockLabel(i) + (dockLane(i) ? ' · ' + dockLane(i).name.toUpperCase() : '')], 2.4, 0.7, x - side * 0.17, DOCKS.h + 0.6, z, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: DOOR_MAP[i].dir !== 'out' ? '#f5b53d' : (dockLane(i) ? dockLane(i).col : '#5fd38d') });
+    sign([dockLabel(i) + (dockLane(i) ? ' · ' + dockLane(i).name.toUpperCase() : '')], ud ? 1.6 : 2.4, ud ? 0.3 : 0.7, x - side * 0.17, ud ? DOCKS.h + 0.17 : DOCKS.h + 0.6, z, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: DOOR_MAP[i].dir !== 'out' ? '#f5b53d' : (dockLane(i) ? dockLane(i).col : '#5fd38d') });
     doors[i] = d;
   }
   function dockLabel(i) { var d = DOOR_MAP[i]; return d ? (d.dir === 'ret' ? 'RETURNS' : (d.dir === 'in' ? 'IN ' : 'OUT ') + (d.dock + 1)) : '?'; }
@@ -1044,7 +1044,7 @@
   // drawing helpers in the house style
   function scBg(c, w, h, accent) { c.fillStyle = '#0d1216'; c.fillRect(0, 0, w, h); var g = c.createRadialGradient(0, 0, 10, 0, 0, w); g.addColorStop(0, accent || 'rgba(245,181,61,0.18)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(255,255,255,0.04)'; for (var y = 8; y < h; y += 16) for (var x = 8; x < w; x += 16) c.fillRect(x, y, 1.5, 1.5); }
   function scHead(c, w, title, sub) { c.fillStyle = '#f5b53d'; c.font = 'bold 22px Bahnschrift, Arial, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillText(title, 16, 30); c.fillStyle = '#a0acb8'; c.font = '14px Bahnschrift, Arial, sans-serif'; c.textAlign = 'right'; c.fillText(sub || fmtTime(S.time), w - 16, 30); c.textAlign = 'left'; c.fillStyle = 'rgba(245,181,61,0.35)'; c.fillRect(16, 40, w - 32, 2); }
-  function scButton(sc, x, y, w, h, label, on, act, col) { var c = sc.ctx; c.fillStyle = on ? (col || '#f5b53d') : 'rgba(255,255,255,0.08)'; c.strokeStyle = on ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.18)'; c.lineWidth = 1.5; c.beginPath(); c.roundRect ? c.roundRect(x, y, w, h, 8) : c.rect(x, y, w, h); c.fill(); c.stroke(); c.fillStyle = on ? '#1a1205' : '#eef1f5'; c.font = 'bold 15px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(label, x + w / 2, y + h / 2, w - 8); c.textBaseline = 'alphabetic'; c.textAlign = 'left'; sc.zones.push({ x: x, y: y, w: w, h: h, label: label, act: act }); }
+  function scButton(sc, x, y, w, h, label, on, act, col) { var c = sc.ctx; c.fillStyle = on ? (col || '#f5b53d') : 'rgba(255,255,255,0.08)'; c.strokeStyle = on ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.18)'; c.lineWidth = 1.5; c.beginPath(); c.roundRect ? c.roundRect(x, y, w, h, 8) : c.rect(x, y, w, h); c.fill(); c.stroke(); c.fillStyle = on ? '#1a1205' : '#eef1f5'; c.font = 'bold 15px Bahnschrift, Arial, sans-serif'; var tw = c.measureText(label).width; if (tw > w - 10) c.font = 'bold ' + Math.max(10, Math.floor(15 * (w - 10) / tw)) + 'px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(label, x + w / 2, y + h / 2, w - 8); c.textBaseline = 'alphabetic'; c.textAlign = 'left'; sc.zones.push({ x: x, y: y, w: w, h: h, label: label, act: act }); }
   function scText(c, x, y, text, col, size) { c.fillStyle = col || '#eef1f5'; c.font = (size || 14) + 'px Bahnschrift, Arial, sans-serif'; c.textAlign = 'left'; var sc = c.getTransform ? c.getTransform().a || 1 : 1; c.fillText(text, x, y, Math.max(20, c.canvas.width / sc - x - 8)); }   // never past the right edge of the screen, whatever the resolution
 
   // ── Hinged doors ──────────────────────────────────────────────────
@@ -1140,9 +1140,9 @@
   function dressDoor(d) {
     var X = HALL.x;
     [-1, 1].forEach(function (s) { var bx = d.side * (X - 1.0), bz = d.z + s * (DOCKS.w / 2 + 0.5); cyl(0.11, 1.0, MAT.yellow, bx, 0.5, bz, null, 10); cyl(0.14, 0.05, MAT.black, bx, 0.025, bz, null, 10); solid(bx - 0.12, bx + 0.12, bz - 0.12, bz + 0.12, 0, 1.0); });
-      var x = d.side * (X - 0.3), z = d.z - DOCKS.w / 2 - 0.5;
-      box(0.5, 0.06, 0.06, MAT.steelDark, x + d.side * -0.2, 4.6, z); var lamp = box(0.18, 0.18, 0.18, glowMat(0xffb020, 0.4), x - d.side * 0.5, 4.5, z);
-      var dl = new THREE.PointLight(0xffb020, 0, 9, 2); dl.position.set(x - d.side * 0.9, 4.3, z); scene.add(dl); dress.dockLamps.push({ m: lamp, l: dl, door: d.i });   // the beacon throws real amber on the apron while a truck is on its way
+      var x = d.side * (X - 0.3), nz = d.z - DOCKS.w / 2 - 0.5, z = nz < -HALL.z + 0.5 ? d.z + DOCKS.w / 2 + 0.5 : nz, ly = d.i < 6 && d.z < UPPER.z1 + 0.3 ? 4.25 : 4.6;   // OUT 3's beacon stood in the north wall and IN 1's in the deck plate until 1.18.0
+      box(0.5, 0.06, 0.06, MAT.steelDark, x + d.side * -0.2, ly, z); var lamp = box(0.18, 0.18, 0.18, glowMat(0xffb020, 0.4), x - d.side * 0.5, ly - 0.1, z);
+      var dl = new THREE.PointLight(0xffb020, 0, 9, 2); dl.position.set(x - d.side * 0.9, ly - 0.3, z); scene.add(dl); dress.dockLamps.push({ m: lamp, l: dl, door: d.i });   // the beacon throws real amber on the apron while a truck is on its way
       box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.3); box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.6);
       var rx = d.side * (X - 0.15); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z - DOCKS.w / 2 - 0.05); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z + DOCKS.w / 2 + 0.05); cyl(0.1, 0.3, MAT.steelDark, rx - d.side * 0.15, DOCKS.h + 0.3, d.z + DOCKS.w / 2 + 0.35, null, 10).rotation.x = Math.PI / 2; cyl(0.006, DOCKS.h - 0.6, MAT.chrome, rx - d.side * 0.15, DOCKS.h / 2 + 0.2, d.z + DOCKS.w / 2 + 0.35, null, 4);
   }
@@ -1184,7 +1184,11 @@
     var grimeTex = tex(64, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(20,18,16,0.5)'); g.addColorStop(0.5, 'rgba(20,18,16,0.18)'); g.addColorStop(1, 'rgba(20,18,16,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); for (var i = 0; i < 60; i++) { c.fillStyle = 'rgba(10,10,10,' + randf(0.05, 0.2) + ')'; c.fillRect(Math.random() * w, h - Math.random() * 20, randf(1, 4), randf(1, 3)); } });
     var grimeMat = new THREE.MeshBasicMaterial({ map: grimeTex, transparent: true, depthWrite: false }); grimeMat.userData.noBake = true;
     var gw = function (w, h, x, y, z, ry) { var m = plane(w, h, grimeMat, x, y, z, 0, ry); m.renderOrder = 1; m.userData.noBake = true; grimeTex.repeat.set(1, 1); };
-    gw(2 * X - 0.6, 0.7, 0, 0.35, -Z + 0.19, 0); gw(2 * X - 0.6, 0.7, 0, 0.35, Z - 0.19, Math.PI); gw(2 * Z - 0.6, 0.7, -X + 0.19, 0.35, 0, Math.PI / 2); gw(2 * Z - 0.6, 0.7, X - 0.19, 0.35, 0, -Math.PI / 2);
+    var LC = world.liningCuts || { cutZ: { '-1': [], '1': [] }, cutX: { '-1': [], '1': [] } };   // one strip a wall segment, the openings left clean (a strip ran across every doorway until 1.18.0)
+    hallSegs(-X + 0.3, X - 0.3, LC.cutX['-1']).forEach(function (sg) { gw(sg[1] - sg[0] - 0.2, 0.7, (sg[0] + sg[1]) / 2, 0.35, -Z + 0.19, 0); });
+    hallSegs(-X + 0.3, X - 0.3, LC.cutX['1']).forEach(function (sg) { gw(sg[1] - sg[0] - 0.2, 0.7, (sg[0] + sg[1]) / 2, 0.35, Z - 0.19, Math.PI); });
+    hallSegs(-Z + 0.3, Z - 0.3, LC.cutZ['-1']).forEach(function (sg) { gw(sg[1] - sg[0] - 0.2, 0.7, -X + 0.19, 0.35, (sg[0] + sg[1]) / 2, Math.PI / 2); });
+    hallSegs(-Z + 0.3, Z - 0.3, LC.cutZ['1']).forEach(function (sg) { gw(sg[1] - sg[0] - 0.2, 0.7, X - 0.19, 0.35, (sg[0] + sg[1]) / 2, -Math.PI / 2); });
     var markTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.35)'); g.addColorStop(0.7, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
     var markMat = new THREE.MeshBasicMaterial({ map: markTex, transparent: true, depthWrite: false, opacity: 0.8 }); markMat.userData.noBake = true;
     doors.forEach(function (dk) { var m = plane(6, 1.3, markMat, dk.side * (X - 4.5), 0.0045, dk.z + randf(-0.3, 0.3), -Math.PI / 2, 0); m.rotation.z = randf(-0.08, 0.08); m.renderOrder = 1; m.userData.noBake = true; });
@@ -1727,12 +1731,18 @@
     c.cyl(0.012, 0.6, MAT.black, 0.18, 1.0, 0.0, 6);
     touchScreen({ w: 300, h: 320, pw: 0.3, ph: 0.32, x: 0, y: 1.5, z: 0.07, ry: 0, parent: c.group, title: 'Time clock', draw: drawTimeClock });
   }  function consoleBuild(di) { return function (c) {
-    var inbound = DOOR_MAP[di].dir === 'in', k = DOOR_MAP[di].dock, lane = inbound ? null : MODES[TRUCK_OUT[k].mode];
+    var dir = DOOR_MAP[di].dir, inbound = dir === 'in', ret = dir === 'ret', k = DOOR_MAP[di].dock, lane = inbound || ret ? null : MODES[TRUCK_OUT[k].mode];
     var hous = new THREE.Mesh(bevelGeo(0.5, 0.62, 0.12, 0.02), std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 })); hous.position.set(0, 1.45, 0); hous.castShadow = true; c.group.add(hous); c.box(0.44, 0.34, 0.01, MAT.black, 0, 1.47, 0.05); c.box(0.54, 0.04, 0.14, inbound ? MAT.hazard : MAT.yellow, 0, 1.78, 0); c.box(0.54, 0.04, 0.14, MAT_MACH.frame, 0, 1.12, 0); c.cyl(0.012, 1.0, MAT.black, 0, 0.6, -0.03, 6); c.cyl(0.03, 0.03, MAT.red, -0.17, 1.22, 0.07, 10).rotation.x = Math.PI / 2; c.box(0.05, 0.05, 0.02, MAT.yellow, -0.17, 1.22, 0.06); c.box(0.03, 0.03, 0.02, glowMat(0x5fd38d, 1.0), 0.17, 1.22, 0.065); c.box(0.08, 0.06, 0.04, MAT_MACH.frame, 0, 1.08, -0.02);
     touchScreen({ w: 320, h: 240, pw: 0.4, ph: 0.3, x: 0, y: 1.47, z: 0.065, ry: 0, parent: c.group, title: 'Dock console ' + dockLabel(di), draw: function (cc, sc) {
-      scBg(cc, sc.w, sc.h, inbound ? 'rgba(245,181,61,0.16)' : 'rgba(95,211,141,0.16)'); scHead(cc, sc.w, 'DOCK ' + dockLabel(di), lane ? lane.name.toUpperCase() + ' LANE' : undefined);
+      scBg(cc, sc.w, sc.h, inbound || ret ? 'rgba(245,181,61,0.16)' : 'rgba(95,211,141,0.16)'); scHead(cc, sc.w, 'DOCK ' + dockLabel(di), lane ? lane.name.toUpperCase() + ' LANE' : undefined);
       var t = truckAtDoor(di);
-      if (inbound) {
+      if (ret) {
+        if (t) { var ra = (t.returns || []).length; scText(cc, 16, 66, 'Returns truck docked · ' + t.driver, '#f5b53d', 14); scText(cc, 16, 86, ra + ' return' + (ra === 1 ? '' : 's') + ' still aboard · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scText(cc, 16, 106, retFeedWorks(t) ? 'The belt is taking them in' : !S.doors[di] ? 'Door down: the belt waits' : !powered() ? 'No power: the belt is stopped' : 'The belt is starting', retFeedWorks(t) ? '#5fd38d' : '#ff6b5e', 13); }
+        else { scText(cc, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(cc, 16, 86, isSunday() ? 'Closed Sunday' : 'The returns truck comes at ' + TRUCK_RET.map(fmtTime).join(' and ') + ' daily', '#eef1f5', 13); }
+        scButton(sc, 16, 128, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
+        var qn = rdesk().queue.length; scButton(sc, 164, 128, 140, 40, qn + ' in the queue', false, function () { scanToggle(true); scanPage(1); });
+        scText(cc, 16, 190, rdesk().done + ' returns inspected so far · ' + rdesk().shelf.length + ' box' + (rdesk().shelf.length === 1 ? '' : 'es') + ' in the cage', '#a0acb8', 11);
+      } else if (inbound) {
         if (t) { var left = S.pallets.filter(function (q) { return q.place === 'truck' && q.truck === t.id; }).length; scText(cc, 16, 66, 'Truck docked · ' + t.driver + ' · ' + clientName(t.client), '#f5b53d', 14); scText(cc, 16, 86, left + ' of ' + t.pallets.length + ' pallets still on it · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scText(cc, 16, 106, t.signed ? 'Delivery note signed' : 'NOT SIGNED: see the driver outside', t.signed ? '#5fd38d' : '#ff6b5e', 13); }
         else { scText(cc, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(cc, 16, 86, 'Inbound slots: ' + TRUCK_IN.map(fmtTime).join(' and ') + (S.up.dock2 || k !== 1 ? '' : ' (buy the second bay)'), '#eef1f5', 13); }
         scButton(sc, 16, 128, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
@@ -1749,7 +1759,7 @@
       }
       scText(cc, 16, 226, S.events.power ? 'NO POWER' : 'mains ok', S.events.power ? '#ff6b5e' : '#5fd38d', 11);
     } });
-    c.sign(['DOCK ' + dockLabel(di)], 0.7, 0.18, 0, 1.95, 0.0, 0, { w: 256, h: 64, bg: '#1b232c', fg: inbound ? '#f5b53d' : '#5fd38d' });
+    c.sign([ret ? 'RETURNS DOCK' : 'DOCK ' + dockLabel(di)], ret ? 1.0 : 0.7, 0.18, 0, 1.95, 0.0, 0, { w: 256, h: 64, bg: '#1b232c', fg: inbound || ret ? '#f5b53d' : '#5fd38d' });
   }; }
   function breakerBuild(c) {
     var LG = std({ color: 0xb9bec4, roughness: 0.45, metalness: 0.3 }); var box2 = new THREE.Mesh(bevelGeo(0.46, 0.7, 0.14, 0.02), LG); box2.position.set(0, 1.5, 0); box2.castShadow = true; c.group.add(box2);
@@ -2589,7 +2599,8 @@
       for (var bo = -b[2] / 2 + 3; bo < b[2] / 2; bo += 6) cyl(0.12, 1.0, MAT.yellow, b[0] + bo, YARD_Y + 0.5, fz - face * 1.2, null, 8);
     });
     // the road: two lanes, dashes, kerbs, lamp posts, and the traffic that uses it
-    plane(260, 11, MAT.yard, 0, YARD_Y + 0.01, 75, -Math.PI / 2); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 69.4); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 80.6);
+    var roadMat = MAT.yard.clone(); roadMat.map = TEX.asphalt.clone(); roadMat.map.needsUpdate = true; roadMat.map.wrapS = roadMat.map.wrapT = THREE.RepeatWrapping; roadMat.map.repeat.set(260 / 7, 11 / 7); if (roadMat.normalMap) { roadMat.normalMap = roadMat.normalMap.clone(); roadMat.normalMap.needsUpdate = true; roadMat.normalMap.wrapS = roadMat.normalMap.wrapT = THREE.RepeatWrapping; roadMat.normalMap.repeat.set(260 / 7, 11 / 7); }   // the yard's repeat squashed the texture across the 11 m road
+    plane(260, 11, roadMat, 0, YARD_Y + 0.01, 75, -Math.PI / 2); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 69.4); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 80.6);
     for (var i = -120; i < 120; i += 6) plane(3, 0.2, MAT.whiteLine, i, YARD_Y + 0.02, 75, -Math.PI / 2);
     for (var lp = -110; lp <= 110; lp += 28) { cyl(0.06, 7, MAT.steelDark, lp, YARD_Y + 3.5, 81.5, null, 8, 0.09); box(0.08, 0.08, 1.4, MAT.steelDark, lp, YARD_Y + 6.9, 80.8); var ll = box(0.5, 0.14, 0.32, glowMat(0xfff2c0, 0.2), lp, YARD_Y + 6.85, 80.2); yard.lampLenses.push(ll); }
     for (var c = 0; c < 8; c++) { var cm = carMesh(pick(CAR_COLS)); cm.userData.dynamic = true; var dir = c % 2 ? -1 : 1; cm.position.set(-130 + (c >> 1) * 65 + randf(0, 20), YARD_Y, dir > 0 ? 72.5 : 77.5); cm.rotation.y = dir > 0 ? 0 : Math.PI; scene.add(cm); yard.traffic.push({ g: cm, dir: dir, v: dir > 0 ? 12 : 10.5 }); }   // one speed a lane: they used to drive through each other
@@ -2616,7 +2627,7 @@
     var moonSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(225,230,240,0.9)'), transparent: true, depthWrite: false, fog: false })); moonSp.scale.set(12, 12, 1); scene.add(moonSp); yard.moon = moonSp;
     var ct = cloudTex();
     for (var k = 0; k < 10; k++) { var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ct, transparent: true, depthWrite: false, opacity: 0.85, fog: false })); var s = randf(50, 90); sp.scale.set(s, s * 0.5, 1); sp.position.set(randf(-150, 150), randf(70, 100), randf(-150, 150)); scene.add(sp); yard.clouds.push({ sp: sp, v: randf(0.6, 1.4) }); }
-    for (var p = 0; p < 12; p++) { var pm = new THREE.Mesh(new THREE.CircleGeometry(randf(1.2, 3.2), 18), std({ color: 0x151a22, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0 })); pm.rotation.x = -Math.PI / 2; pm.position.set(randf(-70, 70), YARD_Y + 0.02, randf(-50, 50)); pm.scale.x = randf(1, 2.2); scene.add(pm); yard.puddles.push(pm); }
+    for (var p = 0; p < 12; p++) { var pm = new THREE.Mesh(new THREE.CircleGeometry(randf(1.2, 3.2), 18), std({ color: 0x151a22, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0 })); pm.rotation.x = -Math.PI / 2; var px = 0, pz = 0, tries = 0; do { px = randf(-70, 70); pz = randf(-50, 50); tries++; } while (tries < 20 && Math.abs(px) < HALL.x + 3 && pz > -67 && pz < HALL.z + 3); pm.position.set(px, YARD_Y + 0.02, pz); pm.scale.x = randf(1, 2.2); scene.add(pm); yard.puddles.push(pm); }
     var streak = tex(16, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(210,225,240,0)'); g.addColorStop(0.5, 'rgba(210,225,240,0.9)'); g.addColorStop(1, 'rgba(210,225,240,0)'); c.fillStyle = g; c.fillRect(6, 0, 4, h); });
     var flake = tex(32, 32, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
     var mkPoints = function (n, size, map, range) { var geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { pos[i * 3] = randf(-range, range); pos[i * 3 + 1] = randf(0, 16); pos[i * 3 + 2] = randf(-range, range); } geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); var pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: map, size: size, transparent: true, opacity: 0.85, depthWrite: false, alphaTest: 0.05 })); pts.visible = false; pts.frustumCulled = false; scene.add(pts); return pts; };
@@ -3886,14 +3897,15 @@
   function fireStaff(id) {
     var st = staffById(id); if (!st) return;
     staffDropAll(st); var fh = st.hoursToday || 0; if (fh > 0.05 && st.clocked !== undefined) { var fpay = Math.round(hourly(st) * (Math.min(fh, 10.25) + Math.max(0, fh - 10.25) * 1.5)); if (fpay > 0) pay(-fpay, 'Final pay, ' + st.name + ' (' + (Math.round(fh * 10) / 10) + ' h)'); }   // the hours worked today are paid on the way out
-    var m = staffMeshes[id]; if (m) { if (m.userData.jack) scene.remove(m.userData.jack); scene.remove(m); delete staffMeshes[id]; }
+    var m = staffMeshes[id]; if (m) { if (m.userData.jack) scene.remove(m.userData.jack); if (m.userData.hit) { var hi = inter.indexOf(m.userData.hit); if (hi >= 0) inter.splice(hi, 1); } scene.remove(m); delete staffMeshes[id]; }
     S.staff.splice(S.staff.indexOf(st), 1); logEvent(st.name + ' let go'); hudDirty = true;
   }
   function buildStaffMesh(st) {
     var vest = st.role === 'receiver' ? MAT.hivisOrange : st.role === 'picker' ? MAT.hivis : st.role === 'driver' ? MAT.hivis : MAT.green;
     var look = st.look || {};
     var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' || st.role === 'driver' ? (st.role === 'driver' ? MAT.yellow : MAT.white) : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
-    if ((st.role === 'receiver' || st.cross === 'receiver') && jackModel) g.userData.jack = jackModel('staffjack', true);   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
+    if (hasJack(st) && jackModel) g.userData.jack = jackModel('staffjack', true);
+    g.userData.hit = hitBox(0.7, 1.9, 0.7, 0, 0.95, 0, { staffId: st.id, prompt: function () { return staffPrompt(st); }, use: function () { staffUse(st); } }, g);   // look at a worker: name, job, status, timekeeping   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
   }
   // the receiver's jack. Loaded: pushed ahead with the tiller lowered to 31 degrees, so its grip meets both hands half a metre in
   // front at hip height. Empty and walking: towed behind on one trailing arm, tiller at 20 degrees, the grip in that hand just
@@ -3957,6 +3969,8 @@
       var m = staffMeshes[st.id]; if (!m) { buildStaffMesh(st); m = staffMeshes[st.id]; }
       if (st.punct === undefined) { st.punct = randf(0.2, 1); st.arriveOff = st.arriveOff || 0; }   // an old save: a value, not a new day (staffNewDay sent everyone home unpaid on the first tick)
       var brk = onBreak(st), off = isSunday() || st.sick || st.dayOff, end = shiftEnd(st);
+      if (off && !st.clocked && st.state !== 'home' && st.state !== 'gone' && !(st.state === 'walk' && st.then === 'gone')) { staffDropAll(st); if (hasJack(st)) { st.jackParked = true; st.jackAt = jackHome(st); } st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); return; }   // Tyson's save had two unclocked workers idling at their spots on a Sunday
+      if (!off && !st.clocked && !st.clockedOutAt && st.state === 'idle' && S.time >= staffArrival(st) && S.time < end - 0.5) { st.state = 'walk'; st.then = 'clockin'; st.path = route({ x: st.x, z: st.z }, clockStand()); }
       // not here: at home until the arrival time, then the walk in from the yard to the clock
       if (st.state === 'home') {
         m.visible = false; jackFollow(st, m, false, dt, false); st.x = RAMP_BOTTOM.x; st.z = RAMP_BOTTOM.z;   // the jack stays parked in the hall overnight
@@ -3970,7 +3984,13 @@
       if (st.state === 'clockin') { staffWait(st, 1.4, function () { staffClockIn(st); st.state = 'idle'; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       // a pallet being set into a rack finishes first, or it is dropped half through the rack face
       // planned once: a walker already on the way, at the clock, or in the clock-out wait is left alone (re-planning every tick from a clipped door jamb bounced them in the doorway for hours)
-      if (st.clocked && S.time >= end && st.state !== 'clockout' && st.state !== 'drive' && !(st.state === 'walk' && st.then === 'clockout') && !(st.state === 'wait' && st.leavingWait) && !(st.state === 'wait' && st.task && st.task.kind === 'store')) { staffDropAll(st); st.jackParked = true; st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
+      if (st.clocked && S.time >= end && st.state !== 'clockout' && st.state !== 'parkJack' && st.state !== 'drive' && !(st.state === 'walk' && (st.then === 'clockout' || st.then === 'parkJack')) && !(st.state === 'wait' && st.leavingWait) && !(st.state === 'wait' && st.task && st.task.kind === 'store')) {
+        staffDropAll(st); var jm0 = staffMeshes[st.id];
+        if (jm0 && jm0.userData.jack && !st.jackParked) { st.state = 'walk'; st.then = 'parkJack'; st.path = route({ x: st.x, z: st.z }, jackHome(st)); }   // the jack goes to its slot by the wall first
+        else { st.jackParked = true; st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); }
+        st.leaving = true;
+      }
+      if (st.state === 'parkJack') { st.jackAt = jackHome(st); st.jackParked = true; st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && S.time < end;   // on the clock and inside the shift. Not the old st.leaving flag: set at every shift end since 1.4.0 and never cleared, it kept a worker idle at the clock from their second morning on
@@ -4080,6 +4100,16 @@
   function clockFaceYaw() { var P = propPlacement('timeclock'); return P.rot * Math.PI / 2 + Math.PI; }
   // a worker's place in their role's line-up, and an idle spot of their own from it: three receivers idling on the same point looked
   // like one figure with three jacks fanned out behind it (the jack parks behind its owner along their own heading)
+  // the crew's jacks park in a row along the west wall north of the cart bay, one slot a jack by the owner's place in the line-up.
+  // Until 1.18.0 a jack was left wherever its owner stood at clock-out, and three receivers' jacks ended up piled on one idle spot.
+  var JACK_HOME = { x: -HALL.x + 1.3, z0: 11.4, step: 1.5 };
+  function hasJack(st) { return st.role === 'receiver' || st.cross === 'receiver'; }
+  function jackRank(st, list) { var n = 0; list = list || S.staff; for (var i = 0; i < list.length; i++) { var o = list[i]; if (o === st) return n; if (hasJack(o)) n++; } return n; }
+  function jackHome(st, list) { var k = jackRank(st, list); return { x: JACK_HOME.x, z: JACK_HOME.z0 + k * JACK_HOME.step, ry: -Math.PI / 2 }; }   // pointing west: the owner's stand is east of it, on open floor
+  // a worker can be looked at: who they are, what they are doing, how they keep time; E has a word with one who came in late
+  function punctWord(st) { var p = st.punct === undefined ? 0.6 : st.punct; return p >= 0.75 ? 'reliable' : p >= 0.4 ? 'fair timekeeper' : 'poor timekeeper'; }
+  function staffPrompt(st) { return st.name + ' · ' + STAFF_ROLES[st.role].name.toLowerCase() + (st.cross && STAFF_ROLES[st.cross] ? ' (and ' + STAFF_ROLES[st.cross].name.toLowerCase() + ')' : '') + ' · ' + staffStatus(st) + ' · ' + punctWord(st) + (st.lateToday && !st.wordToday ? ' · E: have a word about the time' : ''); }
+  function staffUse(st) { if (st.lateToday && !st.wordToday) { staffWord(st); staffSay(st, pick(['Sorry, boss. Will not happen again.', 'Yes, I know. Sorry.', 'Alarm did not go off. Sorry.']), '#a0acb8'); return; } staffSay(st, pick(voice(st).idle), '#a0acb8'); sfx('click'); }
   function staffRank(st) { var n = 0; for (var i = 0; i < S.staff.length; i++) { var o = S.staff[i]; if (o === st) return n; if (o.role === st.role) n++; } return n; }
   function spreadSpot(st, base, step, row) { var k = staffRank(st), a = k % 3, b = Math.floor(k / 3); return { x: base.x + step.x * a + row.x * b, z: base.z + step.z * a + row.z * b }; }
   function staffWait(st, sec, after, working) { st.state = 'wait'; st.timer = sec; st.after = after; st.working = !!working; }
@@ -4087,7 +4117,7 @@
   function receiverThink(st) {
     var carrying = S.pallets.filter(function (p) { return p.place === 'staff' && p.staff === st.id; })[0];
     // the jack was left somewhere (a break, the clock, overnight): walk back to where they stood with it before anything else
-    if (st.jackParked && !carrying) { var ja = st.jackAt, stand = ja ? { x: ja.x - Math.sin(ja.ry || 0) * STAFF_JACK.park, z: ja.z - Math.cos(ja.ry || 0) * STAFF_JACK.park } : null; if (!stand || dist2(st.x, st.z, stand.x, stand.z) < 0.5) { st.jackParked = false; } else { st.task = { kind: 'jack' }; staffGo(st, stand, 'wait'); st.timer = 0.4; st.working = true; st.after = function () { st.jackParked = false; st.task = null; }; return; } }
+    if (st.jackParked && !carrying) { var ja = st.jackAt, stand = ja ? { x: ja.x - Math.sin(ja.ry || 0) * STAFF_JACK.park, z: ja.z - Math.cos(ja.ry || 0) * STAFF_JACK.park } : null; if (!stand || dist2(st.x, st.z, stand.x, stand.z) < 1.44) { st.jackParked = false; } else { st.task = { kind: 'jack' }; staffGo(st, stand, 'wait'); st.timer = 0.4; st.working = true; st.after = function () { st.jackParked = false; st.task = null; }; return; } }
     if (carrying) {
       var key = findSlotFor(carrying.sku, carrying.n, 1);
       if (!key) { carrying.place = 'floor'; carrying.x = SPOT.stageIn.x + randf(-1, 1); carrying.z = SPOT.stageIn.z + randf(-1, 1); carrying.y = 0; carrying.rot = 0; staffSay(st, voice(st).nospace, '#ff6b5e'); logEvent(st.name + ' found no rack space: pallet left in receiving', 'bad'); st.task = null; return; }
@@ -4199,7 +4229,7 @@
   // the day's roll: who is sick, who is off, when each one will turn up
   function staffNewDay() {
     S.staff.forEach(function (st) {
-      if (st.state !== 'home') { staffDropAll(st); st.jackParked = true; st.state = 'home'; }   // whoever was still in at the roll (a sleep at 17:00, a late shift at midnight) goes home now, or they stand frozen from then on
+      if (st.state !== 'home') { staffDropAll(st); st.state = 'home'; } if (hasJack(st)) { st.jackParked = true; st.jackAt = jackHome(st); }   // the jacks stand in their row overnight, wherever the day left them   // whoever was still in at the roll (a sleep at 17:00, a late shift at midnight) goes home now, or they stand frozen from then on
       if (st.shiftNext) { st.shift = st.shiftNext; st.shiftNext = null; }
       if (st.dayOffNext && !isSunday()) { st.dayOff = true; st.dayOffNext = false; } else st.dayOff = false;   // a day off booked for a Sunday keeps for Monday
       st.sick = !st.dayOff && Math.random() < 0.04;
@@ -5165,7 +5195,7 @@
   // at no charge. The desk by the bench in the main hall goes the day the hall opens. The packer covers all of it.
   var RET = { door: 6, dockZ: -34, beltZ: -35.0, beltX0: 34.6, beltX1: 22.2, intake: { x: 21.0, z: -35.0 }, desks: [{ x: 19.0, z: -38.2 }, { x: 23.4, z: -38.2 }, { x: 27.8, z: -38.2 }], cage: { x: 30.5, z: -43.2 }, compactor: { x: 15.5, z: -43.0 } };
   var TRUCK_RET = [9.5, 15];      // the returns truck docks at these hours, once the hall is open
-  var RET_PROPS = ['retBelt', 'retIntake', 'retDesk0', 'retDesk1', 'retDesk2', 'retCage', 'retCompactor', 'retPaint', 'retSign'];
+  var RET_PROPS = ['retBelt', 'retIntake', 'retDesk0', 'retDesk1', 'retDesk2', 'retCage', 'retCompactor', 'retPaint', 'retSign', 'consoleRet'];
   // which side of a dock door the yard steps and the driver's landing are on: north for IN 1, OUT 3 and the returns dock (the
   // corner doors), south for the rest. The yard and the truck route both read this, so they agree (IN 1's did not until 1.17.0)
   function dockStepSide(i) { return i === 0 || i === 4 || i === 6 ? -1 : 1; }
@@ -5234,6 +5264,8 @@
     c.plane(1.6, 0.9, MAT.hazard, 0, 0.0065, 1.15, -Math.PI / 2, 0);
     c.solid(-0.95, 0.95, -0.7, 0.7, 0, 2.6); c.hit(2.0, 1.8, 1.6, 0, 0.9, 0.2, { prompt: function () { return binPrompt(); }, use: function () { binUse(); } });
   } });
+  // the dock console on the east wall south of the returns dock, like every other dock's: the door, the truck, the queue
+  defProp('consoleRet', { label: 'dock console RETURNS', cat: 'wall', abs: true, keep: true, fixed: true, x: HALL.x - 0.3, z: RET.dockZ + 3.4, rot: 3, when: retWhen, build: consoleBuild(6) });
   // the floor: zone names, the hazard round the compactor and the zebra from the doorway up to the inspection row
   defProp('retPaint', { label: 'returns hall floor paint', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, build: function (c) {
     var lbl = function (t, x, z, w, col, ry) { var m = c.plane(w, 0.42, new THREE.MeshBasicMaterial({ map: textTex([t], { w: 512, h: 96, bg: '#8b8d8e', fg: col || '#d9a12c' }) }), x, 0.0066, z, -Math.PI / 2, 0); if (ry) m.rotation.z = ry; };
@@ -5516,12 +5548,14 @@
     } else if (app === 'staff') {
       scHead(c, w, 'STAFF', S.staff.length + ' of ' + staffCap());
       var rows4 = Object.keys(STAFF_ROLES).map(function (r) { var d = STAFF_ROLES[r], locked = S.level < d.lvl || (d.needs && !S.up[d.needs]); return { text: 'Hire a ' + d.name.toLowerCase() + '  ·  ' + money(d.wage / 10) + '/h', sub: d.desc, btn: { label: locked ? (S.level < d.lvl ? 'LEVEL ' + d.lvl : 'NEEDS FORK') : S.staff.length >= staffCap() ? 'FULL' : 'HIRE', on: !locked && S.staff.length < staffCap(), act: function () { if (!locked && S.staff.length < staffCap()) { hireStaff(r); toast('Hired a ' + d.name.toLowerCase(), 'good'); } }, col: '#5fd38d' } }; });
-      S.staff.forEach(function (st) { var sheet = st.sheet || [], hrs = sheet.reduce(function (a, r) { return a + r.h; }, 0), paid = sheet.reduce(function (a, r) { return a + r.pay; }, 0);
-        rows4.push({ text: '   ' + st.name + ': ' + (st.shift || 'day') + ' shift' + (st.shiftNext ? ' (' + st.shiftNext + ' from tomorrow)' : '') + (st.trained ? ' · trained' : '') + (st.raise ? ' · raised' : '') + (st.cross ? ' · also ' + STAFF_ROLES[st.cross].name.toLowerCase() : ''), sub: 'shift ' + fmtTime(shiftStart(st)) + ' to ' + fmtTime(shiftOf(st).end) + ' · course $' + TRAIN_PRICE + ' · raise $' + RAISE_PRICE + ' · second role $' + CROSS_PRICE, col: '#a0acb8', btn: { label: 'SHIFT ▸', on: true, act: function () { staffShiftCycle(st); }, col: '#78bdf5' } });
-        rows4.push({ text: '   ' + st.name + ': ' + (st.trained ? 'trained' : 'training course'), sub: st.trained ? 'walks a fifth faster and finishes every task step a third sooner' : 'quicker on their feet and at every task', col: '#a0acb8', btn: { label: st.trained ? 'DONE' : 'TRAIN', on: !st.trained && S.bank >= TRAIN_PRICE, act: function () { staffTrain(st); }, col: '#5fd38d' } });
-        rows4.push({ text: '   ' + st.name + ': ' + (st.raise ? 'on the raised rate' : 'a raise'), sub: st.raise ? money(hourly(st)) + ' an hour, on time every day' : '10% more an hour, and timekeeping stops being a problem', col: '#a0acb8', btn: { label: st.raise ? 'DONE' : 'RAISE', on: !st.raise && S.bank >= RAISE_PRICE, act: function () { staffRaise(st); }, col: '#5fd38d' } });
-        rows4.push({ text: '   ' + st.name + ': second role' + (st.cross ? ' · ' + STAFF_ROLES[st.cross].name.toLowerCase() : ''), sub: 'covers the other job when their own queue is empty; tap to choose the role', col: '#a0acb8', btn: { label: st.cross ? 'NEXT ▸' : 'CHOOSE', on: st.crossPaid || S.bank >= CROSS_PRICE, act: function () { staffCrossCycle(st); }, col: '#78bdf5' } });
-        rows4.push({ text: st.name + '  ·  ' + STAFF_ROLES[st.role].name + '  ·  ' + staffStatus(st), sub: 'today ' + (Math.round((st.hoursToday || 0) * 10) / 10) + ' h · last 7 days ' + (Math.round(hrs * 10) / 10) + ' h, ' + money(paid) + ' · punctuality ' + Math.round((st.punct || 0.5) * 100) + '%' + (st.lateToday ? ' · late today' : ''), hi: !!st.clocked, btn: { label: 'LET GO', on: false, act: function () { if (pc.confirm !== st.id) { pc.confirm = st.id; toast('Tap LET GO again to let ' + st.name + ' go', 'bad'); return; } pc.confirm = null; fireStaff(st.id); }, col: '#ff6b5e' } }); });
+      S.staff.forEach(function (st) { var sheet = st.sheet || [], hrs = sheet.reduce(function (a, r) { return a + r.h; }, 0), paid = sheet.reduce(function (a, r) { return a + r.pay; }, 0), open = pc.staffOpen === st.id;
+        rows4.push({ text: st.name + '  ·  ' + STAFF_ROLES[st.role].name + (st.cross && STAFF_ROLES[st.cross] ? ' (+' + STAFF_ROLES[st.cross].name.toLowerCase() + ')' : '') + '  ·  ' + staffStatus(st), sub: 'today ' + (Math.round((st.hoursToday || 0) * 10) / 10) + ' h · last 7 days ' + (Math.round(hrs * 10) / 10) + ' h, ' + money(paid) + ' · ' + punctWord(st) + ' (' + Math.round((st.punct || 0.5) * 100) + '%)' + (st.lateToday ? ' · late today' : '') + ' · ' + (st.shift || 'day') + ' shift' + (st.trained ? ' · trained' : '') + (st.raise ? ' · raised' : ''), hi: !!st.clocked, btn: { label: open ? 'CLOSE ▴' : 'OPTIONS ▸', on: open, act: function () { pc.staffOpen = open ? null : st.id; pc.confirm = null; }, col: '#78bdf5' } });
+        if (!open) return;   // one row a worker unless their options are open (five rows each made eight crew forty rows of scrolling)
+        rows4.push({ text: '   shift: ' + (st.shift || 'day') + (st.shiftNext ? ' (' + st.shiftNext + ' from tomorrow)' : ''), sub: 'shift ' + fmtTime(shiftStart(st)) + ' to ' + fmtTime(shiftOf(st).end) + ' · day, early or late; the change takes effect tomorrow', col: '#a0acb8', btn: { label: 'SHIFT ▸', on: true, act: function () { staffShiftCycle(st); }, col: '#78bdf5' } });
+        rows4.push({ text: '   ' + (st.trained ? 'trained' : 'training course · $' + TRAIN_PRICE), sub: st.trained ? 'walks a fifth faster and finishes every task step a third sooner' : 'quicker on their feet and at every task', col: '#a0acb8', btn: { label: st.trained ? 'DONE' : 'TRAIN', on: !st.trained && S.bank >= TRAIN_PRICE, act: function () { staffTrain(st); }, col: '#5fd38d' } });
+        rows4.push({ text: '   ' + (st.raise ? 'on the raised rate' : 'a raise · $' + RAISE_PRICE), sub: st.raise ? money(hourly(st)) + ' an hour, on time every day' : '10% more an hour, and timekeeping stops being a problem', col: '#a0acb8', btn: { label: st.raise ? 'DONE' : 'RAISE', on: !st.raise && S.bank >= RAISE_PRICE, act: function () { staffRaise(st); }, col: '#5fd38d' } });
+        rows4.push({ text: '   second role' + (st.cross && STAFF_ROLES[st.cross] ? ' · ' + STAFF_ROLES[st.cross].name.toLowerCase() : ' · $' + CROSS_PRICE + ' once'), sub: 'covers the other job when their own queue is empty; tap to choose the role', col: '#a0acb8', btn: { label: st.cross ? 'NEXT ▸' : 'CHOOSE', on: st.crossPaid || S.bank >= CROSS_PRICE, act: function () { staffCrossCycle(st); }, col: '#78bdf5' } });
+        rows4.push({ text: '   let ' + st.name + ' go', sub: 'the hours worked today are paid on the way out · tap twice', col: '#a0acb8', btn: { label: 'LET GO', on: false, act: function () { if (pc.confirm !== st.id) { pc.confirm = st.id; toast('Tap LET GO again to let ' + st.name + ' go', 'bad'); return; } pc.confirm = null; pc.staffOpen = null; fireStaff(st.id); }, col: '#ff6b5e' } }); });
       pcRows(sc, rows4, 60, 50);
     } else if (app === 'plant') {
       scHead(c, w, 'PLANT', powered() ? 'mains ok' : 'NO POWER');
@@ -6499,7 +6533,7 @@
   window.DEPOT = {
     enter: enter, bootSlot: BOOT_SLOT, guideHtml: guideHtml, version: window.DEPOT_VERSION || 'dev',
     T: {
-      get S() { return S; }, player: player, ui: ui, save: save, scene: scene, camera: camera, unbakeStatic: unbakeStatic, bakeStatic: bakeStatic, RET: RET, TRUCK_RET: TRUCK_RET, doorOwned: doorOwned, retFeedWorks: retFeedWorks, rdeskCap: rdeskCap, rdeskStations: rdeskStations, returnsHall: returnsHall, migrateReturnsHall: migrateReturnsHall, dockStepSide: dockStepSide,
+      get S() { return S; }, player: player, ui: ui, save: save, scene: scene, camera: camera, unbakeStatic: unbakeStatic, bakeStatic: bakeStatic, RET: RET, TRUCK_RET: TRUCK_RET, doorOwned: doorOwned, retFeedWorks: retFeedWorks, rdeskCap: rdeskCap, rdeskStations: rdeskStations, returnsHall: returnsHall, migrateReturnsHall: migrateReturnsHall, dockStepSide: dockStepSide, staffMeshes: staffMeshes, jackHome: jackHome, hasJack: hasJack, punctWord: punctWord, staffPrompt: staffPrompt,
       run: function (sec) { var n = Math.round(sec / 0.05); for (var i = 0; i < n; i++) { tickWorld(0.05); if (driving) updatePlayer(0.05); tickLife(0.05); doorAnim(0.05); placeTools(0.05); } syncInstances(); scene.updateMatrixWorld(true); },   // fresh world matrices, so a test raycast sees props where the tick put them
       setTime: function (h) { S.time = h; hudDirty = true; },
       spawnTruck: spawnTruck, signTruck: signTruck, truckById: truckById, truckAtDoor: truckAtDoor, truckMeshes: truckMeshes, doorPassable: doorPassable, doorPanelScale: function (i) { return doors[i].panel.scale.y; }, truckLeave: truckLeave, setDoor: setDoor,

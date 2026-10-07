@@ -74,7 +74,7 @@
       }
       // 1.14.0: the lanes. Five dock doors; every order carries its lane; the upper pack line of the uncommitted step 2 is gone
       while ((s.doors || (s.doors = [])).length < 7) s.doors.push(false); if (!s.stage) s.stage = {};
-      (s.staff || []).forEach(function (st) { if (st.state === 'wait' && !st.clocked && !st.clockedOutAt) st.state = 'clockin'; });   // saved in the clock-in wait: the wait's closure is gone, so they clock in again
+      (s.staff || []).forEach(function (st) { if (st.state === 'wait' && !st.clocked && !st.clockedOutAt) st.state = 'clockin'; if (hasJack(st) && st.state === 'home') { st.jackParked = true; st.jackAt = jackHome(st, s.staff); } });   // 1.18.0: a jack left on an idle spot overnight stands in the row by the wall instead   // saved in the clock-in wait: the wait's closure is gone, so they clock in again
       (s.orders || []).forEach(function (o) { if (o.state === 'upper') { o.state = 'open'; } if (!o.mode) { var cm = (CLIENTS.filter(function (c) { return c.id === o.client; })[0] || {}).mode || 'land'; o.mode = cm === 'air' && !s.up.sorter ? 'land' : cm; } });
       if (s.up.upperPack) { delete s.up.upperPack; } delete s.upack; delete s.udiv; if (s.belts) { delete s.belts.upackIn; delete s.belts.upackOut; }
       // belt items whose piece is gone (a removal that crashed before 1.13.5 left them behind): boxes and parcels go to the receiving floor

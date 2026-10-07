@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.18.0 (2026-10-07)
+
+The crew's jacks for good, a worker you can look at, the returns dock console, and the list deferred from 1.16.
+
+**The crew**
+- **The three jacks, for good.** Tyson's save showed what 1.17 had missed: three receivers' jacks parked within a metre and a half of each other on the old shared idle spot, two owners at home and one standing there unclocked on a Sunday. The crew's jacks now park in a row along the west wall north of the cart bay, one slot each. A receiver tows the jack to its slot before walking to the clock, the day roll tidies every jack into its slot, and a save with jacks piled on an idle spot finds them in the row on load.
+- A worker who is off duty (a Sunday, a sick day, a day off) but still standing in the hall walks out; one standing unclocked after their shift has started walks to the clock.
+- **Look at a worker.** Every worker has a hit box: the prompt gives their name, job, what they are doing and how they keep time (reliable, fair timekeeper, poor timekeeper). E on one who came in late has the word with them on the spot. The scanner's crew readout works off it.
+- **The Staff app** on the office PC shows one row a worker; the shift, training, raise, second role and let-go rows open for the worker you tap OPTIONS on. Five rows a worker had eight crew scrolling through forty.
+
+**The returns hall**
+- **The returns dock console** on the east wall, like every other dock's: the truck and how many returns are still aboard, whether the belt is taking them in, the door button and the queue count. The door could be opened from its panel but only closed from the cabinet or the pull cord.
+
+**Deferred from 1.16, done**
+- The roof trusses run the whole 72 m (five covered the middle 32, and the high bays at x 9 and 26 hung under nothing).
+- The OUT 3 beacon stood in the north wall and the IN 1 and OUT 1 beacons and door signs sat in the deck plate: a door under the deck strip keeps its fittings under 4.5 m and the beacon takes the side with room.
+- The road has a texture repeat of its own; the yard's squashed the asphalt across the 11 m.
+- Puddles no longer form under the buildings.
+- The grime along the walls stops at every doorway instead of floating across it.
+- A screen button's label is sized to fit instead of squashed.
+- Punctuality shows as a word on the worker, not a bare percentage. The scText overflow audit found the clamp already in place since 1.16. The door frame item had no finding left to act on; the lobby, office and break room openings measure 1.3 m against a 1.0 m leaf.
+
 ## 1.17.0 (2026-10-07)
 
 The returns hall, the floor put right, and a sweep of the crew.

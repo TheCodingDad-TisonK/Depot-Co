@@ -10,7 +10,7 @@
   // at no charge. The desk by the bench in the main hall goes the day the hall opens. The packer covers all of it.
   var RET = { door: 6, dockZ: -34, beltZ: -35.0, beltX0: 34.6, beltX1: 22.2, intake: { x: 21.0, z: -35.0 }, desks: [{ x: 19.0, z: -38.2 }, { x: 23.4, z: -38.2 }, { x: 27.8, z: -38.2 }], cage: { x: 30.5, z: -43.2 }, compactor: { x: 15.5, z: -43.0 } };
   var TRUCK_RET = [9.5, 15];      // the returns truck docks at these hours, once the hall is open
-  var RET_PROPS = ['retBelt', 'retIntake', 'retDesk0', 'retDesk1', 'retDesk2', 'retCage', 'retCompactor', 'retPaint', 'retSign'];
+  var RET_PROPS = ['retBelt', 'retIntake', 'retDesk0', 'retDesk1', 'retDesk2', 'retCage', 'retCompactor', 'retPaint', 'retSign', 'consoleRet'];
   // which side of a dock door the yard steps and the driver's landing are on: north for IN 1, OUT 3 and the returns dock (the
   // corner doors), south for the rest. The yard and the truck route both read this, so they agree (IN 1's did not until 1.17.0)
   function dockStepSide(i) { return i === 0 || i === 4 || i === 6 ? -1 : 1; }
@@ -79,6 +79,8 @@
     c.plane(1.6, 0.9, MAT.hazard, 0, 0.0065, 1.15, -Math.PI / 2, 0);
     c.solid(-0.95, 0.95, -0.7, 0.7, 0, 2.6); c.hit(2.0, 1.8, 1.6, 0, 0.9, 0.2, { prompt: function () { return binPrompt(); }, use: function () { binUse(); } });
   } });
+  // the dock console on the east wall south of the returns dock, like every other dock's: the door, the truck, the queue
+  defProp('consoleRet', { label: 'dock console RETURNS', cat: 'wall', abs: true, keep: true, fixed: true, x: HALL.x - 0.3, z: RET.dockZ + 3.4, rot: 3, when: retWhen, build: consoleBuild(6) });
   // the floor: zone names, the hazard round the compactor and the zebra from the doorway up to the inspection row
   defProp('retPaint', { label: 'returns hall floor paint', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, build: function (c) {
     var lbl = function (t, x, z, w, col, ry) { var m = c.plane(w, 0.42, new THREE.MeshBasicMaterial({ map: textTex([t], { w: 512, h: 96, bg: '#8b8d8e', fg: col || '#d9a12c' }) }), x, 0.0066, z, -Math.PI / 2, 0); if (ry) m.rotation.z = ry; };

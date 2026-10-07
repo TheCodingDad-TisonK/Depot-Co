@@ -262,14 +262,15 @@
   function fireStaff(id) {
     var st = staffById(id); if (!st) return;
     staffDropAll(st); var fh = st.hoursToday || 0; if (fh > 0.05 && st.clocked !== undefined) { var fpay = Math.round(hourly(st) * (Math.min(fh, 10.25) + Math.max(0, fh - 10.25) * 1.5)); if (fpay > 0) pay(-fpay, 'Final pay, ' + st.name + ' (' + (Math.round(fh * 10) / 10) + ' h)'); }   // the hours worked today are paid on the way out
-    var m = staffMeshes[id]; if (m) { if (m.userData.jack) scene.remove(m.userData.jack); scene.remove(m); delete staffMeshes[id]; }
+    var m = staffMeshes[id]; if (m) { if (m.userData.jack) scene.remove(m.userData.jack); if (m.userData.hit) { var hi = inter.indexOf(m.userData.hit); if (hi >= 0) inter.splice(hi, 1); } scene.remove(m); delete staffMeshes[id]; }
     S.staff.splice(S.staff.indexOf(st), 1); logEvent(st.name + ' let go'); hudDirty = true;
   }
   function buildStaffMesh(st) {
     var vest = st.role === 'receiver' ? MAT.hivisOrange : st.role === 'picker' ? MAT.hivis : st.role === 'driver' ? MAT.hivis : MAT.green;
     var look = st.look || {};
     var g = makeHuman({ skin: look.skin, hair: look.hair, style: look.style, vest: vest, hardhat: st.role === 'receiver' || st.role === 'driver' ? (st.role === 'driver' ? MAT.yellow : MAT.white) : null, name: st.name }); g.userData.dynamic = true; g.position.set(st.x, 0, st.z); scene.add(g); staffMeshes[st.id] = g;
-    if ((st.role === 'receiver' || st.cross === 'receiver') && jackModel) g.userData.jack = jackModel('staffjack', true);   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
+    if (hasJack(st) && jackModel) g.userData.jack = jackModel('staffjack', true);
+    g.userData.hit = hitBox(0.7, 1.9, 0.7, 0, 0.95, 0, { staffId: st.id, prompt: function () { return staffPrompt(st); }, use: function () { staffUse(st); } }, g);   // look at a worker: name, job, status, timekeeping   // a receiver has a pallet jack of their own: pushed under the pallet, towed behind them when empty
   }
   // the receiver's jack. Loaded: pushed ahead with the tiller lowered to 31 degrees, so its grip meets both hands half a metre in
   // front at hip height. Empty and walking: towed behind on one trailing arm, tiller at 20 degrees, the grip in that hand just
@@ -333,6 +334,8 @@
       var m = staffMeshes[st.id]; if (!m) { buildStaffMesh(st); m = staffMeshes[st.id]; }
       if (st.punct === undefined) { st.punct = randf(0.2, 1); st.arriveOff = st.arriveOff || 0; }   // an old save: a value, not a new day (staffNewDay sent everyone home unpaid on the first tick)
       var brk = onBreak(st), off = isSunday() || st.sick || st.dayOff, end = shiftEnd(st);
+      if (off && !st.clocked && st.state !== 'home' && st.state !== 'gone' && !(st.state === 'walk' && st.then === 'gone')) { staffDropAll(st); if (hasJack(st)) { st.jackParked = true; st.jackAt = jackHome(st); } st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); return; }   // Tyson's save had two unclocked workers idling at their spots on a Sunday
+      if (!off && !st.clocked && !st.clockedOutAt && st.state === 'idle' && S.time >= staffArrival(st) && S.time < end - 0.5) { st.state = 'walk'; st.then = 'clockin'; st.path = route({ x: st.x, z: st.z }, clockStand()); }
       // not here: at home until the arrival time, then the walk in from the yard to the clock
       if (st.state === 'home') {
         m.visible = false; jackFollow(st, m, false, dt, false); st.x = RAMP_BOTTOM.x; st.z = RAMP_BOTTOM.z;   // the jack stays parked in the hall overnight
@@ -346,7 +349,13 @@
       if (st.state === 'clockin') { staffWait(st, 1.4, function () { staffClockIn(st); st.state = 'idle'; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       // a pallet being set into a rack finishes first, or it is dropped half through the rack face
       // planned once: a walker already on the way, at the clock, or in the clock-out wait is left alone (re-planning every tick from a clipped door jamb bounced them in the doorway for hours)
-      if (st.clocked && S.time >= end && st.state !== 'clockout' && st.state !== 'drive' && !(st.state === 'walk' && st.then === 'clockout') && !(st.state === 'wait' && st.leavingWait) && !(st.state === 'wait' && st.task && st.task.kind === 'store')) { staffDropAll(st); st.jackParked = true; st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
+      if (st.clocked && S.time >= end && st.state !== 'clockout' && st.state !== 'parkJack' && st.state !== 'drive' && !(st.state === 'walk' && (st.then === 'clockout' || st.then === 'parkJack')) && !(st.state === 'wait' && st.leavingWait) && !(st.state === 'wait' && st.task && st.task.kind === 'store')) {
+        staffDropAll(st); var jm0 = staffMeshes[st.id];
+        if (jm0 && jm0.userData.jack && !st.jackParked) { st.state = 'walk'; st.then = 'parkJack'; st.path = route({ x: st.x, z: st.z }, jackHome(st)); }   // the jack goes to its slot by the wall first
+        else { st.jackParked = true; st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); }
+        st.leaving = true;
+      }
+      if (st.state === 'parkJack') { st.jackAt = jackHome(st); st.jackParked = true; st.state = 'walk'; st.then = 'clockout'; st.path = route({ x: st.x, z: st.z }, clockStand()); st.leaving = true; }
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && S.time < end;   // on the clock and inside the shift. Not the old st.leaving flag: set at every shift end since 1.4.0 and never cleared, it kept a worker idle at the clock from their second morning on
@@ -456,6 +465,16 @@
   function clockFaceYaw() { var P = propPlacement('timeclock'); return P.rot * Math.PI / 2 + Math.PI; }
   // a worker's place in their role's line-up, and an idle spot of their own from it: three receivers idling on the same point looked
   // like one figure with three jacks fanned out behind it (the jack parks behind its owner along their own heading)
+  // the crew's jacks park in a row along the west wall north of the cart bay, one slot a jack by the owner's place in the line-up.
+  // Until 1.18.0 a jack was left wherever its owner stood at clock-out, and three receivers' jacks ended up piled on one idle spot.
+  var JACK_HOME = { x: -HALL.x + 1.3, z0: 11.4, step: 1.5 };
+  function hasJack(st) { return st.role === 'receiver' || st.cross === 'receiver'; }
+  function jackRank(st, list) { var n = 0; list = list || S.staff; for (var i = 0; i < list.length; i++) { var o = list[i]; if (o === st) return n; if (hasJack(o)) n++; } return n; }
+  function jackHome(st, list) { var k = jackRank(st, list); return { x: JACK_HOME.x, z: JACK_HOME.z0 + k * JACK_HOME.step, ry: -Math.PI / 2 }; }   // pointing west: the owner's stand is east of it, on open floor
+  // a worker can be looked at: who they are, what they are doing, how they keep time; E has a word with one who came in late
+  function punctWord(st) { var p = st.punct === undefined ? 0.6 : st.punct; return p >= 0.75 ? 'reliable' : p >= 0.4 ? 'fair timekeeper' : 'poor timekeeper'; }
+  function staffPrompt(st) { return st.name + ' · ' + STAFF_ROLES[st.role].name.toLowerCase() + (st.cross && STAFF_ROLES[st.cross] ? ' (and ' + STAFF_ROLES[st.cross].name.toLowerCase() + ')' : '') + ' · ' + staffStatus(st) + ' · ' + punctWord(st) + (st.lateToday && !st.wordToday ? ' · E: have a word about the time' : ''); }
+  function staffUse(st) { if (st.lateToday && !st.wordToday) { staffWord(st); staffSay(st, pick(['Sorry, boss. Will not happen again.', 'Yes, I know. Sorry.', 'Alarm did not go off. Sorry.']), '#a0acb8'); return; } staffSay(st, pick(voice(st).idle), '#a0acb8'); sfx('click'); }
   function staffRank(st) { var n = 0; for (var i = 0; i < S.staff.length; i++) { var o = S.staff[i]; if (o === st) return n; if (o.role === st.role) n++; } return n; }
   function spreadSpot(st, base, step, row) { var k = staffRank(st), a = k % 3, b = Math.floor(k / 3); return { x: base.x + step.x * a + row.x * b, z: base.z + step.z * a + row.z * b }; }
   function staffWait(st, sec, after, working) { st.state = 'wait'; st.timer = sec; st.after = after; st.working = !!working; }
@@ -463,7 +482,7 @@
   function receiverThink(st) {
     var carrying = S.pallets.filter(function (p) { return p.place === 'staff' && p.staff === st.id; })[0];
     // the jack was left somewhere (a break, the clock, overnight): walk back to where they stood with it before anything else
-    if (st.jackParked && !carrying) { var ja = st.jackAt, stand = ja ? { x: ja.x - Math.sin(ja.ry || 0) * STAFF_JACK.park, z: ja.z - Math.cos(ja.ry || 0) * STAFF_JACK.park } : null; if (!stand || dist2(st.x, st.z, stand.x, stand.z) < 0.5) { st.jackParked = false; } else { st.task = { kind: 'jack' }; staffGo(st, stand, 'wait'); st.timer = 0.4; st.working = true; st.after = function () { st.jackParked = false; st.task = null; }; return; } }
+    if (st.jackParked && !carrying) { var ja = st.jackAt, stand = ja ? { x: ja.x - Math.sin(ja.ry || 0) * STAFF_JACK.park, z: ja.z - Math.cos(ja.ry || 0) * STAFF_JACK.park } : null; if (!stand || dist2(st.x, st.z, stand.x, stand.z) < 1.44) { st.jackParked = false; } else { st.task = { kind: 'jack' }; staffGo(st, stand, 'wait'); st.timer = 0.4; st.working = true; st.after = function () { st.jackParked = false; st.task = null; }; return; } }
     if (carrying) {
       var key = findSlotFor(carrying.sku, carrying.n, 1);
       if (!key) { carrying.place = 'floor'; carrying.x = SPOT.stageIn.x + randf(-1, 1); carrying.z = SPOT.stageIn.z + randf(-1, 1); carrying.y = 0; carrying.rot = 0; staffSay(st, voice(st).nospace, '#ff6b5e'); logEvent(st.name + ' found no rack space: pallet left in receiving', 'bad'); st.task = null; return; }
