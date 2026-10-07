@@ -104,6 +104,9 @@
       c.fillStyle = 'rgba(0,0,0,0.3)'; [0.2, 0.5, 0.8].forEach(function (f) { c.fillRect(0, h * f, w, 2); });   // the slat gaps of a pallet deck
     }, 1, 1),
     pallet: null,
+    crate: tex(256, 256, function (c, w, h) { c.fillStyle = '#c9a26b'; c.fillRect(0, 0, w, h); grain(c, w, h, 2500, 0.1); c.fillStyle = 'rgba(70,45,15,0.55)'; for (var k = 1; k < 5; k++) c.fillRect(k * w / 5 - 2, 0, 4, h); c.fillStyle = 'rgba(70,45,15,0.35)'; c.fillRect(0, h * 0.12, w, 5); c.fillRect(0, h * 0.86, w, 5); c.fillStyle = '#2b3b4e'; for (var n = 0; n < 10; n++) { c.beginPath(); c.arc(w * (0.1 + (n % 5) * 0.2), h * (n < 5 ? 0.14 : 0.88), 2.5, 0, 6.3); c.fill(); } c.fillStyle = '#1f4e79'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('SEA FREIGHT', w / 2, h * 0.5); c.font = 'bold 13px sans-serif'; c.fillText('THIS WAY UP  ▲▲', w / 2, h * 0.64); c.textAlign = 'left'; }, 1, 1),
+    strapped: tex(256, 256, function (c, w, h) { c.fillStyle = '#b7905f'; c.fillRect(0, 0, w, h); grain(c, w, h, 3000, 0.08); c.fillStyle = '#d9c4a0'; c.fillRect(0, h * 0.42, w, h * 0.16); c.fillStyle = '#17191c'; c.fillRect(w * 0.22, 0, w * 0.07, h); c.fillRect(w * 0.71, 0, w * 0.07, h); c.fillStyle = '#5fd38d'; c.fillRect(w * 0.36, h * 0.62, w * 0.28, h * 0.22); c.fillStyle = '#0d1b2a'; c.font = 'bold 18px sans-serif'; c.textAlign = 'center'; c.fillText('LAND', w * 0.5, h * 0.77); c.textAlign = 'left'; }, 1, 1),
+    airbox: tex(256, 256, function (c, w, h) { c.fillStyle = '#f2f4f6'; c.fillRect(0, 0, w, h); grain(c, w, h, 1500, 0.04); c.fillStyle = '#ff6b5e'; c.beginPath(); c.moveTo(0, h * 0.78); c.lineTo(w, h * 0.5); c.lineTo(w, h * 0.66); c.lineTo(0, h * 0.94); c.closePath(); c.fill(); c.fillStyle = '#3fa7d6'; c.fillRect(0, 0, w, h * 0.08); c.fillStyle = '#0d1b2a'; c.font = 'bold 20px sans-serif'; c.textAlign = 'center'; c.fillText('AIR PRIORITY', w / 2, h * 0.3); c.font = '12px sans-serif'; c.fillText('SKYBRIDGE AIR CARGO', w / 2, h * 0.42); c.textAlign = 'left'; c.fillStyle = '#222'; for (var i = 0; i < 16; i++) c.fillRect(w * 0.6 + i * 5, h * 0.12, Math.random() < 0.5 ? 1.5 : 3, h * 0.1); }, 1, 1),
     parcel: tex(256, 256, function (c, w, h) { c.fillStyle = '#b7905f'; c.fillRect(0, 0, w, h); grain(c, w, h, 3000, 0.08); c.fillStyle = '#d9c4a0'; c.fillRect(0, h * 0.42, w, h * 0.16); c.fillStyle = '#ffffff'; c.fillRect(w * 0.55, h * 0.62, w * 0.36, h * 0.28); c.fillStyle = '#222'; for (var i = 0; i < 18; i++) c.fillRect(w * 0.57 + i * (w * 0.32 / 18), h * 0.66, Math.random() < 0.5 ? 2 : 4, h * 0.12); c.font = 'bold 14px sans-serif'; c.fillText('DEPOT CO.', w * 0.57, h * 0.87); c.strokeStyle = '#333'; c.lineWidth = 2; c.strokeRect(w * 0.08, h * 0.08, w * 0.3, h * 0.22); c.font = 'bold 11px sans-serif'; c.fillText('FRAGILE', w * 0.1, h * 0.2); c.fillText('▲ THIS WAY UP', w * 0.1, h * 0.27); }, 1, 1),
     grass: tex(512, 512, function (c, w, h) { c.fillStyle = '#4f6a3a'; c.fillRect(0, 0, w, h); var cols = ['#3f6f2e', '#5c8f44', '#6f9a4a', '#45752f', '#7ea25a']; for (var i = 0; i < 3000; i++) { var x = Math.random() * w, y = Math.random() * h; c.strokeStyle = cols[i % 5]; c.lineWidth = randf(0.8, 1.6); c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + randf(-4, 4), y - randf(4, 9), x + randf(-6, 6), y - randf(8, 16)); c.stroke(); } c.fillStyle = 'rgba(70,50,30,.16)'; for (var d = 0; d < 20; d++) { c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, randf(14, 40), randf(8, 22), Math.random() * 3, 0, 6.29); c.fill(); } }, 30, 30),
     skylight: tex(64, 64, function (c, w, h) { c.fillStyle = '#eef6ff'; c.fillRect(0, 0, w, h); }, 1, 1),
@@ -225,6 +228,9 @@
     deck: std({ color: 0x6a737c, roughness: 0.7, metalness: 0.5 }),
     wood: std({ map: TEX.wood, roughness: 0.85, normalMap: NRM.wood, normalScale: new THREE.Vector2(0.6, 0.6) }),
     parcel: std({ map: TEX.parcel, roughness: 0.9, normalMap: NRM.cardboard, normalScale: new THREE.Vector2(0.5, 0.5) }),
+    crate: std({ map: TEX.crate, roughness: 0.85, normalMap: NRM.wood, normalScale: new THREE.Vector2(0.5, 0.5) }),
+    strapped: std({ map: TEX.strapped, roughness: 0.9, normalMap: NRM.cardboard, normalScale: new THREE.Vector2(0.5, 0.5) }),
+    airbox: std({ map: TEX.airbox, roughness: 0.6 }),
     steel: std({ map: TEX.noiseMetal, roughness: 0.45, metalness: 0.6 }),
     steelDark: std({ color: 0x3a3f45, roughness: 0.5, metalness: 0.6 }),
     chrome: std({ color: 0xd8dde3, roughness: 0.18, metalness: 0.95 }),
@@ -257,6 +263,7 @@
     truckRed: new THREE.MeshPhysicalMaterial({ color: 0xb8322a, roughness: 0.4, metalness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.2, roughnessMap: RGH.paint }),
     truckBlue: new THREE.MeshPhysicalMaterial({ color: 0x2c5f9e, roughness: 0.4, metalness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.2, roughnessMap: RGH.paint }),
     trailer: std({ map: TEX.corrugated, color: 0xf0f2f4, roughness: 0.55, metalness: 0.25, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }),
+    container: std({ map: TEX.corrugated, color: 0x1f4e79, roughness: 0.6, metalness: 0.3, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(1.0, 1.0) }),   // a sea truck's box
     trailerIn: std({ color: 0x9aa0a6, roughness: 0.8, side: THREE.BackSide }),
     skin: std({ color: 0xd9a98a, roughness: 0.8 }),
     hivis: std({ color: 0xf6c21b, roughness: 0.8 }),

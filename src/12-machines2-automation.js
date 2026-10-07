@@ -4,24 +4,27 @@
   // boom pushes them into the trailer whenever a truck is docked with the door up. Nothing loads otherwise; the parcels queue on the belt.
   // the run past OUT 2 climbs 2.2 m so the dock apron under it stays clear for people and the forklift
   // the shelf feeds the shipping belt, which runs down the east wall to the dock loader at OUT 2; OUT 1 stays a manual dock
-  defBelt('shipBelt', { prop: 'shipBelt', path: [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -17.4], [1.9, -18.6]] });
-  var LOADER_DOOR = 3;
-  defMachine('dockLoader2', { prop: 'dockLoader2', inlet: [-0.1, 1.6],
-    accept: function (it) {
-      if (it.kind !== 'parcel' || !powered()) return false;
-      var t = truckAtDoor(LOADER_DOOR); if (!t || !S.doors[LOADER_DOOR] || !doorPassable(LOADER_DOOR)) return false;
-      var o = orderById(it.order); if (!o) return true;
-      t.parcels.push(o.id); o.state = 'loaded'; sfx('crate'); addXp(XP.ship); rebuildBoardSoon(); S.stats.autoLoaded = (S.stats.autoLoaded || 0) + 1;
-      if (MACH.dockLoader2.anim) MACH.dockLoader2.anim.pushT = 1.2;
-      return true;
-    } });
-  function dockLoaderStatus() { if (!powered()) return 'off'; var t = truckAtDoor(LOADER_DOOR); return t && S.doors[LOADER_DOOR] ? 'run' : 'idle'; }
-  function dockLoaderPrompt() { var t = truckAtDoor(LOADER_DOOR); return 'Dock loader OUT 2 · ' + (!powered() ? 'no power' : t && S.doors[LOADER_DOOR] ? 'loading, ' + t.parcels.length + ' aboard' : t ? 'open the door and it loads' : 'waiting for a truck at OUT 2') + ' · ' + (S.stats.autoLoaded || 0) + ' loaded by machine so far'; }
+  defBelt('shipBelt', { prop: 'shipBelt', path: [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -15.3], [0.4, -15.3], [0.4, -17.1]] });   // down the east wall, then in to the west face of the OUT 2 shipping bay (the build function carries the same path)
+  // one loader a lane: OUT 2's comes with the shipping belt, OUT 1's and OUT 3's with the sortation deck (LOADER_DOORS is in the sorter part)
+  function loaderAccept(id, door) { return function (it) {
+    if (it.kind !== 'parcel' || !powered()) return false;
+    var t = truckAtDoor(door), o = orderById(it.order); if (!o) return true;
+    if (!t || !S.doors[door] || !doorPassable(door)) return stagePush(id, o.id);   // no truck at the door: the loader stages the parcel beside itself for the next one
+    t.parcels.push(o.id); o.state = 'loaded'; laneWarn(o, t); sfx('crate'); addXp(XP.ship); rebuildBoardSoon(); S.stats.autoLoaded = (S.stats.autoLoaded || 0) + 1;
+    if (MACH[id].anim) MACH[id].anim.pushT = 1.2;
+    return true;
+  }; }
+  // the loaders take from their shipping bays (tickStaging in the sorter part); nothing feeds a loader straight off a belt any more
+  defMachine('dockLoader1', { prop: 'dockLoader1' });
+  defMachine('dockLoader2', { prop: 'dockLoader2' });
+  defMachine('dockLoader3', { prop: 'dockLoader3' });
+  function dockLoaderStatus(door) { if (!powered()) return 'off'; var t = truckAtDoor(door); return t && S.doors[door] ? 'run' : 'idle'; }
+  function dockLoaderPrompt(door) { var t = truckAtDoor(door); return 'Dock loader ' + dockLabel(door) + ' · ' + (!powered() ? 'no power' : t && S.doors[door] ? 'loading, ' + t.parcels.length + ' aboard' : t ? 'open the door and it loads' : 'waiting for a truck at ' + dockLabel(door)) + ' · ' + (S.stats.autoLoaded || 0) + ' loaded by machine so far'; }
   function tickShipping(dt) {
     // a parcel on the shelf rolls onto whatever belt starts at the shelf's take-off: the shipping belt, or a piece laid there
     if (powered() && S.bench.parcels.length && propInst.packline) { var sp = propWorld('packline', 0, 7.0); for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop] || edit.grabbed === b.prop) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, sp.x, sp.z) < REACH * REACH && beltStartFree(k)) { if (beltPush(k, { kind: 'parcel', order: S.bench.parcels[0] })) S.bench.parcels.shift(); break; } } }   /* the parcel leaves the shelf only once it is on the belt */
-    if (!S.up.shipbelt || !propInst.shipBelt) return;
-    var M = MACH.dockLoader2; if (M.lamps) lampSet(M, dockLoaderStatus()); var a = M.anim; if (a) { if (a.pushT > 0) a.pushT -= dt; var t = truckAtDoor(LOADER_DOOR), out = t && S.doors[LOADER_DOOR] ? 1 : 0; a.ext = lerp(a.ext || 0, out, Math.min(1, dt * 1.5)); a.boom.position.x = 0.9 + a.ext * 1.6; a.boom.scale.x = 0.6 + a.ext * 1.0; a.pusher.position.x = (a.pushT > 0 ? Math.sin(a.pushT / 1.2 * Math.PI) * 0.5 : 0); }
+    for (var lid in LOADER_DOORS) { if (!propInst[lid]) continue; var M = MACH[lid], door = LOADER_DOORS[lid]; if (M.lamps) lampSet(M, dockLoaderStatus(door)); var a = M.anim; if (a) { if (a.pushT > 0) a.pushT -= dt; var t = truckAtDoor(door), out = t && S.doors[door] ? 1 : 0; a.ext = lerp(a.ext || 0, out, Math.min(1, dt * 1.5)); a.boom.position.x = 0.9 + a.ext * 1.6; a.boom.scale.x = 0.6 + a.ext * 1.0; a.pusher.position.x = (a.pushT > 0 ? Math.sin(a.pushT / 1.2 * Math.PI) * 0.5 : 0); } }
+    tickStaging(dt);
   }
 
   // ── The AGV ───────────────────────────────────────────────────────
@@ -34,13 +37,17 @@
   function agvPickupWorld() { return propInst.agvDock ? propWorld('agvDock', 0, 2.6) : null; }
   function agvCandidate() {
     var pu = agvPickupWorld(), pal = propInst.palletiser ? propWorld('palletiser', 2.2, 0) : null, best = null, bd = 1e9;
-    S.pallets.forEach(function (p) { if (p.place !== 'floor' || p.n <= 0) return; var d = 1e9; if (pu) d = Math.min(d, dist2(p.x, p.z, pu.x, pu.z)); if (pal) d = Math.min(d, dist2(p.x, p.z, pal.x, pal.z)); if (d < 1.6 * 1.6 && d < bd) { bd = d; best = p; } });
+    var A = agvState();
+    S.pallets.forEach(function (p) { if (p.place !== 'floor' || p.n <= 0) return; var d = 1e9; if (pu) d = Math.min(d, dist2(p.x, p.z, pu.x, pu.z)); if (pal) d = Math.min(d, dist2(p.x, p.z, pal.x, pal.z)); var want = d < 1.6 * 1.6;
+      // the floor sweep: any pallet on the hall floor, ranked after the square, clear of you and of anything the crew has claimed
+      if (!want && S.up.agvSweep && insideHall(p.x, p.z) && dist2(p.x, p.z, player.x, player.z) > 9 && !S.staff.some(function (o) { return o.task && o.task.pallet === p.id; })) { d = 10 + dist2(p.x, p.z, A.x, A.z); want = true; }
+      if (want && d < bd) { bd = d; best = p; } });
     return best;
   }
   function agvGo(to, state) { var A = agvState(); A.path = route({ x: A.x, z: A.z }, to); A.state = state; }
   function agvWalk(dt) {
     var A = agvState(); if (!A.path.length) return true;
-    var t = A.path[0], dx = t.x - A.x, dz = t.z - A.z, d = Math.sqrt(dx * dx + dz * dz), sp = AGV_SPEED * speedOf('agv') * dt;
+    var t = A.path[0], dx = t.x - A.x, dz = t.z - A.z, d = Math.sqrt(dx * dx + dz * dz), sp = (S.up.agvFast ? 2.2 : AGV_SPEED) * speedOf('agv') * dt;
     if (d <= sp) { A.x = t.x; A.z = t.z; A.path.shift(); return !A.path.length; }
     A.x += dx / d * sp; A.z += dz / d * sp;
     var want = Math.atan2(dx, dz), diff = want - A.yaw; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI; A.yaw += diff * Math.min(1, 6 * dt);

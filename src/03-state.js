@@ -4,7 +4,7 @@
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
       hall: 5,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
-      up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false },
+      up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false, upper: false, sorter: false, hall2: false, hall3: false, hall4: false },
       gantries: {}, speed: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
       slots: {},                 // "row,bay,level" -> { sku, n }
@@ -12,6 +12,7 @@
       floor: [],                 // loose boxes and parcels on the floor: { kind: 'box'|'parcel', sku|order, x, y, z, rot }
       bench: { boxes: {}, parcels: [] },
       pack: { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null },           // the pack line
+      lift: { pallet: null, pos: 0, state: 'down' },                                      // the goods lift to the mezzanine (1.14.0)
       factory: { raw: 0, product: 'dccrate', on: false, made: 0, rawOrdered: 0, t: 0, jam: false },   // the moulding line and its hopper
       pal: { sku: null, n: 0 }, belts: {},
       baler: { card: 0, bales: 0, t: 0, made: 0 }, wrap: { film: 20, wrapped: 0 },                                                   // the palletiser's pallet, and what is on each belt
@@ -24,7 +25,9 @@
       layout: {}, custom: [],
       hand: null,                // { kind: 'box', sku } | { kind: 'parcel', order }
       orders: [], shipped: [],   // shipped keeps the last 40 for the ledger
-      trucks: [], doors: [false, false, false, false],
+      trucks: [], doors: [false, false, false, false, false, false],   // IN 1, IN 2, OUT 1, OUT 2, OUT 3, IN 3 (see DOOR_MAP)
+      sort: null,                // the sortation deck's cells, turntable and counts (1.14.0)
+      stage: {},                 // parcels staged beside each dock loader, by loader id
       staff: [], nextStaffName: 0,
       intro: { step: 0, done: false, off: false },
       events: { power: false, powerUntil: 0, nextInspect: 4, inspected: false, prowled: false },
@@ -67,6 +70,10 @@
         var nl = {}; for (var lk2 in (s.layout || {})) { var mm = /^(rack|gantry)(\d)$/.exec(lk2); if (!mm) nl[lk2] = s.layout[lk2]; else if (+mm[2] >= 1) nl[mm[1] + (+mm[2] - 1)] = s.layout[lk2]; } s.layout = nl;
         (s.staff || []).forEach(function (st) { st.task = null; if (st.carry && st.carry.back) delete st.carry.back; });
       }
+      // 1.14.0: the lanes. Five dock doors; every order carries its lane; the upper pack line of the uncommitted step 2 is gone
+      while ((s.doors || (s.doors = [])).length < 6) s.doors.push(false); if (!s.stage) s.stage = {};
+      (s.orders || []).forEach(function (o) { if (o.state === 'upper') { o.state = 'open'; } if (!o.mode) { var cm = (CLIENTS.filter(function (c) { return c.id === o.client; })[0] || {}).mode || 'land'; o.mode = cm === 'air' && !s.up.sorter ? 'land' : cm; } });
+      if (s.up.upperPack) { delete s.up.upperPack; } delete s.upack; delete s.udiv; if (s.belts) { delete s.belts.upackIn; delete s.belts.upackOut; }
       // belt items whose piece is gone (a removal that crashed before 1.13.5 left them behind): boxes and parcels go to the receiving floor
       if (s.belts) for (var bk in s.belts) { if (BELTS[bk] || (s.custom || []).some(function (c) { return c.id === bk; })) continue; (s.belts[bk] || []).forEach(function (it, n) { var fx = SPOT.stageIn.x - 0.9 + (n % 4) * 0.6, fz = SPOT.stageIn.z + 1.5 + Math.floor(n / 4) * 0.6; if (it.kind === 'box') s.floor.push({ kind: 'box', sku: it.sku, x: fx, y: 0, z: fz, rot: 0 }); else if (it.kind === 'parcel' && it.order) s.floor.push({ kind: 'parcel', order: it.order, x: fx, y: 0, z: fz, rot: 0 }); }); delete s.belts[bk]; }
       S = s; return true;

@@ -4,9 +4,23 @@
   // they leave; the day's pay at 06:00 is their clocked hours at the hourly rate, with anything past ten hours at
   // time and a half. Punctuality is a trait: some are early, some drift in late, and a word puts them right for a while.
   var CLOCK_SPOT = { x: -HALL.x + 1.0, z: 20.2 }, RAMP_BOTTOM = { x: -HALL.x - 7.3, z: 22 }, SHIFT_START = 8;
-  function hourly(st) { return STAFF_ROLES[st.role].wage / 10; }
-  function shiftEnd(st) { return st.overtime ? 20 : 18; }
-  function staffArrival(st) { return SHIFT_START + (st.arriveOff || 0) / 60; }
+  // the staff options (1.14.0): a shift pattern, a training course, a raise that fixes timekeeping, a second role, a bigger crew at level 7
+  var STAFF_SHIFTS = { early: { start: 6, end: 16 }, day: { start: 8, end: 18 }, late: { start: 12, end: 22 } }, TRAIN_PRICE = 400, CROSS_PRICE = 350, RAISE_PRICE = 250;
+  function shiftOf(st) { return STAFF_SHIFTS[st.shift] || STAFF_SHIFTS.day; }
+  function shiftStart(st) { return shiftOf(st).start; }
+  function hourly(st) { return STAFF_ROLES[st.role].wage / 10 * (st.raise ? 1.1 : 1); }
+  function shiftEnd(st) { var e = shiftOf(st).end; return st.overtime ? Math.min(DAY_END, e + 2) : e; }
+  function staffArrival(st) { return shiftStart(st) + (st.arriveOff || 0) / 60; }
+  function staffCap() { return S.level >= 7 ? 8 : 5; }
+  function staffTrain(st) { if (st.trained) return; if (S.bank < TRAIN_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-TRAIN_PRICE, 'Training course, ' + st.name); st.trained = true; sfx('cash'); toast(st.name + ' is trained: quicker on their feet and at every task', 'good'); logEvent(st.name + ' finished the ' + STAFF_ROLES[st.role].name.toLowerCase() + ' course', 'good'); }
+  function staffRaise(st) { if (st.raise) return; if (S.bank < RAISE_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-RAISE_PRICE, 'Raise for ' + st.name); st.raise = true; st.punct = 1; if ((st.arriveOff || 0) > 0) st.arriveOff = 0; sfx('cash'); staffSay(st, pick(['Cheers, boss.', 'I will not let you down.', 'Appreciated.']), '#5fd38d'); logEvent(st.name + ' got a raise: 10% more an hour, and on time from now on', 'good'); }
+  function staffShiftCycle(st) { var order = ['day', 'early', 'late'], i = order.indexOf(st.shift || 'day'); st.shift = order[(i + 1) % 3]; sfx('click'); toast(st.name + ' moves to the ' + st.shift + ' shift from tomorrow (' + fmtTime(shiftStart(st)) + ' to ' + fmtTime(shiftOf(st).end) + ')', 'good'); logEvent(st.name + ' moves to the ' + st.shift + ' shift'); }
+  function staffCrossCycle(st) {
+    var roles = Object.keys(STAFF_ROLES).filter(function (r) { return r !== st.role && !(STAFF_ROLES[r].needs && !S.up[STAFF_ROLES[r].needs]); }); if (!roles.length) return;
+    var i = roles.indexOf(st.cross || ''), next = i < 0 ? roles[0] : i + 1 < roles.length ? roles[i + 1] : null;
+    if (next && !st.crossPaid) { if (S.bank < CROSS_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-CROSS_PRICE, 'Cross-training, ' + st.name); st.crossPaid = true; }
+    st.cross = next; st.task = null; sfx('click'); toast(next ? st.name + ' also covers ' + STAFF_ROLES[next].name.toLowerCase() + ' work when their own queue is empty' : st.name + ' sticks to ' + STAFF_ROLES[st.role].name.toLowerCase() + ' work', 'good');
+  }
   function staffStatus(st) {
     if (isSunday()) return 'Sunday';
     if (st.sick) return 'called in sick'; if (st.dayOff) return 'day off';
@@ -15,21 +29,21 @@
     if (st.state === 'home') return 'not in';
     if (!st.clocked) return 'arriving';
     if (st.state === 'break') return 'on break';
-    return 'in since ' + fmtTime(st.clockInAt || SHIFT_START) + (st.overtime ? ' · overtime' : '') + (st.lateToday ? ' · late' : '');
+    return 'in since ' + fmtTime(st.clockInAt || shiftStart(st)) + (st.overtime ? ' · overtime' : '') + (st.lateToday ? ' · late' : '');
   }
   // the day's roll: who is sick, who is off, when each one will turn up
   function staffNewDay() {
     S.staff.forEach(function (st) {
       if (st.dayOffNext) { st.dayOff = true; st.dayOffNext = false; } else st.dayOff = false;
       st.sick = !st.dayOff && Math.random() < 0.04;
-      if (st.punct === undefined) st.punct = randf(0.2, 1);
+      if (st.punct === undefined) st.punct = randf(0.2, 1); if (st.raise) st.punct = 1;   // a raise keeps them on time for good
       var p = st.punct, r = Math.random();
       st.arriveOff = p > 0.75 ? randi(-12, -2) : p > 0.4 ? (r < 0.7 ? randi(-6, 4) : randi(6, 14)) : (r < 0.35 ? randi(-3, 3) : randi(8, 28));
       st.overtime = !!st.overtimeNext; st.overtimeNext = false;
       st.lateToday = false; st.hoursToday = 0; st.clockInAt = null; st.clockedOutAt = null; st.clocked = false; st.wordToday = false; st.leaving = false; st.leavingWait = false;
       if (st.sick) logEvent(st.name + ' called in sick', 'bad');
       if (st.dayOff) logEvent(st.name + ' has the day off');
-      if (st.punct < 1) st.punct = clamp(st.punct - 0.01, 0.1, 1);   // a word wears off slowly
+      if (st.punct < 1 && !st.raise) st.punct = clamp(st.punct - 0.01, 0.1, 1);   // a word wears off slowly
     });
   }
   // pay for yesterday from the timesheet
@@ -43,7 +57,7 @@
   }
   function staffClockIn(st) {
     st.clocked = true; st.clockInAt = S.time; sfx('scan');
-    if (S.time > SHIFT_START + 5 / 60) { st.lateToday = true; st.lateDays = (st.lateDays || 0) + 1; staffSay(st, pick(['Sorry, the ring road.', 'Late. I know. Sorry.', 'Overslept. Will not happen again.', 'Bus did not come.']), '#ff6b5e'); logEvent(st.name + ' clocked in late at ' + fmtTime(S.time), 'bad'); }
+    if (S.time > shiftStart(st) + 5 / 60) { st.lateToday = true; st.lateDays = (st.lateDays || 0) + 1; staffSay(st, pick(['Sorry, the ring road.', 'Late. I know. Sorry.', 'Overslept. Will not happen again.', 'Bus did not come.']), '#ff6b5e'); logEvent(st.name + ' clocked in late at ' + fmtTime(S.time), 'bad'); }
     else staffSay(st, voice(st).hi, '#5fd38d');
     screenDirtyAll();
   }

@@ -8,9 +8,9 @@
 
   function slotKey(r, b, l) { return r + ',' + b + ',' + l; }
   function slotParse(key) { var p = key.split(',').map(Number); return { r: p[0], b: p[1], l: p[2] }; }
-  function rackSlotPos(r, b, l) { var P = PROPS['rack' + r] ? propPlacement('rack' + r) : { x: 0, z: RACK.rows[r], rot: 0 }, a = P.rot * Math.PI / 2, lx = RACK.x0 + RACK.bayW * (b + 0.5); return { x: P.x + lx * Math.cos(a), y: RACK.levels[l], z: P.z - lx * Math.sin(a), ry: a }; }
-  function slotName(key) { var p = slotParse(key); return 'Row ' + 'ABCDEF'[p.r] + ', bay ' + (p.b + 1) + (p.l === 0 ? ', floor' : p.l === 1 ? ', shelf' : ', top'); }
-  function rowName(r) { return 'Row ' + 'ABCDEF'[r]; }
+  function rackSlotPos(r, b, l) { var P = PROPS['rack' + r] ? propPlacement('rack' + r) : { x: 0, z: RACK.rows[r], rot: 0 }, a = P.rot * Math.PI / 2, lx = RACK.x0 + RACK.bayW * (b + 0.5); return { x: P.x + lx * Math.cos(a), y: RACK.levels[l] + (r === UPPER.row ? UPPER.y : 0), z: P.z - lx * Math.sin(a), ry: a }; }
+  function slotName(key) { var p = slotParse(key); return rowName(p.r) + ', bay ' + (p.b + 1) + (p.l === 0 ? ', floor' : p.l === 1 ? ', shelf' : ', top'); }
+  function rowName(r) { return r === UPPER.row ? 'Upper row' : isAnnexRow(r) ? HALLS[hallOfRow(r)].name + ' row ' + rowLetter(r) : 'Row ' + 'ABCDEF'[r]; }
 
   function buildWorld() {
     var X = HALL.x, Z = HALL.z, H = HALL.h;
@@ -19,7 +19,7 @@
     plane(2 * X - 0.4, 0.12, MAT.trim, 0, 0.06, -Z + 0.16, 0, 0); plane(2 * X - 0.4, 0.12, MAT.trim, 0, 0.06, Z - 0.16, 0, Math.PI);   // the skirting line where wall meets slab
     // walls: four, with the dock doors cut out of the west and east ones and a staff door on the west
     function wallX(x, side) {                                   // a wall along z at x, openings at the docks
-      var openings = (side < 0 ? DOCKS.in : DOCKS.out).map(function (d) { return { z0: d.z - DOCKS.w / 2, z1: d.z + DOCKS.w / 2, h: DOCKS.h }; });
+      var openings = (side < 0 ? DOCKS.in : DOCKS.out).filter(function (d) { return Math.abs(d.z) < HALL.z - 1; }).map(function (d) { return { z0: d.z - DOCKS.w / 2, z1: d.z + DOCKS.w / 2, h: DOCKS.h }; });   // IN 3 is in Hall 3's wall, not this one
       if (side < 0) openings.push({ z0: SPOT.staffDoor.z - 0.6, z1: SPOT.staffDoor.z + 0.6, h: 2.3 });
       openings.sort(function (a, b) { return a.z0 - b.z0; });
       var z = -Z;
@@ -33,7 +33,7 @@
     wallX(-X, -1); wallX(X, 1);
     // the north wall has the fire exit cut out of it at x 23.4 to 24.6
     // the north wall: the belt opening and the doorway into the production wing, and the fire exit, cut out of it
-    var nOpen = [{ x0: WING.belt.x0, x1: WING.belt.x1, h: WING.belt.h }, { x0: WING.door.x0, x1: WING.door.x1, h: WING.door.h }, { x0: 23.4, x1: 24.6, h: 2.3 }], nx = -X - 0.15;
+    var nOpen = [{ x0: WING.belt.x0, x1: WING.belt.x1, h: WING.belt.h }, { x0: WING.door.x0, x1: WING.door.x1, h: WING.door.h }, { x0: 23.4, x1: 24.6, h: 2.3 }, { x0: HALLS.hall2.door.x0, x1: HALLS.hall2.door.x1, h: HALLS.hall2.door.h }, { x0: HALLS.hall3.door.x0, x1: HALLS.hall3.door.x1, h: HALLS.hall3.door.h }].sort(function (a, b) { return a.x0 - b.x0; }), nx = -X - 0.15;   // the doorways into Halls 2 and 3 are cut from the first day and shuttered until bought
     nOpen.forEach(function (o) { if (o.x0 > nx) { box(o.x0 - nx, H, 0.3, MAT.wall, (nx + o.x0) / 2, H / 2, -Z); solid(nx, o.x0, -Z - 0.15, -Z + 0.15); } box(o.x1 - o.x0, H - o.h, 0.3, MAT.wall, (o.x0 + o.x1) / 2, o.h + (H - o.h) / 2, -Z); solid(o.x0, o.x1, -Z - 0.15, -Z + 0.15, o.h, 9); nx = o.x1; });
     box(X + 0.15 - nx, H, 0.3, MAT.wall, (nx + X + 0.15) / 2, H / 2, -Z); solid(nx, X + 0.15, -Z - 0.15, -Z + 0.15);
     box(2 * X + 0.3, H, 0.3, MAT.wall, 0, H / 2, Z); solid(-X - 0.15, X + 0.15, Z - 0.15, Z + 0.15);
@@ -55,8 +55,8 @@
 
     lineZ(-Z + 0.3, Z - 0.3, RACK.x0 - 0.4); lineZ(-Z + 0.3, Z - 0.3, -RACK.x0 + 0.4);              // the rack block edges
     // dock doors
-    DOCKS.in.forEach(function (d, i) { buildDoor(i, -1, d.z); });
-    DOCKS.out.forEach(function (d, i) { buildDoor(2 + i, 1, d.z); });
+    DOCKS.in.forEach(function (d, i) { if (i === 2 && !S.up.hall3) return; buildDoor(doorIndex('in', i), -1, d.z); });   // IN 3 comes with Hall 3
+    DOCKS.out.forEach(function (d, i) { buildDoor(doorIndex('out', i), 1, d.z); });
     // the staff door: a frame, and a ramp down to the yard outside it
     box(0.1, 2.3, 0.08, MAT.steelDark, -X, 1.15, SPOT.staffDoor.z - 0.62); box(0.1, 2.3, 0.08, MAT.steelDark, -X, 1.15, SPOT.staffDoor.z + 0.62); box(0.1, 0.08, 1.3, MAT.steelDark, -X, 2.32, SPOT.staffDoor.z);
     var ramp = box(7.2, 0.2, 2, MAT.grey, -X - 3.6, -0.7, SPOT.staffDoor.z); ramp.rotation.z = Math.atan2(1.2, 7); ramp.position.y = -0.6 - 0.1;
@@ -98,6 +98,13 @@
         if (axis === 'x') { plane(len, DH, dadoMat(len), off, DH / 2, mid, 0, ry); box(0.06, 0.05, len, MAT.steelDark, off + inward * 0.02, DH + 0.025, mid); }
         else { plane(len, DH, dadoMat(len), mid, DH / 2, off, 0, ry); box(len, 0.05, 0.06, MAT.steelDark, mid, DH + 0.025, off + inward * 0.02); }
       });
+      // clerestory windows: a glazed strip between the two girts, a window every four metres, framed with a cross mullion (Tyson, 2026-10-06)
+      var wy = 6.0, ww = 2.4, wh = 1.3, woff = at + inward * 0.2;
+      for (var wp = -lim + (axis === 'x' ? 4 : 6); wp < lim - 2; wp += 4) {
+        if (axis === 'z' && side < 0 && wp > -14.5 && wp < 10.5) continue;   // the production wing stands behind this stretch of the north wall
+        if (axis === 'x') { box(0.04, wh + 0.12, ww + 0.12, MAT.steelDark, woff - inward * 0.02, wy, wp); plane(ww, wh, MAT.skylight, woff, wy, wp, 0, ry); box(0.05, wh, 0.05, MAT.steelDark, woff + inward * 0.01, wy, wp); box(0.05, 0.05, ww, MAT.steelDark, woff + inward * 0.01, wy, wp); }
+        else { box(ww + 0.12, wh + 0.12, 0.04, MAT.steelDark, wp, wy, woff - inward * 0.02); plane(ww, wh, MAT.skylight, wp, wy, woff, 0, ry); box(0.05, wh, 0.05, MAT.steelDark, wp, wy, woff + inward * 0.01); box(ww, 0.05, 0.05, MAT.steelDark, wp, wy, woff + inward * 0.01); }
+      }
       // the girts and the cable tray run the whole wall; a column every 8 m, set where no door, console or sign stands
       var full = 2 * lim - 0.6, c0 = 0, g = at + inward * 0.25;
       [5.2, 6.8].forEach(function (gy) { if (axis === 'x') box(0.06, 0.12, full, MAT.steelDark, g, gy, c0); else box(full, 0.12, 0.06, MAT.steelDark, c0, gy, g); });
@@ -121,43 +128,44 @@
     // the dock leveller: a plate from the hall edge out over the slot to the trailer bed, with a hinged lip and a hazard edge
     var lev = box(0.72, 0.05, 2.3, MAT.chequer, side * (HALL.x + 0.1), 0.0, z); lev.receiveShadow = true; box(0.2, 0.03, 2.3, MAT.hazard, side * (HALL.x + 0.5), 0.02, z).rotation.z = side * 0.12; box(0.06, 0.08, 2.3, MAT.steelDark, side * (HALL.x - 0.22), -0.02, z);
     var d = { i: i, side: side, z: z, panel: panel, anim: S.doors[i] ? 1 : 0 };
-    addInter(panel, { prompt: function () { return S.doors[i] ? null : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + ' · the cabinet and the consoles close it'); }, use: function () { if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });
+    addInter(panel, { prompt: function () { return S.doors[i] ? null : DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock) ? 'OUT 3 · air freight dock · opens with the sortation deck' : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + (dockLane(i) ? ' (' + dockLane(i).name.toLowerCase() + ' lane)' : '') + ' · the cabinet and the consoles close it'); }, use: function () { if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });
     // a pull cord inside, to bring a door down without walking to the cabinet
     var cord = cyl(0.01, 1.2, MAT.red, x - side * 0.35, DOCKS.h - 0.6, z - DOCKS.w / 2 - 0.3, null, 4); var knob = box(0.08, 0.12, 0.08, MAT.red, x - side * 0.35, DOCKS.h - 1.25, z - DOCKS.w / 2 - 0.3);
     addInter(knob, { prompt: function () { return S.doors[i] ? 'Pull the cord: close dock door ' + dockLabel(i) : null; }, use: function () { if (S.doors[i]) setDoor(i, false); } });
     // bumpers, the number outside, the leveller plate, the sign inside
     box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z - DOCKS.w / 2 + 0.3); box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z + DOCKS.w / 2 - 0.3);
-    sign([String(i % 2 + 1)], 1.2, 1.2, x + side * 0.17, DOCKS.h + 1.3, z, side < 0 ? -Math.PI / 2 : Math.PI / 2, { w: 128, h: 128, bg: '#f5b53d', fg: '#1a1205' });
+    sign([String(DOOR_MAP[i].dock + 1)], 1.2, 1.2, x + side * 0.17, DOCKS.h + 1.3, z, side < 0 ? -Math.PI / 2 : Math.PI / 2, { w: 128, h: 128, bg: '#f5b53d', fg: '#1a1205' });
     plane(1.6, DOCKS.w - 0.4, MAT.hazard, x - side * 0.8, 0.008, z, -Math.PI / 2);
-    sign([i < 2 ? 'IN ' + (i % 2 + 1) : 'OUT ' + (i % 2 + 1)], 2.4, 0.7, x - side * 0.17, DOCKS.h + 0.6, z, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: i < 2 ? '#f5b53d' : '#5fd38d' });
+    sign([dockLabel(i) + (dockLane(i) ? ' · ' + dockLane(i).name.toUpperCase() : '')], 2.4, 0.7, x - side * 0.17, DOCKS.h + 0.6, z, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: i < 2 ? '#f5b53d' : (dockLane(i) ? dockLane(i).col : '#5fd38d') });
     doors[i] = d;
   }
-  function dockLabel(i) { return (i < 2 ? 'IN ' : 'OUT ') + (i % 2 + 1); }
-  function setDoor(i, open) { if (S.doors[i] === open) return; S.doors[i] = open; sfx('roller'); logEvent('Dock door ' + dockLabel(i) + (open ? ' opened' : ' closed')); if (open && i < 2) introStep('door'); rebuildDyn(); }
+  function dockLabel(i) { var d = DOOR_MAP[i]; return d ? (d.dir === 'in' ? 'IN ' : 'OUT ') + (d.dock + 1) : '?'; }
+  function dockLane(i) { var d = DOOR_MAP[i]; return d && d.dir === 'out' && TRUCK_OUT[d.dock] ? MODES[TRUCK_OUT[d.dock].mode] : null; }
+  function setDoor(i, open) { if (S.doors[i] === open) return; if (open && DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock)) { toast('OUT 3 opens with the sortation deck (shop).', 'bad'); return; } S.doors[i] = open; sfx('roller'); logEvent('Dock door ' + dockLabel(i) + (open ? ' opened' : ' closed')); if (open && i < 2) introStep('door'); rebuildDyn(); }
   function doorAnim(dt) {
     // the pose is applied every frame, so a door loaded open looks open without waiting for a toggle
     doors.forEach(function (d) { var t = S.doors[d.i] ? 1 : 0; if (d.anim !== t) d.anim = clamp(d.anim + (t ? dt : -dt) / 1.6, 0, 1); var sc = 1 - d.anim * 0.93; d.panel.scale.y = sc; d.panel.position.y = DOCKS.h - DOCKS.h * sc / 2; });
   }
-  function doorPassable(i) { return doors[i].anim > 0.6; }
+  function doorPassable(i) { return !!doors[i] && doors[i].anim > 0.6; }
 
   function buildRack(r) { if (PROPS['rack' + r]) buildProp('rack' + r); }
   // a rack row as a prop: uprights with bracing and base plates, beams with end plates, mesh decks, bay labels, slot hit volumes, the end guards
   function rackBuild(r) {
     return function (c) {
-      var x0 = RACK.x0, bw = RACK.bayW, dz = RACK.depth / 2 - 0.05;
-      for (var b = 0; b <= RACK.bays; b++) {
+      var x0 = RACK.x0, bw = RACK.bayW, dz = RACK.depth / 2 - 0.05, nb = rowBays(r);   // nb: the annex rows are shorter
+      for (var b = 0; b <= nb; b++) {
         var ux = x0 + b * bw;
         [-dz, dz].forEach(function (oz) { c.box(0.1, 5, 0.1, MAT.rack, ux, 2.5, oz); c.box(0.18, 0.02, 0.18, MAT.steelDark, ux, 0.01, oz); for (var hh = 0.3; hh < 4.9; hh += 0.35) c.box(0.02, 0.05, 0.06, MAT.steelDark, ux + 0.05, hh, oz); });
         for (var br = 0; br < 5; br++) { var yb = 0.4 + br * 1.0; c.box(0.04, 0.04, RACK.depth - 0.1, MAT.rack, ux, yb, 0); var dg = c.box(0.04, 0.04, Math.sqrt((RACK.depth - 0.1) * (RACK.depth - 0.1) + 1.0), MAT.rack, ux, yb + 0.5, 0); dg.rotation.x = (br % 2 ? 1 : -1) * Math.atan2(1.0, RACK.depth - 0.1); }
       }
       for (var l = 1; l < RACK.levels.length; l++) {
         var y = RACK.levels[l];
-        c.box(RACK.bays * bw, 0.12, 0.08, MAT.beam, x0 + RACK.bays * bw / 2, y - 0.06, -dz); c.box(RACK.bays * bw, 0.12, 0.08, MAT.beam, x0 + RACK.bays * bw / 2, y - 0.06, dz);
-        for (var bp = 0; bp <= RACK.bays; bp++) { c.box(0.14, 0.2, 0.1, MAT.beam, x0 + bp * bw, y - 0.06, -dz); c.box(0.14, 0.2, 0.1, MAT.beam, x0 + bp * bw, y - 0.06, dz); }
-        for (var bb2 = 0; bb2 < RACK.bays; bb2++) { var dk = c.plane(bw - 0.2, RACK.depth - 0.2, MAT.mesh, x0 + (bb2 + 0.5) * bw, y - 0.005, 0, -Math.PI / 2, 0); dk.receiveShadow = false; c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, -0.3); c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, 0.3); }
+        c.box(nb * bw, 0.12, 0.08, MAT.beam, x0 + nb * bw / 2, y - 0.06, -dz); c.box(nb * bw, 0.12, 0.08, MAT.beam, x0 + nb * bw / 2, y - 0.06, dz);
+        for (var bp = 0; bp <= nb; bp++) { c.box(0.14, 0.2, 0.1, MAT.beam, x0 + bp * bw, y - 0.06, -dz); c.box(0.14, 0.2, 0.1, MAT.beam, x0 + bp * bw, y - 0.06, dz); }
+        for (var bb2 = 0; bb2 < nb; bb2++) { var dk = c.plane(bw - 0.2, RACK.depth - 0.2, MAT.mesh, x0 + (bb2 + 0.5) * bw, y - 0.005, 0, -Math.PI / 2, 0); dk.receiveShadow = false; c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, -0.3); c.box(bw - 0.2, 0.03, 0.03, MAT.steelDark, x0 + (bb2 + 0.5) * bw, y - 0.02, 0.3); }
       }
-      for (var bb = 0; bb < RACK.bays; bb++) {
-        var cx = x0 + (bb + 0.5) * bw, lbl = 'ABCDEF'[r] + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
+      for (var bb = 0; bb < nb; bb++) {
+        var cx = x0 + (bb + 0.5) * bw, lbl = rowLetter(r) + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
         var lm = new THREE.MeshBasicMaterial({ map: bayLabelTex[lbl] });
         [-1, 1].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lm); p.position.set(cx, 4.75, s * (dz + 0.06)); p.rotation.y = s > 0 ? 0 : Math.PI; c.add(p); });
         for (var ll = 0; ll < RACK.levels.length; ll++) (function (rr, b2, l2) {
@@ -165,8 +173,8 @@
           slotHits[key] = c.hit(bw - 0.2, hh2, RACK.depth, cx, RACK.levels[l2] + hh2 / 2, 0, { slot: key, prompt: function () { return slotPrompt(key); }, use: function () { slotUse(key); } });
         })(r, bb, ll);
       }
-      c.solid(x0 - 0.1, x0 + RACK.bays * bw + 0.1, -RACK.depth / 2, RACK.depth / 2, 0, 5);
-      [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + RACK.bays * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'row ' + 'ABCDEF'[r]], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
+      c.solid(x0 - 0.1, x0 + nb * bw + 0.1, -RACK.depth / 2, RACK.depth / 2, 0, 5);
+      [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + nb * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'row ' + rowLetter(r)], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
     };
   }
   // a painted lining on a room's outer walls: a plane just inside the cladding, skirting along the floor, a dado rail, with openings left for doors
@@ -238,29 +246,37 @@
     for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -X + 3.6, 2.26 - bl2 * 0.08, bz - 0.09);
   }
   // the order board on the office wall: redrawn when orders change
-  function drawBoard() {
-    var c = world.boardCtx; if (!c) return; var w = 768, h = 384;
+  function drawBoard(sc) {
+    var c = world.boardCtx; if (!c) return; var w = 768, h = 384; sc = sc || world.boardScreen;
     c.fillStyle = '#0d1b2a'; c.fillRect(0, 0, w, h);
     c.fillStyle = '#f5b53d'; c.font = 'bold 30px Bahnschrift, Arial, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
     c.fillText('OPEN ORDERS', 24, 44); c.font = '22px Bahnschrift, Arial, sans-serif'; c.fillStyle = '#a0acb8'; c.textAlign = 'right'; c.fillText('Day ' + S.day + '  ' + fmtTime(S.time), w - 24, 44);
     c.textAlign = 'left';
-    var open = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }).slice(0, 7);
-    if (!open.length) { c.fillStyle = '#5fd38d'; c.font = '26px Bahnschrift, Arial, sans-serif'; c.fillText('Nothing waiting. Nice.', 24, 110); }
+    var all = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }), per = 7, pages = Math.max(1, Math.ceil(all.length / per));
+    // the page: the one you wheeled to, for a while after the wheel turn; otherwise the board turns its own pages every six seconds
+    var page = sc && sc.userScrollAt && worldTime - sc.userScrollAt < 12 ? clamp(sc.scroll || 0, 0, pages - 1) : (pages > 1 ? Math.floor(worldTime / 6) % pages : 0);
+    if (sc) { sc.scrollMax = pages - 1; sc.scroll = page; }
+    var open = all.slice(page * per, page * per + per);
+    if (!all.length) { c.fillStyle = '#5fd38d'; c.font = '26px Bahnschrift, Arial, sans-serif'; c.fillText('Nothing waiting. Nice.', 24, 110); }
     open.forEach(function (o, i) {
-      var y = 90 + i * 40; c.fillStyle = o.state === 'packed' ? '#5fd38d' : (o.rush ? '#ff6b5e' : '#eef1f5'); c.font = 'bold 24px Bahnschrift, Arial, sans-serif';
-      c.fillText('#' + o.num + '  ' + clientName(o.client), 24, y);
+      var y = 90 + i * 40, lane = MODES[orderMode(o)];   // the lane chip: which door the parcel leaves by
+      c.fillStyle = lane.col; c.beginPath(); if (c.roundRect) c.roundRect(24, y - 21, 62, 27, 6); else c.rect(24, y - 21, 62, 27); c.fill(); c.fillStyle = '#0d1b2a'; c.font = 'bold 17px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.fillText(lane.name.toUpperCase(), 55, y - 1); c.textAlign = 'left';
+      c.fillStyle = o.state === 'packed' ? '#5fd38d' : (o.rush ? '#ff6b5e' : '#eef1f5'); c.font = 'bold 22px Bahnschrift, Arial, sans-serif';
+      c.fillText('#' + o.num + '  ' + clientName(o.client), 98, y);
       c.font = '20px Bahnschrift, Arial, sans-serif'; c.fillStyle = '#a0acb8';
       c.fillText(o.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ').slice(0, 46), 330, y);
       c.textAlign = 'right'; c.fillStyle = o.state === 'packed' ? '#5fd38d' : '#f5b53d'; c.fillText(o.state === 'packed' ? 'PACKED' : 'due ' + fmtTime(o.due), w - 24, y); c.textAlign = 'left';
     });
+    if (pages > 1) { c.fillStyle = '#6b7784'; c.font = '18px Bahnschrift, Arial, sans-serif'; c.textAlign = 'right'; c.fillText('page ' + (page + 1) + ' of ' + pages + ' · ' + all.length + ' orders · the wheel turns the page', w - 24, h - 16); c.textAlign = 'left'; }
     world.boardTex.needsUpdate = true;
   }
 
   // where the player stands: the hall floor, a docked trailer's floor, the ramp, or the yard
-  function floorY(x, z) {
-    if ((Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z)) return 0;
+  function floorY(x, z, y) {   // y: how high the asker already is; the mezzanine deck counts only for someone up there
+    var uy = upperFloorY(x, z, y); if (uy !== null) return uy;
+    if ((Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z) || inAnnex(x, z)) return 0;
     for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state !== 'docked') continue; var b = trailerBounds(t); if (x > b.x0 - 0.7 && x < b.x1 + 0.7 && z > b.z0 && z < b.z1) return 0; }
     if (x <= -HALL.x && x > -HALL.x - 7.2 && Math.abs(z - SPOT.staffDoor.z) < 1) return lerp(0, YARD_Y, (-HALL.x - x) / 7);
     return YARD_Y;
   }
-  function insideHall(x, z) { return (Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z); }
+  function insideHall(x, z) { return (Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z) || !!inAnnex(x, z); }

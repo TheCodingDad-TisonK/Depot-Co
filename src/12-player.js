@@ -22,7 +22,7 @@
   }
   function collides(x, z, ignoreFork) {
     var r = 0.32, y0 = player.y, y1 = player.y + 1.7;
-    if (floorY(x, z) - player.y > 0.5) return true;
+    if (floorY(x, z, player.y) - player.y > 0.5) return true;
     for (var i = 0; i < solids.length; i++) { var s = solids[i]; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r && y0 < s.y1 && y1 > s.y0) return true; }
     for (var k = 0; k < dyn.length; k++) { var d = dyn[k]; if (d.fork && (driving || ignoreFork === 'fork')) continue; if (x > d.x0 - r && x < d.x1 + r && z > d.z0 - r && z < d.z1 + r && y0 < d.y1 && y1 > d.y0) return true; }
     return false;
@@ -39,7 +39,7 @@
     }
     var k = player.keys, run = k.ShiftLeft || k.ShiftRight;
     var coffee = buff.coffeeDay === S.day && buff.coffeeUntil > S.time, snack = buff.snackDay === S.day && buff.snackUntil > S.time;
-    var speed = 4.0 * (run ? 1.55 : 1) * (coffee ? 1.2 : 1) * (snack ? 1.1 : 1) * (isJack(player.tool) && jackPallet() ? 0.78 : player.tool ? 0.92 : 1);
+    var speed = 4.0 * (run ? 1.55 : 1) * (coffee ? 1.2 : 1) * (snack ? 1.1 : 1) * (isJack(player.tool) ? (S.up.jackPower ? 1 : jackPallet() ? 0.78 : 0.92) : player.tool ? 0.92 : 1);   /* the powered truck walks at full speed, loaded or not */
     var fwd = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), side = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
     var mx = 0, mz = 0;
     if (fwd || side) {
@@ -49,9 +49,9 @@
       if (!collides(nx, player.z)) player.x = nx;
       if (!collides(player.x, nz)) player.z = nz;
       player.stepT += speed * dt; player.bob += dt * (run ? 11 : 8);
-      if (player.stepT > 2.1) { player.stepT = 0; sfx('step', floorY(player.x, player.z) < -0.5 ? 'outside' : insideHall(player.x, player.z) ? 'floor' : 'steel'); }
+      if (player.stepT > 2.1) { player.stepT = 0; sfx('step', floorY(player.x, player.z) < -0.5 ? 'outside' : player.y > 2.6 ? 'steel' : insideHall(player.x, player.z) ? 'floor' : 'steel'); }
     } else player.bob *= Math.max(0, 1 - 8 * dt);
-    var fy = floorY(player.x, player.z);
+    var fy = floorY(player.x, player.z, player.y);
     if (k.Space && player.grounded && !player.jumped) { player.vy = 6.0; player.grounded = false; player.jumped = true; }
     if (!k.Space) player.jumped = false;
     player.vy -= 16 * dt; player.y += player.vy * dt;
@@ -70,6 +70,7 @@
     if (src.kind === 'shelf') return { prompt: function () { return shelfPrompt(src); }, use: function () { shelfUse(src); } };
     if (src.kind === 'floor') return { prompt: function () { return floorPrompt(src); }, use: function () { floorUse(src); } };
     if (src.kind === 'belt') return { prompt: function () { return beltItemPrompt(src); }, use: function () { beltItemUse(src); } };
+    if (src.kind === 'stage') return { prompt: function () { return stagePrompt(src); }, use: function () { stageUse(src); } };
     if (src.kind === 'bench') return { prompt: function () { return benchBoxPrompt(src); }, use: function () { benchBoxUse(src); } };
     return null;
   }
@@ -143,6 +144,6 @@
     else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving && !e.repeat) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
-  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.dirty = true; } } }, { passive: true });
+  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanPage((scan.page + (e.deltaY > 0 ? 1 : 3)) % 4); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });
   function screenUnderCrosshair() { for (var i = 0; i < screens.length; i++) { if (!screens[i].mesh.visible) continue; if (ray.intersectObject(screens[i].mesh, false).length) return screens[i]; } return null; }
   window.addEventListener('blur', function () { player.keys = {}; });

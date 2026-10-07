@@ -131,8 +131,8 @@
     for (var k in BELTS) { var b = BELTS[k]; if (k === selfId || !propInst[b.prop]) continue; var e = beltPoint(b, beltLen(b)), s = beltPoint(b, 0); if (!b.noSink && !beltSink(b)) A.push({ x: e.x, z: e.z, y: e.y, dir: e.ry, feeds: true, what: 'the ' + beltLabel(b) }); if (!beltFeeder(b)) A.push({ x: s.x, z: s.z, y: s.y, dir: s.ry, feeds: false, what: 'the ' + beltLabel(b) }); }
     for (var mk in MACH) { var mc = MACH[mk]; if (mc.door !== undefined) continue; machinePoints(mc, 'out').forEach(function (p) { A.push({ x: p.x, z: p.z, y: BELT_Y, dir: null, feeds: true, what: 'the ' + propLabel(mc.prop) }); }); if (mc.accept) machinePoints(mc, 'in').forEach(function (p) { A.push({ x: p.x, z: p.z, y: BELT_Y, dir: null, feeds: false, what: 'the ' + propLabel(mc.prop) }); }); }
     if (propInst.packline) { var sh = propWorld('packline', 0, 7.0); A.push({ x: sh.x, z: sh.z, y: BELT_Y, dir: sh.a, feeds: true, what: 'the parcel shelf' }); }
-    for (var di = 0; di < 4 && doors[di]; di++) { var at = doorInside(di); A.push({ x: at[0], z: at[1], y: BELT_Y, dir: Math.PI / 2, feeds: di < 2, what: 'dock door ' + dockLabel(di) }); }
-    for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < RACK.bays; bb++) { var sp = rackSlotPos(r, bb, 0), a = sp.ry || 0; [-1, 1].forEach(function (f) { A.push({ x: sp.x + Math.sin(a) * f * 1.1, z: sp.z + Math.cos(a) * f * 1.1, y: BELT_Y, dir: f > 0 ? a + Math.PI : a, feeds: false, what: slotName(slotKey(r, bb, 0)) }); }); }
+    for (var di = 0; di < DOOR_MAP.length; di++) { if (!doors[di]) continue; var at = doorInside(di); A.push({ x: at[0], z: at[1], y: BELT_Y, dir: Math.PI / 2, feeds: DOOR_MAP[di].dir === 'in', what: 'dock door ' + dockLabel(di) }); }
+    var gRows = groundRows(); for (var gri = 0; gri < gRows.length; gri++) for (var bb = 0; bb < rowBays(gRows[gri]); bb++) { var r = gRows[gri], sp = rackSlotPos(r, bb, 0), a = sp.ry || 0; [-1, 1].forEach(function (f) { A.push({ x: sp.x + Math.sin(a) * f * 1.1, z: sp.z + Math.cos(a) * f * 1.1, y: BELT_Y, dir: f > 0 ? a + Math.PI : a, feeds: false, what: slotName(slotKey(r, bb, 0)) }); }); }
     // every anchor within 2.2 m of the aim, nearest first. R walks this list and then the four free headings, so a piece is never
     // stuck on the wrong anchor: it used to take the nearest only, and R did nothing while snapped (a piece into OUT 1 kept
     // landing the wrong way round, Tyson 2026-10-06).
@@ -438,6 +438,7 @@
     os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
     if (sc.scrollMax > 0) { scText(c, 16, 290, 'Orders ' + (sc.scroll + 1) + ' to ' + Math.min(allO.length, sc.scroll + 4) + ' of ' + allO.length + ' · wheel scrolls', '#6b7784', 10); scButton(sc, 300, 262, 40, 26, 'UP', sc.scroll > 0, function () { sc.scroll = Math.max(0, sc.scroll - 1); }, '#f5b53d'); scButton(sc, 346, 262, 40, 26, 'DOWN', sc.scroll < sc.scrollMax, function () { sc.scroll = Math.min(sc.scrollMax, sc.scroll + 1); }, '#f5b53d'); }
     else scText(c, 16, 290, 'Look at a box on the bench to take it back · the cart takes surplus', '#6b7784', 10);
+    if (S.up.plantAuto) { var autoOn = !S.pack || S.pack.auto !== false; scButton(sc, 16, 258, 92, 26, 'AUTO ' + (autoOn ? 'ON' : 'OFF'), true, function () { if (!S.pack) return; S.pack.auto = autoOn ? false : true; toast('Pack line auto-start ' + (autoOn ? 'off' : 'on'), autoOn ? 'bad' : 'good'); }, autoOn ? '#5fd38d' : '#ff6b5e'); }
   }
   // yard props (the shelter, dumpster, flag and parking sign)
   function shelterBuild(c) {
@@ -477,22 +478,25 @@
     c.cyl(0.012, 0.6, MAT.black, 0.18, 1.0, 0.0, 6);
     touchScreen({ w: 300, h: 320, pw: 0.3, ph: 0.32, x: 0, y: 1.5, z: 0.07, ry: 0, parent: c.group, title: 'Time clock', draw: drawTimeClock });
   }  function consoleBuild(di) { return function (c) {
-    var inbound = di < 2, k = di % 2;
+    var inbound = DOOR_MAP[di].dir === 'in', k = DOOR_MAP[di].dock, lane = inbound ? null : MODES[TRUCK_OUT[k].mode];
     var hous = new THREE.Mesh(bevelGeo(0.5, 0.62, 0.12, 0.02), std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 })); hous.position.set(0, 1.45, 0); hous.castShadow = true; c.group.add(hous); c.box(0.44, 0.34, 0.01, MAT.black, 0, 1.47, 0.05); c.box(0.54, 0.04, 0.14, inbound ? MAT.hazard : MAT.yellow, 0, 1.78, 0); c.box(0.54, 0.04, 0.14, MAT_MACH.frame, 0, 1.12, 0); c.cyl(0.012, 1.0, MAT.black, 0, 0.6, -0.03, 6); c.cyl(0.03, 0.03, MAT.red, -0.17, 1.22, 0.07, 10).rotation.x = Math.PI / 2; c.box(0.05, 0.05, 0.02, MAT.yellow, -0.17, 1.22, 0.06); c.box(0.03, 0.03, 0.02, glowMat(0x5fd38d, 1.0), 0.17, 1.22, 0.065); c.box(0.08, 0.06, 0.04, MAT_MACH.frame, 0, 1.08, -0.02);
     touchScreen({ w: 320, h: 240, pw: 0.4, ph: 0.3, x: 0, y: 1.47, z: 0.065, ry: 0, parent: c.group, title: 'Dock console ' + dockLabel(di), draw: function (cc, sc) {
-      scBg(cc, sc.w, sc.h, inbound ? 'rgba(245,181,61,0.16)' : 'rgba(95,211,141,0.16)'); scHead(cc, sc.w, 'DOCK ' + dockLabel(di));
+      scBg(cc, sc.w, sc.h, inbound ? 'rgba(245,181,61,0.16)' : 'rgba(95,211,141,0.16)'); scHead(cc, sc.w, 'DOCK ' + dockLabel(di), lane ? lane.name.toUpperCase() + ' LANE' : undefined);
       var t = truckAtDoor(di);
       if (inbound) {
         if (t) { var left = S.pallets.filter(function (q) { return q.place === 'truck' && q.truck === t.id; }).length; scText(cc, 16, 66, 'Truck docked · ' + t.driver + ' · ' + clientName(t.client), '#f5b53d', 14); scText(cc, 16, 86, left + ' of ' + t.pallets.length + ' pallets still on it · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scText(cc, 16, 106, t.signed ? 'Delivery note signed' : 'NOT SIGNED: see the driver outside', t.signed ? '#5fd38d' : '#ff6b5e', 13); }
         else { scText(cc, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(cc, 16, 86, 'Inbound slots: ' + TRUCK_IN.map(fmtTime).join(' and ') + (S.up.dock2 || k === 0 ? '' : ' (buy the second bay)'), '#eef1f5', 13); }
         scButton(sc, 16, 128, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
         var pending = S.pallets.filter(function (q) { return q.place === 'floor'; }).length; scButton(sc, 164, 128, 140, 40, pending + ' on the floor', false, function () { scanToggle(true); scanPage(1); });
+        if (t && !t.signed) scButton(sc, 16, 176, 288, 36, 'SIGN THE DELIVERY NOTE', true, function () { signTruck(t); var dm = truckMeshes[t.id]; if (dm && dm.driver) say(dm.driver, pick(DRIVER_LINES.signed), '#5fd38d'); }, '#5fd38d');   // from the console, no walk to the driver
       } else {
-        var nxt = TRUCK_OUT[k];
-        if (t) { scText(cc, 16, 66, 'Truck docked · ' + t.driver, '#5fd38d', 15); scText(cc, 16, 86, t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scButton(sc, 16, 104, 288, 44, t.parcels.length ? 'DISPATCH NOW' : 'nothing loaded', t.parcels.length > 0, function () { consoleUse(di); }, '#5fd38d'); }
-        else { scText(cc, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(cc, 16, 86, 'Next: ' + fmtTime(nxt.arrive) + ' to ' + fmtTime(nxt.leave), '#eef1f5', 13); }
+        var nxt = outNext(k);
+        if (!dockOwned(k)) { scText(cc, 16, 66, 'Not in service', '#ff6b5e', 15); scText(cc, 16, 86, 'The air dock opens with the sortation deck (shop)', '#eef1f5', 13); }
+        else if (t) { scText(cc, 16, 66, 'Truck docked · ' + t.driver, '#5fd38d', 15); scText(cc, 16, 86, t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave), '#eef1f5', 13); scButton(sc, 16, 104, 288, 44, t.parcels.length ? 'DISPATCH NOW' : 'nothing loaded', t.parcels.length > 0, function () { consoleUse(di); }, '#5fd38d'); }
+        else { scText(cc, 16, 66, 'No truck at the door', '#a0acb8', 15); scText(cc, 16, 86, 'Next: ' + fmtTime(nxt.arrive) + ' to ' + fmtTime(nxt.leave) + ' · ' + outWindows(k).map(function (w) { return fmtTime(w.arrive); }).join(' and ') + ' daily', '#eef1f5', 13); }
         scButton(sc, 16, 160, 140, 40, S.doors[di] ? 'Close door' : 'Open door', !!S.doors[di], function () { if (S.events.power) { toast('No power.', 'bad'); return; } setDoor(di, !S.doors[di]); });
-        var packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length; scButton(sc, 164, 160, 140, 40, packed + ' packed waiting', false, function () { scanToggle(true); scanPage(0); });
+        var packed = S.orders.filter(function (o) { return o.state === 'packed' && orderMode(o) === lane.id; }).length; scButton(sc, 164, 160, 140, 40, packed + ' ' + lane.name.toLowerCase() + ' packed', false, function () { scanToggle(true); scanPage(0); });
+        scText(cc, 16, 212, (S.stats.misrouted || 0) + ' parcels out of the wrong door so far', '#a0acb8', 11);
       }
       scText(cc, 16, 226, S.events.power ? 'NO POWER' : 'mains ok', S.events.power ? '#ff6b5e' : '#5fd38d', 11);
     } });
@@ -508,7 +512,10 @@
     var cv = document.createElement('canvas'); cv.width = 768; cv.height = 384; world.boardCtx = cv.getContext('2d');
     world.boardTex = new THREE.CanvasTexture(cv); world.boardTex.encoding = THREE.sRGBEncoding; world.boardMat = new THREE.MeshBasicMaterial({ map: world.boardTex });
     c.cyl(0.03, 2.8, MAT.steelDark, -1.0, 5.6, 0, 6); c.cyl(0.03, 2.8, MAT.steelDark, 1.0, 5.6, 0, 6); c.box(3.1, 0.06, 0.1, MAT.steelDark, 0, 4.2, 0);
-    c.box(3.1, 1.6, 0.08, MAT.black, 0, 3.35, 0); var board = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.5), world.boardMat); board.position.set(0, 3.35, 0.05); c.add(board); var back = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.5), world.boardMat); back.position.set(0, 3.35, -0.05); back.rotation.y = Math.PI; c.add(back); drawBoard();
+    c.box(3.1, 1.6, 0.08, MAT.black, 0, 3.35, 0); var board = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.5), world.boardMat); board.position.set(0, 3.35, 0.05); c.add(board); var back = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.5), world.boardMat); back.position.set(0, 3.35, -0.05); back.rotation.y = Math.PI; c.add(back);
+    // on the screens list so the wheel pages it when you look up at it and it redraws itself as its pages turn; no buttons, so no E prompt
+    world.boardScreen = { w: 768, h: 384, ctx: world.boardCtx, tex: world.boardTex, mesh: board, zones: [], draw: function (cx, sc) { drawBoard(sc); }, cur: null, ripple: 0, title: 'Order board', dirty: true, scrollable: true, scroll: 0, scrollMax: 0, autoPage: true }; screens.push(world.boardScreen);
+    drawBoard();
   }
   function chargerBuild(c) {
     var CB = std({ color: 0x8b949c, roughness: 0.5, metalness: 0.4 });
@@ -535,8 +542,9 @@
   defProp('cabinet', { label: 'control cabinet', cat: 'wall', wall: true, x: 12.42, z: 12.6, rot: 3, build: cabinetBuild });
   defProp('consoleIn0', { label: 'dock console IN 1', cat: 'wall', wall: true, abs: true, x: -29.7, z: -11.5, rot: 1, build: consoleBuild(0) });
   defProp('consoleIn1', { label: 'dock console IN 2', cat: 'wall', wall: true, abs: true, x: -29.7, z: -3.5, rot: 1, build: consoleBuild(1) });
-  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, abs: true, x: 29.7, z: -11.5, rot: 3, build: consoleBuild(2) });
+  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, abs: true, x: 29.7, z: -9.6, rot: 3, build: consoleBuild(2) });   // south of the OUT 1 shipping bay
   defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, abs: true, x: 29.7, z: -8.5, rot: 3, build: consoleBuild(3) });
+  defProp('console2', { label: 'dock console OUT 3', cat: 'wall', wall: true, abs: true, x: 34.6, z: -23.83, rot: 0, build: consoleBuild(4) });   // on the north wall by the OUT 3 door: the east wall there is behind the spirals and the loaders
   defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
   defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, build: boardBuild });
   defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, x: 0, z: 13.83, rot: 2, build: chargerBuild });
@@ -592,7 +600,7 @@
   defProp('wrapper', { label: 'stretch wrapper', cat: 'hall', abs: true, x: 14, z: -22.3, rot: 0, build: wrapperBuild });
   defProp('hose', { label: 'hose reel', cat: 'wall', wall: true, abs: true, x: -10.5, z: -23.83, rot: 0, build: hoseBuild });
   defProp('extNW', { label: 'fire extinguisher', cat: 'wall', wall: true, x: -19.83, z: -12, rot: 1, build: extinguisherBuild });
-  defProp('extNE', { label: 'fire extinguisher', cat: 'wall', wall: true, x: 19.83, z: -12, rot: 3, build: extinguisherBuild });
+  defProp('extNE', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 35.83, z: -16.4, rot: 3, build: extinguisherBuild });
   defProp('extBench', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 29.83, z: 16.5, rot: 3, build: extinguisherBuild });   // z 6.5 until 1.13.1: the shipping belt now runs along that stretch of wall
   defProp('clockHall', { label: 'hall clock', cat: 'wall', wall: true, abs: true, x: 12, z: -23.7, rot: 0, build: function (c) { var f = clockBuild(0.5); f(c); c.group.children[c.group.children.length - 1].position.y = 5.8 - 2.7 + 2.7; } });
   defProp('posterLift', { label: 'lifting poster', cat: 'wall', wall: true, abs: true, x: -29.83, z: 2, rot: 1, build: posterBuild('lifting', 0.7, 1.05) });

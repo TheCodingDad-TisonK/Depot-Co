@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.14.0 (2026-10-07)
+
+Three shipping lanes with a third dock, a mezzanine that became a sortation deck, shipping bays at every dock, three more halls, six upgrade tiers, staff options and a plant page.
+
+**Three lanes**
+- Every client ships by sea, land or air, and every order wears its lane on the board, in the log and on the dock consoles. Sea leaves by OUT 1, land by OUT 2, air by the new OUT 3 at the north end of the east wall. An order is due at the next truck of its own lane; each dock has two truck windows a day (sea 10:30 and 17:00, land 09:00 and 16:00, air 13:00 and 19:00).
+- A parcel loaded out of the wrong door still ships, for a 25% forwarding fee, and the consoles count it as misrouted. Air orders pay half as much again. Sea trucks carry a container, air trucks wear a carrier band, and the haulier on the trailer names the lane. The packer only loads a parcel into the truck of its lane.
+- OUT 3 is cut into the wall from the start and opens with the sortation deck. Its landing and driver route sit on the north side because the hall corner is there; its console is on the north wall beside the door.
+
+**The mezzanine** (shop, level 6, after the gantry pickers)
+- A steel deck over the receiving strip at 4.6 m, reached by a stair along the north wall and a goods lift by IN 1. Set a pallet in the lift with a jack or the forklift and it goes up by itself, rolls onto the feed belt and is racked in the upper row. The upper crane sends boxes the bench needs down a chute into the south pick belt. The crew never go up.
+
+**The sortation deck** (shop, level 6, after the mezzanine)
+- Every parcel off the pack line shelf rides a spiral conveyor up beside the pack line and an overhead run onto the deck. A scanner arch reads its lane. The spine carries it past three cells: the sea cell crates it, the land cell straps it, the air cell bags it. A finished parcel rides a parcel lift beside its cell up to a bridge belt onto the overhead collector, which runs along the north wall and south to the spiral well. The air gate drops air parcels down a spiral through the deck into the OUT 3 shipping bay, the sea gate sends sea parcels out over the deck edge and down a spiral in the OUT 1 apron into the OUT 1 bay, and land parcels ride on down the east lane and down a third spiral into the OUT 2 bay. A parcel whose cell is full waits on a turntable and goes round again. The sortation panel on the scanner arch shows what was read and what each cell is doing; its dial drives every deck belt.
+- The deck is built to walk: the collector and the parcel run ride two metres overhead where you walk, a corridor runs along the north wall past the cells, and two step-overs cross the upper pick belt and the spine's east end. Deck belts are solid only to a metre up, so the step-over platforms clear them.
+- The crate, strap or bag look stays with the parcel wherever it goes: in your hand, on the floor, on the cart, on the shelf, in a worker's arms, in a bay, in a truck.
+- Three deck accounts start ordering once the deck stands (Meridian Exports by sea, Nordwind Parcels by air, Continental Retail by land): two to four lines, up to eight of each, a third more pay. Their trucks and contracts come with them.
+- **Deck night shift** (shop, after the deck): while you sleep, every parcel on the shelf and on the deck is sorted into the shipping bays, so the morning trucks find them full.
+
+**Shipping bays**
+- Every outbound dock has a three-lane gravity flow rack beside its loader that holds nine parcels. The spirals end in the bays, and so does the shipping belt (at the OUT 2 bay, a flow rack that comes with that upgrade now). The loader only ever takes from its bay, one parcel every second and a bit, while a truck of its lane is docked with the door up, and a bay never stops a belt waiting for a truck. A parcel in a bay can be taken by hand.
+
+**Three more halls** (shop, from level 7, each needing the one before)
+- Hall 2 stands east of the production wing with two rack rows of seven bays. Hall 3 stands west of it with two rows of five and a third inbound dock, IN 3, on its west wall, so a third truck a day docks straight into the new rows. Hall 4 sits behind the wing, reached through the wing's north wall. Each has its floor, roof, skylights, high bays and a doorway cut into the wall it opens off, shuttered until bought. The new rows are storage for the forklift, the AGV, the receivers and the pickers; the cranes stay over the main rows, and the main rows fill first. The silo moves out of Hall 3's footprint when the hall is bought.
+
+**Tiers on what you own**
+- Powered pallet truck (both jacks at full speed loaded), high-lift stacker (the jacks reach the second rack level and pull pallets out of it), AGV fast drive and AGV floor sweep (it fetches any pallet on the hall floor, clear of you and the crew's claims), plant tune-up (every dial to 300%, pack line jams halved) and the plant automation suite (the pack line never jams and starts any order the bench can complete by itself; an AUTO switch sits on the bench terminal).
+
+**Staff options and the plant page**
+- Per worker on both staff panels: a training course (walks a fifth faster, task steps a third sooner), a raise (10% more an hour and on time for good), a shift pattern (day 08:00 to 18:00, early 06:00 to 16:00, late 12:00 to 22:00, two hours more on overtime) and a second role they cover when their own queue is empty. From level 7 the crew grows from five to eight.
+- A Plant page on the office PC and a Plant tab on the panel list every machine with its status, its dial and the button it has on its own screen. The inbound dock consoles sign the delivery note for a docked truck.
+
+**Also**
+- The order board turns pages of seven, a wheel turn holds a page for a while, and every row carries its lane chip. A strip of clerestory windows runs along the top of the walls.
+- Pulling the last boxes out of a rack slot takes the wooden pallet with it. A refused delivery costs reputation by the pallet. A late order costs one point, a cancelled one three.
+- The boot-time parcel check knows every place a parcel can be, the bays included, so a launch never refills the bench. Jack 2's bay moves to the north wall once the deck stands. The wing's compressor moved beside the wing door to clear the way to Hall 4.
+
 ## 1.13.7 (2026-10-06)
 
 A carried belt piece can be placed any way round: R walks the snap points near your aim, then the four free headings.

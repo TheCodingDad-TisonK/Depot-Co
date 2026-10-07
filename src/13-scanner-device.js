@@ -53,13 +53,13 @@
     } else if (scan.page === 2) {
       var sum = stockSummary(), keys = Object.keys(sum).sort(function (a, b) { return sum[b] - sum[a]; });
       var used = Object.keys(S.slots).filter(function (k) { return S.slots[k].n > 0; }).length;
-      c.fillStyle = '#a0acb8'; c.font = '10px Bahnschrift, Arial'; c.fillText(used + ' / ' + (S.up.rows * RACK.bays * RACK.levels.length) + ' slots · ' + totalStock() + ' boxes', 12, y); y += 16;
+      c.fillStyle = '#a0acb8'; c.font = '10px Bahnschrift, Arial'; c.fillText(used + ' / ' + (slotTotal()) + ' slots · ' + totalStock() + ' boxes', 12, y); y += 16;
       if (!keys.length) { c.fillStyle = '#6b7784'; c.font = '11px Bahnschrift, Arial'; c.fillText('The racks are empty.', 12, y + 10); }
       keys.slice(0, 8).forEach(function (k) { if (y > h - 20) return; y = scanRow(c, y, SKU[k].col, skuName(k), slotsWith(k).slice(0, 2).map(slotName).join(' · '), sum[k], true); });
     } else {
       c.fillStyle = '#a0acb8'; c.font = '10px Bahnschrift, Arial'; c.fillText('Day ' + S.day + ' · ' + SEASONS[season()] + (isSunday() ? ' · SUNDAY, closed' : '') + ' · ' + (S.weather ? S.weather.kind : 'clear'), 12, y); y += 16;
       y = scanRow(c, y, null, 'Inbound ' + TRUCK_IN.map(fmtTime).join(' & '), 'wait ' + TRUCK_WAIT + ' h · ' + (S.up.dock2 ? 'both bays' : 'IN 1'));
-      y = scanRow(c, y, null, 'Outbound', TRUCK_OUT.map(function (w, i) { return 'OUT ' + (i + 1) + ' ' + fmtTime(w.arrive) + '-' + fmtTime(w.leave); }).join('  '));
+      y = scanRow(c, y, null, 'Outbound', TRUCK_OUT.filter(function (dk, i) { return dockOwned(i); }).map(function (dk, i) { return 'OUT ' + (i + 1) + ' ' + MODES[dk.mode].name.toLowerCase() + ' ' + dk.windows.map(function (w) { return fmtTime(w.arrive) + '-' + fmtTime(w.leave); }).join(' ' ); }).join('  '));
       S.trucks.forEach(function (t) { if (y > h - 40) return; y = scanRow(c, y, null, (t.dir === 'in' ? 'IN' : 'OUT') + ' · ' + dockLabel(t.dir === 'in' ? t.dock : 2 + t.dock) + ' · ' + t.state, (t.dir === 'in' ? t.pallets.length + ' pallets' : t.parcels.length + ' parcels') + ' · leaves ' + fmtTime(t.leave), undefined, t.state === 'docked'); });
       y = scanRow(c, y, null, 'Bank ' + money(S.bank), 'rent ' + money(ECON.rent) + ' + wages ' + money(S.staff.reduce(function (a, s) { return a + STAFF_ROLES[s.role].wage; }, 0)) + ' at 06:00', 'rep ' + Math.round(S.rep));
       S.staff.slice(0, 3).forEach(function (st2) { if (y < h - 40) y = scanRow(c, y, null, st2.name + ' · ' + staffStatus(st2), (Math.round((st2.hoursToday || 0) * 10) / 10) + ' h today', undefined, !!st2.clocked); });

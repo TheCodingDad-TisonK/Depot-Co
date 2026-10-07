@@ -10,7 +10,10 @@
     plane(wx, wz, MAT.floor, cx, 0.001, cz, -Math.PI / 2);
     box(0.3, h, wz, MAT.wall, W.x0, h / 2, cz); solid(W.x0 - 0.15, W.x0 + 0.15, W.z0, W.z1);                 // west, east and north walls
     box(0.3, h, wz, MAT.wall, W.x1, h / 2, cz); solid(W.x1 - 0.15, W.x1 + 0.15, W.z0, W.z1);
-    box(wx + 0.3, h, 0.3, MAT.wall, cx, h / 2, W.z0); solid(W.x0 - 0.15, W.x1 + 0.15, W.z0 - 0.15, W.z0 + 0.15);
+    var hd = HALLS.hall4.door;   // the doorway into Hall 4, cut from the first day and shuttered until the hall is bought
+    box(hd.x0 - (W.x0 - 0.15), h, 0.3, MAT.wall, (W.x0 - 0.15 + hd.x0) / 2, h / 2, W.z0); solid(W.x0 - 0.15, hd.x0, W.z0 - 0.15, W.z0 + 0.15);
+    box(hd.x1 - hd.x0, h - hd.h, 0.3, MAT.wall, (hd.x0 + hd.x1) / 2, hd.h + (h - hd.h) / 2, W.z0); solid(hd.x0, hd.x1, W.z0 - 0.15, W.z0 + 0.15, hd.h, 9);
+    box(W.x1 + 0.15 - hd.x1, h, 0.3, MAT.wall, (hd.x1 + W.x1 + 0.15) / 2, h / 2, W.z0); solid(hd.x1, W.x1 + 0.15, W.z0 - 0.15, W.z0 + 0.15);
     box(wx + 0.6, 0.3, wz + 0.6, MAT.roof, cx, h + 0.15, cz); plane(wx, wz, MAT.roofIn, cx, h - 0.01, cz, Math.PI / 2);
     [-38, -31].forEach(function (z) { var sk = plane(wx - 4, 1.4, MAT.skylight, cx, h - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
     for (var tz = W.z0 + 4; tz < W.z1; tz += 6) box(wx - 0.4, 0.5, 0.22, MAT.steelDark, cx, h - 0.3, tz);
@@ -25,8 +28,8 @@
     [[-9.5, -33, 2.0, 2.0]].forEach(function (q) { plane(q[2], 0.08, MAT.whiteLine, q[0], 0.006, q[1] - q[3] / 2, -Math.PI / 2); plane(q[2], 0.08, MAT.whiteLine, q[0], 0.006, q[1] + q[3] / 2, -Math.PI / 2); plane(0.08, q[3], MAT.whiteLine, q[0] - q[2] / 2, 0.006, q[1], -Math.PI / 2); plane(0.08, q[3], MAT.whiteLine, q[0] + q[2] / 2, 0.006, q[1], -Math.PI / 2); });
     // the pipe rack along the west wall, the compressor in the corner, a cable tray under the roof
     [1.6, 1.9, 2.2].forEach(function (py, i) { var pipe = cyl(0.06 - i * 0.012, wz - 2, i === 1 ? MAT.blue : MAT.steel, W.x0 + 0.45, py + 2.2, cz, null, 10); pipe.rotation.x = Math.PI / 2; }); for (var bz = W.z0 + 2; bz < W.z1 - 1; bz += 3) { box(0.5, 0.06, 0.06, MAT.steelDark, W.x0 + 0.4, 4.0, bz); box(0.06, 0.9, 0.06, MAT.steelDark, W.x0 + 0.62, 4.0, bz); }
-    var comp = new THREE.Group(); comp.position.set(7.2, 0, -41.8); scene.add(comp); box(1.6, 0.1, 0.8, MAT.steelDark, 0, 0.05, 0, comp); var tank = cyl(0.32, 1.5, std({ color: 0x3a5f9e, roughness: 0.4, metalness: 0.5 }), 0, 0.5, 0, comp, 16); tank.rotation.z = Math.PI / 2; box(0.5, 0.45, 0.4, MAT.steelDark, 0.2, 1.05, 0, comp); cyl(0.2, 0.3, MAT.black, -0.3, 1.0, 0, comp, 12).rotation.z = Math.PI / 2; cyl(0.05, 0.03, MAT.white, 0.45, 1.2, 0.22, comp, 10).rotation.x = Math.PI / 2; cyl(0.015, 1.2, MAT.black, 0.3, 0.9, 0.4, comp, 6).rotation.x = 0.4; solid(6.3, 8.1, -42.3, -41.3, 0, 1.4);
-    sign(['COMPRESSOR · HEARING PROTECTION'], 1.3, 0.14, 7.2, 1.8, -41.2, 0, { w: 512, h: 56, bg: '#1b232c', fg: '#f5b53d' });
+    var comp = new THREE.Group(); comp.position.set(8.9, 0, -27.0);   // by the door into the main hall, clear of the way through to Hall 4 scene.add(comp); box(1.6, 0.1, 0.8, MAT.steelDark, 0, 0.05, 0, comp); var tank = cyl(0.32, 1.5, std({ color: 0x3a5f9e, roughness: 0.4, metalness: 0.5 }), 0, 0.5, 0, comp, 16); tank.rotation.z = Math.PI / 2; box(0.5, 0.45, 0.4, MAT.steelDark, 0.2, 1.05, 0, comp); cyl(0.2, 0.3, MAT.black, -0.3, 1.0, 0, comp, 12).rotation.z = Math.PI / 2; cyl(0.05, 0.03, MAT.white, 0.45, 1.2, 0.22, comp, 10).rotation.x = Math.PI / 2; cyl(0.015, 1.2, MAT.black, 0.3, 0.9, 0.4, comp, 6).rotation.x = 0.4; solid(6.3, 8.1, -42.3, -41.3, 0, 1.4);
+    sign(['COMPRESSOR · HEARING PROTECTION'], 1.3, 0.14, 8.9, 1.8, -26.4, 0, { w: 512, h: 56, bg: '#1b232c', fg: '#f5b53d' });
     box(0.3, 0.04, wz - 2, MAT.steelDark, W.x1 - 1.0, h - 0.9, cz); for (var cz2 = W.z0 + 2; cz2 < W.z1; cz2 += 4) box(0.32, 0.08, 0.05, MAT.steelDark, W.x1 - 1.0, h - 0.86, cz2);
     // the ladder and the ledge up to the hopper's gauge, and the silo pipe coming in over the west wall
     var sp = cyl(0.14, 9.0, MAT.steel, -13.5, 5.6, -34, null, 12); sp.rotation.z = Math.PI / 2; cyl(0.14, 1.2, MAT.steel, -9.6, 5.0, -34, null, 12);
@@ -84,69 +87,71 @@
   }  function conveyorPath(c, pts) {
     for (var i = 1; i < pts.length; i++) {
       var ax = pts[i - 1][0], az = pts[i - 1][1], ay = pts[i - 1][2] || 0, bx = pts[i][0], bz = pts[i][1], by = pts[i][2] || 0, run = Math.hypot(bx - ax, bz - az), ang = Math.atan2(bx - ax, bz - az), slope = Math.atan2(by - ay, run), len = Math.hypot(run, by - ay);
-      var sg = new THREE.Group(); sg.position.set(ax, ay, az); sg.rotation.order = 'YXZ'; sg.rotation.y = ang; sg.rotation.x = -slope; c.group.add(sg);
+      var sg = new THREE.Group(); sg.position.set(ax, ay, az); sg.rotation.order = 'YXZ'; sg.rotation.y = ang; sg.rotation.x = -slope; sg.userData.propId = c.group.userData.propId; c.group.add(sg);   // the segments scroll with the prop's dial
       var sc = propCtx(sg, 'seg'); conveyorBuild(sc, 0, 0, len, { noEye: i < pts.length - 1, noLegs: true, noMotor: i < pts.length - 1 });
       // legs in the prop frame, the right height wherever the belt is, braced when tall; a curve's short segments share a leg every third one
       var ux = (bx - ax) / run, uz = (bz - az) / run, px = uz, pz = -ux;
-      var hang = pts[i][3] === 'hang';
-      if (hang) { for (var hd = 0.6; hd < run; hd += 2.5) { var ht = BELT_Y + ay + (by - ay) * hd / run + 0.05, hx = ax + ux * hd, hz = az + uz * hd; [-0.3, 0.3].forEach(function (o) { c.cyl(0.025, HALL.h - 0.2 - ht, MAT_MACH.frame, hx + px * o, (HALL.h - 0.2 + ht) / 2, hz + pz * o, 6); }); var hb = c.box(0.8, 0.06, 0.06, MAT_MACH.frame, hx, ht, hz); hb.rotation.y = ang; var hp = c.box(0.9, 0.05, 0.3, MAT_MACH.frame, hx, HALL.h - 0.2, hz); hp.rotation.y = ang; } }
+      var hang = pts[i][3] === 'hang', spiral = pts[i][3] === 'spiral';   // a spiral segment hangs off the spiral's own column and guard: no legs, no hangers, no solid of its own
+      if (spiral) { } else if (hang) { for (var hd = 0.6; hd < run; hd += 2.5) { var ht = BELT_Y + ay + (by - ay) * hd / run + 0.05, hx = ax + ux * hd, hz = az + uz * hd; [-0.3, 0.3].forEach(function (o) { c.cyl(0.025, HALL.h - 0.2 - ht, MAT_MACH.frame, hx + px * o, (HALL.h - 0.2 + ht) / 2, hz + pz * o, 6); }); var hb = c.box(0.8, 0.06, 0.06, MAT_MACH.frame, hx, ht, hz); hb.rotation.y = ang; var hp = c.box(0.9, 0.05, 0.3, MAT_MACH.frame, hx, HALL.h - 0.2, hz); hp.rotation.y = ang; } }
       else for (var d = run < 1 ? (i % 3 === 1 ? run / 2 : run + 1) : 0.5; d < run; d += 1.5) { var top = BELT_Y + ay + (by - ay) * d / run - 0.1, lx = ax + ux * d, lz = az + uz * d; [-0.3, 0.3].forEach(function (o) { c.box(0.06, top, 0.06, MAT_MACH.frame, lx + px * o, top / 2, lz + pz * o); c.box(0.14, 0.02, 0.14, MAT_MACH.frame, lx + px * o, 0.01, lz + pz * o); if (Math.min(ay, by) > 1.2) c.solid(lx + px * o - 0.1, lx + px * o + 0.1, lz + pz * o - 0.1, lz + pz * o + 0.1, 0, top); }); var cb = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top - 0.02, lz); cb.rotation.y = ang; if (top > 1.5) { var br = c.box(0.66, 0.05, 0.05, MAT_MACH.frame, lx, top * 0.5, lz); br.rotation.y = ang; var dg = c.box(0.04, top * 0.95, 0.04, MAT_MACH.frame, lx, top / 2, lz); dg.rotation.order = 'YXZ'; dg.rotation.y = ang; dg.rotation.z = Math.atan2(0.6, top); } }
-      var lowY = BELT_Y + Math.min(ay, by) - 0.15, high = Math.min(ay, by) > 1.2;
-      c.solid(Math.min(ax, bx) - 0.4, Math.max(ax, bx) + 0.4, Math.min(az, bz) - 0.4, Math.max(az, bz) + 0.4, high ? lowY : 0, high ? lowY + 1.2 : 0.82);
+      // the solid: a level belt on the deck is a floor belt up there (solid from the deck to a metre up, so a step-over clears it); a high run carries only
+      // a band round the belt; a slope is cut into metre-long pieces, each at its own height, so you can walk under the high end of an incline
+      var lo = Math.min(ay, by), onDeck = Math.abs(lo - UPPER.y) < 0.25 && Math.abs(ay - by) < 0.25;
+      if (!spiral) { var nch = Math.abs(ay - by) > 0.3 ? Math.max(1, Math.ceil(run / 1.0)) : 1; for (var ch = 0; ch < nch; ch++) { var t0 = ch / nch, t1 = (ch + 1) / nch, cy = Math.min(ay + (by - ay) * t0, ay + (by - ay) * t1), cx0 = ax + (bx - ax) * t0, cx1 = ax + (bx - ax) * t1, cz0 = az + (bz - az) * t0, cz1 = az + (bz - az) * t1, chigh = cy > 1.2, clow = BELT_Y + cy - 0.15; c.solid(Math.min(cx0, cx1) - 0.4, Math.max(cx0, cx1) + 0.4, Math.min(cz0, cz1) - 0.4, Math.max(cz0, cz1) + 0.4, onDeck ? cy : chigh ? clow : 0, onDeck ? cy + 0.9 : chigh ? clow + 1.2 : 0.82); } }
     }
-  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -17.4], [1.9, -18.6]]); c.sign(['TO OUT 2'], 0.6, 0.14, 2.6, 1.05, 4, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
-  function dockLoaderBuild(c) {
-    var id = 'dockLoader2', label = 'OUT 2';
+  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -15.3], [0.4, -15.3], [0.4, -17.1]]); c.sign(['TO THE OUT 2 BAY'], 0.8, 0.14, 2.6, 1.05, 4, Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  // the dock loader: a fixed belt section that takes parcels off a belt end, and a boom that pushes them into the trailer when a truck
+  // is docked with the door up. mirror: the inlet faces north instead of south (OUT 1's stands under the deck edge, fed from the north)
+  function dockLoaderBuildFor(id, label, mirror) { return function (c) {
+    var m = mirror ? -1 : 1, Z = function (z) { return z * m; }, door = LOADER_DOORS[id];
     var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, BL = MAT_MACH.blue;
     var rbx = function (w, h, d, r, mat, x, y, z, parent) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; (parent || c.group).add(mm); return mm; };
-    // the base: a heavy frame on levelling feet, the fixed belt section that takes parcels off the shipping belt
-    rbx(1.6, 0.26, 2.2, 0.03, DG, -0.2, 0.13, 0.6); [[-0.9, -0.4], [0.5, -0.4], [-0.9, 1.6], [0.5, 1.6]].forEach(function (p) { c.cyl(0.07, 0.04, DG, p[0], 0.02, p[1], 10); c.box(0.12, 0.3, 0.12, DG, p[0], 0.3, p[1]); });
-    [-0.46, 0.26].forEach(function (sx) { c.box(0.04, 0.16, 1.9, LG, sx, BELT_Y - 0.06, 0.75); c.box(0.05, 0.02, 1.9, BL, sx, BELT_Y + 0.035, 0.75); });
-    for (var rz = -0.1; rz < 1.6; rz += 0.3) { var r = c.cyl(0.03, 0.68, MAT_MACH.roller, -0.1, BELT_Y - 0.02, rz, 10); r.rotation.z = Math.PI / 2; }
-    var bt = beltTexBase.clone(); bt.needsUpdate = true; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; bt.repeat.set(1, 3.8); var bm = std({ map: bt, roughness: 0.9 }); bm.userData.noBake = true; var top = c.plane(0.62, 1.86, bm, -0.1, BELT_Y + 0.025, 0.75, -Math.PI / 2, 0); top.userData.speedKey = c.group.userData.propId; BELT_PLANES.push(top);
-    [-0.42, 0.22].forEach(function (gx) { c.box(0.03, 0.04, 1.8, MAT_MACH.guard, gx, BELT_Y + 0.14, 0.75); [0.0, 0.8, 1.5].forEach(function (gz) { c.box(0.03, 0.14, 0.03, DG, gx, BELT_Y + 0.08, gz); }); });
-    // the lifting frame: two A-frame uprights with a cross head, the pivot, the hydraulic cylinder under the boom
-    [[-0.1, -0.1], [-0.1, 0.9]].forEach(function (p) { c.box(0.14, 1.9, 0.14, BL, 0.55, 0.95, p[1]); }); c.box(0.16, 0.16, 1.2, BL, 0.55, 1.9, 0.4); c.cyl(0.1, 0.9, DG, 0.55, 1.1, 0.4, 12).rotation.x = Math.PI / 2;
-    var cylm = c.cyl(0.06, 1.0, MAT.chrome, 1.0, 0.5, 0.4, 10); cylm.rotation.z = -0.9; var cylb = c.cyl(0.08, 0.6, DG, 0.75, 0.3, 0.4, 10); cylb.rotation.z = -0.9;
-    // the boom: a telescopic belt section that slides out towards the door (animated), with rollers, side guards, a lip roller and a bump bar
+    rbx(1.6, 0.26, 2.2, 0.03, DG, -0.2, 0.13, Z(0.6)); [[-0.9, -0.4], [0.5, -0.4], [-0.9, 1.6], [0.5, 1.6]].forEach(function (p) { c.cyl(0.07, 0.04, DG, p[0], 0.02, Z(p[1]), 10); c.box(0.12, 0.3, 0.12, DG, p[0], 0.3, Z(p[1])); });
+    [-0.46, 0.26].forEach(function (sx) { c.box(0.04, 0.16, 1.9, LG, sx, BELT_Y - 0.06, Z(0.75)); c.box(0.05, 0.02, 1.9, BL, sx, BELT_Y + 0.035, Z(0.75)); });
+    for (var rz = -0.1; rz < 1.6; rz += 0.3) { var r = c.cyl(0.03, 0.68, MAT_MACH.roller, -0.1, BELT_Y - 0.02, Z(rz), 10); r.rotation.z = Math.PI / 2; }
+    var bt = beltTexBase.clone(); bt.needsUpdate = true; bt.wrapS = bt.wrapT = THREE.RepeatWrapping; bt.repeat.set(1, 3.8); var bm = std({ map: bt, roughness: 0.9 }); bm.userData.noBake = true; var top = c.plane(0.62, 1.86, bm, -0.1, BELT_Y + 0.025, Z(0.75), -Math.PI / 2, m > 0 ? 0 : Math.PI); top.userData.speedKey = c.group.userData.propId; BELT_PLANES.push(top);
+    [-0.42, 0.22].forEach(function (gx) { c.box(0.03, 0.04, 1.8, MAT_MACH.guard, gx, BELT_Y + 0.14, Z(0.75)); [0.0, 0.8, 1.5].forEach(function (gz) { c.box(0.03, 0.14, 0.03, DG, gx, BELT_Y + 0.08, Z(gz)); }); });
+    [[-0.1, -0.1], [-0.1, 0.9]].forEach(function (p) { c.box(0.14, 1.9, 0.14, BL, 0.55, 0.95, Z(p[1])); }); c.box(0.16, 0.16, 1.2, BL, 0.55, 1.9, Z(0.4)); c.cyl(0.1, 0.9, DG, 0.55, 1.1, Z(0.4), 12).rotation.x = Math.PI / 2;
+    var cylm = c.cyl(0.06, 1.0, MAT.chrome, 1.0, 0.5, Z(0.4), 10); cylm.rotation.z = -0.9; var cylb = c.cyl(0.08, 0.6, DG, 0.75, 0.3, Z(0.4), 10); cylb.rotation.z = -0.9;
     var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
-    var boom = new THREE.Group(); boom.position.set(0.9, BELT_Y + 0.02, 0.4); dyn.add(boom);
+    var boom = new THREE.Group(); boom.position.set(0.9, BELT_Y + 0.02, Z(0.4)); dyn.add(boom);
     box(1.6, 0.16, 0.76, LG, 0, 0, 0, boom); box(1.6, 0.03, 0.62, std({ color: 0x2c3035, roughness: 0.9 }), 0, 0.1, 0, boom); box(1.6, 0.05, 0.03, MAT_MACH.guard, 0, 0.16, 0.34, boom); box(1.6, 0.05, 0.03, MAT_MACH.guard, 0, 0.16, -0.34, boom);
     for (var bk = -0.6; bk <= 0.6; bk += 0.3) cyl(0.03, 0.62, MAT_MACH.roller, bk, 0.09, 0, boom, 8).rotation.x = Math.PI / 2;
     cyl(0.06, 0.66, MAT.rubber, 0.82, 0.02, 0, boom, 10).rotation.x = Math.PI / 2; box(0.12, 0.12, 0.8, MAT.yellow, 0.86, -0.08, 0, boom); box(0.14, 0.04, 0.8, MAT.black, 0.86, 0.0, 0, boom);
     box(1.4, 0.06, 0.1, DG, 0, -0.1, 0.42, boom); box(1.4, 0.06, 0.1, DG, 0, -0.1, -0.42, boom); box(0.3, 0.1, 0.5, DG, -0.6, -0.14, 0, boom);
     var pusher = box(0.08, 0.34, 0.56, BL, 0.2, 0.3, 0, boom); box(0.4, 0.05, 0.05, MAT.chrome, 0.0, 0.3, 0, boom); box(0.1, 0.1, 0.1, DG, -0.2, 0.3, 0, boom);
-    // canopy lamp over the boom, the operator pedestal with screen, E-stop and lamp stack, light curtain at the door side
-    c.box(0.08, 0.08, 0.08, DG, 0.55, 2.0, 0.4); c.box(0.6, 0.08, 0.3, DG, 0.85, 2.05, 0.4); c.box(0.5, 0.05, 0.22, MAT.lamp, 0.9, 1.99, 0.4);
-    var ped = rbx(0.5, 1.3, 0.4, 0.03, LG, -1.1, 0.7, 1.6); c.box(0.52, 0.16, 0.42, DG, -1.1, 0.08, 1.6); var scr = touchScreen({ w: 300, h: 200, pw: 0.38, ph: 0.25, x: -1.1, y: 1.15, z: 1.81, ry: 0, parent: c.group, title: 'Dock loader ' + label, draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(cc, sc.w, 'DOCK LOADER ' + label, dockLoaderStatus().toUpperCase()); scText(cc, 16, 70, dockLoaderPrompt().split(' · ').slice(1, 2).join(''), '#eef1f5', 13); scText(cc, 16, 100, 'On the way: ' + beltItems('shipBelt').length + ' parcels', '#a0acb8', 12); speedButton(sc, 16, 150, 130, 'shipBelt', 'BELT'); } }); scr.mesh.userData.propId = id;
-    eStop(c, -1.1, 0.6, 1.81); MACH[id].lamps = lampStack(c, -1.1, 1.4, 1.6); c.box(0.04, 1.1, 0.04, MAT.black, -1.3, 0.55, 1.4);
-    [-0.2, 1.0].forEach(function (lz) { c.box(0.06, 1.7, 0.06, MAT.yellow, 1.55, 0.85, lz); c.box(0.02, 1.5, 0.02, glowMat(0xff3b2f, 0.6), 1.59, 0.85, lz); c.box(0.14, 0.03, 0.14, DG, 1.55, 0.015, lz); });
-    c.sign(['DOCK LOADER', 'KEEP CLEAR OF THE BOOM'], 1.2, 0.24, -0.2, 1.0, -0.56, Math.PI, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' }); c.sign([label + ' · AUTO'], 0.6, 0.14, 0.55, 2.12, 0.4, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' });
+    c.box(0.08, 0.08, 0.08, DG, 0.55, 2.0, Z(0.4)); c.box(0.6, 0.08, 0.3, DG, 0.85, 2.05, Z(0.4)); c.box(0.5, 0.05, 0.22, MAT.lamp, 0.9, 1.99, Z(0.4));
+    rbx(0.5, 1.3, 0.4, 0.03, LG, -1.1, 0.7, Z(1.6)); c.box(0.52, 0.16, 0.42, DG, -1.1, 0.08, Z(1.6)); var scr = touchScreen({ w: 300, h: 200, pw: 0.38, ph: 0.25, x: -1.1, y: 1.15, z: Z(1.81), ry: m > 0 ? 0 : Math.PI, parent: c.group, title: 'Dock loader ' + label, draw: function (cc, sc) { scBg(cc, sc.w, sc.h, 'rgba(95,211,141,0.18)'); scHead(cc, sc.w, 'DOCK LOADER ' + label, dockLoaderStatus(door).toUpperCase()); scText(cc, 16, 70, dockLoaderPrompt(door).split(' · ').slice(1, 2).join(''), '#eef1f5', 13); scText(cc, 16, 100, (dockLane(door) ? dockLane(door).name.toUpperCase() + ' lane · ' : '') + (S.stats.autoLoaded || 0) + ' loaded by machine', '#a0acb8', 12); speedButton(sc, 16, 150, 130, S.up.sorter ? 'sorter' : 'shipBelt', 'BELT'); } }); scr.mesh.userData.propId = id;
+    eStop(c, -1.1, 0.6, Z(1.81)); MACH[id].lamps = lampStack(c, -1.1, 1.4, Z(1.6)); c.box(0.04, 1.1, 0.04, MAT.black, -1.3, 0.55, Z(1.4));
+    [-0.2, 1.0].forEach(function (lz) { c.box(0.06, 1.7, 0.06, MAT.yellow, 1.55, 0.85, Z(lz)); c.box(0.02, 1.5, 0.02, glowMat(0xff3b2f, 0.6), 1.59, 0.85, Z(lz)); c.box(0.14, 0.03, 0.14, DG, 1.55, 0.015, Z(lz)); });
+    c.sign(['DOCK LOADER', 'KEEP CLEAR OF THE BOOM'], 1.2, 0.24, -0.2, 1.0, Z(-0.56), m > 0 ? Math.PI : 0, { w: 512, h: 100, bg: '#1b232c', fg: '#eef1f5' }); c.sign([label + ' · AUTO' + (dockLane(door) ? ' · ' + dockLane(door).name.toUpperCase() : '')], 0.8, 0.14, 0.55, 2.12, Z(0.4), m > 0 ? 0 : Math.PI, { w: 320, h: 64, bg: '#1b232c', fg: dockLane(door) ? dockLane(door).col : '#5fd38d' });
     MACH[id].anim = { boom: boom, pusher: pusher, pushT: 0, ext: 0 };
-    c.hit(2.0, 2.0, 2.4, 0, 1.0, 0.6, { prompt: function () { return dockLoaderPrompt(); }, use: function () { sfx('click'); } });
-    c.solid(-1.4, 0.7, -0.5, 1.8, 0, 2.1);
-  }  function gantryBuild(r) { return function (c) {
-    var DG = MAT_MACH.frame, YL = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.3 }), LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 });
+    c.hit(2.0, 2.0, 2.4, 0, 1.0, Z(0.6), { prompt: function () { return dockLoaderPrompt(door); }, use: function () { sfx('click'); } });
+    c.solid(-1.4, 0.7, Z(-0.5), Z(1.8), 0, 2.1);
+  }; }
+  var dockLoaderBuild = dockLoaderBuildFor('dockLoader2', 'OUT 2', false);
+  function gantryBuild(r) { return function (c) {
+    var DG = MAT_MACH.frame, YL = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.3 }), LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), GT = gantryTop(r), GD = GT - 5.0;   // GT: rail height; the upper crane is two metres lower
     // end columns stand clear of the racking at the row ends; the mid columns stand tight against the rack faces, out of the aisles
     // the east pair stands at 47.2, past the overhead pick belt that runs along the row ends at 46
     // every column stands tight against the rack face and reaches the rails on an outrigger, so nothing stands in the aisle
-    [-0.4, 47.2].forEach(function (cx) { [-0.78, 0.78].forEach(function (cz) { c.box(0.26, 5.4, 0.26, YL, cx, 2.7, cz); c.box(0.5, 0.03, 0.5, DG, cx, 0.015, cz); c.box(0.26, 0.2, 1.0, DG, cx, 5.45, cz * 1.5); c.box(0.3, 0.3, 0.3, DG, cx, 5.5, cz); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); });
-    for (var cx = 7.67; cx < 46; cx += 7.67) { [-0.78, 0.78].forEach(function (cz) { c.box(0.2, 5.4, 0.2, YL, cx, 2.7, cz); c.box(0.4, 0.03, 0.4, DG, cx, 0.015, cz); var ob = c.box(0.2, 0.2, 0.9, DG, cx, 5.45, cz * 1.5); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55, 0); }
-    [-1.6, 1.6].forEach(function (rz) { c.box(48.2, 0.18, 0.2, DG, 23.4, 5.4, rz); c.box(48.2, 0.04, 0.06, MAT.chrome, 23.4, 5.5, rz); });
+    [-0.4, 47.2].forEach(function (cx) { [-0.78, 0.78].forEach(function (cz) { c.box(0.26, 5.4 + GD, 0.26, YL, cx, 2.7 + GD / 2, cz); c.box(0.5, 0.03, 0.5, DG, cx, 0.015, cz); c.box(0.26, 0.2, 1.0, DG, cx, 5.45 + GD, cz * 1.5); c.box(0.3, 0.3, 0.3, DG, cx, 5.5 + GD, cz); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55 + GD, 0); });
+    for (var cx = 7.67; cx < 46; cx += 7.67) { [-0.78, 0.78].forEach(function (cz) { c.box(0.2, 5.4 + GD, 0.2, YL, cx, 2.7 + GD / 2, cz); c.box(0.4, 0.03, 0.4, DG, cx, 0.015, cz); var ob = c.box(0.2, 0.2, 0.9, DG, cx, 5.45 + GD, cz * 1.5); }); c.box(0.2, 0.2, 3.5, DG, cx, 5.55 + GD, 0); }
+    [-1.6, 1.6].forEach(function (rz) { c.box(48.2, 0.18, 0.2, DG, 23.4, 5.4 + GD, rz); c.box(48.2, 0.04, 0.06, MAT.chrome, 23.4, 5.5 + GD, rz); });
     var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
-    var trolley = new THREE.Group(); trolley.position.set(46, 5.0, 0); dyn.add(trolley);
+    var trolley = new THREE.Group(); trolley.position.set(46, GT, 0); dyn.add(trolley);
     box(1.0, 0.3, 3.6, YL, 0, 0.55, 0, trolley); box(1.1, 0.12, 0.5, DG, 0, 0.6, -1.6, trolley); box(1.1, 0.12, 0.5, DG, 0, 0.6, 1.6, trolley); [-0.4, 0.4].forEach(function (wx) { [-1.6, 1.6].forEach(function (wz) { cyl(0.1, 0.08, MAT.black, wx, 0.6, wz, trolley, 12).rotation.z = Math.PI / 2; }); });
     box(0.7, 0.5, 0.7, LG, 0, 0.95, 0, trolley); box(0.3, 0.3, 0.3, MAT_MACH.blue, 0.5, 0.95, 0, trolley); var beacon = cyl(0.05, 0.12, glowMat(0xffd060, 2.5), 0, 1.3, 0, trolley, 10); box(0.02, 0.1, 0.06, MAT.black, 0.03, 1.3, 0, beacon);
-    var mast = box(0.28, 4.0, 0.28, LG, 0, -2.0, 0, trolley); mast.scale.y = 0.05; mast.position.y = 0;   // scaled from the trolley down to the gripper
+    var mast = box(0.28, GT - 1.0, 0.28, LG, 0, -(GT - 1.0) / 2, 0, trolley); mast.scale.y = 0.05; mast.position.y = 0;   // scaled from the trolley down to the gripper
     var grip = new THREE.Group(); grip.position.set(0, 0, 0); trolley.add(grip); box(0.5, 0.15, 0.5, DG, 0, 0.3, 0, grip); box(0.7, 0.06, 0.7, MAT.black, 0, 0.2, 0, grip); [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(function (s) { cyl(0.07, 0.06, MAT_MACH.rubber, s[0], 0.15, s[1], grip, 10); });
     var bx = new THREE.Mesh(BOX_GEO, CARD[SKUS[0].id]); bx.position.set(0, -0.05, 0); bx.visible = false; grip.add(bx);
-    c.sign(['GANTRY PICKER · ROW ' + 'ABCDEF'[r], 'AUTOMATIC · KEEP CLEAR'], 2.0, 0.4, 44.5, 5.9, 1.75, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#f5b53d' });
+    c.sign(['GANTRY PICKER · ROW ' + 'ABCDEF'[r], 'AUTOMATIC · KEEP CLEAR'], 2.0, 0.4, 44.5, 5.9 + GD, 1.75, 0, { w: 512, h: 100, bg: '#1b232c', fg: '#f5b53d' });
     // the control cabinet hangs off the south end column (at z -0.78) on two brackets; screen and e-stop face the aisle
     c.box(0.5, 1.0, 0.3, LG, 47.2, 1.4, -1.25); c.box(0.08, 0.3, 0.2, DG, 47.2, 1.1, -1.0); c.box(0.08, 0.3, 0.2, DG, 47.2, 1.75, -1.0); eStop(c, 47.2, 1.2, -1.41); MACH['gantry' + r].lamps = lampStack(c, 47.2, 1.9, -1.25);
     c.box(0.42, 0.3, 0.02, DG, 47.2, 1.6, -1.405); var gsc = touchScreen({ w: 300, h: 200, pw: 0.36, ph: 0.24, x: 47.2, y: 1.6, z: -1.418, ry: Math.PI, parent: c.group, title: 'Gantry ' + 'ABCDEF'[r], draw: gantryScreenDraw(r) }); gsc.mesh.userData.propId = 'gantry' + r; MACH['gantry' + r].screen = gsc;
     MACH['gantry' + r].anim = { trolley: trolley, mast: mast, grip: grip, box: bx, beacon: beacon };
     c.hit(0.5, 1.0, 0.3, 47.2, 1.4, -1.25, { prompt: function () { return gantryPrompt(r); }, use: function () { sfx('click'); } });
-    [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -0.93, -0.63, 0, 5.5); c.solid(sx - 0.15, sx + 0.15, 0.63, 0.93, 0, 5.5); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5); }
+    [-0.4, 47.2].forEach(function (sx) { c.solid(sx - 0.15, sx + 0.15, -0.93, -0.63, 0, 5.5 + GD); c.solid(sx - 0.15, sx + 0.15, 0.63, 0.93, 0, 5.5 + GD); }); for (var sx2 = 7.67; sx2 < 46; sx2 += 7.67) { c.solid(sx2 - 0.12, sx2 + 0.12, -0.9, -0.66, 0, 5.5 + GD); c.solid(sx2 - 0.12, sx2 + 0.12, 0.66, 0.9, 0, 5.5 + GD); }
   }; }
   function pickBeltBuild(c) { conveyorPath(c, BELTS.pickBelt.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, 8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function pickMergeBuild(c) { conveyorPath(c, BELTS.pickMerge.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 2.0, BELT_Y + 2.4 + 0.3, 0.45, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
@@ -397,8 +402,10 @@
   defProp('beltMain', { label: 'main belt', cat: 'factory', abs: true, x: -4, z: -32.5, rot: 0, build: beltMainBuild });
   defProp('palletiser', { label: 'palletiser', cat: 'hall', abs: true, x: -4, z: -20.6, rot: 0, build: palletiserBuild });
   defProp('hopper', { label: 'raw hopper', cat: 'factory', abs: true, x: -9.5, z: -37, rot: 0, build: hopperBuild });
-  defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, x: 26.6, z: 14.3, rot: 0, build: shipBeltBuild, when: function () { return !!S.up.shipbelt; } });
-  defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt; } });
+  defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, x: 26.6, z: 14.3, rot: 0, build: shipBeltBuild, when: function () { return !!S.up.shipbelt && !S.up.sorter; } });   // the sortation deck takes the shelf over
+  defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
+  defProp('dockLoader1', { label: 'dock loader OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, x: 34.6, z: -13.9, rot: 0, build: dockLoaderBuildFor('dockLoader1', 'OUT 1', false), when: function () { return !!S.up.sorter; } });   // under the deck edge; its bay stands south of it in the apron, fed by the sea spiral
+  defProp('dockLoader3', { label: 'dock loader OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, x: 34.6, z: -21.4, rot: 0, build: dockLoaderBuildFor('dockLoader3', 'OUT 3', false), when: function () { return !!S.up.sorter; } });
   defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
   for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDEF'[r], cat: 'hall', abs: true, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
   defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[0], rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });

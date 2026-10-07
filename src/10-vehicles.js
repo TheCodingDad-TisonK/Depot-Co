@@ -177,6 +177,7 @@
     if (p) {
       var key = slotNear(tip.x, tip.z, F.lift);
       if (key) { if (storePallet(p, key)) { F.pallet = null; sfx('crate'); addXp(XP.pallet); toast('Pallet stored · ' + slotName(key), 'good'); introStep('putaway'); } else toast('No room in ' + slotName(key) + '.', 'bad'); return; }
+      if (liftTakesFork(tip.x, tip.z, p)) return;
       if (F.lift < 0.5) { if (floorY(tip.x, tip.z) < -0.5) { toast('Not over the edge.', 'bad'); return; } p.place = 'floor'; p.x = tip.x; p.z = tip.z; p.y = floorY(tip.x, tip.z); p.rot = F.yaw; F.pallet = null; sfx('crate'); return; }
       toast('Lower the forks, or line them up with a rack slot.', 'bad'); return;
     }
@@ -191,8 +192,8 @@
   }
   function slotNear(x, z, lift) {
     var best = null, bd = 1.2;
-    for (var r = 0; r < S.up.rows; r++) for (var b = 0; b < RACK.bays; b++) for (var l = 0; l < RACK.levels.length; l++) {
-      var sp = rackSlotPos(r, b, l); if (Math.abs(sp.y - lift) > 0.5) continue;
+    var rows = groundRows(); for (var ri = 0; ri < rows.length; ri++) for (var b = 0; b < rowBays(rows[ri]); b++) for (var l = 0; l < RACK.levels.length; l++) {
+      var r = rows[ri], sp = rackSlotPos(r, b, l); if (Math.abs(sp.y - lift) > 0.5) continue;
       var d = Math.sqrt(dist2(sp.x, sp.z, x, z)); if (d < bd) { bd = d; best = slotKey(r, b, l); }
     }
     return best;

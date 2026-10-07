@@ -41,13 +41,13 @@
       fragmentShader: 'uniform vec3 top, mid, bot; varying vec3 vW; void main() { float h = clamp(vW.y, -0.05, 1.0); vec3 c = h < 0.12 ? mix(bot, mid, smoothstep(-0.05, 0.12, h)) : mix(mid, top, pow(smoothstep(0.12, 1.0, h), 0.6)); gl_FragColor = vec4(c, 1.0); }' });
     var dome = new THREE.Mesh(new THREE.SphereGeometry(230, 32, 16), skyMat); dome.position.y = YARD_Y; yard.dome = dome; dome.renderOrder = -10; dome.userData.noBake = true; dome.frustumCulled = false; scene.add(dome); yard.sky = skyMat;
     // truck lanes to every dock: edge lines, a centre dash, and a hatched keep-clear apron
-    doors.forEach(function (d) {
+    function yardDock(d) {
       // the steps: 6 risers from the yard to the landing at hall level, outside the dock door on its +z side, with a tube handrail
-      var sx = side_(d.side), ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });
-      for (var st = 0; st < 6; st++) { box(1.1, 0.2, (6 - st) * 0.3, ST, sx * (X + 0.85), YARD_Y + 0.1 + st * 0.2, d.z + 4.4 + (6 - st) * 0.15); }
-      box(1.1, 1.2, 1.6, ST, sx * (X + 0.85), YARD_Y + 0.6, d.z + 3.6);
-      [-0.5, 0.5].forEach(function (hx) { var px = sx * (X + 0.85 + hx); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + 3.0, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + 4.3, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 0.5, d.z + 6.1, null, 8); var rail = cyl(0.025, 1.5, HR, px, YARD_Y + 2.2, d.z + 3.65, null, 8); rail.rotation.x = Math.PI / 2; var rail2 = cyl(0.025, 2.2, HR, px, YARD_Y + 1.6, d.z + 5.2, null, 8); rail2.rotation.x = Math.PI / 2 + 0.58; });
-      solid(sx * (X + 0.3), sx * (X + 1.4), d.z + 2.8, d.z + 6.3, YARD_Y, YARD_Y + 1.3);
+      var fz = d.i === 4 ? -1 : 1, sx = side_(d.side), ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });
+      for (var st = 0; st < 6; st++) { box(1.1, 0.2, (6 - st) * 0.3, ST, sx * (X + 0.85), YARD_Y + 0.1 + st * 0.2, d.z + fz * 4.4 + (6 - st) * 0.15); }
+      box(1.1, 1.2, 1.6, ST, sx * (X + 0.85), YARD_Y + 0.6, d.z + fz * 3.6);
+      [-0.5, 0.5].forEach(function (hx) { var px = sx * (X + 0.85 + hx); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 3.0, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 4.3, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 0.5, d.z + fz * 6.1, null, 8); var rail = cyl(0.025, 1.5, HR, px, YARD_Y + 2.2, d.z + fz * 3.65, null, 8); rail.rotation.x = Math.PI / 2; var rail2 = cyl(0.025, 2.2, HR, px, YARD_Y + 1.6, d.z + fz * 5.2, null, 8); rail2.rotation.x = Math.PI / 2 + 0.58 * fz; });
+      solid(sx * (X + 0.3), sx * (X + 1.4), d.z + fz * 2.8, d.z + fz * 6.3, YARD_Y, YARD_Y + 1.3);
       var side = d.side, x0 = side * (X + 1), x1 = side * 76, cx = (x0 + x1) / 2, len = Math.abs(x1 - x0);
       plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z - 2.2, -Math.PI / 2); plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z + 2.2, -Math.PI / 2);
       for (var x = side * (X + 8); Math.abs(x) < 74; x += side * 4) plane(2, 0.12, MAT.whiteLine, x, YARD_Y + 0.012, d.z, -Math.PI / 2);
@@ -58,7 +58,8 @@
       plane(DOCKS.w + 1.4, 0.6, MAT.hazard, side * (X + 0.26), DOCKS.h + 0.5, d.z, 0, side > 0 ? Math.PI / 2 : -Math.PI / 2);
       box(0.08, 0.08, 0.6, MAT.steelDark, side * (X + 0.6), DOCKS.h + 1.0, d.z + DOCKS.w / 2 + 1.0); var lens = box(0.3, 0.2, 0.3, glowMat(0xfff2c0, 0.2), side * (X + 0.9), DOCKS.h + 0.95, d.z + DOCKS.w / 2 + 1.0); yard.lampLenses.push(lens);
       var dl2 = new THREE.PointLight(0xfff2c0, 0, 16, 2); dl2.position.set(side * (X + 2.2), DOCKS.h + 0.5, d.z + 0.8); dl2.userData.k = 1.0; scene.add(dl2); yardLights.push(dl2);   // the apron under the shelter lamp is lit at night
-    });
+    }
+    yard.dock = yardDock; doors.forEach(yardDock);
     // the fence: mesh panels between posts, with a sliding gate on each truck side and the gatehouse beside it
     var FPOST = std({ color: 0x2f5d3a, roughness: 0.5, metalness: 0.5 }), FMESH = std({ map: TEX.vmesh, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6, color: 0x3d6b48 }), FCONC = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), FWIRE = std({ color: 0x8e949a, roughness: 0.4, metalness: 0.8 });
     function fenceRun(x0, z0, x1, z1) {
@@ -79,7 +80,7 @@
     }
     fenceRun(-84, -60, 84, -60); fenceRun(-84, 60, 84, 60);
     [-1, 1].forEach(function (side) {
-      var gx = side * 84; fenceRun(gx, -60, gx, -11.5); fenceRun(gx, 3.5, gx, 60);
+      var gx = side * 84; if (side < 0) { fenceRun(gx, -60, gx, -36.6); fenceRun(gx, -31.4, gx, -11.5); } else fenceRun(gx, -60, gx, -11.5); fenceRun(gx, 3.5, gx, 60);   // a second gap in the west fence for the IN 3 lane
       // two barrier lanes, an island between them, and the gatehouse with the guard
       [[-8, 'IN'], [0, 'OUT']].forEach(function (lane) {
         var lz = lane[0], post = cyl(0.1, 1.2, MAT.steelDark, gx, YARD_Y + 0.6, lz + 3.2, null, 10); box(0.5, 0.9, 0.4, MAT.hazard, gx, YARD_Y + 0.45, lz + 3.2); box(0.3, 0.35, 0.3, MAT.steelDark, gx, YARD_Y + 1.1, lz + 3.2);

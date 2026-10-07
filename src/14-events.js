@@ -24,6 +24,7 @@
   function sleepNow() {
     if (!(S.time >= 17 || S.time < DAY_START)) { toast('Too early. Come back after 17:00.', 'bad'); return; }
     sfx('sleep'); logEvent('Slept in the break room');
+    var nightN = deckNightRun(); if (nightN) toast('Night shift: ' + nightN + ' parcel' + (nightN > 1 ? 's' : '') + ' sorted into the shipping bays overnight', 'good');
     S.trucks.slice().forEach(function (t) { if (t.state === 'docked') truckLeave(t, 'night'); });
     S.trucks.slice().forEach(function (t) { removeTruckMesh(t.id); }); S.trucks = [];
     if (S.time >= 17) { S.time = DAY_START; newDay(); } else S.time = DAY_START;
@@ -121,8 +122,8 @@
     ['pick', 'Take the boxes the order needs off the rack (<b>E</b> on the slot). One box per trip until you buy the cart.'],
     ['bench', 'Carry them to the <b>packing bench</b> on the east side and press E to put them down.'],
     ['pack', 'With empty hands press <b>E</b> on the bench, or use the terminal on it, and pack the order. The parcel appears on the shelf beside it.'],
-    ['load', 'Pick the parcel up, open dock <b>OUT 1</b> from its console, walk into the outbound trailer and press E. The truck waits there from 10:30 to 12:00.'],
-    ['dispatch', 'Press E on the <b>DISPATCH</b> button of the OUT 1 console to send the truck now, or let it leave on schedule. You are paid when it goes.']
+    ['load', 'Pick the parcel up and look at the board: a <b>SEA</b> order leaves by OUT 1 (truck from 10:30), a <b>LAND</b> order by OUT 2 (from 09:00). Open that dock from its console, walk into the outbound trailer and press E. The wrong door ships it too, for a forwarding fee.'],
+    ['dispatch', 'Press E on the <b>DISPATCH</b> button of that dock console to send the truck now, or let it leave on schedule. You are paid when it goes.']
   ];
   function introStep(key) {
     if (!S.intro || S.intro.done) return;

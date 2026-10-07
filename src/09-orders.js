@@ -4,9 +4,10 @@
   function orderById(id) { for (var i = 0; i < S.orders.length; i++) if (S.orders[i].id === id) return S.orders[i]; return null; }
   function unlockedSkus() { var tier = tierFor(S.level); return SKUS.filter(function (s) { return s.tier <= tier; }).map(function (s) { return s.id; }); }
   function openOrders() { return S.orders.filter(function (o) { return o.state === 'open'; }); }
+  function activeClients() { return CLIENTS.filter(function (c) { return !c.deck || sorterOwned(); }); }   // the deck accounts wait for the sortation deck
   function dueText(abs) { var day = Math.floor(abs / 24), t = abs % 24; return fmtTime(t) + (day > S.day ? ' tomorrow' : day < S.day ? ' (overdue)' : ''); }
-  function nextOutLeave(minAbs) {
-    for (var d = 0; d < 3; d++) for (var k = 0; k < TRUCK_OUT.length; k++) { var abs = (S.day + d) * 24 + TRUCK_OUT[k].leave; if (abs >= minAbs) return abs; }
+  function nextOutLeave(minAbs, dock) {   // the next departure from one dock (the order's lane), or from any dock you own
+    for (var d = 0; d < 4; d++) for (var k = 0; k < TRUCK_OUT.length; k++) { if ((dock !== undefined && k !== dock) || !dockOwned(k)) continue; var ws = TRUCK_OUT[k].windows; for (var w = 0; w < ws.length; w++) { var abs = (S.day + d) * 24 + ws[w].leave; if (abs >= minAbs) return abs; } }
     return minAbs + 24;
   }
   // What an order may ask for: stock on site (the racks, the bench, the floor, the cart, and the pallets on a signed truck) less
@@ -27,8 +28,8 @@
   function benchSurplus() { var want = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); var sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
   function genOrder(rush) {
     var free = freeStock(), avail = unlockedSkus().filter(function (s) { return (free[s] || 0) > 0; }); if (!avail.length) return null;
-    var client = S.contract && S.contract.accepted && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === S.contract.client; })[0] : pick(CLIENTS), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
-    var nLines = randi(1, Math.min(3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));
+    var client = S.contract && S.contract.accepted && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === S.contract.client; })[0] : pick(activeClients()), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
+    var nLines = client.deck ? randi(2, 4) : randi(1, Math.min(3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));   // a deck account orders two to four lines
     var lines = [], used = {};
     for (var i = 0; i < nLines; i++) {
       // what the client likes and you have free, else anything you have free; never more of a line than is free
@@ -36,21 +37,21 @@
       var from = liked.length && (i === 0 || Math.random() < 0.85) ? liked : any;
       if (!from.length) break;
       var sku = pick(from); used[sku] = 1;
-      var qty = clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, Math.min(6, free[sku])); free[sku] -= qty;
+      var qty = client.deck ? clamp(randi(2, 8), 1, Math.min(8, free[sku])) : clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, Math.min(6, free[sku])); free[sku] -= qty;
       lines.push({ sku: sku, qty: qty });
     }
     if (!lines.length) return null;
     var value = 0; lines.forEach(function (l) { value += l.qty * SKU[l.sku].val; });
-    var due = rush ? nowAbs() + 2 : nextOutLeave(nowAbs() + 1.5);
-    var o = { id: uid('or'), num: S.orderSeq++, client: client.id, lines: lines, created: nowAbs(), due: due, state: 'open', pay: Math.round(value * ECON.margin + ECON.handling) * (rush ? 2 : 1), rush: !!rush, late: false, short: false };
+    var mode = clientMode(client.id), due = rush ? nowAbs() + 2 : nextOutLeave(nowAbs() + 1.5, MODES[mode].door - 2);   // due at the next truck of its own lane
+    var o = { id: uid('or'), num: S.orderSeq++, client: client.id, mode: mode, lines: lines, created: nowAbs(), due: due, state: 'open', pay: Math.round((value * ECON.margin + ECON.handling) * (mode === 'air' ? AIR_RATE : 1) * (client.deck ? DECK_RATE : 1)) * (rush ? 2 : 1), rush: !!rush, late: false, short: false };
     S.orders.push(o);
-    logEvent('Order #' + o.num + ' from ' + client.name + ': ' + lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + (rush ? ' · RUSH, due ' + fmtTime(due) : ''), 'rare');
+    logEvent('Order #' + o.num + ' from ' + client.name + ' (' + MODES[mode].name.toUpperCase() + ' lane, ' + dockLabel(MODES[mode].door) + '): ' + lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + (rush ? ' · RUSH, due ' + fmtTime(due) : ''), 'rare');
     sfx('chime'); rebuildBoardSoon(); introStep('order'); hudDirty = true;
     return o;
   }
   // contracts: every few days a client offers a run; every order of theirs shipped on time in the window counts
   function offerContract() {
-    var client = pick(CLIENTS), need = 3 + Math.floor(S.level / 2), days = 3;
+    var client = pick(activeClients()), need = 3 + Math.floor(S.level / 2), days = 3;
     S.contract = { client: client.id, need: need, done: 0, until: (S.day + days) * 24 + 18, bonus: need * 60 + S.level * 40, penalty: 150, accepted: false, offeredDay: S.day };
     logEvent(client.name + ' offers a contract: ' + need + ' orders on time in ' + days + ' days for a ' + money(S.contract.bonus) + ' bonus. Accept it on the office PC.', 'rare'); toast('Contract offer from ' + client.name + ' on the PC', 'rare'); sfx('chime');
   }
@@ -75,8 +76,8 @@
     }
     for (var i = S.orders.length - 1; i >= 0; i--) {
       var o = S.orders[i];
-      if ((o.state === 'open' || o.state === 'packing' || o.state === 'packed') && !o.late && n > o.due) { o.late = true; addRep(-2); logEvent('Order #' + o.num + ' is late', 'bad'); rebuildBoardSoon(); }
-      if (o.state === 'open' && n > o.due + 30) { S.orders.splice(i, 1); addRep(-5); S.stats.late++; logEvent(clientName(o.client) + ' cancelled order #' + o.num, 'bad'); toast('Order #' + o.num + ' cancelled', 'bad'); rebuildBoardSoon(); }
+      if ((o.state === 'open' || o.state === 'packing' || o.state === 'packed') && !o.late && n > o.due) { o.late = true; addRep(-1); logEvent('Order #' + o.num + ' is late', 'bad'); rebuildBoardSoon(); }
+      if (o.state === 'open' && n > o.due + 30) { S.orders.splice(i, 1); addRep(-3); S.stats.late++; logEvent(clientName(o.client) + ' cancelled order #' + o.num, 'bad'); toast('Order #' + o.num + ' cancelled', 'bad'); rebuildBoardSoon(); }
     }
   }
 
@@ -134,14 +135,15 @@
   function shelfUse(src) { if (player.tool === 'cart') { if (cartLoad() >= ECON.cartCap) { sfx('bad'); return; } var kc = S.bench.parcels.indexOf(src.order); if (kc < 0) return; S.bench.parcels.splice(kc, 1); cartParcels().push(src.order); sfx('pickup'); hudDirty = true; return; } if (S.hand || player.tool) return; var k = S.bench.parcels.indexOf(src.order); if (k < 0) return; S.bench.parcels.splice(k, 1); handSet({ kind: 'parcel', order: src.order }); sfx('pickup'); }
 
   // ── Shipping ──────────────────────────────────────────────────────
-  function shipOrder(o) {
-    var late = nowAbs() > o.due, amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1));
-    pay(amount, 'Order #' + o.num + ' shipped to ' + clientName(o.client) + (late ? ' (late)' : '') + (o.short ? ' (short)' : ''));
+  function shipOrder(o, door) {   // door: the outbound door the parcel left by; the wrong lane's door pays the forwarding fee
+    var late = nowAbs() > o.due, m = orderMode(o), wrong = door !== undefined && MODES[m].door !== door, amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1) * (wrong ? MODE_FEE : 1));
+    if (wrong) S.stats.misrouted = (S.stats.misrouted || 0) + 1;
+    pay(amount, 'Order #' + o.num + ' shipped to ' + clientName(o.client) + (late ? ' (late)' : '') + (o.short ? ' (short)' : '') + (wrong ? ' (' + m + ' parcel out of ' + dockLabel(door) + ': forwarding fee)' : ''));
     if (!late && S.contract && S.contract.accepted && S.contract.client === o.client) { S.contract.done++; feedPush('Contract: ' + S.contract.done + ' of ' + S.contract.need, 'good'); }
     addRep(late ? -1 : o.rush ? 3 : 1.5); S.stats.shipped++; if (late) S.stats.late++; addXp(XP.ship);
     o.state = 'shipped'; o.shippedAt = nowAbs(); o.paid = amount;
     for (var i = 0; i < S.orders.length; i++) if (S.orders[i] === o) { S.orders.splice(i, 1); break; }
-    S.shipped.unshift({ num: o.num, client: o.client, paid: amount, late: late, short: o.short, day: S.day }); if (S.shipped.length > 40) S.shipped.pop();
+    S.shipped.unshift({ num: o.num, client: o.client, paid: amount, late: late, short: o.short, day: S.day, mode: m, wrong: wrong }); if (S.shipped.length > 40) S.shipped.pop();
     sfx('cash'); hudDirty = true;
     return amount;
   }
@@ -155,5 +157,6 @@
     if ((S.cart.parcels || []).indexOf(oid) >= 0) return true;
     if (S.pack && S.pack.out === oid) return true;
     for (var bk in (S.belts || {})) if (S.belts[bk].some(function (it) { return it.kind === 'parcel' && it.order === oid; })) return true;   // riding any belt, built-in or a piece
+    for (var sk in (S.stage || {})) if (S.stage[sk].indexOf(oid) >= 0) return true;   // staged beside a dock loader
     return false;
   }

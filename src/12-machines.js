@@ -9,11 +9,13 @@
   // every machine has a speed dial on its screen: 50 to 200 percent, kept per machine in S.speed
   var SPEED_STEPS = [0.5, 0.75, 1, 1.5, 2];
   function speedOf(key) { var v = S.speed && S.speed[key]; return typeof v === 'number' ? v : 1; }
-  function speedCycle(key) { if (!S.speed) S.speed = {}; var i = SPEED_STEPS.indexOf(speedOf(key)); S.speed[key] = SPEED_STEPS[(i + 1) % SPEED_STEPS.length]; sfx('click'); screenDirtyAll(); }
+  function speedSteps() { return S.up.plantTune ? SPEED_STEPS.concat([2.5, 3]) : SPEED_STEPS; }   // the plant tune-up opens 250 and 300%
+  function speedCycle(key) { if (!S.speed) S.speed = {}; var steps = speedSteps(), i = steps.indexOf(speedOf(key)); S.speed[key] = steps[(i + 1) % steps.length]; sfx('click'); screenDirtyAll(); }
   function speedButton(sc, x, y, w, key, label) { var pct = Math.round(speedOf(key) * 100) + '%'; scButton(sc, x, y, w, 30, w < 80 ? pct : (label || 'SPD') + ' ' + pct, true, function () { speedCycle(key); }, '#78bdf5'); }
   function beltSpeedKey(b) { return b.speedKey || b.prop; }
   function defMachine(id, m) { m.id = id; m.lamps = null; MACH[id] = m; }
-  function defBelt(id, b) { b.id = id; BELTS[id] = b; }
+  var PROP_SPEED = {};   // prop id -> the dial and the rate its belt planes scroll with (a curve's segments share the prop's)
+  function defBelt(id, b) { b.id = id; BELTS[id] = b; PROP_SPEED[b.prop] = { key: b.speedKey || b.prop, rate: b.rate || 1 }; }
   function propWorld(prop, lx, lz) { var P = propPlacement(prop), a = P.rot * Math.PI / 2; return { x: P.x + lx * Math.cos(a) + lz * Math.sin(a), z: P.z - lx * Math.sin(a) + lz * Math.cos(a), a: a }; }
   function beltLen(b) { var p = b.path, n = 0; for (var i = 1; i < p.length; i++) n += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return n; }
   function beltPoint(b, d) {   // the world point d metres along the belt
@@ -21,7 +23,8 @@
     var w0 = propWorld(b.prop, p[0][0], p[0][1]); w0.y = BELT_Y + (p[0][2] || 0); w0.ry = w0.a + (p.length > 1 ? Math.atan2(p[1][0] - p[0][0], p[1][1] - p[0][1]) : 0); return w0;
   }
   function beltItems(id) { if (!S.belts) S.belts = {}; if (!S.belts[id]) S.belts[id] = []; return S.belts[id]; }
-  function beltStartFree(id) { var it = beltItems(id); return !it.length || it[it.length - 1].d > BELT_GAP; }
+  function beltGapOf(it) { return it && it.kind === 'pallet' ? 1.3 : BELT_GAP; }   // a pallet is a metre and a bit long
+  function beltStartFree(id) { var it = beltItems(id); return !it.length || it[it.length - 1].d > beltGapOf(it[it.length - 1]); }
   function beltPush(id, item) { var b = BELTS[id]; if (b && edit.grabbed === b.prop) return false; if (!beltStartFree(id)) return false; item.d = 0; beltItems(id).push(item); return true; }   // a piece being carried in build mode takes nothing
   // Where a machine takes items in and lets them out, in the world: its inlet points (one or several, in its own frame), or a
   // fixed place for a machine that is not a prop (a dock door). A machine whose prop is not built has no points.
@@ -50,7 +53,7 @@
     for (var k in BELTS) { if (k === b.id) continue; var ob = BELTS[k]; if (!propInst[ob.prop]) continue; var sk = beltSink(ob); if (sk && sk.belt === b) return { belt: ob }; }
     for (var mk in MACH) { var mc = MACH[mk]; var pts = machinePoints(mc, 'out'); for (var i = 0; i < pts.length; i++) if (dist2(s.x, s.z, pts[i].x, pts[i].z) < R2) return { machine: mc }; }
     if (propInst.packline) { var sh = propWorld('packline', 0, 7.0); if (dist2(s.x, s.z, sh.x, sh.z) < R2) return { shelf: true }; }
-    for (var i2 = 0; i2 < 2 && doors[i2]; i2++) { var at = doorInside(i2); if (dist2(s.x, s.z, at[0], at[1]) < R2 * 1.5) return { door: i2 }; }
+    for (var i2 = 0; i2 < DOOR_MAP.length; i2++) { if (DOOR_MAP[i2].dir !== 'in' || !doors[i2]) continue; var at = doorInside(i2); if (dist2(s.x, s.z, at[0], at[1]) < R2 * 1.5) return { door: i2 }; }
     return null;
   }
   function beltLabel(b) { return propLabel(b.prop); }
@@ -61,8 +64,8 @@
   // boxes off its pallets onto a belt that starts at it, one every second or so. So a run of pieces from a rack bay to OUT 1 is a
   // loading line and a run from IN 2 to a rack bay is an unloading line, with nothing bought but the pieces.
   function doorInside(i) { var d = doors[i]; return d ? [d.side * (HALL.x - 1.2), d.z] : null; }
-  for (var dmi = 0; dmi < 4; dmi++) (function (i) {
-    defMachine('door' + i, { door: i, atFn: function () { return doorInside(i); }, accept: i < 2 ? null : function (it) {
+  for (var dmi = 0; dmi < DOOR_MAP.length; dmi++) (function (i) {
+    defMachine('door' + i, { door: i, atFn: function () { return doorInside(i); }, accept: DOOR_MAP[i].dir === 'in' ? null : function (it) {
       if (it.kind !== 'parcel' || !powered()) return false;
       var t = truckAtDoor(i); if (!t || !S.doors[i] || !doorPassable(i)) return false;
       var o = orderById(it.order); if (!o) return true;
@@ -72,8 +75,8 @@
   var dockFeedT = {};
   function tickDockFeed(dt) {
     if (!powered()) return;
-    for (var i = 0; i < 2; i++) {
-      var t = truckAtDoor(i); if (!t || !t.signed || !S.doors[i] || !doorPassable(i)) continue;
+    for (var i = 0; i < DOOR_MAP.length; i++) {
+      if (DOOR_MAP[i].dir !== 'in' || !doors[i]) continue; var t = truckAtDoor(i); if (!t || !t.signed || !S.doors[i] || !doorPassable(i)) continue;
       var at = doorInside(i), fed = null; if (!at) continue;
       for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop] || edit.grabbed === b.prop) continue; var s = beltPoint(b, 0); if (dist2(s.x, s.z, at[0], at[1]) < REACH * REACH * 1.5) { fed = b; break; } }
       if (!fed) continue;
@@ -94,8 +97,8 @@
       items.sort(function (p, q) { return q.d - p.d; });   // front of the belt first
       var ahead = Infinity;
       for (var i = 0; i < items.length; i++) {
-        var it = items[i], max = Math.min(ahead - BELT_GAP, L);
-        if (powered()) it.d = Math.min(it.d + BELT_SPEED * speedOf(beltSpeedKey(b)) * dt, max);
+        var it = items[i], max = Math.min(ahead - beltGapOf(it), L);
+        if (powered()) it.d = Math.min(it.d + BELT_SPEED * (b.rate || 1) * speedOf(beltSpeedKey(b)) * dt, max);   // rate: the deck belts run three times a floor belt
         if (it.d >= L - 0.001 && sink) {
           var taken = false;
           if (sink.belt) taken = beltPush(sink.belt.id, it); else if (sink.machine && sink.machine.accept) taken = sink.machine.accept(it); else if (sink.slot && it.kind === 'box' && slotSpace(sink.slot, it.sku) > 0) { slotAdd(sink.slot, it.sku, 1); S.stats.putaway++; taken = true; }
@@ -104,15 +107,15 @@
         ahead = it.d;
       }
     }
-    BELT_PLANES.forEach(function (pl) { if (powered()) pl.material.map.offset.y += BELT_SPEED * speedOf(/^pick/.test(pl.userData.speedKey || '') ? 'pickBelt' : pl.userData.speedKey) * dt / 0.5; });   // stripes run with the items, towards local +z
+    BELT_PLANES.forEach(function (pl) { if (!powered()) return; var pk = pl.userData.speedKey || '', ps = PROP_SPEED[pk]; pl.material.map.offset.y += BELT_SPEED * (ps ? ps.rate * speedOf(ps.key) : speedOf(/^pick/.test(pk) ? 'pickBelt' : pk)) * dt / 0.5; });   // stripes run with the items, towards local +z
   }
   // belt items are drawn with the instanced boxes and parcels, inside syncInstances
   function drawBeltItems() {
-    for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; beltItems(k).forEach(function (it) { var w = beltPoint(b, it.d); var src = { kind: 'belt', belt: k, item: it }; if (it.kind === 'parcel') putParcel(w.x, w.y + 0.23, w.z, w.ry, src); else putBox(it.sku, w.x, w.y + BOX.h / 2, w.z, w.ry, src); }); }
+    for (var k in BELTS) { var b = BELTS[k]; if (!propInst[b.prop]) continue; beltItems(k).forEach(function (it) { var w = beltPoint(b, it.d); var src = { kind: 'belt', belt: k, item: it }; if (it.kind === 'parcel') putParcel(w.x, w.y + 0.23, w.z, w.ry, src, it.form); else if (it.kind === 'pallet') drawPalletWithBoxes(it.sku, it.n, w.x, w.y + 0.02, w.z, w.ry, src); else putBox(it.sku, w.x, w.y + BOX.h / 2, w.z, w.ry, src); }); }
     if (S.pal && S.pal.n > 0 && propInst.palletiser) { var cw = propWorld('palletiser', 0, 0); drawPalletWithBoxes(S.pal.sku, S.pal.n, cw.x, 0.42, cw.z, cw.a, { kind: 'palletiser' }); }
   }
   // a box or a parcel riding a belt can be lifted off by hand
-  function beltItemPrompt(src) { if (S.hand) return null; var it = src.item; if (it.kind === 'box') return 'Take the box of ' + skuName(it.sku) + ' off the belt'; if (it.kind === 'parcel' && it.order) return 'Take the parcel off the belt'; return null; }
+  function beltItemPrompt(src) { if (S.hand) return null; var it = src.item; if (it.kind === 'pallet') return null; if (it.kind === 'box') return 'Take the box of ' + skuName(it.sku) + ' off the belt'; if (it.kind === 'parcel' && it.order) return 'Take the parcel off the belt'; return null; }
   function beltItemUse(src) { if (S.hand) return; var arr = beltItems(src.belt), i = arr.indexOf(src.item); if (i < 0) return; var it = arr[i]; if (it.kind === 'box') handSet({ kind: 'box', sku: it.sku }); else if (it.kind === 'parcel' && it.order) handSet({ kind: 'parcel', order: it.order }); else return; arr.splice(i, 1); sfx('pickup'); }
   function lampSet(m, status) { if (!m.lamps) return; m.lamps.g.visible = status === 'run'; m.lamps.a.visible = status === 'idle'; m.lamps.r.visible = status === 'jam' || status === 'off'; }
 
@@ -138,6 +141,8 @@
   function tickPack(dt) {
     if (!S.pack) S.pack = { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null };
     var P = S.pack;
+    // the automation suite: with the line idle, any order the bench can complete is started by itself every couple of seconds
+    if (S.up.plantAuto && P.auto !== false && powered() && !P.job && !P.queue.length && !P.jam && !P.out) { P.autoT = (P.autoT || 0) + dt; if (P.autoT > 2) { P.autoT = 0; var ao = openOrders().filter(canPack).sort(function (a, b) { return (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due; })[0]; if (ao && packOrder(ao)) toast('Pack line started #' + ao.num + ' by itself', ''); } }
     if (!P.job && P.queue.length) P.job = P.queue.shift();
     var j = P.job;
     if (j && !orderById(j.order)) { P.job = null; return; }
@@ -145,7 +150,7 @@
       // feed the next box onto the infeed every 1.3 s
       P.feedT += dt; if (j.fed < j.boxes.length && P.feedT >= 1.3 && beltPush('packIn', { kind: 'box', sku: j.boxes[j.fed] })) { j.fed++; P.feedT = 0; }
       // every box in: the taper runs 3 s, then a parcel comes out on the outfeed
-      if (j.inMach >= j.boxes.length) { j.t += dt * speedOf('packline'); if (j.t >= 3 && !P.out) { if (Math.random() < 0.05 * speedOf('packline')) { P.jam = true; toast('The pack line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); return; } P.out = j.order; sfx('hydraulic'); P.job = null; } }
+      if (j.inMach >= j.boxes.length) { j.t += dt * speedOf('packline'); if (j.t >= 3 && !P.out) { if (Math.random() < 0.05 * speedOf('packline') * (S.up.plantAuto ? 0 : S.up.plantTune ? 0.5 : 1)) { P.jam = true; toast('The pack line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); return; } P.out = j.order; sfx('hydraulic'); P.job = null; } }
     }
     if (P.out && powered() && !P.jam && beltPush('packOut', { kind: 'parcel', order: P.out })) P.out = null;
     // the outfeed end: the parcel drops onto the shelf when there is room
@@ -256,7 +261,7 @@
     if (!S.pack) S.pack = { queue: [], job: null, jam: false, made: 0, feedT: 0, out: null };
     if (!S.factory) S.factory = { raw: 0, product: 'dccrate', on: false, made: 0, rawOrdered: 0, t: 0, jam: false };
     if (!S.pal) S.pal = { sku: null, n: 0 };
-    tickBelts(dt); tickDockFeed(dt); tickPack(dt); tickFactory(dt);
+    tickBelts(dt); tickDockFeed(dt); tickPack(dt); tickFactory(dt); tickLift(dt); tickSorter(dt);
     if (MACH.hopper.anim && MACH.hopper.anim.tipT > 0) { var h = MACH.hopper.anim; h.tipT -= dt; h.feeder.position.x = Math.sin(worldTime * 40) * 0.01 * (h.tipT > 0 ? 1 : 0); }
     lampSet(MACH.palletiser, powered() ? (S.pal.n ? 'run' : 'idle') : 'off');
     if (world.wingLights) world.wingLights.forEach(function (l) { l.intensity = powered() ? 0.9 : 0; });
