@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.2 (2026-10-07)
+
+OUT 3 is open from the inside.
+
+**Fixes**
+- The main hall's wall lining, the block dado that runs along the inside of every wall, had cut-outs for OUT 1 and OUT 2 only, so it ran straight across the new OUT 3 opening as a one-sided wall, with one of the lining's steel columns standing in the doorway. From the hall you saw a block wall where the door was. The lining and the columns now leave the OUT 3 opening clear.
+
 ## 1.14.1 (2026-10-07)
 
 The annex halls look like halls, the Hall 2 doorway is a doorway from both sides, the office PC has room for its ten apps, and one press returns the bench surplus to the racks.
