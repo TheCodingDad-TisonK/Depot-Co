@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.22.0 (2026-10-08)
+
+Depot Co. now runs on [Co Engine](https://github.com/TheCodingDad-TisonK/Co-Engine), the engine shared with Grow Co. Nothing changes for the player: the same game, the same saves, the same controls. What changed is underneath.
+
+- The renderer, the generated palette, the prop system and build mode, the touch screens and hinged doors, the people, the route finder, the weather, the sky and the light by the hour, the HUD, the panels, the pause menu, the settings, photo mode, the save slots, the dev link and the frame loop are the engine's parts now (`node_modules/co-engine/engine`), pinned by tag in `package.json`. The depot's own parts in `src/` hold what is the depot: the ladder and the stages, the hall, the racks, the trucks, the orders, the crew, the machines, the scanner, the PC.
+- The build joins both sets of parts into one `game/depot.js`, as before; the game still runs from any static web server.
+- The pause menu's link button and the HUD badge say "editor": the game links to the Co Engine editor, or to the dev console, whichever is listening on 127.0.0.1:8432.
+
 ## 1.21.0 (2026-10-08)
 
 The expansion release: the game is split over 25 levels and the building grows with you. A new depot starts in a shed, and by level 25 every piece of the game is unlocked.

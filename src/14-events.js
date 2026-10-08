@@ -56,38 +56,22 @@
   }
 
   // ── Lighting by the hour ──────────────────────────────────────────
-  var skyNight = new THREE.Color(0x0b1020), skyDawn = new THREE.Color(0xd9916b), skyDay = new THREE.Color(0x8fb0d4), skyTmp = new THREE.Color();
-  var lightT = 0, lightT2 = null;
-  function lighting(dt) {
-    lightT += dt; if (lightT < 0.1) return; lightT = 0;
-    var t = S.time, day = clamp((t - 5.5) / 1.5, 0, 1) * clamp((21.5 - t) / 1.5, 0, 1), dawn = Math.max(0, 1 - Math.abs(t - 6.5) / 1.5) + Math.max(0, 1 - Math.abs(t - 20.5) / 1.5);
-    var az = Math.PI * (t - 6) / 16, elev = Math.sin(Math.PI * clamp((t - 6) / 16, 0, 1));
-    var W = S.weather || { kind: 'clear' }, overcast = W.kind === 'overcast' ? 0.45 : W.kind === 'rain' ? 0.65 : W.kind === 'storm' ? 0.85 : W.kind === 'snow' ? 0.55 : 0;
-    sun.position.set(Math.cos(az) * 60, 8 + elev * 80, 30 + Math.sin(az) * 20); sun.position.add(sun.target.position); sun.intensity = Math.max(0, elev) * 1.15 * (0.6 + 0.4 * day) * (1 - overcast * 0.8) + weatherFlash * 2.5;
-    sun.color.setHSL(0.09, dawn * 0.6 * (1 - overcast), 0.95 - dawn * 0.15);
-    skyTmp.copy(skyNight).lerp(skyDay, day); if (dawn > 0) skyTmp.lerp(skyDawn, dawn * 0.5 * (1 - day * 0.3));
-    if (overcast) skyTmp.lerp(new THREE.Color(0x6b7482), overcast * day * 0.8); if (weatherFlash > 0.05) skyTmp.lerp(new THREE.Color(0xffffff), weatherFlash * 0.7);
-    scene.background.copy(skyTmp); scene.fog.color.copy(skyTmp); if (yard.sky) { yard.sky.uniforms.top.value.copy(skyTmp).multiplyScalar(0.62 + overcast * 0.25); yard.sky.uniforms.mid.value.copy(skyTmp); yard.sky.uniforms.bot.value.copy(skyTmp).lerp(new THREE.Color(0xffffff), 0.4 * day * (1 - overcast * 0.5)); } scene.fog.near = 70 - overcast * 30; scene.fog.far = 190 - overcast * 90;
-    hemi.intensity = 0.12 + day * 0.35 * (1 - overcast * 0.5) + weatherFlash;
+  var lightT2 = null;
+  // the sun, the sky and the fog by the hour are the engine's (Co Engine 26-weather); it calls this with the day, the dawn, the overcast and the mains
+  hook('lighting', function (day, dawn, overcast, power) {
     if (dress.shaftMat) { dress.shaftMat.opacity = 0.16 * day * (1 - overcast * 0.9); if (dress.dust) dress.dust.material.opacity = 0.15 + 0.4 * day * (1 - overcast * 0.6); }
     yard.lampLenses.forEach(function (l) { l.material.emissiveIntensity = day < 0.5 && !S.events.power && !S.flags.yardOff ? 1.6 : 0.15; });
-    var power = !S.events.power, lamps = power && !S.flags.lightsOff ? (S.up.lights ? 1.05 : 0.8) : 0;
+    var lamps = power && !S.flags.lightsOff ? (S.up.lights ? 1.05 : 0.8) : 0;
     // the tubes do not come on at once: when the power returns or the hall is switched on they flicker up over a couple of seconds, each on its own clock
     if (!lightT2) lightT2 = {}; hallLights.forEach(function (l, i) { var want = lamps; if (want > 0) { var k = lightT2[i] = Math.min(1, (lightT2[i] || 0) + 0.1 / (1.6 + (i % 4) * 0.5)); if (k < 1) want = lamps * (k < 0.3 ? (Math.random() < 0.5 ? 0.15 : 0.7) * k * 3 : k); } else lightT2[i] = 0; l.intensity = want; });
     officeLight.intensity = power && !officeLight.userData.off ? 0.55 : 0; breakLight.intensity = power && !breakLight.userData.off ? 0.45 : 0; lobbyLight.intensity = power && !lobbyLight.userData.off ? 0.4 : 0;   // the shed has no rooms to light
-    MAT.lamp.color.setHex(power ? 0xfff6e4 : 0x3a3a3a); MAT.skylight.color.setHex(0xffffff); MAT.skylight.color.multiplyScalar(0.04 + day * 0.96);
     yardLights.forEach(function (l) { l.intensity = day < 0.5 && power && !S.flags.yardOff ? (l.userData.k || 1.3) : 0; });
     if (world.pcScreen) world.pcScreen.visible = power;
-  }
+  });
   // The sun's shadow map is a second full pass over every caster, so it is not redrawn every frame. It is redrawn four times a
   // second (a walking picker's shadow keeps up with their feet), at once when something flagged it dirty (a door moved, a prop
   // was placed), and every frame while something big is moving near you: the forklift under you, a truck on the apron, the AGV.
-  function shadowTick(dt) {
-    if (!renderer.shadowMap.enabled) return;
-    shadowT += dt;
-    var live = driving || (S.agv && S.agv.state !== 'idle' && S.up.agv) || S.trucks.some(function (t) { return (t.state === 'coming' || t.state === 'leaving') && dist2(t.x, t.z, player.x, player.z) < 60 * 60; });
-    if (shadowDirty || live || shadowT > 0.25) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; shadowT = 0; }
-  }
+  GAME.shadowLive = function () { return driving || (S.agv && S.agv.state !== 'idle' && S.up.agv) || S.trucks.some(function (t) { return (t.state === 'coming' || t.state === 'leaving') && dist2(t.x, t.z, player.x, player.z) < 60 * 60; }); };
 
   // ── Events ────────────────────────────────────────────────────────
   var evT = 0;
@@ -142,10 +126,9 @@
     el.innerHTML = '<div class="lv-head"><b>Level ' + lv + '</b><span>+' + money(bonus) + '</span></div>' + (grows ? '<div class="lv-stage">' + esc(STAGES[st].name) + ': the builders come in the morning</div>' : '') +
       '<ul>' + opens.filter(function (o) { return !/builders come in the morning/.test(o); }).map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' +
       (lv < LEVEL_CAP ? '<small>' + esc(nextLevelText()) + ' · any key closes</small>' : '<small>The ladder is climbed. Any key closes.</small>');
-    el.hidden = false; levelT = 18;
+    el.hidden = false; cards['h-level'] = 18;   // the engine's card timer: any key closes it (Co Engine 41-shell)
   }
-  function hideLevelCard() { var el = $('h-level'); if (el && !el.hidden) el.hidden = true; levelT = 0; }
-  function tickLevelCard(dt) { if (levelT > 0) { levelT -= dt; if (levelT <= 0) hideLevelCard(); } }
+  function hideLevelCard() { hideCard('h-level'); levelT = 0; }
 
   // ── The guided intro ──────────────────────────────────────────────
   // 1.21.0: written for the shed, where every new game starts. A save from the halls that is still mid-intro follows the same steps;

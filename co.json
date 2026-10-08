@@ -1,0 +1,12 @@
+{
+  "name": "Depot Co",
+  "title": "Depot Co.",
+  "out": "game/depot.js",
+  "src": "src",
+  "engine": "node_modules/co-engine/engine",
+  "page": "game/index.html",
+  "versionGlobal": "DEPOT_VERSION",
+  "background": "#0b0f14",
+  "pictures": "Depot Co",
+  "icon": "game/logo-256.png"
+}

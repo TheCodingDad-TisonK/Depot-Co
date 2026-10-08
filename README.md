@@ -84,13 +84,15 @@ For testing, a separate little program. On the Releases page it is `Depot-Co-Dev
 
 ## Building
 
+Since 1.22.0 the game runs on [Co Engine](https://github.com/TheCodingDad-TisonK/Co-Engine), the shared engine behind Grow Co. and Depot Co. `npm install` fetches the engine at the tag `package.json` pins; the build joins the engine's parts and the game's parts (`src/`) into one file.
+
 ```
-npm run build       # joins src/ into game/depot.js and writes game/version.js
-npm run check       # refuses to pass if game/depot.js is not what src/ builds
+npm run build       # joins the engine's parts and src/ into game/depot.js and writes game/version.js
+npm run check       # refuses to pass if game/depot.js is not what the parts build
 npm test            # the dev console self test, then the smoke test: boots the real game headless and climbs the whole ladder across reloads
 npm run devconsole  # the dev console window
 npm run devconsole:exe  # the dev console as one portable exe in dist/
-npm run dev         # the game, linked to the dev console from the first frame
+npm run dev         # the game, linked to the dev console (or the Co Engine editor) from the first frame
 npm run brand       # redraws the logo and wordmark
 npm run installer   # the NSIS installer in dist/ (needs the icon from npm run icon)
 ```

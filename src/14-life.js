@@ -1,42 +1,19 @@
 //@ the living world: seasons and weather, rain ambience and thunder, the break-room radio, the forklift battery, the stretch wrapper
-  // ── Seasons and weather ───────────────────────────────────────────
-  var SEASONS = ['spring', 'summer', 'autumn', 'winter'];
-  function season() { return Math.floor(((S.day - 1) % 28) / 7); }
-  function isSunday() { return S.day % 7 === 0; }
-  var weatherFlash = 0;
-  function pickWeather(first) {
-    var s = season(), r = Math.random(), kind;
-    if (s === 3) kind = r < 0.32 ? 'snow' : r < 0.62 ? 'overcast' : r < 0.9 ? 'clear' : 'rain';
-    else if (s === 1) kind = r < 0.6 ? 'clear' : r < 0.78 ? 'overcast' : r < 0.9 ? 'rain' : 'storm';
-    else kind = r < 0.42 ? 'clear' : r < 0.68 ? 'overcast' : r < 0.9 ? 'rain' : 'storm';
-    var prev = S.weather ? S.weather.kind : null;
-    S.weather = { kind: kind, wet: S.weather ? S.weather.wet : 0, snow: S.weather ? S.weather.snow : 0, wind: kind === 'storm' ? randf(0.8, 1.2) : kind === 'clear' ? randf(0.1, 0.4) : randf(0.3, 0.7), until: nowAbs() + randf(2.5, 8) };
-    if (!first && prev !== kind) {
-      var msg = kind === 'rain' ? 'Rain on the roof.' : kind === 'storm' ? 'A storm is rolling in. Mind the dock doors.' : kind === 'snow' ? 'Snow. The yard will be slow.' : kind === 'overcast' ? 'Clouds have come over.' : 'The sky has cleared.';
-      logEvent(msg, kind === 'storm' ? 'bad' : '');
-    }
-  }
-  function tickWeatherState(dt) {
-    if (!S.weather) pickWeather(true);
-    var W = S.weather;
-    if (nowAbs() > W.until) pickWeather(false);
-    var raining = W.kind === 'rain' || W.kind === 'storm';
-    W.wet = clamp(W.wet + (raining ? dt / 50 : -dt / 260), 0, 1);
-    W.snow = clamp(W.snow + (W.kind === 'snow' ? dt / 90 : season() === 3 ? -dt / 1200 : -dt / 200), 0, 1);
-    if (W.kind === 'storm' && Math.random() < dt * 0.06) { weatherFlash = 1; var delay = randf(300, 1800); setTimeout(function () { sfx('thunder'); }, delay); }
-    weatherFlash *= Math.max(0, 1 - 6 * dt);
-    ambience(raining ? (insideHall(player.x, player.z) ? 0.05 : 0.14) * (W.kind === 'storm' ? 1.4 : 1) : 0);
-  }
-  // a looping band of filtered noise is the rain; its level follows whether you are under the roof
-  var amb = { gain: null, src: null, want: 0 };
-  function ambience(level) {
-    amb.want = level;
-    if (!AC) return;
-    if (!amb.src) { var len = AC.sampleRate * 2, buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0); for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; var src = AC.createBufferSource(); src.buffer = buf; src.loop = true; var f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400; var g = AC.createGain(); g.gain.value = 0; src.connect(f); f.connect(g); g.connect(sfxBus); src.start(); amb.src = src; amb.gain = g; }
-    amb.gain.gain.setTargetAtTime(SET.sound ? level : 0, AC.currentTime, 0.4);
-  }
 
-  // ── The radio ─────────────────────────────────────────────────────
+  // ── Seasons and weather ───────────────────────────────────────────
+  // the calendar, the weather and the rain's sound are the engine's (Co Engine 26-weather): a week is seven days, a season seven
+  // days, Sunday every seventh. The depot's own words for two of the kinds, whether you stand under a roof, and the roof's height
+  // over any point (for the rain and the snow; relative to the yard, where the sky stands)
+  WEATHER_WORDS.storm = 'A storm is rolling in. Mind the dock doors.'; WEATHER_WORDS.snow = 'Snow. The yard will be slow.';
+  var SEASONS = CAL.seasons;   // the season's name, for the screens
+  GAME.indoors = function (x, z) { return insideHall(x, z); };
+  GAME.roofAt = function (x, z) {
+    if (inWing(x, z)) return WING.h + 0.3 - YARD_Y;
+    if ((Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || !!inAnnex(x, z)) return HALL.h + 0.3 - YARD_Y;
+    for (var i = 0; i < S.trucks.length; i++) { var tb = trailerBounds(S.trucks[i]); if (x > tb.x0 - 3.5 && x < tb.x1 + 3.5 && z > tb.z0 - 0.4 && z < tb.z1 + 0.4) return TRAILER.h + 0.1 - YARD_Y; }
+    return 0;
+  };
+
   // Three stations, every note synthesized: a chord progression, a bass line, hats and a kick, at the station's tempo.
   var STATIONS = [
     { name: 'Depot FM', bpm: 92, wave: 'triangle', root: 220, chords: [[0, 4, 7], [-3, 0, 4], [-5, -1, 2], [-7, -3, 0]], bass: [0, 0, 7, 5], hat: [1, 0, 1, 1, 1, 0, 1, 1], kick: [1, 0, 0, 0, 1, 0, 1, 0] },
@@ -161,6 +138,6 @@
   }
 
   function tickLife(dt) {
-    if (!ui.started || ui.blocked()) { weatherFlash = 0; return; }   // a lightning flash must not freeze on screen behind the pause menu
+    if (!ui.started || ui.blocked()) { weatherFlash = 0; CO.flash = 0; return; }   // a lightning flash must not freeze on screen behind the pause menu
     tickWeatherState(dt); tickRadio(); tickBattery(dt); tickWrapper(dt); tickCables(dt); tickMachines(dt);
   }

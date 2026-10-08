@@ -1,9 +1,8 @@
-//@ props: every movable thing is a definition with a default spot; build mode (F2) moves, turns, removes, restores and adds them
+//@ props: the depot's definitions and its answers to the engine's prop system (stages, walls, the site, belt snapping); build mode is the engine's
   // ── The prop system ───────────────────────────────────────────────
   // A prop is built by defProp(id, { label, x, z, rot, cat, wall, price, build(ctx, P) }). Its placement is the default from the
   // definition unless S.layout[id] overrides it. Bought extras live in S.custom as { id, type, x, z, rot }. Rotation is in quarter
   // turns. Each prop builds into its own group, so moving it is: remove the instance, build it again at the new spot.
-  var PROPS = {}, PROP_ORDER = [], propInst = {};
   // defaults were authored for the 40 x 28 hall; the hall grew by 10 m on every side, so anything near a wall follows its wall
   function grown(v) { return BOOT_STAGE >= 2 && Math.abs(v) >= 8 ? v + (v < 0 ? -HALL_GROW : HALL_GROW) : v; }
   var HALL_GROW = 10;   // the first growth (40 to 60 m wide); the second is wallX in the config. Nothing grows below the hall stage (1.21.0)
@@ -11,59 +10,35 @@
   // rules: a 40-frame default (not abs) is used raw in the small hall, grown in the hall, grown and wall-shifted in the big halls;
   // a 60-frame default (abs) is pulled in by ungrown for the small hall; a 72-frame default (abs, keep) first by unwallX. stage: the
   // first stage the prop stands at; lvl: the level it appears at; shed: it stands in the shed too (otherwise only at[0] puts a prop there)
-  function defProp(id, def) {
+  GAME.resolveDef = function (id, def) {
     var at = def.at && def.at[BOOT_STAGE];
     if (at) { for (var k in at) def[k] = at[k]; }
     else if (typeof def.x === 'number') {
       if (BOOT_STAGE >= 2) { if (!def.abs) { def.x = grown(def.x); def.z = grown(def.z); } if (!def.keep && !/^gantry/.test(id)) def.x = wallX(def.x, def.z, !!def.yard); else if (BOOT_STAGE === 2 && def.keep && !def.yard) def.x = unwallX(def.x); }   // the side walls moved out: wall-side props follow
       else if (BOOT_STAGE === 1 && def.abs) { if (def.keep) def.x = unwallX(def.x); def.x = ungrown(def.x); def.z = ungrown(def.z); }
     }
-    def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
-  // does this prop stand at the stage the page booted at, and at the level the save is at
+    if (/^rack/.test(id)) def.noBlob = true;   // a rack row casts no contact blob
+    // a belt piece: it snaps to belt ends and machines while carried (beltSnap), says its own placing line (the propPlaced hook), and
+    // registers its belt before its build runs, the way it always did
+    if (def.beltPath) { def.snap = beltSnap; def.quietPlace = true; var build0 = def.build; def.build = function (ctx, P, inst) { var bh = P.h || 0; BELTS[inst.id] = { id: inst.id, prop: inst.id, path: def.beltPath.map(function (p) { return [p[0], p[1], (p[2] || 0) + bh, p[3]]; }), speedKey: 'belts', piece: true }; return build0(ctx, P, inst); }; }
+  };
+  // does this prop stand at the stage the page booted at, and at the level the save is at (the engine asks through propAllowed)
   function propStageOk(id) { var d = PROPS[id]; if (!d) return true; if (d.extra) return true; if (typeof d.stage === 'number' && BOOT_STAGE < d.stage) return false; if (BOOT_STAGE === 0 && !d.shed && !(d.at && d.at[0])) return false; if (typeof d.lvl === 'number' && S.level < d.lvl) return false; return true; }
+  GAME.propAllowed = function (id, d) { return propStageOk(id); };
   // a level reached: the props that appear at it stand up at once (the time clock at 2, the flask at 4, the returns desk at 8)
   function applyLevelUnlocks(level) { PROP_ORDER.forEach(function (id) { var d = PROPS[id]; if (!d.extra && d.lvl === level && propStageOk(id) && (!d.when || d.when()) && !propInst[id]) buildProp(id); }); if (BOOT_STAGE === 0 && level <= RACK.bays) { buildRack(0); NAV.dirty = true; } if (!edit.on) { unbakeStatic(); bakeStatic(); } }
-  function propDef(id) { if (PROPS[id]) return PROPS[id]; var c = customById(id); return c ? PROPS[c.type] : null; }
-  function customById(id) { return (S.custom || []).filter(function (c) { return c.id === id; })[0] || null; }
-  function propPlacement(id) {
-    var d = PROPS[id], c = customById(id), o = (S.layout && S.layout[id]) || {};
-    if (c) return { x: typeof o.x === 'number' ? o.x : c.x, z: typeof o.z === 'number' ? o.z : c.z, rot: typeof o.rot === 'number' ? o.rot : (c.rot || 0), h: typeof o.h === 'number' ? o.h : (c.h || 0), hidden: !!o.hidden, custom: true };
-    return { x: typeof o.x === 'number' ? o.x : d.x, z: typeof o.z === 'number' ? o.z : d.z, rot: typeof o.rot === 'number' ? o.rot : (d.rot || 0), h: o.h || 0, hidden: !!o.hidden, custom: false };
-  }
-  function propLabel(id) { var d = propDef(id); return d ? d.label : id; }
-  function rotAABB(o, rot) {
-    var pts = [[o.x0, o.z0], [o.x1, o.z0], [o.x0, o.z1], [o.x1, o.z1]], a = rot * Math.PI / 2, c = Math.cos(a), s = Math.sin(a), xs = [], zs = [];
-    pts.forEach(function (p) { xs.push(p[0] * c + p[1] * s); zs.push(-p[0] * s + p[1] * c); });
-    return { x0: Math.min.apply(null, xs), x1: Math.max.apply(null, xs), z0: Math.min.apply(null, zs), z1: Math.max.apply(null, zs) };
-  }
-  function propCtx(g, id) {
-    var obs = [];
-    var ctx = {
-      group: g, obstacles: obs,
-      box: function (w, h, d, mat, x, y, z) { return box(w, h, d, mat, x, y, z, g); },
-      cyl: function (r, h, mat, x, y, z, seg, rb) { return cyl(r, h, mat, x, y, z, g, seg, rb); },
-      sphere: function (r, mat, x, y, z) { return sphere(r, mat, x, y, z, g); },
-      plane: function (w, h, mat, x, y, z, rx, ry) { return plane(w, h, mat, x, y, z, rx, ry, g); },
-      sign: function (lines, w, h, x, y, z, ry, opt) { return sign(lines, w, h, x, y, z, ry, opt, g); },
-      poster: function (kind, w, h, x, y, z, ry) { return poster(kind, w, h, x, y, z, ry, g); },
-      hit: function (w, h, d, x, y, z, def) { var m = hitBox(w, h, d, x, y, z, def, g); m.userData.propId = id; return m; },
-      solid: function (x0, x1, z0, z1, y0, y1) { obs.push({ x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1), y0: y0 === undefined ? -1 : y0, y1: y1 === undefined ? 3 : y1 }); },
-      add: function (m) { g.add(m); return m; }
-    };
-    return ctx;
-  }
-  function removePropInst(id) {
-    var inst = propInst[id]; if (!inst) return;
-    inst.g.traverse(function (o) { var k = inter.indexOf(o); if (k >= 0) inter.splice(k, 1); if (o.isMesh && o.geometry && !o.userData.sharedGeo) { /* geometry from boxGeo is cached and shared: do not dispose */ } });
-    scene.remove(inst.g);
+  // the engine's prop system (Co Engine 20-props) builds, moves and removes the props; the depot adds a poster placer to the build
+  // context and keeps its own lists (lamps, clocks, fans, belt planes) in step with removals
+  hook('propCtx', function (ctx, g, id) { ctx.poster = function (kind, w, h, x, y, z, ry) { return poster(kind, w, h, x, y, z, ry, g); }; });
+  hook('propRemoved', function (id, inst) {
     var inGroup = function (o) { for (var p = o; p; p = p.parent) if (p === inst.g) return true; return false; };
     yard.lampLenses = yard.lampLenses.filter(function (l) { return !inGroup(l); }); for (var yl = yardLights.length - 1; yl >= 0; yl--) if (inGroup(yardLights[yl])) yardLights.splice(yl, 1);
-    dress.clocks = dress.clocks.filter(function (c) { return !c.group || !inGroup(c.group); }); for (var si = screens.length - 1; si >= 0; si--) if (inGroup(screens[si].mesh)) screens.splice(si, 1);
+    dress.clocks = dress.clocks.filter(function (c) { return !c.group || !inGroup(c.group); });
     dress.fans = dress.fans.filter(function (f) { return !inGroup(f); }); if (dress.fanHeads) dress.fanHeads = dress.fanHeads.filter(function (f) { return !inGroup(f); });   // a standing fan that is moved leaves no hub spinning off-scene
     BELT_PLANES = BELT_PLANES.filter(function (p) { return !inGroup(p); });
-    for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1);
-    delete propInst[id]; NAV.dirty = true; beltsChanged();
-  }
+    beltsChanged();
+  });
+  hook('propBuilt', function (id, inst, def) { beltsChanged(); });
   // a belt piece that is going for good: whatever rides it is set down on the floor where it was
   function beltSpill(id) {
     var b = BELTS[id]; if (!b) return; var placed = !!(customById(id) || PROPS[id]);   // no record any more: set them down at your feet rather than ask a missing prop where it stood
@@ -71,47 +46,15 @@
     beltItems(id).length = 0;
     delete S.belts[id]; delete BELTS[id]; beltsChanged();
   }
-  function buildProp(id) {
-    removePropInst(id);
-    var def = propDef(id); if (!def) return null; if (!propStageOk(id)) return null;   // a prop of a later stage or level: not here, whoever asks
-    var P = propPlacement(id), g = new THREE.Group(); g.userData.propId = id; g.position.set(P.x, typeof def.y === 'number' ? def.y : propGroundY(P.x, P.z), P.z); g.rotation.y = P.rot * Math.PI / 2;   // a def may fix its height: an annex rack's origin falls outside its hall
-    var ctx = propCtx(g, id), inst = { id: id, g: g, P: P, ctx: ctx };
-    if (!P.hidden) propInst[id] = inst;   // a removed prop is not on the list: nothing then counts a hidden machine as standing
-    if (!P.hidden) {
-      def.build(ctx, P, inst);
-      if (def.beltPath) { var bh = P.h || 0; BELTS[id] = { id: id, prop: id, path: def.beltPath.map(function (p) { return [p[0], p[1], (p[2] || 0) + bh, p[3]]; }), speedKey: 'belts', piece: true }; }
-      g.traverse(function (o) { if (o.isMesh) o.userData.propId = id; });
-      ctx.obstacles.forEach(function (o) { var r = rotAABB(o, P.rot); solids.push({ x0: P.x + r.x0, x1: P.x + r.x1, z0: P.z + r.z0, z1: P.z + r.z1, y0: o.y0, y1: o.y1, prop: id }); });
-      if (def.after) def.after(ctx, P, inst);
-      if (!def.wall && !def.fixed && !/^rack/.test(id) && ctx.obstacles.length) { var fx0 = 1e9, fx1 = -1e9, fz0 = 1e9, fz1 = -1e9; ctx.obstacles.forEach(function (o) { fx0 = Math.min(fx0, o.x0); fx1 = Math.max(fx1, o.x1); fz0 = Math.min(fz0, o.z0); fz1 = Math.max(fz1, o.z1); }); groundBlob((fx1 - fx0) * 1.5 + 0.3, (fz1 - fz0) * 1.5 + 0.3, (fx0 + fx1) / 2, (fz0 + fz1) / 2, g, 0); }
-    }
-    scene.add(g); NAV.dirty = true; shadowDirty = true; beltsChanged();
-    return inst;
-  }
-  function buildProps() { PROP_ORDER.forEach(function (id) { if (!PROPS[id].extra && propStageOk(id) && (!PROPS[id].when || PROPS[id].when())) buildProp(id); }); (S.custom || []).forEach(function (c) { if (PROPS[c.type]) buildProp(c.id); }); }
-  function propGroundY(x, z) { if (insideHall(x, z)) return 0; for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state === 'docked' && !t.van) { var b = trailerBounds(t); if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return 0; } } return YARD_Y; }
-  function propIdOf(obj) { for (var o = obj; o; o = o.parent) if (o.userData && o.userData.propId) return o.userData.propId; return null; }
+  GAME.groundY = function (x, z) { if (insideHall(x, z)) return 0; for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state === 'docked' && !t.van) { var b = trailerBounds(t); if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return 0; } } return YARD_Y; };
 
   // ── Build mode ────────────────────────────────────────────────────
-  var edit = { on: false, grabbed: null, helper: null, snap: true, wallAim: null, snapCycle: 0, grabRot: 0 };   // snapCycle: which snap (or free heading) R has walked to for the carried belt piece
-  function editToggle() {
-    if (!edit.on && !unlocked('build')) { toast('Build mode comes with the hall at level ' + UNLOCK.build + '.', 'bad'); sfx('bad'); return; }   // the ladder (1.21.0)
-    if (edit.grabbed) editDrop(true);
-    edit.on = !edit.on;
-    var eb = $('h-edit'); if (eb) { eb.hidden = !edit.on; }
-    if (edit.on) { unbakeStatic(); focus = null; toast('🛠️ Build mode: aim at a prop and E grabs it · R turns · Backspace puts it back · Del removes · C is the catalogue · F2 done', ''); }
-    else { if (edit.helper) { scene.remove(edit.helper); edit.helper = null; } bakeStatic(); save(); toast('Layout saved', 'good'); }
-    sfx('click'); hudDirty = true;
-  }
-  function editHelper(obj, col) {
-    if (!obj) { if (edit.helper) edit.helper.visible = false; return; }
-    if (edit.helper && edit.helper.userData.col !== col) { scene.remove(edit.helper); edit.helper = null; }
-    if (!edit.helper) { edit.helper = new THREE.BoxHelper(obj, col); edit.helper.userData.col = col; scene.add(edit.helper); }
-    edit.helper.visible = true; edit.helper.setFromObject(obj);
-  }
+  // build mode is the engine's (Co Engine 20-props); the ladder gates it and the depot names its walls and its site
+  var canEditToastAt = -10;
+  GAME.canEdit = function () { if (unlocked('build')) return true; if (worldTime - canEditToastAt > 0.5) { canEditToastAt = worldTime; toast('Build mode comes with the hall at level ' + UNLOCK.build + '.', 'bad'); sfx('bad'); } return false; };   // the ladder (1.21.0)
   // where the carried prop goes: the point on the floor the player aims at, or 2.6 m ahead; wall props sit on the nearest wall face
   var WALLS = [];
-  function wallPlanes() {
+  function depotWallPlanes() {
     var X = HALL.x, Z = HALL.z;
     if (!WALLS.length) {
       WALLS.push({ a: 'x', v: -X + 0.17, n: 1, z0: -Z, z1: Z }, { a: 'x', v: X - 0.17, n: -1, z0: -Z, z1: Z }, { a: 'z', v: -Z + 0.17, n: 1, x0: -X, x1: X }, { a: 'z', v: Z - 0.17, n: -1, x0: -X, x1: X });
@@ -126,6 +69,7 @@
     for (var hk in HALLS) if (hallOwned(hk)) { var H = HALLS[hk]; out.push({ a: 'x', v: H.x0 + 0.17, n: 1, z0: H.z0, z1: H.z1 }, { a: 'x', v: H.x1 - 0.17, n: -1, z0: H.z0, z1: H.z1 }, { a: 'z', v: H.z0 + 0.17, n: 1, x0: H.x0, x1: H.x1 }, { a: 'z', v: H.z1 - 0.17, n: -1, x0: H.x0, x1: H.x1 }); }
     return out;
   }
+  GAME.wallPlanes = depotWallPlanes;
   // where a prop stands, in words, for the catalogue's Removed list (five props are all "fire extinguisher")
   function propWhere(id) {
     var P = propPlacement(id), x = P.x, z = P.z;
@@ -134,27 +78,13 @@
     if (Math.abs(x) < HALL.x + 0.5 && Math.abs(z) < HALL.z + 0.5) { var zs = HALL.z - 24, zn = 24 - HALL.z; if (!stageHas('rooms')) return 'the shed'; if (z > 18.3 + zs && x > HALL.x - 7.7) return 'office'; if (z > 18.3 + zs && x < -HALL.x + 4.7) return 'lobby'; if (z < -20 + zn && x < -HALL.x + 7.2) return 'break room'; return 'main hall' + (x < -12 ? ', west side' : x > 12 ? ', east side' : z < -12 ? ', north' : z > 12 ? ', south' : ''); }   // the rooms slide with the walls (1.21.0)
     return 'yard' + (z > HALL.z + 2 ? ', south' : z < -HALL.z - 2 ? ', north' : x < 0 ? ', west' : ', east');
   }
-  // a prop's own dice: the same throw every time it is built, so a bought picture keeps its print and a tree its size through every move, turn and reload
-  function propSeed(id, k) { var s = String(id) + ':' + (k || 0), n = 2166136261; for (var i = 0; i < s.length; i++) { n ^= s.charCodeAt(i); n = Math.imul(n, 16777619) >>> 0; } return (n % 100000) / 100000; }
-  function seededF(id, k, a, b) { return a + propSeed(id, k) * (b - a); }
-  function editAim(def) {
-    ray.setFromCamera(centre, camera);
-    var dir = ray.ray.direction, o = ray.ray.origin, y = Math.max(YARD_Y, floorY(player.x, player.z)), pt;
-    var t = (y - o.y) / dir.y;
-    if (dir.y < -0.05 && t > 0 && t < 10) pt = o.clone().add(dir.clone().multiplyScalar(t));
-    else { var flat = dir.clone(); flat.y = 0; flat.normalize(); pt = o.clone().add(flat.multiplyScalar(2.6)); pt.y = y; }
-    var sn = function (v) { return edit.snap ? Math.round(v * 20) / 20 : v; };
-    if (def.beltPath) { var bs = beltSnap(def, pt, edit.grabbed); edit.snapText = bs ? bs.text : ''; if (bs) return bs; }
-    if (def.wall) {
-      var best = null, bd = 2.5;
-      wallPlanes().forEach(function (w) { var d = w.a === 'x' ? Math.abs(pt.x - w.v) : Math.abs(pt.z - w.v); var within = w.a === 'x' ? (pt.z > w.z0 && pt.z < w.z1) : (pt.x > w.x0 && pt.x < w.x1); if (within && d < bd) { bd = d; best = w; } });
-      if (best) { if (best.a === 'x') return { x: best.v, z: sn(pt.z), rot: best.n > 0 ? 1 : 3, wall: true }; return { x: sn(pt.x), z: best.v, rot: best.n > 0 ? 0 : 2, wall: true }; }
-    }
-    if (!def.yard && insideHall(pt.x, pt.z)) return { x: sn(pt.x), z: sn(pt.z), rot: null, wall: false };   // the wing and the annex halls are rooms too
+  GAME.propWhere = propWhere;
+  // where a carried prop may go: anywhere inside a room; otherwise within the hall's or the yard's limits (the engine snaps and places)
+  GAME.editClamp = function (pt, def) {
+    if (!def.yard && insideHall(pt.x, pt.z)) return { x: pt.x, z: pt.z };   // the wing and the annex halls are rooms too
     var lim = def.yard ? 80 : HALL.x - 0.4, limz = def.yard ? 60 : HALL.z - 0.4;
-    return { x: clamp(sn(pt.x), -lim, lim), z: clamp(sn(pt.z), -limz, limz), rot: null, wall: false };
-  }
-  // Where a carried belt piece snaps. Anchors are gathered fresh each time: free belt ends, machine outlets, the parcel shelf
+    return { x: clamp(pt.x, -lim, lim), z: clamp(pt.z, -limz, limz) };
+  };
   // and the inbound doors feed a piece (its start goes there); free belt starts, machine inlets, the outbound doors and the
   // rack bays take from a piece (its end goes there). The nearest anchor within two metres of the aim wins; the piece turns
   // to run with it, and climbs or drops to its height. A belt end that already feeds something, or a start already fed, is skipped.
@@ -178,77 +108,12 @@
     var rot2 = best.dir === null ? cur : wrap4((best.dir - endDir) / q), a2 = rot2 * q, ex = last[0] * Math.cos(a2) + last[1] * Math.sin(a2), ez = -last[0] * Math.sin(a2) + last[1] * Math.cos(a2);
     return { x: best.x - ex, z: best.z - ez, rot: rot2, h: Math.round((best.y - BELT_Y - (last[2] || 0)) * 100) / 100, wall: false, text: 'Snapped: feeds ' + best.what + step };
   }
-  function ghostProp(id) { propInst[id].g.traverse(function (o) { if (o.isMesh && o.material && o.material.clone && !o.userData.ghosted) { o.userData.origMat = o.material; o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.5; o.material.depthWrite = false; o.castShadow = false; o.userData.ghosted = true; } }); }
-  function editTick() {
-    if (!edit.on) return;
-    if (edit.grabbed) {
-      var inst = propInst[edit.grabbed]; if (!inst) { edit.grabbed = null; return; }
-      var def = propDef(edit.grabbed), aim = editAim(def);
-      // a belt piece snapped at another height is rebuilt at that height, legs and all, while it is still being carried
-      if (def.beltPath && typeof aim.h === 'number' && Math.abs((inst.P.h || 0) - aim.h) > 0.01) { var cc = customById(edit.grabbed); if (cc) cc.h = aim.h; if (S.layout && S.layout[edit.grabbed]) S.layout[edit.grabbed].h = aim.h; buildProp(edit.grabbed); inst = propInst[edit.grabbed]; inst.P.h = aim.h; for (var si = solids.length - 1; si >= 0; si--) if (solids[si].prop === edit.grabbed) solids.splice(si, 1); ghostProp(edit.grabbed); }
-      inst.g.position.set(aim.x, propGroundY(aim.x, aim.z), aim.z); if (aim.rot !== null && (def.wall || def.beltPath)) { inst.P.rot = aim.rot; inst.g.rotation.y = aim.rot * Math.PI / 2; }
-      editHelper(inst.g, 0xf5b53d);
-    } else if (focus && focus.editId && propInst[focus.editId]) editHelper(propInst[focus.editId].g, 0x5fd38d);
-    else editHelper(null);
-  }
-  function editGrab(id) {
-    if (edit.grabbed || !propInst[id]) return;
-    var def = propDef(id); if (def.fixed) { toast('That one stays where it is.', 'bad'); return; }
-    edit.grabbed = id; edit.snapText = ''; edit.snapCycle = 0; edit.grabRot = propInst[id].P.rot || 0; for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1); NAV.dirty = true;
-    ghostProp(id);
-    sfx('pickup'); toast('Carrying the ' + propLabel(id) + ' · E places · R turns · Esc drops it back' + (def.beltPath ? ' · it snaps to belt ends, machines, doors and rack bays' : ''), '');
-  }
-  function editDrop(cancel) {
-    var id = edit.grabbed; if (!id) return; edit.grabbed = null; edit.snapText = '';
-    var inst = propInst[id], def = propDef(id);
-    if (!cancel && inst) { if (!S.layout) S.layout = {}; S.layout[id] = { x: Math.round(inst.g.position.x * 100) / 100, z: Math.round(inst.g.position.z * 100) / 100, rot: inst.P.rot, h: inst.P.h || 0 }; sfx('putdown'); }
-    buildProp(id); editHelper(null); save();
-    if (!cancel && inst) { if (def && def.beltPath && BELTS[id]) { var fd = feederLabel(beltFeeder(BELTS[id])), sk = sinkLabel(beltSink(BELTS[id])); toast('Placed the ' + propLabel(id) + (fd ? ' · takes from ' + fd : ' · nothing feeds it yet') + (sk ? ' · feeds ' + sk : ' · ends in the open'), fd || sk ? 'good' : ''); } else toast('Placed the ' + propLabel(id), 'good'); }
-  }
-  function editRotate(pid) {
-    var id = pid || edit.grabbed || (focus && focus.editId); if (!id || !propInst[id]) return;
-    var inst = propInst[id], def = propDef(id); if (def && def.fixed) { toast('That one stays where it is.', 'bad'); return; } if (def.wall && !edit.grabbed) { toast('Wall pieces face the wall.', ''); return; }
-    if (edit.grabbed && def.beltPath) { edit.snapCycle++; sfx('click'); return; }   // a carried belt piece: R walks the snaps near the aim, then the four free headings; beltSnap applies it
-    inst.P.rot = (inst.P.rot + 1) % 4; inst.g.rotation.y = inst.P.rot * Math.PI / 2; sfx('click');
-    if (!edit.grabbed) { if (!S.layout) S.layout = {}; S.layout[id] = { x: inst.g.position.x, z: inst.g.position.z, rot: inst.P.rot }; buildProp(id); save(); }
-  }
-  function editReset(pid) {
-    var id = pid || edit.grabbed || (focus && focus.editId); if (!id) return; if (propDef(id) && propDef(id).fixed) { toast('That one stays where it is.', 'bad'); return; }
-    if (edit.grabbed) edit.grabbed = null;
-    if (S.layout) delete S.layout[id]; buildProp(id); editHelper(null); sfx('ok'); toast('Put the ' + propLabel(id) + ' back where it started', 'good'); save();
-  }
-  function editRemove(pid) {
-    var id = pid || edit.grabbed || (focus && focus.editId); if (!id) return; if (propDef(id) && propDef(id).fixed) { toast('That one stays where it is.', 'bad'); return; }
-    var c = customById(id);
-    if (edit.grabbed) edit.grabbed = null;
-    if (c) { var def = PROPS[c.type]; if (def && def.beltPath) beltSpill(id); S.custom.splice(S.custom.indexOf(c), 1); removePropInst(id); if (def && def.beltPath) { delete BELTS[id]; if (S.belts) delete S.belts[id]; } if (def && def.price) { pay(Math.round(def.price / 2), 'Sold back: ' + def.label); toast('Sold the ' + def.label + ' back for half', ''); } }
-    else { if (!S.layout) S.layout = {}; S.layout[id] = S.layout[id] || {}; S.layout[id].hidden = true; buildProp(id); toast('Removed the ' + propLabel(id) + ' (the catalogue brings it back)', ''); }
-    editHelper(null); sfx('bad'); save();
-  }
-  function editRestore(id) { if (S.layout && S.layout[id]) { delete S.layout[id].hidden; } buildProp(id); sfx('ok'); toast('The ' + propLabel(id) + ' is back', 'good'); save(); }
-  function editBuy(type) {
-    var def = PROPS[type]; if (!def || !def.extra) return; if (typeof def.lvl === 'number' && S.level < def.lvl) { toast('That comes at level ' + def.lvl + '.', 'bad'); return; }
-    if (def.price && S.bank < def.price) { toast('That costs ' + money(def.price) + ' and you have ' + money(S.bank), 'bad'); return; }
-    if (def.price) pay(-def.price, 'Bought: ' + def.label);
-    if (!S.custom) S.custom = [];
-    var aim = editAim(def), c = { id: uid('cp'), type: type, x: aim.x, z: aim.z, rot: aim.rot || 0, h: aim.h || 0 }; S.custom.push(c);
-    buildProp(c.id); closePanel(); editGrab(c.id); toast('Carrying the ' + def.label + ' · aim and press E', '');
-  }
-  // the catalogue (C): removed props to bring back, and extras to buy
-  var CAT_GROUPS = [['belt', '🛤 Conveyors: lay a line from parts. A piece snaps to belt ends, machines, dock doors and rack bays as you carry it.'], ['room', '🛋 Break room and office'], ['hall', '🏭 The hall'], ['wall', '🖼 On the wall'], ['yard', '🌳 The yard']];
-  function catalogueHtml() {
-    var h = '<p>Build mode. Press <kbd>E</kbd> on a prop to carry it, <kbd>R</kbd> to turn it (a carried belt piece first walks through the snap points near your aim, then turns freely), <kbd>Backspace</kbd> to put it back where it started, <kbd>Del</kbd> to remove it. Bought extras sell back for half.</p>';
-    var hidden = PROP_ORDER.filter(function (id) { return !PROPS[id].extra && propPlacement(id).hidden; });
-    if (hidden.length) h += '<h3>Removed</h3><div class="dc-grid">' + hidden.map(function (id) { return '<div class="dc-card"><div class="body"><b>' + esc(PROPS[id].label) + '</b><small>' + esc(propWhere(id)) + '</small></div>' + btn('restore', id, 'Bring back', 'primary') + '</div>'; }).join('') + '</div>';
-    CAT_GROUPS.forEach(function (gr) {
-      var items = PROP_ORDER.filter(function (id) { return PROPS[id].extra && PROPS[id].cat === gr[0] && (typeof PROPS[id].lvl !== 'number' || S.level >= PROPS[id].lvl); }); if (!items.length) { var lk = PROP_ORDER.filter(function (id) { return PROPS[id].extra && PROPS[id].cat === gr[0]; }).map(function (id) { return PROPS[id].lvl || 1; }); if (lk.length) h += '<h3>' + gr[1] + ' <small style="color:var(--muted);font-weight:normal">from level ' + Math.min.apply(null, lk) + '</small></h3>'; return; }
-      h += '<h3>' + gr[1] + (gr[0] === 'room' ? ' <small style="color:var(--muted);font-weight:normal">' + esc(comfortText()) + '</small>' : '') + '</h3><div class="dc-grid">' + items.map(function (id) { var d = PROPS[id]; return '<div class="dc-card"><div class="body"><b>' + (d.ico || '') + ' ' + esc(d.label) + '</b><small>' + esc(d.desc || '') + '</small></div><div style="text-align:right"><div class="price">' + (d.price ? money(d.price) : 'free') + '</div>' + btn('buy', id, 'Add', 'primary', d.price > S.bank) + '</div></div>'; }).join('') + '</div>';
-    });
-    return h;
-  }
+  // a placed belt piece says what feeds it and what it feeds; a removed one sets its load down first
+  hook('propPlaced', function (id, inst, def) { if (def && def.beltPath && BELTS[id]) { var fd = feederLabel(beltFeeder(BELTS[id])), sk = sinkLabel(beltSink(BELTS[id])); toast('Placed the ' + propLabel(id) + (fd ? ' · takes from ' + fd : ' · nothing feeds it yet') + (sk ? ' · feeds ' + sk : ' · ends in the open'), fd || sk ? 'good' : ''); } });
+  hook('propDeleted', function (id, def) { if (def && def.beltPath) beltSpill(id); });
+  var CAT_GROUPS = [['belt', '🛤 Conveyors: lay a line from parts. A piece snaps to belt ends, machines, dock doors and rack bays as you carry it.'], ['room', '🛋 Break room and office', comfortText], ['hall', '🏭 The hall'], ['wall', '🖼 On the wall'], ['yard', '🌳 The yard']];
+  GAME.catalogueGroups = CAT_GROUPS;   // the engine draws the catalogue from these (Co Engine 41-shell)
 
-  // ── Static bake: props are merged too, and come apart again for build mode ───
-  function unbakeStatic() { baked.meshes.forEach(function (m) { scene.remove(m); m.geometry.dispose(); }); baked.meshes = []; baked.draws = 0; baked.hidden = 0; scene.traverse(function (o) { if (o.userData.bakedAway) { o.visible = true; o.userData.bakedAway = false; } }); }
 
   // ── The definitions ───────────────────────────────────────────────
   // Local coordinates: the prop's origin is on the floor at the middle of its footprint; +z is its front. rot turns it in quarters.

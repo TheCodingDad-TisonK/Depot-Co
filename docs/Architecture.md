@@ -1,6 +1,6 @@
 # Architecture
 
-Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built from the parts in `src/`. three.js r128 is vendored in `game/vendor/three`. There are no other dependencies at run time.
+Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built from two sets of parts: [Co Engine](https://github.com/TheCodingDad-TisonK/Co-Engine)'s (`node_modules/co-engine/engine/`: the renderer, the palette, props and build mode, doors and screens, people, the route finder, weather and light, the shell, the player, the save, the dev link, the boot) and the game's own in `src/`. The engine's parts go first, the game's after; a game part may use any engine name. three.js r128 is vendored in `game/vendor/three`. There are no other dependencies at run time. Since 1.22.0; before it the whole closure lived in `src/`.
 
 ## Files
 
@@ -8,9 +8,9 @@ Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built fro
 |---|---|
 | `game/index.html` | The page: splash, start card, HUD, scanner, panel, pause menu. Loads the scripts in order. |
 | `game/depot.css` | Every style. Tokens at the top. |
-| `game/depot.js` | **Generated** from `src/` by `tools/build-game.js`. Never edit it by hand. |
+| `game/depot.js` | **Generated** from the engine's parts and `src/` by the engine's `tools/build-game.js` (`npm run build`). Never edit it by hand. |
 | `game/menu.js` | The splash and the main menu with the three save slots. Talks to the game through `window.DEPOT`. |
-| `game/version.js` | **Generated** from `package.json` by `tools/sync-version.js`. |
+| `game/version.js` | **Generated** from `package.json` by the engine's `tools/sync-version.js` (`co.json` names the global, `DEPOT_VERSION`). |
 | `game/logo-256.png`, `logo.png`, `wordmark.png` | **Generated** by `tools/render-brand.js` (a canvas drawing in a hidden Electron window). |
 | `main.js` | The Electron shell: one window, no menu bar, screenshots to `Pictures\Depot Co`. `--dev-link` starts the game linked to the dev console. |
 | `tools/smoke.js` | `npm test`. Boots the real page headless and climbs the ladder across reloads: seven scenarios in `tools/smoke-*.js` (the shed, the small hall, the hall, the big hall, the annexes, the far end, a 1.20 save), each a template literal evaluated in the page with the shared prologue from `tools/smoke-lib.js`. A scenario ends by sleeping, which books the next building; the runner reloads the page the way the game would and the next scenario carries on with that save. A check message must not carry an escaped apostrophe (the literal eats the backslash and the quote closes early). |
@@ -18,37 +18,34 @@ Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built fro
 
 ## The parts of `src/`
 
-They join in file-name order into one function scope, so every `function` is hoisted and visible to every other part. The build refuses to join two top-level functions with the same name.
+They join in file-name order, after the engine's parts, into one function scope, so every `function` is hoisted and visible to every other part. The build refuses to join two top-level functions with the same name, on either side. The game talks to the engine through `GAME` (the hook object `CO.game`, made in `01-head`, filled by every part) and the hook bus (`hook(name, fn)`); `docs/ENGINE.md` in the engine repo is the contract. `co.json` at the repo root names the paths (the engine folder, `src/`, the output, the page, the version global).
 
 | Part | Holds |
 |---|---|
-| `01-head` | The closure, utilities, the save key for the active slot, `BOOT_STAGE` (the building stage read off the raw save before anything is laid out), the machine settings (`SET`). |
+| `01-head` | `GAME`, `CO.setup` (the engine makes the renderer, reads the slot and the settings, binds the page, makes the player), `BOOT_STAGE` (the building stage read off the raw save before anything is laid out). |
 | `02-config` | The sixteen lines (`SKUS`) and nine clients with the level each arrives at, the three lanes, the ladder (`LEVEL_CAP`, `XP_TABLE`, `UNLOCK`, `STAFF_CAPS`, `LADDER_NOTES`, `levelOpens`), the six building stages (`STAGES`, `STAGE`, `stageHas`, `stageFlags`), the clock, the economy, the upgrades (`free: <stage>` marks the structure a stage brings), staff roles, and every layout number for the stage the page booted at (`HALL`, `RACK`, `DOCKS`, `SPOT`, `TRUCK_OUT`, `VAN`). |
-| `03-state` | `freshState()`, `load()`, `save()`, `pay()`, `addXp()`, `addRep()`. The state is the single object `S`. |
-| `04-sound` | The feed, toasts, and every sound effect as a small Web Audio synth. |
-| `05-three` | Renderer, camera, lights, every texture drawn on a canvas, every material, the `box`/`plane`/`sign`/`hitBox` helpers, the `inter` list and the `solids` list. |
+| `03-state` | `freshState()`, the save migrations (`migrateDepot`, run by the engine's `loadSave`), `addXp()`, `addRep()`. The state is the single object `S`; `save()` and `pay()` are the engine's. |
+| `04-sound` | The depot's sound effects, added to the engine's table (`SFX`); the synth, the feed and the toasts are the engine's. |
+| `05-three` | The hall's lights, the depot's own textures (the boxes, the posters) and materials over the engine's palette, `poster()`. |
 | `06-building` | The hall for the stage (the shed and its lining, or the hall with its rooms slid to its walls), the dock doors, the racks (`buildRack`), the office, the bench, the break room, the order board, `floorY()`. |
-| `06-doors` | The touch-screen kit (`touchScreen`, UV tap mapping), hinged doors with locks, the control cabinet. |
+| `06-doors` | The keyring (which members of the crew open the hinged doors), night mode's roll doors, the control cabinet. The touch-screen kit and the hinged doors are the engine's. |
 | `06-dressing` | Everything that makes the hall look worked in: clocks, fans, posters, fire points, the baler and wrapper, the break room and office props, the KPI board. |
-| `06-yard` | The yard: lanes, dock shelters, fence, barrier gates, gatehouses and guards, car park, neighbours, the road and its traffic, sun, moon, clouds, puddles, rain and snow particles. |
+| `06-yard` | The yard: lanes, dock shelters, fence, barrier gates, gatehouses and guards, car park, neighbours, the road and its traffic, puddles, snow on the ground. The sky, the sun and the moon, the clouds, the rain and the snow are the engine's (`buildSky`). |
 | `07-items` | Boxes, pallets and parcels as three instanced meshes laid out from `S` every frame (`syncInstances`), the hand, the rack-slot logic, the floor. |
 | `08-trucks` | The timetable, the truck mesh, docking, departure, the receiving fee, loading parcels, the dock consoles. |
 | `09-orders` | Clients, order generation, lateness, the packing bench, packing, the parcel shelf, shipping and pay. |
 | `09-returns` | Returns: the parcels customers send back ride in on the outbound trucks (and the returns truck), the inspection desks check them, the packer's returns work (1.16.0; stations since 1.17.0, so the returns hall's three desks share one queue). |
 | `10-vehicles` | The jack and the cart you push, the forklift you drive. |
-| `11-staff` | The human model, the aisle router, the receiver, the picker, the packer. |
-| `12-player` | Movement, collision against `solids` and `dyn`, the centre raycast that sets `focus`, the keys. |
+| `11-staff` | The route finder's shape over the site (`navSetup`, `GAME.navPass`), the receiver, the picker, the packer. The human model and the router are the engine's. |
+| `12-player` | The dynamic blockers (`rebuildDyn`), the forklift seat and the office PC as player overrides, the instanced stock as things the crosshair may hit, the depot's keys (the scanner, the forklift). Movement, collision, the raycast and the input are the engine's. |
 | `12-machines7-returns` | The returns hall (1.17.0): Hall 2 without its racks, the returns dock and its truck, the belt to the intake, three inspection desks, the restock cage, the compactor, the floor zones; `dockStepSide`, `doorOwned`, the row migration. |
-| `12-photo` | Photo mode: F9 frees the camera, hides the HUD and holds the clock (1.16.0). |
 | `13-scanner-device` | The handheld scanner in the hand and its canvas display. |
 | `13-scanner-map` | The scanner's map page: the site from above with you, the crew, the trucks and the waypoint (1.16.0). |
-| `13-ui` | HUD, the PC and bench panels, the pause menu, settings, the guide. (The HTML scanner that lived here until 1.16.0 is gone; the device in `13-scanner-device` is the scanner.) |
-| `14-bake` | The static-geometry bake: every mesh that never moves is merged by material. Groups flagged `userData.dynamic`, glowing materials and anything interactive are left alone. |
-| `14-events` | The clock, the day roll, lighting by the hour, sleep, coffee, power cuts, the inspector, the prowler, the level-up engine (`onLevelUp`, the level card, `stageEarn`, `stageRebuild`), the guided intro. |
-| `14-devlink` | The dev console link (1.21.0): Ctrl+Shift+D or `?dev=1` opens an event stream from the console's server, posts the readout once a second, runs every command through `devCommand` (13-ui). |
-| `14-life` | Seasons and weather, rain ambience and thunder, the radio sequencer, the forklift battery, the stretch wrapper. |
+| `13-ui` | The HUD fields, the PC and bench panel contents, the dev commands, the pause menu's lines, the guide. The panel element, the pause menu, the settings and photo mode are the engine's. |
+| `14-events` | The clock, the day roll, the hall's lamps by the hour (a `lighting` hook; the sun and the sky are the engine's), sleep, coffee, power cuts, the inspector, the prowler, the level-up engine (`onLevelUp`, the level card, `stageEarn`, `stageRebuild`), the guided intro. |
+| `14-life` | The depot's weather words and roofs (the weather itself is the engine's), the radio sequencer, the forklift battery, the stretch wrapper. |
 | `14-report` | The day report: the day closed off at every roll, the HUD card, the fortnight's table (1.16.0). |
-| `15-boot` | Load, build, the frame loop, autosave, `window.DEPOT`. |
+| `15-boot` | The boot steps for the engine (`afterLoad`, `buildWorld`, `afterBuild`, the start screen, `tick`, `present`), the test handle, `CO.boot(GAME)`, which publishes `window.DEPOT`. The dev link (Ctrl+Shift+D, `?dev=1`, the auto-link in the desktop app) and the static bake are the engine's. |
 
 ## How things relate
 

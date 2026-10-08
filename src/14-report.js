@@ -22,10 +22,9 @@
     el.innerHTML = '<div class="rep-head"><b>Day ' + r.day + ' report</b><span class="' + (r.net >= 0 ? 'good' : 'bad') + '">' + (r.net >= 0 ? '+' : '') + money(r.net) + '</span></div>' +
       '<div class="rep-grid">' + [['Earned', money(r.earned)], ['Spent', money(r.spent)], ['Shipped', r.shipped + (r.late ? ' (' + r.late + ' late)' : '')], ['Pallets in', String(r.received)], ['Picked', r.picked + ' boxes'], ['Returns', String(r.returns)], ['Rep', sign(r.rep)], ['Bank', money(r.bank)]].map(function (k) { return '<i>' + k[0] + '</i><em>' + esc(k[1]) + '</em>'; }).join('') + '</div>' +
       '<small>Any key closes · the Stats app keeps a fortnight</small>';
-    el.hidden = false; reportT = 20;
+    el.hidden = false; cards['h-report'] = 20;   // the engine's card timer: any key closes it
   }
-  function hideDayReport() { var el = $('h-report'); if (el && !el.hidden) el.hidden = true; reportT = 0; }
-  function tickReport(dt) { if (reportT > 0) { reportT -= dt; if (reportT <= 0) hideDayReport(); } }
+  function hideDayReport() { hideCard('h-report'); reportT = 0; }
   // the last fourteen days as a table: the PC's Stats tab and the pause menu
   function reportHtml() {
     var ds = S.days || []; if (!ds.length) return '<p>No day closed yet: the first report comes at the second day roll.</p>';

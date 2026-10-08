@@ -11,15 +11,15 @@
     lift: { x: -31.0, z: -15.5 }, shaft: { x0: -32.2, x1: -29.8, z0: -16.7, z1: -14.3 },   // on the deck's south edge by IN 1, east of the first jack's bay at (-33.8, -18); the north-west corner is the break room
     stair: { x0: -25.6, x1: -16.0, z0: -23.4, z1: -21.8 }, well: { x0: -25.6, x1: -20.8 } };   // the well: the part of the stair that comes up through the deck
   function upperOwned() { return !!(S.up && S.up.upper); }
-  function inRect(x, z, r) { return x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1; }
+  function inRectU(x, z, r) { return x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1; }
   function stairY(x) { return clamp((UPPER.stair.x1 - x) / (UPPER.stair.x1 - UPPER.stair.x0), 0, 1) * UPPER.y; }
   // the floor height the upper level gives a point, or null when it has nothing to say. The deck counts only for someone already
   // up there (y above 2.6), so the strip below it stays walkable; the stair counts for everyone, which keeps the crew off it.
   function upperFloorY(x, z, y) {
     if (!upperOwned() || !propInst.mezz) return null;
-    if (inRect(x, z, UPPER.stair)) { if ((y || 0) > 2.6 && x > UPPER.well.x1) return UPPER.y; return stairY(x); }
+    if (inRectU(x, z, UPPER.stair)) { if ((y || 0) > 2.6 && x > UPPER.well.x1) return UPPER.y; return stairY(x); }
     if ((y || 0) > 2.6) { var wo = walkoverY(x, z); if (wo !== null) return UPPER.y + wo; }   // the step-overs' stairs and platforms
-    if ((y || 0) > 2.6 && Math.abs(x) < HALL.x - 0.2 && z > UPPER.z0 - 0.3 && z < UPPER.z1 && !inRect(x, z, UPPER.shaft) && !inSorterWell(x, z)) return UPPER.y;
+    if ((y || 0) > 2.6 && Math.abs(x) < HALL.x - 0.2 && z > UPPER.z0 - 0.3 && z < UPPER.z1 && !inRectU(x, z, UPPER.shaft) && !inSorterWell(x, z)) return UPPER.y;
     return null;
   }
   function isUpperRow(r) { return r === UPPER.row; }

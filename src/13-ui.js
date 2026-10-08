@@ -1,8 +1,7 @@
 //@ the HUD, the hand scanner, the office PC and bench panels, the pause menu, the guide
   // ── HUD ───────────────────────────────────────────────────────────
-  var hudT = 0, lastClock = '';
-  function updateHud(dt) {
-    hudT += dt; if (!hudDirty && hudT < 0.25) return; hudT = 0; hudDirty = false;
+  // the engine redraws the HUD on its throttle (Co Engine 41-shell) and fills the day, the clock and the cash; the depot fills the rest
+  GAME.hud = function () {
     $('h-cash').textContent = money(S.bank); $('h-cash').style.color = S.bank < 0 ? 'var(--red)' : '';
     var open = S.orders.filter(function (o) { return o.state === 'open'; }).length, packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length, lateN = S.orders.filter(function (o) { return o.late && o.state !== 'shipped'; }).length;
     $('h-orders').textContent = open + (packed ? ' + ' + packed + ' packed' : '') + (lateN ? ' · ' + lateN + ' late' : ''); $('h-orders').style.color = lateN ? 'var(--red)' : '';   // a late order costs half its pay: it shows on the HUD, not only on the scanner
@@ -18,12 +17,7 @@
     else if (hl) { held.hidden = false; held.innerHTML = esc(hl.t) + '<small>' + esc(hl.s) + '</small>'; }
     else held.hidden = true;
     $('h-objective').innerHTML = introText();
-  }
-  function updatePrompt() {
-    var p = $('h-prompt');
-    if (driving || !focusText) { p.hidden = true; return; }
-    p.hidden = false; p.innerHTML = '<b>E</b>' + esc(focusText);
-  }
+  };
 
   // ── The hand scanner (Tab) ────────────────────────────────────────
   var scan = { page: 0, sel: 0, scroll: 0, nav: null };   // page, the cursor row, the first row shown, the waypoint { x, z, y, label, staff }
@@ -35,25 +29,15 @@
   function sw(sku) { return '<span class="sw" style="background:' + SKU[sku].col + '"></span>'; }
 
   // ── Panels ────────────────────────────────────────────────────────
-  var panel = { kind: null, tab: null };
   var PC_TABS = [['orders', 'Orders'], ['contracts', 'Contracts'], ['shop', 'Shop'], ['staff', 'Staff'], ['plant', 'Plant'], ['finance', 'Bank'], ['stock', 'Stock'], ['stats', 'Stats']];
   var TAB_LVL = { contracts: 'contracts', plant: 'scanPlant', finance: 'loan' };   // the tabs the ladder opens later (1.21.0); the rest are there from the shed
   function tabOpen(t) { return !TAB_LVL[t] || unlocked(TAB_LVL[t]); }
   function pcTabs() { return PC_TABS.filter(function (t) { return tabOpen(t[0]); }); }
-  function openPanel(kind, tab) {
-    panel.kind = kind; panel.tab = tab || (kind === 'pc' ? 'orders' : null); ui.panelOpen = true; $('dc-panel').hidden = false; scanToggle(false);
-    ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {}
-    renderPanel(); sfx('click');
-  }
-  function closePanel() { if (!ui.panelOpen) return; ui.panelOpen = false; $('dc-panel').hidden = true; panel.kind = null; hudDirty = true; lockPointer(); }
-  function renderPanel() {
-    if (!ui.panelOpen) return;
-    var title = panel.kind === 'pc' ? (BOOT_STAGE === 0 ? 'The paperwork · Depot OS' : 'Office PC · Depot OS') : panel.kind === 'catalogue' ? 'Catalogue · build mode' : 'Packing bench';
-    $('dc-panel-title').textContent = title; if (panel.kind === 'pc' && !tabOpen(panel.tab)) panel.tab = 'orders';
-    $('dc-panel-tabs').innerHTML = panel.kind === 'pc' ? pcTabs().map(function (t) { return '<button class="' + (t[0] === panel.tab ? 'on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') : '';
-    $('dc-panel-body').innerHTML = panel.kind === 'pc' ? pcHtml(panel.tab) : panel.kind === 'catalogue' ? catalogueHtml() : benchHtml();
-  }
-  function btn(act, arg, label, cls, disabled) { return '<button class="dc-btn small ' + (cls || '') + '" data-act="' + act + '" data-arg="' + esc(arg == null ? '' : arg) + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>'; }
+  // the panel element is the engine's (Co Engine 41-shell); the depot describes its two kinds
+  GAME.panel = function (kind, tab) {
+    if (kind === 'pc') { var t = tab && tabOpen(tab) ? tab : 'orders'; return { title: BOOT_STAGE === 0 ? 'The paperwork · Depot OS' : 'Office PC · Depot OS', tabs: pcTabs(), tab: t, body: pcHtml(t) }; }
+    return { title: 'Packing bench', tabs: [], body: benchHtml() };
+  };
   function orderCard(o, withPack) {
     var n = orderNeed(o);
     var lines = o.lines.map(function (l) { var have = Math.min(l.qty, S.bench.boxes[l.sku] || 0); return '<span class="dc-tag ' + (have >= l.qty ? 'good' : '') + '">' + l.qty + '× ' + esc(skuName(l.sku)) + (withPack ? ' · ' + have + '/' + l.qty : '') + '</span>'; }).join(' ');
@@ -118,8 +102,8 @@
   }
   // ── Dev commands (1.21.0: the F8 panel is gone; these answer the dev console over the link, and the tests) ──
   // Every command writes straight into the save. The level and the stage jumps go through the same code a played game uses.
-  var DEV_COMMANDS = ['cash', 'cash10', 'level', 'setLevel', 'setStage', 'unlockAll', 'rep', 'unlock', 'intro', 't6', 't7', 't10', 't13', 't17', 't22', 'setTime', 'day', 'clear', 'rain', 'storm', 'snow', 'power', 'truckin', 'truckout', 'order', 'rush', 'contract', 'fill', 'clearfloor', 'hire', 'fire', 'fork', 'tpIn', 'tpOut', 'tpBench', 'tpOffice', 'tpBreak', 'tpYard', 'tpGate', 'saveNow', 'reload'];
-  function devCommand(a, arg) {
+  var DEPOT_COMMANDS = ['cash', 'cash10', 'level', 'setLevel', 'setStage', 'unlockAll', 'rep', 'unlock', 'intro', 't6', 't7', 't10', 't13', 't17', 't22', 'setTime', 'day', 'clear', 'rain', 'storm', 'snow', 'power', 'truckin', 'truckout', 'order', 'rush', 'contract', 'fill', 'clearfloor', 'hire', 'fire', 'fork', 'tpIn', 'tpOut', 'tpBench', 'tpOffice', 'tpBreak', 'tpYard', 'tpGate', 'saveNow', 'reload'];
+  function depotDevCommand(a, arg) {
     var tp = function (x, z) { closePanel(); player.x = x; player.z = z; player.y = floorY(x, z); player.vy = 0; }, msg = 'ok';
     var n = typeof arg === 'number' ? arg : parseFloat(arg); if (isNaN(n)) n = null;
     if (a === 'cash') pay(1000, 'Dev'); else if (a === 'cash10') pay(10000, 'Dev'); else if (a === 'level') { if (S.level < LEVEL_CAP) addXp(XP_FOR(S.level) - S.xp); else msg = 'at the cap'; } else if (a === 'rep') addRep(20);
@@ -147,7 +131,16 @@
     sfx('click'); hudDirty = true; rebuildBoardSoon(); screenDirtyAll(); if (ui.panelOpen) renderPanel();
     return msg;
   }
-  function panelAct(act, arg) {
+  // the engine's devCommand runs these by name (Co Engine 50-devlink) and posts the readout; the depot adds its own fields to it
+  GAME.commands = {}; DEPOT_COMMANDS.forEach(function (name) { GAME.commands[name] = function (arg) { return depotDevCommand(name, arg); }; });
+  GAME.devState = function () {
+    return { xp: S.xp, xpFor: XP_FOR(S.level), cap: LEVEL_CAP, rep: Math.round(S.rep * 10) / 10,
+      site: S.site, siteDue: S.siteDue, stage: BOOT_STAGE, stageName: stageName(BOOT_STAGE), next: nextLevelText(), power: !S.events.power,
+      orders: S.orders.filter(function (o) { return o.state === 'open'; }).length, packed: S.orders.filter(function (o) { return o.state === 'packed'; }).length, late: S.orders.filter(function (o) { return o.late && o.state !== 'shipped'; }).length,
+      stock: totalStock(), trucks: S.trucks.map(function (t) { return (t.van ? 'van' : t.dir) + ' ' + dockLabel(doorIndex(t.dir, t.dock)) + ' ' + t.state; }), staff: S.staff.map(function (st) { return st.name + ' (' + st.role + ') ' + staffStatus(st); }),
+      up: Object.keys(S.up).filter(function (k) { return S.up[k] === true; }), rows: S.up.rows, intro: S.intro && !S.intro.done ? introIndex() + ' of ' + INTRO.length : 'done' };
+  };
+  function depotPanelAct(act, arg) {
     if (act === 'pack') { var o = orderById(arg); if (o && packOrder(o)) toast('Packed #' + o.num, 'good'); }
     else if (act === 'takeback') { if (!S.hand && benchTake(arg, 1)) { handSet({ kind: 'box', sku: arg }); sfx('pickup'); } }
     else if (act === 'returnSurplus') returnSurplus();
@@ -164,11 +157,10 @@
     else if (act === 'decline') contractDecline(arg || null);
     else if (act === 'borrow') { if (unlocked('loan') && S.loan <= 0) { S.loan = 5000; pay(5000, 'Bank loan'); sfx('cash'); toast('$5,000 in the bank. 1.5% a day.', 'good'); } else toast(!unlocked('loan') ? 'The bank lends from level ' + UNLOCK.loan + '.' : 'One loan at a time.', 'bad'); }
     else if (act === 'repay') { var amt = Math.min(S.loan, Math.max(0, S.bank)); if (amt > 0) { S.loan -= amt; pay(-amt, 'Loan repayment'); sfx('cash'); toast('Repaid ' + money(amt), 'good'); } }
-    else if (act === 'restore') { editRestore(arg); }
-    else if (act === 'buy' && panel.kind === 'catalogue') { editBuy(arg); return; }
     else if (act === 'insure') { if (!S.insured && !unlocked('insurance')) toast('Insurance comes at level ' + UNLOCK.insurance + '.', 'bad'); else { S.insured = !S.insured; toast(S.insured ? 'Insured from tonight' : 'Insurance cancelled', ''); } }
-    renderPanel(); hudDirty = true;
+    renderPanel(); hudDirty = true; return true;
   }
+  GAME.panelAct = depotPanelAct;   // the engine takes the catalogue's restore and buy first (Co Engine 41-shell)
   // what the shop lists: not the pieces a stage brings for nothing, not a rack row the building has no room for
   function shopShows(u) { if (u.free) return false; var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0; if (rowN && rowN > RACK.rows.length) return false; return true; }
   function buyUpgrade(id) {
@@ -186,57 +178,13 @@
   $('dc-panel-close').addEventListener('click', closePanel);
 
   // ── Pause menu ────────────────────────────────────────────────────
-  function openMenu() { if (ui.menuOpen) return; ui.menuOpen = true; $('dc-menu').hidden = false; if ($('dc-m-devlink')) $('dc-m-devlink').textContent = devLink.on ? '🔗 Unlink the dev console' : '🔗 Link the dev console'; $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; scanToggle(false); ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {} save(); var ms = $('dc-menu-sub'); if (ms) ms.textContent = 'The depot waits until you come back. ' + (saveT && !save.failed ? 'Saved at ' + new Date(saveT).toLocaleTimeString() + ', slot ' + BOOT_SLOT + '.' : 'The save could not be written: export it below.'); }   // the pause saves, and says so
-  function closeMenu() { if (!ui.menuOpen) return; ui.menuOpen = false; $('dc-menu').hidden = true; lockPointer(); }
-  function menuBody(html) { var b = $('dc-menu-body'); b.hidden = false; b.innerHTML = '<div class="dc-menu-row" style="margin:0 0 10px"><button data-menu="back" class="primary">← Back</button></div>' + html; $('dc-menu').querySelector('.dc-menu-btns').hidden = true; }   // the body takes the card over, with a way back, so a 720p screen is not two scroll bars deep
-  $('dc-menu').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-menu]'); if (!b) return; var k = b.getAttribute('data-menu'); sfx('click');
-    if (k === 'resume') closeMenu();
-    else if (k === 'back') { $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; }
-    else if (k === 'edit') { closeMenu(); if (!edit.on) editToggle(); }
-    else if (k === 'devlink') { closeMenu(); devLinkToggle(); }   // the mouse way to Ctrl+Shift+D (1.21.0)
-    else if (k === 'settings') menuBody(settingsHtml());
-    else if (k === 'guide') menuBody('<div class="dc-how">' + guideHtml() + '</div>');
-    else if (k === 'stats') menuBody(pcHtml('stats'));
-    else if (k === 'saves') menuBody('<p style="color:var(--muted)">This save as text. Copy it somewhere safe, or paste one in and load it.</p><textarea class="dc-ta" id="dc-save-ta">' + esc(JSON.stringify(S)) + '</textarea><div class="dc-menu-row"><button data-menu="download">⬇ Download .json</button><button data-menu="import" class="primary">Load what is pasted</button></div>');
-    else if (k === 'download') { var blob = new Blob([JSON.stringify(S)], { type: 'application/json' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'depot-co-slot' + BOOT_SLOT + '-day' + S.day + '.json'; a.click(); }
-    // wiped: the unload autosave must not write the old game back over the import
-    else if (k === 'import') { try { var s = JSON.parse($('dc-save-ta').value); if (!s || typeof s.bank !== 'number') throw new Error('not a save'); wiped = true; localStorage.setItem(SAVE, JSON.stringify(s)); sessionStorage.setItem('depotco-skip-splash', '1'); sessionStorage.setItem('depotco-autoplay', '1'); location.reload(); } catch (err) { toast('That is not a Depot Co. save.', 'bad'); } }
-    else if (k === 'reset') { if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Really reset slot ' + BOOT_SLOT + '? Click again'; setTimeout(function () { b.removeAttribute('data-sure'); b.textContent = '⟲ Reset this save'; }, 3000); return; } wipe(); try { sessionStorage.setItem('depotco-skip-splash', '1'); } catch (err) {} location.reload(); }
-    else if (k === 'quit') { save(); try { sessionStorage.setItem('depotco-skip-splash', '1'); } catch (err) {} location.reload(); }
-  });
-  function settingsHtml() {
-    return '<div class="dc-form">' +
-      '<label><span>Mouse sensitivity</span><input type="range" min="0.3" max="2.5" step="0.1" value="' + SET.sens + '" data-set="sens"></label>' +
-      '<label><span>Invert Y</span><input type="checkbox" ' + (SET.invertY ? 'checked' : '') + ' data-set="invertY"></label>' +
-      '<label><span>Field of view</span><input type="range" min="60" max="100" step="1" value="' + SET.fov + '" data-set="fov"></label>' +
-      '<label><span>Head bob while walking</span><input type="checkbox" ' + (SET.bob !== false ? 'checked' : '') + ' data-set="bob"></label>' +
-      '<label><span>Quality</span><select data-set="quality"><option value="high"' + (SET.quality === 'high' ? ' selected' : '') + '>High</option><option value="medium"' + (SET.quality === 'medium' ? ' selected' : '') + '>Medium</option><option value="low"' + (SET.quality === 'low' ? ' selected' : '') + '>Low (no shadows)</option></select></label>' +
-      '<label><span>Sound</span><input type="checkbox" ' + (SET.sound ? 'checked' : '') + ' data-set="sound"></label>' +
-      '<label><span>Volume</span><input type="range" min="0" max="1" step="0.05" value="' + SET.vol + '" data-set="vol"></label>' +
-      '<label><span>Film look (vignette, grain)</span><input type="checkbox" ' + (SET.film !== false ? 'checked' : '') + ' data-set="film"></label>' +
-      '<label><span>Show FPS (F3)</span><input type="checkbox" ' + (SET.fps ? 'checked' : '') + ' data-set="fps"></label>' +
-      '<label><span>Guided intro</span><input type="checkbox" ' + (!S.intro.off ? 'checked' : '') + ' data-set="intro"></label>' +
-      '</div>';
-  }
-  $('dc-menu-body').addEventListener('input', function (e) {
-    var el = e.target, k = el.getAttribute('data-set'); if (!k) return;
-    if (k === 'intro') { S.intro.off = !el.checked; hudDirty = true; return; }
-    SET[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' ? el.value : +el.value;
-    saveSettings(); applySettings();
-  });
-  function applySettings() {
-    camera.fov = SET.fov; camera.updateProjectionMatrix(); post.on = SET.film !== false;
-    var pr = SET.quality === 'high' ? Math.min(window.devicePixelRatio || 1, 2) : SET.quality === 'medium' ? 1 : 0.75;
-    renderer.setPixelRatio(pr); renderer.shadowMap.enabled = SET.quality !== 'low'; sun.castShadow = SET.quality !== 'low'; lightBudget.n = SET.quality === 'high' ? 16 : SET.quality === 'medium' ? 10 : 6;
-    var sm = SET.quality === 'high' ? 4096 : 2048; if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }   // the shadow map follows the quality too: medium draws a quarter of the texels; the renderer makes the new map on the next frame
-    if (yard.rain) { var rn = SET.quality === 'high' ? 7000 : SET.quality === 'medium' ? 4500 : 2500, snn = SET.quality === 'high' ? 3000 : SET.quality === 'medium' ? 2000 : 1200; yard.rainN = rn; yard.snowN = snn; yard.rain.geometry.setDrawRange(0, rn); yard.snow.geometry.setDrawRange(0, snn); }   // fewer drops and flakes to move and draw on the lower settings
-    if (applySettings.q !== SET.quality) { applySettings.q = SET.quality; scene.traverse(function (o) { if (o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; }); }   // only a quality change recompiles the shaders, not every notch of a slider
-    shadowDirty = true; $('h-fps').hidden = !SET.fps; if (sfxBus) sfxBus.gain.value = SET.vol;
-  }
-  function screenshot() {
-    try { renderFrame(0.016); canvas.toBlob(function (b) { if (!b) return; var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'depot-co-' + Date.now() + '.png'; a.click(); toast('Screenshot saved' + (/Electron/.test(navigator.userAgent) ? ' to Pictures\\Depot Co' : ''), 'good'); }, 'image/png'); } catch (e) {}
-  }
+  // the menu, the settings, the saves and the screenshots are the engine's (Co Engine 41-shell); the depot adds its lines
+  GAME.menuLine = function () { return 'The depot waits until you come back.'; };
+  GAME.statsHtml = function () { return pcHtml('stats'); };
+  GAME.guideHtml = function () { return guideHtml(); };
+  GAME.saveLooksRight = function (s) { return typeof s.bank === 'number'; };
+  GAME.settingsHtml = function () { return '<label><span>Guided intro</span><input type="checkbox" ' + (!S.intro.off ? 'checked' : '') + ' data-set="intro"></label>'; };
+  GAME.setting = function (k, v) { if (k === 'intro') S.intro.off = !v; };
 
   // ── The guide ─────────────────────────────────────────────────────
   function guideHtml() {

@@ -4,7 +4,7 @@
   var rackGroups = [null, null, null, null];
   var slotHits = {};       // key -> hit mesh
   var bayLabelTex = {};
-  var world = { boardTex: null, boardCtx: null, boardMat: null, lampMeshes: [], officeLamp: null, cot: null, coffeeMachine: null, pcScreen: null };
+  var world = { boardTex: null, boardCtx: null, boardMat: null, officeLamp: null, cot: null, coffeeMachine: null, pcScreen: null };
 
   function slotKey(r, b, l) { return r + ',' + b + ',' + l; }
   function slotParse(key) { var p = key.split(',').map(Number); return { r: p[0], b: p[1], l: p[2] }; }
@@ -47,10 +47,10 @@
     // roof with skylight strips, and the trusses under it
     box(2 * X + 0.6, 0.3, 2 * Z + 0.6, MAT.roof, 0, H + 0.15, 0);
     plane(2 * X, 2 * Z, MAT.roofIn, 0, H - 0.01, 0, Math.PI / 2);
-    SKYLIGHT_Z.forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
+    SKYLIGHT_Z.forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); lampMeshes.push(sk); });
     for (var tx = -X + 4; tx <= X - 4; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }   // trusses every eight metres the whole width (nine across the 72 m)
     // high-bay lamps under the trusses: a conduit drop off the truss, the ballast box, a spun reflector and the lens in its mouth
-    hallLights.forEach(function (l) { highBay(l.position.x, l.position.y + 0.3, l.position.z); });
+    hallLights.forEach(function (l) { highBay(l.position.x, l.position.y + 0.3, l.position.z, HALL.h); });
     if (rooms) buildHallLining(); else buildShedLining();
     // floor markings: aisles, the walkway, the staging squares
     function lineX(x0, x1, z, w) { plane(x1 - x0, w || 0.1, MAT.yellowLine, (x0 + x1) / 2, 0.006, z, -Math.PI / 2); }
@@ -85,15 +85,6 @@
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
-  var HIGHBAY_REFL = std({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide });   // one reflector material for every lamp: thirty of them bake into one draw instead of thirty
-  function highBay(x, y, z) {
-    cyl(0.025, HALL.h - y - 0.22, MAT.steelDark, x, (HALL.h + y + 0.22) / 2, z, null, 6);   // the conduit drop from the roof to the ballast box
-    box(0.34, 0.22, 0.26, MAT.steelDark, x, y + 0.11, z); box(0.1, 0.06, 0.06, MAT.black, x + 0.2, y + 0.12, z);
-    var refl = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.14, 0.42, 20, 1, true), HIGHBAY_REFL); refl.position.set(x, y - 0.21, z); scene.add(refl);
-    var lens = cyl(0.42, 0.03, MAT.lamp, x, y - 0.41, z, null, 20); lens.castShadow = false; world.lampMeshes.push(lens);
-  }
-  // a recessed troffer in a room's ceiling: a white frame and a prismatic lens that dims when the power is off
-  function troffer(x, y, z, w, d) { box(w || 1.2, 0.05, d || 0.6, MAT.trim, x, y - 0.025, z).castShadow = false; var lens = box((w || 1.2) - 0.1, 0.02, (d || 0.6) - 0.1, MAT.lamp, x, y - 0.045, z); lens.castShadow = false; world.lampMeshes.push(lens); return lens; }
   // the shed inside: bare cladding on steel posts, a girt at head height, a skirting board, a bulb on a flex over the table and a tin sign
   function buildShedLining() {
     var X = HALL.x, Z = HALL.z, H = HALL.h;
@@ -206,13 +197,6 @@
     };
   }
   // a painted lining on a room's outer walls: a plane just inside the cladding, skirting along the floor, a dado rail, with openings left for doors
-  function lineWall(axis, at, a0, a1, h, mat, openings, inward) {
-    var segs = [[a0, a1]]; (openings || []).forEach(function (o) { var out = []; segs.forEach(function (s) { if (o[1] <= s[0] || o[0] >= s[1]) { out.push(s); return; } if (o[0] > s[0]) out.push([s[0], o[0]]); if (o[1] < s[1]) out.push([o[1], s[1]]); }); segs = out; });
-    var off = at + inward * 0.17, ry = axis === 'x' ? (inward > 0 ? Math.PI / 2 : -Math.PI / 2) : (inward > 0 ? 0 : Math.PI);
-    function strip(w, hh, y, mid, m) { if (axis === 'x') { plane(w, hh, m, off, y, mid, 0, ry); } else { plane(w, hh, m, mid, y, off, 0, ry); } }
-    segs.forEach(function (s) { var w = s[1] - s[0], mid = (s[0] + s[1]) / 2; strip(w, h, h / 2, mid, mat); var sk = axis === 'x' ? box(0.03, 0.12, w, MAT.trim, off + inward * 0.012, 0.06, mid) : box(w, 0.12, 0.03, MAT.trim, mid, 0.06, off + inward * 0.012); sk.receiveShadow = true; if (axis === 'x') box(0.025, 0.05, w, MAT.trim, off + inward * 0.01, 0.95, mid); else box(w, 0.05, 0.025, MAT.trim, mid, 0.95, off + inward * 0.01); });
-    (openings || []).forEach(function (o) { if (o[2] && o[2] < h) { var w = o[1] - o[0], mid = (o[0] + o[1]) / 2; strip(w, h - o[2], o[2] + (h - o[2]) / 2, mid, mat); } });
-  }
   var LINING = { lobby: std({ map: TEX.plaster, color: 0xd9e3ea, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), brk: std({ map: TEX.plaster, color: 0xf0e6cf, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), office: std({ map: TEX.plaster, color: 0xe6e8e4, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }) };
   function buildOffice() {
     var X = HALL.x, Z = HALL.z, zs = Z - 24, x0 = X - 7.5, z0 = 18.5 + zs, h = 3.2;
@@ -233,11 +217,6 @@
     cyl(0.14, 0.3, std({ color: 0x2a2d33, roughness: 0.6 }), X - 1.2, 0.15, 19.4 + zs, null, 12, 0.12); box(0.16, 0.02, 0.16, MAT.paper, X - 1.2, 0.3, 19.4 + zs).rotation.y = 0.4;
   }
   // a room's own floor laid over the slab: the texture repeats in metres so a carpet tile is half a metre wherever it is
-  function roomFloor(mat, x0, x1, z0, z1, per) {
-    var m = mat.clone(); m.map = mat.map.clone(); m.map.needsUpdate = true; m.map.repeat.set((x1 - x0) / per, (z1 - z0) / per);
-    if (mat.normalMap) { m.normalMap = mat.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set((x1 - x0) / per, (z1 - z0) / per); }
-    var p = plane(x1 - x0, z1 - z0, m, (x0 + x1) / 2, 0.012, (z0 + z1) / 2, -Math.PI / 2); p.receiveShadow = true; return p;
-  }
 
   function buildBench() {
     var bx = SPOT.bench.x, bz = SPOT.bench.z;
@@ -300,11 +279,12 @@
   }
 
   // where the player stands: the hall floor, a docked trailer's floor, the ramp, or the yard
-  function floorY(x, z, y) {   // y: how high the asker already is; the mezzanine deck counts only for someone up there
+  function depotFloorY(x, z, y) {   // y: how high the asker already is; the mezzanine deck counts only for someone up there
     var uy = upperFloorY(x, z, y); if (uy !== null) return uy;
     if ((Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z) || inAnnex(x, z)) return 0;
     for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state !== 'docked' || t.van) continue; var b = trailerBounds(t); if (x > b.x0 - 0.7 && x < b.x1 + 0.7 && z > b.z0 && z < b.z1) return 0; }   // the van's bed is not a floor you walk onto: you load it from the yard
     if (x <= -HALL.x && x > -HALL.x - 7.2 && Math.abs(z - SPOT.staffDoor.z) < 1) return lerp(0, YARD_Y, (-HALL.x - x) / 7);
     return YARD_Y;
   }
+  GAME.floorY = depotFloorY;   // the engine's floorY (Co Engine 24-world) asks the game
   function insideHall(x, z) { return (Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z) || !!inAnnex(x, z); }

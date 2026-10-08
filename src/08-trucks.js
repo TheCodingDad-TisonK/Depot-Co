@@ -8,9 +8,7 @@
   function truckPalletPos(t, i) { var r = Math.floor(i / 2), c = i % 2; return { x: t.x + t.side * (1.1 + r * 1.35), y: 0, z: t.z + (c ? 0.62 : -0.62), ry: 0 }; }
   function truckParcelPos(t, i) { if (t.van) { var vr = Math.floor(i / 4), vc = i % 4; return { x: t.x + t.side * (0.6 + vr * 0.7), y: YARD_Y + 0.6 + Math.floor(vc / 2) * 0.47, z: t.z + ((vc % 2) - 0.5) * 0.7 }; } var r = Math.floor(i / 6), c = i % 6, col = c % 3, layer = Math.floor(c / 3); return { x: t.x + t.side * (0.9 + r * 0.7), y: layer * 0.47, z: t.z + (col - 1) * 0.8 }; }   // the van: two across, two high, on a bed 0.6 m over the yard
   function trailerBounds(t) { var len = t.len || TRAILER.len, w = t.van ? VAN.w : TRAILER.w, a = t.x, b = t.x + t.side * len; return { x0: Math.min(a, b), x1: Math.max(a, b), z0: t.z - w / 2, z1: t.z + w / 2 }; }
-  function nowAbs() { return S.day * 24 + S.time; }
 
-  function truckWheel(g, x, y, z, r, w) { var ty = cyl(r, w, MAT.rubber, x, y, z, g, 20); ty.rotation.x = Math.PI / 2; for (var k = 0; k < 3; k++) { var ring = new THREE.Mesh(new THREE.TorusGeometry(r - 0.04, 0.012, 6, 24), MAT.black); ring.position.set(x, y, z + (k - 1) * w * 0.3); g.add(ring); } cyl(r * 0.58, w + 0.02, MAT.chrome, x, y, z, g, 14).rotation.x = Math.PI / 2; cyl(r * 0.2, w + 0.06, MAT.steelDark, x, y, z, g, 10).rotation.x = Math.PI / 2; }
   // the shed's van (1.21.0): a box van parked along x on the shed's south side, its rear doors open to the east. No driver walks in
   // and nobody walks into it: the parcels are loaded through the rear hit box from the yard. It reverses in from the west lane and
   // drives out the same way.

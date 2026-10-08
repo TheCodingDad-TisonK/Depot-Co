@@ -1,9 +1,9 @@
-//@ the player: movement, collision, looking at things, the keys
+//@ the player on the engine: the dynamic blockers, the forklift seat and the office PC as overrides, what the crosshair hits, the keys
   // ── Player ────────────────────────────────────────────────────────
-  var player = { x: SPOT.spawn.x, y: 0, z: SPOT.spawn.z, yaw: -Math.PI / 2 - 0.4, pitch: 0, vy: 0, grounded: true, keys: {}, locked: false, tool: null, stepT: 0, bob: 0 };
-  var ui = { started: false, menuOpen: false, panelOpen: false, scanOpen: false, rebuilding: false, testing: false, rebuildPending: false, blocked: function () { return ui.menuOpen || ui.panelOpen || ui.rebuilding; } };   // rebuilding: the builders' fade is up and the page is about to reload
+  // the engine owns the player record, the focus and the input (Co Engine 42-player); the depot stands them at the spawn spot and
+  // answers the hooks: what blocks, who takes the frame, what the crosshair may hit, which keys are the depot's
+  player.x = SPOT.spawn.x; player.z = SPOT.spawn.z; player.yaw = -Math.PI / 2 - 0.4;
   var buff = { coffeeUntil: 0, coffeeDay: 0 };
-  var focus = null, focusText = '';
 
   function rebuildDyn() {
     dyn.length = 0;
@@ -17,53 +17,31 @@
     });
     doors.forEach(function (d) { if (d.anim < 0.6) dyn.push({ x0: d.side * HALL.x - 0.3, x1: d.side * HALL.x + 0.3, z0: d.z - DOCKS.w / 2, z1: d.z + DOCKS.w / 2, y0: -2, y1: 9 }); });
     doorSolids(dyn);
-    if (S.up.fork) dyn.push({ x0: S.fork.x - 1.0, x1: S.fork.x + 1.0, z0: S.fork.z - 1.0, z1: S.fork.z + 1.0, y0: -1, y1: 2.4, fork: true });
+    if (S.up.fork) dyn.push({ x0: S.fork.x - 1.0, x1: S.fork.x + 1.0, z0: S.fork.z - 1.0, z1: S.fork.z + 1.0, y0: -1, y1: 2.4, skip: 'fork' });
     ['jack', 'jack2'].forEach(function (jt) { if (player.tool !== jt && jackPallet(jt)) { /* a pallet on a parked jack is part of the jack: walk round it */ var jw = toolWorld(jt); dyn.push({ x0: jw.x - 0.7, x1: jw.x + 0.7, z0: jw.z - 0.7, z1: jw.z + 0.7, y0: -1, y1: 1.5 }); } });
   }
-  function collides(x, z, ignoreFork) {
-    var r = 0.32, y0 = player.y, y1 = player.y + 1.7;
-    if (floorY(x, z, player.y) - player.y > 0.5) return true;
-    for (var i = 0; i < solids.length; i++) { var s = solids[i]; if (x > s.x0 - r && x < s.x1 + r && z > s.z0 - r && z < s.z1 + r && y0 < s.y1 && y1 > s.y0) return true; }
-    for (var k = 0; k < dyn.length; k++) { var d = dyn[k]; if (d.fork && (driving || ignoreFork === 'fork')) continue; if (x > d.x0 - r && x < d.x1 + r && z > d.z0 - r && z < d.z1 + r && y0 < d.y1 && y1 > d.y0) return true; }
-    return false;
-  }
-  function updatePlayer(dt) {
+  GAME.skipDyn = function (d) { return d.skip === 'fork' && driving; };   // the forklift is not in your own way while you drive it
+  // the forklift seat and the office PC take the frame; otherwise the engine walks the player
+  GAME.playerOverride = function (dt) {
     updateDropMarker();
-    if (pc.on) { pcCamera(); return; }
+    if (pc.on) { pcCamera(); return true; }
     if (driving) {
       updateFork(dt);
       camera.position.set(S.fork.x - Math.sin(S.fork.yaw) * 0.45, floorY(S.fork.x, S.fork.z) + 1.78, S.fork.z - Math.cos(S.fork.yaw) * 0.45);
       camera.rotation.set(forkLook.pitch, S.fork.yaw + Math.PI + forkLook.yaw, 0, 'YXZ');
       player.x = S.fork.x; player.z = S.fork.z; player.y = floorY(S.fork.x, S.fork.z);
-      return;
+      return true;
     }
-    var k = player.keys, run = k.ShiftLeft || k.ShiftRight;
+    return false;
+  };
+  GAME.speedMul = function () {
     var coffee = buff.coffeeDay === S.day && buff.coffeeUntil > S.time, snack = buff.snackDay === S.day && buff.snackUntil > S.time;
-    var speed = 4.0 * (run ? 1.55 : 1) * (coffee ? 1.2 : 1) * (snack ? 1.1 : 1) * (isJack(player.tool) ? (S.up.jackPower ? 1 : jackPallet() ? 0.78 : 0.92) : player.tool ? 0.92 : 1);   /* the powered truck walks at full speed, loaded or not */
-    var fwd = (k.KeyW ? 1 : 0) - (k.KeyS ? 1 : 0), side = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
-    var mx = 0, mz = 0;
-    if (fwd || side) {
-      var fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
-      mx = fx * fwd + rx * side; mz = fz * fwd + rz * side; var l = Math.sqrt(mx * mx + mz * mz); mx /= l; mz /= l;
-      var nx = player.x + mx * speed * dt, nz = player.z + mz * speed * dt;
-      if (!collides(nx, player.z)) player.x = nx;
-      if (!collides(player.x, nz)) player.z = nz;
-      player.stepT += speed * dt; player.bob += dt * (run ? 11 : 8);
-      if (player.stepT > 2.1) { player.stepT = 0; sfx('step', floorY(player.x, player.z) < -0.5 ? 'outside' : player.y > 2.6 ? 'steel' : insideHall(player.x, player.z) ? 'floor' : 'steel'); }
-    } else player.bob *= Math.max(0, 1 - 8 * dt);
-    var fy = floorY(player.x, player.z, player.y);
-    if (k.Space && player.grounded && !player.jumped) { player.vy = 6.0; player.grounded = false; player.jumped = true; }
-    if (!k.Space) player.jumped = false;
-    player.vy -= 16 * dt; player.y += player.vy * dt;
-    if (player.y <= fy) { if (!player.grounded && player.vy < -6) sfx('putdown'); player.y = fy; player.vy = 0; player.grounded = true; } else player.grounded = false;
-    var bobY = SET.bob !== false && (fwd || side) && player.grounded ? Math.sin(player.bob) * 0.03 : 0;   // the head bob is a setting: off for anyone it makes queasy
-    camera.position.set(player.x, player.y + 1.62 + bobY, player.z);
-    camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
-  }
+    return (coffee ? 1.2 : 1) * (snack ? 1.1 : 1) * (isJack(player.tool) ? (S.up.jackPower ? 1 : jackPallet() ? 0.78 : 0.92) : player.tool ? 0.92 : 1);   /* the powered truck walks at full speed, loaded or not */
+  };
+  GAME.stepSurface = function (x, z, y) { return floorY(x, z) < -0.5 ? 'outside' : y > 2.6 ? 'steel' : insideHall(x, z) ? 'floor' : 'steel'; };
 
   // ── Looking at things ─────────────────────────────────────────────
-  var ray = new THREE.Raycaster(); ray.far = 3.4;
-  var centre = new THREE.Vector2(0, 0);
+  // the instanced boxes, pallets and parcels are not on the engine's list of things to look at: the depot adds them and resolves a hit
   function srcDef(src) {
     if (!src) return null;
     if (src.kind === 'pallet') return { prompt: function () { return palletPrompt(src); }, use: function () { palletUse(src); } };
@@ -77,85 +55,43 @@
     if (src.kind === 'truckReturn') return { prompt: function () { var t = truckById(src.truck); return t && t.state === 'docked' ? loadPrompt(src.truck) : null; }, use: function () { loadUse(src.truck); } };
     return null;
   }
-  function interact() {
-    focus = null; focusText = '';
-    if (!ui.started || ui.blocked() || driving || photo.on) return;
-    ray.setFromCamera(centre, camera);
-    if (edit.on) {
-      if (edit.grabbed) { if (edit.snapText) { focus = { prompt: function () { return edit.snapText; }, use: function () {} }; focusText = edit.snapText; } return; }
-      ray.far = 7; var ph = ray.intersectObjects(scene.children, true); ray.far = 3.4;
-      for (var q = 0; q < ph.length; q++) { var pid = propIdOf(ph[q].object); if (!pid) continue; if (ph[q].object.userData.baked || !ph[q].object.visible) continue; var pdef = propDef(pid); if (!pdef || pdef.fixed) continue; focus = { editId: pid, prompt: function () { return ''; }, use: function () {} }; focusText = 'Grab the ' + pdef.label + '  ·  R turn · Backspace put back · Del remove'; return; }
-      return;
-    }
-    var hits = ray.intersectObjects(inter.concat(instList), false);
-    // a touchscreen sits a few centimetres proud of its cabinet, whose hit box can reach past it: within 0.5 m the screen wins, and
-    // the hit box of the screen's own prop (the bench round its terminal stand) never beats it at any range. Anything else in
-    // front, a box stack say, keeps the focus. The boxes on the bench sit inside the bench's own hit box the same way: within
-    // 0.8 m a box wins over the bench.
-    for (var si = 1; si < hits.length; si++) {
-      var hs = hits[si], isrc = hs.object.isInstancedMesh ? instSource(hs) : null, win = false;
-      if (hs.object.userData.screen) { win = true; var spid = propIdOf(hs.object); for (var sj = 0; sj < si; sj++) { var ho = hits[sj].object; if (!(hs.distance - hits[sj].distance < 0.5 || (spid && ho.material === MAT.hit && propIdOf(ho) === spid))) { win = false; break; } } }
-      else if (isrc && isrc.kind === 'bench' && hs.distance - hits[0].distance < 0.8) win = true;
-      if (win) { hits.unshift(hits.splice(si, 1)[0]); break; }
-    }
-    for (var i = 0; i < hits.length; i++) {
-      var h = hits[i], def = h.object.userData.it || srcDef(instSource(h));
-      if (!def) continue;
-      if (h.object.isInstancedMesh && !def.src) def.src = instSource(h); if (def.prop === undefined) def.prop = propIdOf(h.object) || null;   // the scanner reads these
-      var txt = def.prompt(); if (!txt) continue;
-      focus = def; focusText = txt; break;
-    }
-  }
-  function useFocus() { if (edit.on) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; } if (driving) { forkUse(); return; } if (focus) { focus.use(); sfx('click'); interact(); } else if (isJack(player.tool) && jackPallet()) jackSetDown(); }
+  GAME.hitObjects = function () { return instList; };
+  GAME.hitDef = function (h) { var src = instSource(h), def = srcDef(src); if (def && h.object.isInstancedMesh && !def.src) def.src = src; return def; };   // the scanner reads def.src
+  // the boxes on the bench sit inside the bench's own hit box: within 0.8 m a box wins over the bench
+  GAME.hitPriority = function (hs, first) { var isrc = hs.object.isInstancedMesh ? instSource(hs) : null; return !!(isrc && isrc.kind === 'bench' && hs.distance - first.distance < 0.8); };
+  GAME.focusOff = function () { return driving; };
+  GAME.useOverride = function () { if (driving) { forkUse(); return true; } return false; };
+  GAME.useFallback = function () { if (isJack(player.tool) && jackPallet()) jackSetDown(); };
+  GAME.putDown = function () { putDown(); };
   // E on open floor with a loaded jack lowers the forks and leaves the pallet where the jack stands
   function jackSetDown() { var p = jackPallet(); if (!p) return; var jt = jackTool(), jm = jackMeshes[jt], w = toolWorld(jt); if (jm && jm.userData.towRy !== undefined) { w.x = jm.position.x; w.z = jm.position.z; w.ry = jm.userData.towRy; } if (!insideHall(w.x, w.z) && floorY(w.x, w.z) < -0.5) { toast('Not out in the yard: set it down inside.', 'bad'); sfx('bad'); return; } p.place = 'floor'; p.x = w.x; p.z = w.z; p.y = floorY(w.x, w.z); p.rot = w.ry; S[jt].pallet = null; sfx('putdown'); toast('Pallet set down', ''); hudDirty = true; }
 
   // ── Input ─────────────────────────────────────────────────────────
-  function lockPointer() { if (!ui.started || ui.blocked()) return; try { var r = canvas.requestPointerLock(); if (r && r.catch) r.catch(function () {}); } catch (e) {} }
-  canvas.addEventListener('click', function () { if (ui.started && !ui.blocked() && !player.locked) lockPointer(); });
-  document.addEventListener('pointerlockchange', function () { player.locked = document.pointerLockElement === canvas; if (!player.locked) { player.keys = {}; if (ui.started && !ui.blocked() && !ui.suppressMenu) openMenu(); } ui.suppressMenu = false; });
-  document.addEventListener('mousemove', function (e) {
-    if (!player.locked || ui.blocked()) return;
-    var sx = 0.0022 * SET.sens, iy = SET.invertY ? -1 : 1;
-    if (photo.on) { photo.yaw -= e.movementX * sx; photo.pitch = clamp(photo.pitch - e.movementY * sx * iy, -1.5, 1.5); return; }
-    if (pc.on) { pc.look.yaw = clamp(pc.look.yaw - e.movementX * sx, -0.5, 0.5); pc.look.pitch = clamp(pc.look.pitch - e.movementY * sx * iy, -0.35, 0.35); return; }
-    if (driving) { forkLook.yaw = clamp(forkLook.yaw - e.movementX * sx, -2.4, 2.4); forkLook.pitch = clamp(forkLook.pitch - e.movementY * sx * iy, -1.2, 1.2); return; }
-    player.yaw -= e.movementX * sx; player.pitch = clamp(player.pitch - e.movementY * sx * iy, -1.5, 1.5);
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.code === 'F12') { e.preventDefault(); if (ui.started) screenshot(); return; }
-    if (e.code === 'KeyD' && e.ctrlKey && e.shiftKey) { e.preventDefault(); devLinkToggle(); return; }   // the dev console link (1.21.0; the F8 panel is gone)
-    if (e.code === 'F3') { e.preventDefault(); SET.fps = !SET.fps; $('h-fps').hidden = !SET.fps; saveSettings(); return; }
-    var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT');
-    if (typing && e.code !== 'Escape') return;
-    if (!ui.started) return;
-    if (reportT > 0) hideDayReport(); if (levelT > 0) hideLevelCard();
-    if (e.code === 'F9') { e.preventDefault(); photoToggle(); return; }
-    if (e.code === 'Escape') { e.preventDefault(); if (photo.on) { photoToggle(false); return; } if (pc.on) { closePc(); return; } if (edit.on && edit.grabbed) { editDrop(true); return; } if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
-    if (ui.blocked()) return;
-    if (photo.on) { player.keys[e.code] = true; return; }
-    if (e.code === 'F2') { e.preventDefault(); if (!driving && !pc.on) editToggle(); return; }
-    if (edit.on) {
-      if (e.code === 'KeyR') { editRotate(); return; }
-      if (e.code === 'Backspace') { e.preventDefault(); editReset(); return; }
-      if (e.code === 'Delete') { editRemove(); return; }
-      if (e.code === 'KeyC') { openPanel('catalogue'); return; }
-      if (e.code === 'KeyE' && !e.repeat) { if (edit.grabbed) editDrop(false); else if (focus && focus.editId) editGrab(focus.editId); return; }
-      if (e.code === 'KeyG' && !e.repeat) { if (edit.grabbed) editDrop(true); return; }
-    }
-    if (e.code === 'Tab') { e.preventDefault(); if (!pc.on) scanToggle(!ui.scanOpen); return; }
-    if (ui.scanOpen && /^Digit[1-9]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return; }
-    if (ui.scanOpen && e.code === 'KeyF') { e.preventDefault(); scanGo(); return; }
-    if (ui.scanOpen && e.code === 'KeyX') { e.preventDefault(); scanClearNav(); return; }
-    if (ui.scanOpen && (e.code === 'Enter' || e.code === 'NumpadEnter')) { e.preventDefault(); scanAct(); return; }   // the selected row's action
-    if (!ui.scanOpen && e.code === 'KeyX' && scan.nav && !pc.on) { scanClearNav(); return; }
-    player.keys[e.code] = true;
-    if (e.repeat) return;
-    if (e.code === 'KeyE') useFocus();
-    else if (e.code === 'KeyG') { if (driving) stopDrive(); else if (focus && focus.alt) focus.alt(); else putDown(); }
-    else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving) forkGearCycle();
-  });
-  document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
-  document.addEventListener('wheel', function (e) { if (photo.on && ui.started && !ui.blocked()) photoZoom(e.deltaY > 0 ? 1 : -1); else if (ui.scanOpen && !ui.blocked()) scanScroll(e.deltaY > 0 ? 1 : -1); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });
-  function screenUnderCrosshair() { for (var i = 0; i < screens.length; i++) { if (!screens[i].mesh.visible) continue; if (ray.intersectObject(screens[i].mesh, false).length) return screens[i]; } return null; }
-  window.addEventListener('blur', function () { player.keys = {}; });
+  GAME.mouseLook = function (e, sx, iy) {
+    if (pc.on) { pc.look.yaw = clamp(pc.look.yaw - e.movementX * sx, -0.5, 0.5); pc.look.pitch = clamp(pc.look.pitch - e.movementY * sx * iy, -0.35, 0.35); return true; }
+    if (driving) { forkLook.yaw = clamp(forkLook.yaw - e.movementX * sx, -2.4, 2.4); forkLook.pitch = clamp(forkLook.pitch - e.movementY * sx * iy, -1.2, 1.2); return true; }
+    return false;
+  };
+  GAME.escape = function () { if (pc.on) { closePc(); return true; } return false; };
+  GAME.editBlocked = function () { return driving || pc.on; };
+  GAME.photoBlocked = function () { return driving || pc.on; };
+  GAME.promptHidden = function () { return driving; };
+  hook('photo', function (on) { if (on) dropMarker.g.visible = false; });
+  GAME.scanToggle = function (on) { scanToggle(on); };
+  // the depot's keys, before the engine's own: the scanner (Tab, the digits, F, X, Enter) and the forklift (G stops, Shift shifts)
+  GAME.key = function (e) {
+    if (e.code === 'Tab') { e.preventDefault(); if (!pc.on) scanToggle(!ui.scanOpen); return true; }
+    if (ui.scanOpen && /^Digit[1-9]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return true; }
+    if (ui.scanOpen && e.code === 'KeyF') { e.preventDefault(); scanGo(); return true; }
+    if (ui.scanOpen && e.code === 'KeyX') { e.preventDefault(); scanClearNav(); return true; }
+    if (ui.scanOpen && (e.code === 'Enter' || e.code === 'NumpadEnter')) { e.preventDefault(); scanAct(); return true; }   // the selected row's action
+    if (!ui.scanOpen && e.code === 'KeyX' && scan.nav && !pc.on) { scanClearNav(); return true; }
+    if (driving && e.code === 'KeyG') { player.keys[e.code] = true; if (!e.repeat) stopDrive(); return true; }
+    if (driving && (e.code === 'ShiftLeft' || e.code === 'ShiftRight')) { player.keys[e.code] = true; if (!e.repeat) forkGearCycle(); return true; }
+    return false;
+  };
+  GAME.wheel = function (dir, e) {
+    if (ui.scanOpen && !ui.blocked()) { scanScroll(dir); return true; }
+    if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + dir); pc.screen.dirty = true; return true; }
+    return driving;   // no screen scrolls from the forklift seat
+  };

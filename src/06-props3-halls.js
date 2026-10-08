@@ -26,7 +26,7 @@
   function inAnnex(x, z) { for (var h in HALLS) if (hallOwned(h) && inRectH(x, z, HALLS[h])) return h; return null; }
   function inAnyAnnexFootprint(x, z) { for (var h in HALLS) if (inRectH(x, z, HALLS[h])) return h; return null; }
   // where a walker may stand: the main hall, the halls you own, and the wing once Hall 4 opens behind it (all inset from their walls)
-  function insideWalk(x, z) {
+  function depotInsideWalk(x, z) {
     var m = 0.35;
     if (Math.abs(x) < HALL.x - m && Math.abs(z) < HALL.z - m) return true;
     for (var h in HALLS) { var H = HALLS[h]; if (hallOwned(h) && x > H.x0 + m && x < H.x1 - m && z > H.z0 + m && z < H.z1 - m) return true; }
@@ -36,6 +36,7 @@
     if (hallOwned('hall4') && x > WING.door.x0 + m && x < WING.door.x1 - m && Math.abs(z + HALL.z) < 0.6) return true;
     return false;
   }
+  GAME.insideWalk = depotInsideWalk;   // the route finder's walkable ground (Co Engine 25-nav)
   // ── The build ─────────────────────────────────────────────────────
   // ── The build: a steel box dressed like the main hall ─────────────
   // Every inside face gets the main hall's lining: the block dado with its rail, the two girts, the cable tray, an I-beam column
@@ -72,11 +73,11 @@
     if (!ownW) wallSeg('z', H.x0, H.z0, H.z1, WING.h, h); if (!ownE) wallSeg('z', H.x1, H.z0, H.z1, WING.h, h); if (id === 'hall4') wallSeg('x', H.z1, H.x0 - 0.15, H.x1 + 0.15, WING.h, h);   // the wing's walls are two metres lower: the strip above them is this hall's
     // the roof: slab, inner face, three skylight strips, trusses along z, purlins across, two roof vents
     c.box(wx + 0.6, 0.3, wz + 0.6, MAT.roof, cx, h + 0.15, cz); c.plane(wx, wz, MAT.roofIn, cx, h - 0.01, cz, Math.PI / 2, 0);
-    [H.z0 + 4.5, cz, H.z1 - 4.5].forEach(function (z) { var sk = c.plane(wx - 4, 1.4, MAT.skylight, cx, h - 0.02, z, Math.PI / 2, 0); world.lampMeshes.push(sk); });
+    [H.z0 + 4.5, cz, H.z1 - 4.5].forEach(function (z) { var sk = c.plane(wx - 4, 1.4, MAT.skylight, cx, h - 0.02, z, Math.PI / 2, 0); lampMeshes.push(sk); });
     for (var tx = Math.ceil((H.x0 + 2) / 8) * 8; tx < H.x1 - 1; tx += 8) c.box(0.25, 0.6, wz - 0.4, FR, tx, h - 0.35, cz);
     for (var pz = H.z0 + 3; pz < H.z1 - 1; pz += 4) c.box(wx - 0.4, 0.12, 0.12, FR, cx, h - 0.1, pz);
     [cx - wx / 4, cx + wx / 4].forEach(function (vx) { c.cyl(0.45, 0.6, MAT.steel, vx, h + 0.6, cz, 12); c.cyl(0.6, 0.15, FR, vx, h + 0.95, cz, 12); });
-    H.lights.forEach(function (p, i) { highBay(p[0], 7.6, p[1]);   /* 7.6 like the main hall's (the light at 7.3 sits just above the lens); at 7.0 the lamp hung 0.6 m lower with the light inside the ballast box */ var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l); });
+    H.lights.forEach(function (p, i) { highBay(p[0], 7.6, p[1], HALL.h);   /* 7.6 like the main hall's (the light at 7.3 sits just above the lens); at 7.0 the lamp hung 0.6 m lower with the light inside the ballast box */ var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l); });
     // the inside faces: the far wall with the tray and windows, the wall it opens off with the doorway cut, the two sides
     var dcut = [D.x0 - 0.1, D.x1 + 0.1];
     hallFace(c, 'z', H.z0, 1, H.x0, H.x1, [], { windows: true, tray: true });
