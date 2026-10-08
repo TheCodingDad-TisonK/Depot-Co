@@ -4,8 +4,13 @@
 'use strict';
 const { app, BrowserWindow, Menu } = require('electron');
 const { createServer } = require('./server');
+const path = require('path');
 
 const PORT = +(process.env.DEPOT_DEV_PORT || 8432);
+// A name and a user-data folder of its own, set before the single-instance lock: the lock is keyed by that folder, and run from the
+// repo this file shares the game's package.json (product name Depot Co), so without this the console and the game would hold one
+// lock between them and whichever started second would quit at once.
+app.setName('Depot Co Dev Console'); app.setPath('userData', path.join(app.getPath('appData'), 'Depot Co Dev Console'));
 let win = null, srv = null;
 
 function open() {

@@ -5,7 +5,8 @@
   "extraMetadata": {
     "name": "depot-co-devconsole",
     "description": "The Depot Co. dev console: a window of its own that the running game links to with Ctrl+Shift+D",
-    "main": "tools/devconsole/main.js"
+    "main": "tools/devconsole/main.js",
+    "productName": "Depot Co Dev Console"
   },
   "directories": {
     "output": "dist",
