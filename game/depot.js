@@ -5899,7 +5899,8 @@
     var footH = 52;
     if (scan.page === MAP_PAGE) { scanDev.rows = []; drawScanMap(c, 8, 54, w - 16, h - 54 - footH - 6); drawScanFoot(c, w, h, footH); scanDev.tex.needsUpdate = true; return; }
     var rows = scanPageRows(scan.page); scanDev.rows = rows; if (scan.sel >= rows.length) scan.sel = Math.max(0, rows.length - 1); if (scan.sel < 0) scan.sel = 0;
-    var y0 = 56, rowH = 30, maxRows = Math.floor((h - y0 - footH - 10) / rowH);   // ten px kept for the page counter under the last row if (scan.sel < scan.scroll) scan.scroll = scan.sel; if (scan.sel >= scan.scroll + maxRows) scan.scroll = scan.sel - maxRows + 1; scan.scroll = clamp(scan.scroll, 0, Math.max(0, rows.length - maxRows));
+    var y0 = 56, rowH = 30, maxRows = Math.floor((h - y0 - footH - 10) / rowH);   // ten px kept for the page counter under the last row
+    if (scan.sel < scan.scroll) scan.scroll = scan.sel; if (scan.sel >= scan.scroll + maxRows) scan.scroll = scan.sel - maxRows + 1; scan.scroll = clamp(scan.scroll, 0, Math.max(0, rows.length - maxRows));   // the view follows the cursor (this line sat inside a comment from 1.16.0 to 1.19.0, so long pages never scrolled)
     var y = y0;
     rows.slice(scan.scroll, scan.scroll + maxRows).forEach(function (r, i) {
       var idx = scan.scroll + i, sel = idx === scan.sel;

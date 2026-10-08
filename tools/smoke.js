@@ -372,6 +372,8 @@ const SCENARIO = `(async () => {
     T.scanPage(1); T.drawScanner(); rows = T.scanDev.rows; ok(rows.every((r) => !r.act || /^PACK$/.test(r.act.label) || /RETURN/.test(r.act.label)), 'the Orders page offers PACK on orders and nothing odd elsewhere');
     T.scanPage(6); T.drawScanner(); rows = T.scanDev.rows; ok(rows.some((r) => r.act), 'the Plant page carries the machine buttons: ' + rows.filter((r) => r.act).length + ' rows act');
     T.scan.sel = 0; T.scanPage(0); T.drawScanner(); T.scan.sel = 0; ok(T.scanAct() === false, 'Enter on a row with nothing to do says so instead of throwing'); T.scanToggle(false); }
+  // 1.19.1: the scanner's view follows the cursor down a long page (Stock, Orders): the line that did it sat inside a comment since 1.16
+  { T.scanToggle(true); T.scanPage(6); T.scan.sel = 0; T.drawScanner(); const n = T.scanDev.rows.length; ok(n > 8, 'the Plant page is long enough to scroll: ' + n + ' rows'); for (let i = 0; i < n + 2; i++) T.scanScroll(1); ok(T.scan.sel === n - 1 && T.scan.scroll === Math.max(0, n - 8), 'the Plant page scrolls to its last row: sel ' + T.scan.sel + ' of ' + n + ', scroll ' + T.scan.scroll); for (let i = 0; i < n + 2; i++) T.scanScroll(-1); ok(T.scan.sel === 0 && T.scan.scroll === 0, 'and back to the top'); T.scanToggle(false); }
   const c = T.counts(); out.push('info draws=' + c.draws + ' inter=' + c.inter + ' dyn=' + c.dyn);
   } catch (e) { errs.push('scenario threw: ' + (e && e.stack || e)); }   // the checks that passed before the throw still print, and the stack says where
   return { out, errs };

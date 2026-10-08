@@ -5,6 +5,9 @@
 **New**
 - **The scanner acts.** Rows marked ⏎ carry an action and Enter fires the selected one. Docks: OPEN or CLOSE every door you own, and a docked truck gets a row of its own with SIGN (an inbound note) or DISPATCH (an outbound truck with parcels aboard). Orders: PACK an order whose boxes are all on the bench. Home: the alerts that can be dealt with from the scanner carry their fix (SIGN, CLEAR a jam, RETURN the surplus). Putaway: SIGN an unsigned truck, RETURN the loose boxes. Plant: every button the office PC has for a machine (clear, eject, reset, the speed dials). Crew: a WORD with a worker who came in late, their SHIFT otherwise, and your own CLOCK IN or OUT. A row that cannot act right now says why.
 
+**Fixed**
+- **The scanner scrolls again.** The line that keeps the view following the cursor down a page had sat inside a trailing comment since 1.16.0, so once the cursor left the first eight rows the page stayed put: Stock and Orders looked as if they would not scroll. It follows the cursor now, and the suite scrolls the Plant page to its last row and back.
+
 ## 1.18.1 (2026-10-08)
 
 **New**
