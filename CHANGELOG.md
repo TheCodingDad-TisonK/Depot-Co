@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.18.1 (2026-10-08)
+
+**Fixed**
+- **The turntable in the break room.** Tyson spotted a turntable where the canteen table should be, and had the cause right: the sorter's turntable build was also called `tableBuild`, the same name as the canteen table's, and in the one closure the game is built into the later declaration wins. Since 1.14 the break room table and the shop's extra table were built as the sorter turntable. The sorter's build is `sortTableBuild` now and the table is a table again. The build tool's duplicate-name check missed it because the props part declared its `tableBuild` on the same line as a closing brace; the check reads those lines too now.
+
 ## 1.18.0 (2026-10-07)
 
 The crew's jacks for good, a worker you can look at, the returns dock console, and the list deferred from 1.16.

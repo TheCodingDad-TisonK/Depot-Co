@@ -26,7 +26,7 @@ function build() {
   const js = text.split('\n').filter((line) => !/^\/\/@/.test(line)).join('\n');
   // one closure means a second `function foo(` silently replaces the first: refuse to build that
   const seen = {};
-  (js.match(/^  function [A-Za-z0-9_$]+\(/gm) || []).forEach((d) => { const n = d.slice(11, -1); seen[n] = (seen[n] || 0) + 1; });
+  { const re = /^(?:  |\}\s+)function ([A-Za-z0-9_$]+)\(/gm; let m; while ((m = re.exec(js))) seen[m[1]] = (seen[m[1]] || 0) + 1; }   // a top-level function may follow a closing brace on the same line: 06-props' tableBuild hid behind one and the sorter's tableBuild replaced it (1.18.1)
   Object.keys(seen).filter((n) => seen[n] > 1).forEach((n) => problems.push('function ' + n + ' is declared ' + seen[n] + ' times at the top level'));
   return { js, names, problems };
 }

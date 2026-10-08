@@ -196,7 +196,7 @@
     c.plane(0.8, LH - 0.2, MAT.mesh, LX, LH / 2, 0.42, 0, 0); c.sign(['PARCEL LIFT'], 0.5, 0.1, LX, LH - 0.1, 0.43, 0, { w: 256, h: 56, bg: '#1b232c', fg: '#f5b53d' });
     c.solid(-0.8, 0.8, -0.65, 0.65, 0, 2.1); c.solid(LX - 0.4, LX + 0.4, -0.45, 0.45, 0, LH + 0.2);
   }; }
-  function tableBuild(c) {
+  function sortTableBuild(c) {   // not tableBuild: that name is the canteen table in 06-props, and the later declaration won, so the break room got a turntable (1.18.1)
     var DG = MAT_MACH.frame; c.cyl(0.9, 0.08, DG, 0, BELT_Y - 0.06, 0, 32); c.cyl(0.86, 0.03, MAT_MACH.roller, 0, BELT_Y, 0, 32); c.cyl(0.25, BELT_Y - 0.1, DG, 0, (BELT_Y - 0.1) / 2, 0, 16);
     var ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.025, 8, 40), MAT_MACH.guard); ring.rotation.x = Math.PI / 2; ring.position.y = BELT_Y + 0.14; c.group.add(ring); for (var k = 0; k < 8; k++) { var a = k / 8 * Math.PI * 2; if (k === 0) continue; c.box(0.03, 0.14, 0.03, DG, Math.cos(a) * 0.95, BELT_Y + 0.07, Math.sin(a) * 0.95); }
     c.box(0.3, 0.5, 0.2, DG, -1.1, 0.9, 0.0); MACH.sortTable.lamps = lampStack(c, -1.1, 1.15, 0); c.sign(['TURNTABLE', 'round again'], 0.6, 0.2, -1.26, 0.8, 0, -Math.PI / 2, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' });
@@ -226,7 +226,7 @@
   sdef('spiralSea', { label: 'sea spiral', build: function (c) { conveyorPath(c, BELTS.spiralSea.path); spiralDress(c, SORT.spiral.sea.x, SORT.spiral.sea.z, R, Y, 0); c.sign(['SEA · DOWN TO OUT 1'], 0.9, 0.14, SORT.spiral.sea.x, 1.6, SORT.spiral.sea.z + R + 0.5, 0, { w: 320, h: 64, bg: '#1b232c', fg: MODES.sea.col }); } });
   sdef('spiralAir', { label: 'air spiral', build: function (c) { conveyorPath(c, BELTS.spiralAir.path); spiralDress(c, SORT.spiral.air.x, SORT.spiral.air.z, R, Y, 0); c.sign(['AIR · DOWN TO OUT 3'], 0.9, 0.14, 32.2, 1.6, SORT.spiral.air.z - R - 0.5, Math.PI, { w: 320, h: 64, bg: '#1b232c', fg: MODES.air.col }); } });
   SORT.cells.forEach(function (cd) { sdef('cell' + cd.mode, { label: cd.mode + ' packing cell', x: cd.x, z: SORT.cellZ, build: cellBuild(cd), after: raiseToDeck }); defBelt('cellOut' + cd.mode, { prop: 'cellOut' + cd.mode, path: [[SORT.liftX, 0, Y + SORT.up], [SORT.liftX, SORT.collZ - SORT.cellZ, Y + SORT.up, 'hang']], speedKey: 'sorter', rate: 2, noSink: true }); sdef('cellOut' + cd.mode, { label: cd.mode + ' cell bridge belt', x: cd.x, z: SORT.cellZ, build: function (c) { conveyorPath(c, BELTS['cellOut' + cd.mode].path); } }); });   // the bridge belt from the lift head to the collector, over the corridor
-  sdef('sortTable', { label: 'sorter turntable', x: SORT.table.x, z: SORT.table.z, build: tableBuild, after: raiseToDeck });
+  sdef('sortTable', { label: 'sorter turntable', x: SORT.table.x, z: SORT.table.z, build: sortTableBuild, after: raiseToDeck });
   sdef('scanner', { label: 'scanner arch', x: SORT.inX, z: SORT.scanZ, build: scannerBuild, after: raiseToDeck });
   sdef('gateSea', { label: 'sea gate', x: SORT.collX - 0.7, z: SORT.gates.sea, build: gateBuild('sea'), after: raiseToDeck });
   sdef('gateAir', { label: 'air gate', x: SORT.collX - 0.7, z: SORT.gates.air, build: gateBuild('air'), after: raiseToDeck });
