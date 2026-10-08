@@ -97,6 +97,10 @@ npm run installer   # the NSIS installer in dist/ (needs the icon from npm run i
 
 Never edit `game/depot.js` by hand: edit `src/` and build. See `docs/Architecture.md` for how the parts fit and `docs/Player-Guide.md` for the whole game in words.
 
+## Support
+
+Depot Co. is free and stays free. If you want to follow the work and play new versions a week early, there is a Patreon: https://www.patreon.com/cw/thecodingdad. Three tiers: Crate ($3, the dev logs and a vote on what comes next), Pallet ($8, early builds and the dev console), Forklift ($20, your name on the notice board and a prop or a client named after you). Supporters are listed in `SUPPORTERS.md`.
+
 ## Licence
 
 MIT. Made by TheCodingDad.
