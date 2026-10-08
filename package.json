@@ -20,8 +20,10 @@
     "icon": "node tools/make-icon.js",
     "installer": "npm run check && npm run brand && npm run icon && node node_modules/co-engine/tools/verify-icon.js && electron-builder --win nsis --x64 --publish never"
   },
+  "dependencies": {
+    "co-engine": "github:TheCodingDad-TisonK/Co-Engine#v0.1.2"
+  },
   "devDependencies": {
-    "co-engine": "github:TheCodingDad-TisonK/Co-Engine#v0.1.2",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "png-to-ico": "^2.1.8"
@@ -38,9 +40,9 @@
       "main.js",
       "co.json",
       "game/**/*",
-      "node_modules/co-engine/shell/**",
-      "node_modules/co-engine/package.json",
-      "package.json"
+      "package.json",
+      "!node_modules/co-engine/{editor,template,docs,vendor,tests,engine,tools}/**",
+      "!node_modules/co-engine/*.md"
     ],
     "win": {
       "target": [
