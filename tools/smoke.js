@@ -355,6 +355,13 @@ const SCENARIO = `(async () => {
       T.run(45); ok(!!rcv.jackParked && !!rcv.jackAt && Math.abs(rcv.jackAt.x - jh.x) < 0.01 && Math.abs(rcv.jackAt.z - jh.z) < 0.01 && rcv.clocked === false, 'the jack stands in its slot and the receiver clocked out: ' + rcv.state + ' parked=' + rcv.jackParked + ' at ' + (rcv.jackAt ? rcv.jackAt.x.toFixed(1) + ',' + rcv.jackAt.z.toFixed(1) : '-'));
       rcv.dayOff = d0; T.setTime(t0); }
     if (pk) { const t1 = SL.time; pk.state = 'idle'; pk.task = null; pk.carry = null; pk.clocked = false; pk.clockedOutAt = null; pk.x = -10; pk.z = 5; pk.dayOff = true; T.setTime(10); T.run(1); ok(pk.state === 'home' || pk.state === 'gone' || (pk.state === 'walk' && pk.then === 'gone'), 'an off-duty worker standing in the hall walks out: ' + pk.state + '/' + pk.then); pk.dayOff = false; T.setTime(t1); } }
+  // 1.18.1: the rooms' furniture stands, the shop sells more, and comfort shortens the breaks
+  { const fset = ['tv', 'dartboard', 'microwave', 'fanStand', 'rugLobby', 'rugOffice', 'bookshelf', 'printer', 'pictureOffice', 'pictureLobby'], missing = fset.filter((id) => !T.propInst[id]);
+    ok(!missing.length, 'the rooms have their furniture: ' + (missing.length ? 'missing ' + missing.join(', ') : fset.length + ' pieces'));
+    const mw = T.propWorld('microwave', 0, 0), bs = T.propWorld('bookshelf', 0, 0); ok(mw.x < -35 && mw.z < -22 && mw.z > -23 && bs.x > 30 && bs.z > 23, 'the microwave sits on the coffee counter and the bookshelf against the office wall');
+    ok(!T.collides(-31.4, -20.75) && !T.collides(31.2, 22.9) && !T.collides(-33.6, 21.6), 'the break room floor under the dartboard, the office floor by the bookshelf and the lobby rug are walkable');
+    const cf0 = T.roomComfort(); ok(cf0 >= 4 && cf0 <= 10 && T.breakLen() < 0.5 && T.breakLen() >= 0.25, 'the furniture gives comfort ' + cf0 + ' and a break of ' + Math.round(T.breakLen() * 60) + ' min');
+    ok(['xSofa', 'xArmchair', 'xPaddedChair', 'xRoundTable', 'xTv', 'xDartboard', 'xMicrowave', 'xFan', 'xRug', 'xBookshelf', 'xPrinter', 'xPicture'].every((id) => T.PROPS[id] && T.PROPS[id].extra && T.PROPS[id].price > 0), 'twelve pieces of furniture are in the shop'); }
   const c = T.counts(); out.push('info draws=' + c.draws + ' inter=' + c.inter + ' dyn=' + c.dyn);
   } catch (e) { errs.push('scenario threw: ' + (e && e.stack || e)); }   // the checks that passed before the throw still print, and the stack says where
   return { out, errs };

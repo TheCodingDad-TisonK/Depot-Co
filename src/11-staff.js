@@ -251,7 +251,7 @@
   function voice(st) { return VOICE[st.name] || VOICE.Jo; }
   function staffSay(st, text, col) { var m = staffMeshes[st.id]; if (m && m.visible) say(m, text, col); }
   function staffById(id) { for (var i = 0; i < S.staff.length; i++) if (S.staff[i].id === id) return S.staff[i]; return null; }
-  function onBreak(st) { var b = shiftStart(st) + 4; return S.time >= b && S.time < b + 0.5; }   // half an hour, four hours into their own shift
+  function onBreak(st) { var b = shiftStart(st) + 4; return S.time >= b && S.time < b + breakLen(); }   // four hours into their own shift; half an hour bare, down to a quarter with the rooms furnished (breakLen, 06-props4-furniture)
   function hireStaff(role) {
     var def = STAFF_ROLES[role]; if (!def) return;
     if (def.needs && !S.up[def.needs]) { toast('Buy the forklift first: a driver needs something to drive.', 'bad'); return; }

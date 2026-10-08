@@ -2,6 +2,9 @@
 
 ## 1.18.1 (2026-10-08)
 
+**New**
+- **Furniture.** The rooms get a set of their own: a TV on the break room wall running the depot's news while the power is on, a dartboard by the vending machine, a microwave on the coffee counter, a standing fan that turns in the office, rugs in the lobby and the office, a bookshelf, a printer that prints the day report, and pictures. The shop sells more: a sofa, an armchair, a padded chair, a round table, and a TV, dartboard, microwave, fan, rug, bookshelf, printer and picture of your own to place in build mode. What stands in the rooms adds up to the depot's **comfort** (the Staff app shows it), and comfort shortens the crew's breaks: half an hour bare, a quarter of an hour at full comfort.
+
 **Fixed**
 - **The turntable in the break room.** Tyson spotted a turntable where the canteen table should be, and had the cause right: the sorter's turntable build was also called `tableBuild`, the same name as the canteen table's, and in the one closure the game is built into the later declaration wins. Since 1.14 the break room table and the shop's extra table were built as the sorter turntable. The sorter's build is `sortTableBuild` now and the table is a table again. The build tool's duplicate-name check missed it because the props part declared its `tableBuild` on the same line as a closing brace; the check reads those lines too now.
 

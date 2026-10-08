@@ -119,6 +119,10 @@ The dock consoles and the bench terminal are touch screens: look at a button and
 
 Look at a worker and the prompt gives their name, job, what they are doing right now and how they keep time: reliable, a fair timekeeper, a poor timekeeper. `E` on one who came in late has the word with them there and then (the same word as the Staff app's). A receiver's pallet jack parks in a row along the west wall north of the cart bay when they clock out, one slot a worker; the day roll tidies every jack into its slot overnight.
 
+## Furniture and comfort
+
+The rooms are furnished from the first day: a TV on the break room wall (depot news while the power is on), a dartboard, a microwave on the coffee counter, a standing fan in the office, rugs, a bookshelf, a printer that prints the day report, pictures. The build-mode catalogue (`C` in build mode) sells more: a sofa, an armchair, a padded chair, a round table, and a TV, dartboard, microwave, fan, rug, bookshelf, printer and picture of your own. Everything placed adds to the depot's **comfort**, shown on the Staff app, and comfort shortens the crew's breaks: half an hour with bare rooms, down to a quarter of an hour at comfort 10. A sofa is worth two points, a chair half a point.
+
 ## Staff and the time clock
 
 The crew come in from the yard through the staff door and clock in at the reader beside it; from 18:00 (20:00 on overtime) they clock out and leave the same way. Pay at 06:00 is their clocked hours at the hourly rate (the daily wage divided by ten), time and a half past ten hours. Punctuality is a trait: the reader screen shows who is in, who is late and who called in sick, and lets you put someone on overtime, give them tomorrow off, or have a word about lateness. Your own card works too: clock in at the start and out at the end for a shift report.

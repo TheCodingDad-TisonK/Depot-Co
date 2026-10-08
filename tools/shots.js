@@ -53,6 +53,9 @@ const SHOTS = [
   { name: '39-rh-inspection-desks', x: 23.4, z: -33.4, y: 0, yaw: 0, pitch: -0.1, time: 11, wait: 90000, pre: 'T.rdesk().queue.length = 0; var rt2 = S.trucks.filter(function (t) { return t.dir === "ret"; })[0]; if (rt2) { while (T.rdesk().queue.length < 3) T.rdesk().queue.push(T.addReturn(rt2, { num: 95 + T.rdesk().queue.length, client: "grocer", mode: "land", lines: [{ sku: "cereal", qty: 2 }], reason: "unwanted" })); rt2.returns.length = 0; } T.rdeskStart(1); T.run(0.5);' },
   { name: '40-rh-restock-cage', x: 30.5, z: -39.8, y: 0, yaw: 0, pitch: -0.02, time: 11, wait: 90000, pre: 'var D = T.rdesk(); while (D.shelf.length < 11) D.shelf.push({ sku: D.shelf.length % 3 ? "cereal" : "books", damaged: D.shelf.length % 5 === 4 }); T.run(0.2);' },
   { name: '41-rh-yard-returns-lane', x: 50, z: -40, y: 0, yaw: -2.3, pitch: -0.08, time: 11, wait: 90000 },
+  { name: '42-fn-break-room', x: -32.2, z: -20.7, y: 0, yaw: 0.35, pitch: -0.05, time: 11, wait: 20000 },
+  { name: '43-fn-office', x: 33.4, z: 19.6, y: 0, yaw: Math.PI - 0.5, pitch: -0.08, time: 11, wait: 20000 },
+  { name: '44-fn-lobby', x: -33.4, z: 22.6, y: 0, yaw: 0.3, pitch: -0.05, time: 11, wait: 20000 },
   { name: '36-rh-hall2', x: 19, z: -26, y: 0, yaw: 0, pitch: 0, time: 11, wait: 90000, pre: 'S.bank+=60000; S.level=Math.max(S.level,8); ["fork","hall2","hall3"].forEach(function(u){ if(!S.up[u]) T.buyUpgrade(u); }); T.run(0.2);' },
   { name: '37-photo-aerial', x: 0, z: 0, yaw: 0, pitch: 0, time: 15, wait: 20000, pre: 'T.photoToggle(true); T.photo.x=58; T.photo.y=30; T.photo.z=52; T.photo.yaw=0.84; T.photo.pitch=-0.5;', post: 'T.photoToggle(false);' }
 ];
