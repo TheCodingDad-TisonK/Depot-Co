@@ -74,13 +74,13 @@ A save from before 1.21 keeps the big hall it lived in. The ladder is data (`XP_
 | `W S A D` · `R F` on the forklift | Drive, steer, raise and lower the forks |
 | `F9` | Photo mode: a free camera with the HUD off; the wheel zooms the lens |
 | `F2` · `C` | Build mode (from level 5), and its catalogue |
-| `Ctrl+Shift+D` | Link the dev console (see below) |
+| `Ctrl+Shift+D` | Link or unlink the dev console (see below; the desktop app links by itself) |
 | `Esc` | Pause menu: settings, guide, stats, save file |
 | `F3` · `F12` · `F11` | FPS counter, screenshot, fullscreen |
 
 ## The dev console
 
-For testing, a separate little program. On the Releases page it is `Depot-Co-DevConsole-<version>.exe`: one file, no install, double-click and it opens. From the repo, `npm run devconsole` opens the same window. It shows a live readout of the save and the cheats (money, levels, stage jumps, the clock, weather, trucks, orders, stock, crew, teleports). In the game, installed or in a browser, `Ctrl+Shift+D` links to it, or `npm run dev` starts the game linked. The HUD shows LINKED while it is connected. It writes straight into the save.
+For testing, a separate little program. On the Releases page it is `Depot-Co-DevConsole-<version>.exe`: one file, no install, double-click and it opens. From the repo, `npm run devconsole` opens the same window. It shows a live readout of the save and the cheats (money, levels, stage jumps, the clock, weather, trucks, orders, stock, crew, teleports). The desktop game finds it by itself: with the console open, start the game, or have it open already, and within five seconds the HUD shows LINKED. There is also a Link the dev console button in the pause menu (Esc), and `Ctrl+Shift+D` links or unlinks, which is the way in a browser. `npm run dev` starts the game linked. It writes straight into the save.
 
 ## Building
 

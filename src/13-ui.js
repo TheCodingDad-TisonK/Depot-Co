@@ -186,7 +186,7 @@
   $('dc-panel-close').addEventListener('click', closePanel);
 
   // ── Pause menu ────────────────────────────────────────────────────
-  function openMenu() { if (ui.menuOpen) return; ui.menuOpen = true; $('dc-menu').hidden = false; $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; scanToggle(false); ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {} save(); var ms = $('dc-menu-sub'); if (ms) ms.textContent = 'The depot waits until you come back. ' + (saveT && !save.failed ? 'Saved at ' + new Date(saveT).toLocaleTimeString() + ', slot ' + BOOT_SLOT + '.' : 'The save could not be written: export it below.'); }   // the pause saves, and says so
+  function openMenu() { if (ui.menuOpen) return; ui.menuOpen = true; $('dc-menu').hidden = false; if ($('dc-m-devlink')) $('dc-m-devlink').textContent = devLink.on ? '🔗 Unlink the dev console' : '🔗 Link the dev console'; $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; scanToggle(false); ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {} save(); var ms = $('dc-menu-sub'); if (ms) ms.textContent = 'The depot waits until you come back. ' + (saveT && !save.failed ? 'Saved at ' + new Date(saveT).toLocaleTimeString() + ', slot ' + BOOT_SLOT + '.' : 'The save could not be written: export it below.'); }   // the pause saves, and says so
   function closeMenu() { if (!ui.menuOpen) return; ui.menuOpen = false; $('dc-menu').hidden = true; lockPointer(); }
   function menuBody(html) { var b = $('dc-menu-body'); b.hidden = false; b.innerHTML = '<div class="dc-menu-row" style="margin:0 0 10px"><button data-menu="back" class="primary">← Back</button></div>' + html; $('dc-menu').querySelector('.dc-menu-btns').hidden = true; }   // the body takes the card over, with a way back, so a 720p screen is not two scroll bars deep
   $('dc-menu').addEventListener('click', function (e) {
@@ -194,6 +194,7 @@
     if (k === 'resume') closeMenu();
     else if (k === 'back') { $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; }
     else if (k === 'edit') { closeMenu(); if (!edit.on) editToggle(); }
+    else if (k === 'devlink') { closeMenu(); devLinkToggle(); }   // the mouse way to Ctrl+Shift+D (1.21.0)
     else if (k === 'settings') menuBody(settingsHtml());
     else if (k === 'guide') menuBody('<div class="dc-how">' + guideHtml() + '</div>');
     else if (k === 'stats') menuBody(pcHtml('stats'));
