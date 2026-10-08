@@ -1,0 +1,34 @@
+{
+  "appId": "com.thecodingdad.depotco.devconsole",
+  "productName": "Depot Co Dev Console",
+  "copyright": "TheCodingDad-TisonK",
+  "extraMetadata": {
+    "name": "depot-co-devconsole",
+    "description": "The Depot Co. dev console: a window of its own that the running game links to with Ctrl+Shift+D",
+    "main": "tools/devconsole/main.js"
+  },
+  "directories": {
+    "output": "dist",
+    "buildResources": "build"
+  },
+  "files": [
+    "tools/devconsole/main.js",
+    "tools/devconsole/server.js",
+    "tools/devconsole/index.html",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "build/icon.ico"
+  },
+  "portable": {
+    "artifactName": "Depot-Co-DevConsole-${version}.exe"
+  }
+}

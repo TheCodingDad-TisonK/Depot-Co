@@ -933,7 +933,7 @@
     }
     if (stageHas('wing')) buildWing();
     hingedDoor('staff', -X, SPOT.staffDoor.z - 0.5, false, 'the staff door', { mat: MAT.steelDark, swing: 1 });
-    if (rooms) hingedDoor('exit', FIRE_X, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
+    if (rooms) hingedDoor('exit', FIRE_X - 0.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });   // the hinge half a leaf west of the cut's centre, so the metre of leaf fills the 1.2 m cut instead of standing half in the wall with a gap beside it
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
@@ -2526,7 +2526,7 @@
   defProp('signOffice', { label: 'sign: OFFICE', cat: 'wall', wall: true, abs: true, stage: 1, x: 22.41, z: 19.95, rot: 3, build: wallSignBuild(['OFFICE'], 1.4, 0.45, 2.6, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
   defProp('signLobby', { label: 'sign: LOBBY', cat: 'wall', wall: true, abs: true, stage: 1, x: -25.41, z: 19.95, rot: 1, build: wallSignBuild(['LOBBY'], 1.2, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
   defProp('signBreak', { label: 'sign: BREAK ROOM', cat: 'wall', wall: true, abs: true, stage: 1, x: -22.91, z: -22.45, rot: 1, build: wallSignBuild(['BREAK ROOM'], 1.6, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('exitNorth', { keep: true, stage: 1, label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
+  defProp('exitNorth', { keep: true, stage: 1, label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 23.5, z: -23.8, rot: 0, build: exitSignBuild });   // over the middle of the fire exit cut (FIRE_X: 23.5 from the hall on, 13.5 in the small hall by ungrown)
   defProp('exitStaff', { label: 'exit sign (staff door)', cat: 'wall', wall: true, abs: true, stage: 1, x: -29.8, z: 22, rot: 1, build: exitSignBuild });
   defProp('signPacking', { label: 'sign: PACKING', cat: 'wall', wall: true, abs: true, stage: 1, x: 29.83, z: 5.2, rot: 3, at: { 1: { x: 19.83, z: -2.2, rot: 3 } }, build: wallSignBuild(['PACKING'], 1.8, 0.5, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' }) });
   defProp('signProduction', { stage: 2, label: 'sign: PRODUCTION', cat: 'wall', wall: true, abs: true, x: 5.8, z: -23.83, rot: 0, build: wallSignBuild(['PRODUCTION'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#78bdf5' }) });

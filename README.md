@@ -80,7 +80,7 @@ A save from before 1.21 keeps the big hall it lived in. The ladder is data (`XP_
 
 ## The dev console
 
-For testing, a separate little program. `npm run devconsole` opens it in a window of its own: a live readout of the save and the cheats (money, levels, stage jumps, the clock, weather, trucks, orders, stock, crew, teleports). In the game, `Ctrl+Shift+D` links to it, or `npm run dev` starts the game linked. The HUD shows LINKED while it is connected. It writes straight into the save.
+For testing, a separate little program. On the Releases page it is `Depot-Co-DevConsole-<version>.exe`: one file, no install, double-click and it opens. From the repo, `npm run devconsole` opens the same window. It shows a live readout of the save and the cheats (money, levels, stage jumps, the clock, weather, trucks, orders, stock, crew, teleports). In the game, installed or in a browser, `Ctrl+Shift+D` links to it, or `npm run dev` starts the game linked. The HUD shows LINKED while it is connected. It writes straight into the save.
 
 ## Building
 
@@ -89,6 +89,7 @@ npm run build       # joins src/ into game/depot.js and writes game/version.js
 npm run check       # refuses to pass if game/depot.js is not what src/ builds
 npm test            # the dev console self test, then the smoke test: boots the real game headless and climbs the whole ladder across reloads
 npm run devconsole  # the dev console window
+npm run devconsole:exe  # the dev console as one portable exe in dist/
 npm run dev         # the game, linked to the dev console from the first frame
 npm run brand       # redraws the logo and wordmark
 npm run installer   # the NSIS installer in dist/ (needs the icon from npm run icon)

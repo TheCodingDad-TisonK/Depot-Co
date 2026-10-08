@@ -14,6 +14,7 @@
     "check": "node tools/build-game.js --check && node tools/sync-version.js && node tools/lint-gate.js && node --check game/depot.js && node --check game/menu.js && node --check main.js",
     "test": "node tools/build-game.js --check && node tools/devconsole/selftest.js && electron tools/smoke.js",
     "devconsole": "electron tools/devconsole/main.js",
+    "devconsole:exe": "electron-builder --win portable --x64 --publish never --config tools/devconsole/builder.json",
     "dev": "electron . --dev-link",
     "brand": "electron tools/render-brand.js",
     "icon": "node tools/make-icon.js",

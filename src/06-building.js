@@ -81,7 +81,7 @@
     }
     if (stageHas('wing')) buildWing();
     hingedDoor('staff', -X, SPOT.staffDoor.z - 0.5, false, 'the staff door', { mat: MAT.steelDark, swing: 1 });
-    if (rooms) hingedDoor('exit', FIRE_X, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
+    if (rooms) hingedDoor('exit', FIRE_X - 0.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });   // the hinge half a leaf west of the cut's centre, so the metre of leaf fills the 1.2 m cut instead of standing half in the wall with a gap beside it
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
