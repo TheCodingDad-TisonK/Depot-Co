@@ -56,6 +56,8 @@ const SHOTS = [
   { name: '42-fn-break-room', x: -32.2, z: -20.7, y: 0, yaw: 0.35, pitch: -0.05, time: 11, wait: 20000 },
   { name: '43-fn-office', x: 33.4, z: 19.6, y: 0, yaw: Math.PI - 0.5, pitch: -0.08, time: 11, wait: 20000 },
   { name: '44-fn-lobby', x: -33.4, z: 22.6, y: 0, yaw: 0.3, pitch: -0.05, time: 11, wait: 20000 },
+  { name: '45-sa-scanner-docks', x: -30, z: -2, y: 0, yaw: -1.2, pitch: -0.1, time: 11, wait: 20000, pre: 'var t = T.spawnTruck("in", 1, 23); t.x = -T.HALL.x - 0.4; T.run(3); T.scanToggle(true); T.scanPage(5); T.scan.sel = 1; T.drawScanner(); T.run(0.2);' },
+  { name: '46-sa-scanner-crew', x: -30, z: -2, y: 0, yaw: -1.2, pitch: -0.1, time: 11, wait: 20000, pre: 'T.scanToggle(true); T.scanPage(7); T.scan.sel = 0; T.drawScanner(); T.run(0.2);' },
   { name: '36-rh-hall2', x: 19, z: -26, y: 0, yaw: 0, pitch: 0, time: 11, wait: 90000, pre: 'S.bank+=60000; S.level=Math.max(S.level,8); ["fork","hall2","hall3"].forEach(function(u){ if(!S.up[u]) T.buyUpgrade(u); }); T.run(0.2);' },
   { name: '37-photo-aerial', x: 0, z: 0, yaw: 0, pitch: 0, time: 15, wait: 20000, pre: 'T.photoToggle(true); T.photo.x=58; T.photo.y=30; T.photo.z=52; T.photo.yaw=0.84; T.photo.pitch=-0.5;', post: 'T.photoToggle(false);' }
 ];

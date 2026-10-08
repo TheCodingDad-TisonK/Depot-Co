@@ -362,6 +362,16 @@ const SCENARIO = `(async () => {
     ok(!T.collides(-31.4, -20.75) && !T.collides(31.2, 22.9) && !T.collides(-33.6, 21.6), 'the break room floor under the dartboard, the office floor by the bookshelf and the lobby rug are walkable');
     const cf0 = T.roomComfort(); ok(cf0 >= 4 && cf0 <= 10 && T.breakLen() < 0.5 && T.breakLen() >= 0.25, 'the furniture gives comfort ' + cf0 + ' and a break of ' + Math.round(T.breakLen() * 60) + ' min');
     ok(['xSofa', 'xArmchair', 'xPaddedChair', 'xRoundTable', 'xTv', 'xDartboard', 'xMicrowave', 'xFan', 'xRug', 'xBookshelf', 'xPrinter', 'xPicture'].every((id) => T.PROPS[id] && T.PROPS[id].extra && T.PROPS[id].price > 0), 'twelve pieces of furniture are in the shop'); }
+  // 1.19.0: the scanner acts: Enter on a Docks row toggles the door, on a truck row signs or dispatches, on the crew page punches your clock
+  { const SL = T.S; SL.events.power = false; T.scanToggle(true); T.scanPage(5); T.drawScanner(); let rows = T.scanDev.rows;
+    const di = rows.findIndex((r) => r.act && /^(OPEN|CLOSE)$/.test(r.act.label)); ok(di >= 0, 'the Docks page offers OPEN or CLOSE on a door row: ' + (di >= 0 ? rows[di].text : 'none'));
+    if (di >= 0) { const label0 = rows[di].act.label, open0 = /IN 1/.test(rows[di].text) ? SL.doors[0] : null; T.scan.sel = di; const did = T.scanAct(); T.drawScanner(); rows = T.scanDev.rows; ok(did && rows[di].act.label !== label0, 'Enter toggled the door: ' + label0 + ' then ' + rows[di].act.label); T.scan.sel = di; T.scanAct(); T.drawScanner(); ok(T.scanDev.rows[di].act.label === label0, 'and back again'); }
+    rows = T.scanDev.rows; const tr = rows.findIndex((r) => r.act && /^(SIGN|DISPATCH)$/.test(r.act.label)); if (tr >= 0) ok(/truck/.test(rows[tr].text), 'a docked truck has its own row with ' + rows[tr].act.label + ': ' + rows[tr].text.trim());
+    T.scanPage(7); T.drawScanner(); rows = T.scanDev.rows; const yi = rows.findIndex((r) => /^You/.test(r.text)); ok(yi >= 0 && rows[yi].act && /CLOCK/.test(rows[yi].act.label), 'the crew page offers your clock: ' + (yi >= 0 && rows[yi].act ? rows[yi].act.label : 'none'));
+    if (yi >= 0) { const c0 = SL.clockedIn; T.scan.sel = yi; T.scanAct(); ok(SL.clockedIn !== c0, 'Enter punched the clock: ' + (SL.clockedIn ? 'in' : 'out')); T.drawScanner(); T.scan.sel = yi; T.scanAct(); ok(SL.clockedIn === c0, 'and punched it back'); }
+    T.scanPage(1); T.drawScanner(); rows = T.scanDev.rows; ok(rows.every((r) => !r.act || /^PACK$/.test(r.act.label) || /RETURN/.test(r.act.label)), 'the Orders page offers PACK on orders and nothing odd elsewhere');
+    T.scanPage(6); T.drawScanner(); rows = T.scanDev.rows; ok(rows.some((r) => r.act), 'the Plant page carries the machine buttons: ' + rows.filter((r) => r.act).length + ' rows act');
+    T.scan.sel = 0; T.scanPage(0); T.drawScanner(); T.scan.sel = 0; ok(T.scanAct() === false, 'Enter on a row with nothing to do says so instead of throwing'); T.scanToggle(false); }
   const c = T.counts(); out.push('info draws=' + c.draws + ' inter=' + c.inter + ' dyn=' + c.dyn);
   } catch (e) { errs.push('scenario threw: ' + (e && e.stack || e)); }   // the checks that passed before the throw still print, and the stack says where
   return { out, errs };

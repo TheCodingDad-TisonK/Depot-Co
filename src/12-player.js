@@ -147,6 +147,7 @@
     if (ui.scanOpen && /^Digit[1-9]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return; }
     if (ui.scanOpen && e.code === 'KeyF') { e.preventDefault(); scanGo(); return; }
     if (ui.scanOpen && e.code === 'KeyX') { e.preventDefault(); scanClearNav(); return; }
+    if (ui.scanOpen && (e.code === 'Enter' || e.code === 'NumpadEnter')) { e.preventDefault(); scanAct(); return; }   // the selected row's action
     if (!ui.scanOpen && e.code === 'KeyX' && scan.nav && !pc.on) { scanClearNav(); return; }
     player.keys[e.code] = true;
     if (e.repeat) return;
