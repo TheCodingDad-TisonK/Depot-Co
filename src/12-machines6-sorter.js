@@ -181,7 +181,7 @@
     c.sign(['STEP OVER'], 0.6, 0.12, 0, H + 1.12, PW / 2 + 0.01, 0, { w: 256, h: 56, bg: '#f5b53d', fg: '#1a1205' }); c.sign(['STEP OVER'], 0.6, 0.12, 0, H + 1.12, -PW / 2 - 0.01, Math.PI, { w: 256, h: 56, bg: '#f5b53d', fg: '#1a1205' });
   }
   function cellBuild(cd) { return function (c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, col = new THREE.Color(MODES[cd.mode].col), PM = std({ color: col, roughness: 0.5, metalness: 0.3 });
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame, col = new THREE.Color(MODES[cd.mode].col), PM = std({ color: col, roughness: 0.5, metalness: 0.3 });
     [[-0.7, -0.55], [0.7, -0.55], [-0.7, 0.55], [0.7, 0.55]].forEach(function (p) { c.box(0.08, 0.7, 0.08, DG, p[0], 0.35, p[1]); c.box(0.18, 0.03, 0.18, DG, p[0], 0.015, p[1]); });
     c.box(1.6, 0.14, 1.3, DG, 0, 0.78, 0); for (var rx = -0.7; rx < 0.75; rx += 0.2) { var r = c.cyl(0.035, 1.2, MAT_MACH.roller, rx, BELT_Y - 0.02, 0, 10); r.rotation.x = Math.PI / 2; }
     var hood = new THREE.Mesh(bevelGeo(1.5, 0.9, 1.1, 0.04), LG); hood.position.set(0, 1.5, 0); hood.castShadow = true; c.group.add(hood); c.box(1.52, 0.06, 1.12, PM, 0, 1.97, 0); c.box(1.52, 0.04, 1.12, MAT.hazard, 0, 0.87, 0);
@@ -204,7 +204,7 @@
     c.solid(-1.0, 1.0, -1.0, 1.0, 0, 1.0);
   }
   function scannerBuild(c) {
-    var DG = MAT_MACH.frame, LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 });
+    var DG = MAT_MACH.frame, LG = MAT_MACH.panel;
     [-0.75, 0.75].forEach(function (x) { c.box(0.1, 2.3, 0.1, DG, x, 1.15, 0); c.box(0.24, 0.03, 0.24, DG, x, 0.015, 0); }); c.box(1.7, 0.16, 0.3, DG, 0, 2.3, 0);
     c.box(0.6, 0.12, 0.2, MAT.black, 0, 2.18, 0); c.box(0.5, 0.02, 0.02, glowMat(0xff3b2f, 1.6), 0, 2.11, 0); c.box(0.02, 1.3, 0.02, glowMat(0xff3b2f, 0.8), -0.72, 1.35, 0.06); c.box(0.02, 1.3, 0.02, glowMat(0xff3b2f, 0.8), 0.72, 1.35, 0.06);
     c.sign(['SCAN · LANE READ'], 1.0, 0.16, 0, 2.48, 0.16, 0, { w: 384, h: 64, bg: '#1b232c', fg: '#f5b53d' });

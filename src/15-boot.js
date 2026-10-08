@@ -69,6 +69,7 @@
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,
       propWorld: propWorld, rdesk: rdesk, rdeskUse: rdeskUse, rdeskBoxUse: rdeskBoxUse, rdeskStart: rdeskStart, returnPlace: returnPlace, returnById: returnById, addReturn: addReturn, returnsPending: returnsPending, loadPrompt: loadPrompt, receivePallet: receivePallet,
       photo: photo, photoToggle: photoToggle, photoTick: photoTick, drawScanMap: drawScanMap, MAP_PAGE: MAP_PAGE, closeDay: closeDay, reportHtml: reportHtml, dayReportShown: function () { return !$('h-report').hidden; }, outNext: outNext, orderLate: orderLate, truckWarn: truckWarn,
+      updateHud: updateHud, updatePlayer: updatePlayer, photoZoom: photoZoom, scanReturnsNav: scanReturnsNav, SET: SET, contractAccept: contractAccept, contractDecline: contractDecline, wallPlanes: wallPlanes, propWhere: propWhere, propSeed: propSeed, buff: buff, dress: dress,
       addXp: addXp, counts: function () { return { draws: (post.calls || renderer.info.render.calls), inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; }
     }
   };

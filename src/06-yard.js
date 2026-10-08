@@ -42,9 +42,11 @@
     var dome = new THREE.Mesh(new THREE.SphereGeometry(230, 32, 16), skyMat); dome.position.y = YARD_Y; yard.dome = dome; dome.renderOrder = -10; dome.userData.noBake = true; dome.frustumCulled = false; scene.add(dome); yard.sky = skyMat;
     // truck lanes to every dock: edge lines, a centre dash, and a hatched keep-clear apron
     // the steps go on the side with room: IN 1's and OUT 3's north, the rest south, and OUT 1 has none (shelters on both sides)
+    var ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });   // the steps' render and the handrails' paint, shared by every dock (a pair a dock was a draw a dock)
     function yardDock(d) {
       // the steps: 6 risers from the yard to the landing at hall level, outside the dock door on its +z side, with a tube handrail
-      var fz = dockStepSide(d.i), sx = side_(d.side), ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });
+      var fz = dockStepSide(d.i), sx = side_(d.side);
+      if (yard.apron) yard.apron(d);   // the tyre marks and oil on the apron: set below after the boot doors are painted, so only a dock built mid-game takes this path
       if (d.i !== 2) { for (var st = 0; st < 6; st++) { box(1.1, 0.2, (6 - st) * 0.3, ST, sx * (X + 0.85), YARD_Y + 0.1 + st * 0.2, d.z + fz * 4.4 + (6 - st) * 0.15); }
       box(1.1, 1.2, 1.6, ST, sx * (X + 0.85), YARD_Y + 0.6, d.z + fz * 3.6);
       [-0.5, 0.5].forEach(function (hx) { var px = sx * (X + 0.85 + hx); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 3.0, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 4.3, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 0.5, d.z + fz * 6.1, null, 8); var rail = cyl(0.025, 1.5, HR, px, YARD_Y + 2.2, d.z + fz * 3.65, null, 8); rail.rotation.x = Math.PI / 2; var rail2 = cyl(0.025, 2.2, HR, px, YARD_Y + 1.6, d.z + fz * 5.2, null, 8); rail2.rotation.x = Math.PI / 2 + 0.58 * fz; });
@@ -126,7 +128,7 @@
     });
     // the road: two lanes, dashes, kerbs, lamp posts, and the traffic that uses it
     var roadMat = MAT.yard.clone(); roadMat.map = TEX.asphalt.clone(); roadMat.map.needsUpdate = true; roadMat.map.wrapS = roadMat.map.wrapT = THREE.RepeatWrapping; roadMat.map.repeat.set(260 / 7, 11 / 7); if (roadMat.normalMap) { roadMat.normalMap = roadMat.normalMap.clone(); roadMat.normalMap.needsUpdate = true; roadMat.normalMap.wrapS = roadMat.normalMap.wrapT = THREE.RepeatWrapping; roadMat.normalMap.repeat.set(260 / 7, 11 / 7); }   // the yard's repeat squashed the texture across the 11 m road
-    plane(260, 11, roadMat, 0, YARD_Y + 0.01, 75, -Math.PI / 2); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 69.4); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 80.6);
+    yard.roadMat = roadMat; plane(260, 11, roadMat, 0, YARD_Y + 0.01, 75, -Math.PI / 2); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 69.4); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 80.6);
     for (var i = -120; i < 120; i += 6) plane(3, 0.2, MAT.whiteLine, i, YARD_Y + 0.02, 75, -Math.PI / 2);
     for (var lp = -110; lp <= 110; lp += 28) { cyl(0.06, 7, MAT.steelDark, lp, YARD_Y + 3.5, 81.5, null, 8, 0.09); box(0.08, 0.08, 1.4, MAT.steelDark, lp, YARD_Y + 6.9, 80.8); var ll = box(0.5, 0.14, 0.32, glowMat(0xfff2c0, 0.2), lp, YARD_Y + 6.85, 80.2); yard.lampLenses.push(ll); }
     for (var c = 0; c < 8; c++) { var cm = carMesh(pick(CAR_COLS)); cm.userData.dynamic = true; var dir = c % 2 ? -1 : 1; cm.position.set(-130 + (c >> 1) * 65 + randf(0, 20), YARD_Y, dir > 0 ? 72.5 : 77.5); cm.rotation.y = dir > 0 ? 0 : Math.PI; scene.add(cm); yard.traffic.push({ g: cm, dir: dir, v: dir > 0 ? 12 : 10.5 }); }   // one speed a lane: they used to drive through each other
@@ -136,10 +138,10 @@
     var yMarkMat = new THREE.MeshBasicMaterial({ map: yMarkTex, transparent: true, depthWrite: false, opacity: 0.75 }); yMarkMat.userData.noBake = true;
     var yOilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(6,6,8,0.55)'); g.addColorStop(0.7, 'rgba(6,6,8,0.25)'); g.addColorStop(1, 'rgba(6,6,8,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
     var yOilMat = new THREE.MeshBasicMaterial({ map: yOilTex, transparent: true, depthWrite: false }); yOilMat.userData.noBake = true;
-    doors.forEach(function (d) {
+    yard.apron = function (d) {   // kept on yard so a dock built mid-game (IN 3, the returns dock) gets its marks from yardDock at once
       for (var k = 0; k < 3; k++) { var m = plane(9, 1.5, yMarkMat, d.side * (X + 6 + k * 7.5), YARD_Y + 0.014, d.z + randf(-0.6, 0.6), -Math.PI / 2, 0); m.rotation.z = randf(-0.05, 0.05); m.renderOrder = 1; m.userData.noBake = true; }
       var o = plane(2.6, 2.6, yOilMat, d.side * (X + 9), YARD_Y + 0.015, d.z + randf(-0.8, 0.8), -Math.PI / 2, 0); o.rotation.z = randf(0, 3); o.renderOrder = 1; o.userData.noBake = true;
-    });
+    }; doors.forEach(yard.apron);
     var sceneCtx = { add: function (m) { scene.add(m); return m; } };
     [[-X - 2.6, 1.2, 5], [-X - 2.6, 2.6, 7], [X + 2.6, 1.3, 4]].forEach(function (p) { for (var i = 0; i < p[2]; i++) palletModel(sceneCtx, p[0] + randf(-0.02, 0.02), YARD_Y + i * 0.128, p[1] + randf(-0.02, 0.02), randf(-0.03, 0.03)); solid(p[0] - 0.65, p[0] + 0.65, p[1] - 0.55, p[1] + 0.55, YARD_Y, YARD_Y + 1.2); });
     // the skip: a steel box with sloped ends, lifting lugs, hazard stripes, the hire firm's name, cardboard showing over the lip
@@ -160,6 +162,7 @@
     yard.rain = mkPoints(7000, 0.26, streak, 24); yard.rain.material.opacity = 0.5; yard.rain.material.color.setHex(0xc7d3de); yard.snow = mkPoints(3000, 0.22, flake, 30);   // a drop is a thin grey streak, not a white blob
   }
 
+  var SNOW_COL = new THREE.Color(0xdfe4e9), SNOW_GRASS = new THREE.Color(0xf4f6f8);
   function tickYard(dt) {
     yard.windT += dt;
     // gates slide open while a truck is coming in or going out on that side
@@ -175,10 +178,10 @@
     var W = S.weather || { kind: 'clear', wet: 0, snow: 0, wind: 0.4 };
     var raining = W.kind === 'rain' || W.kind === 'storm', snowing = W.kind === 'snow';
     yard.rain.visible = raining; yard.snow.visible = snowing;
-    if (raining) { var p = yard.rain.geometry.attributes.position.array, px = player.x, pz = player.z; for (var r = 0; r < p.length; r += 3) { p[r + 1] -= (9 + (W.kind === 'storm' ? 4 : 0)) * dt; var inWg = inWing(p[r], p[r + 2]), inHall = (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) || inWg || !!inAnnex(p[r], p[r + 2]), roofY = inWg ? WING.h + 0.3 : inHall ? HALL.h + 0.3 : YARD_Y; if (!inHall) for (var tk = 0; tk < S.trucks.length; tk++) { var tb = trailerBounds(S.trucks[tk]); if (p[r] > tb.x0 - 3.5 && p[r] < tb.x1 + 3.5 && p[r + 2] > tb.z0 - 0.4 && p[r + 2] < tb.z1 + 0.4) { roofY = TRAILER.h + 0.1; break; } } if (p[r + 1] < roofY || Math.abs(p[r] - px) > 26 || Math.abs(p[r + 2] - pz) > 26) { p[r] = px + randf(-24, 24); p[r + 2] = pz + randf(-24, 24); var rf = inWing(p[r], p[r + 2]) ? WING.h + 0.6 : (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) ? HALL.h + 0.6 : 6; p[r + 1] = randf(rf, 16); } } yard.rain.geometry.attributes.position.needsUpdate = true; }
-    if (snowing) { var q = yard.snow.geometry.attributes.position.array, qx = player.x, qz = player.z; for (var s = 0; s < q.length; s += 3) { q[s + 1] -= 1.3 * dt; q[s] += Math.sin(yard.windT + s) * 0.4 * dt; var inH = (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) || inWing(q[s], q[s + 2]) || !!inAnnex(q[s], q[s + 2]); if (q[s + 1] < (inWing(q[s], q[s + 2]) ? WING.h + 0.3 : inH ? HALL.h + 0.3 : YARD_Y) || Math.abs(q[s] - qx) > 32 || Math.abs(q[s + 2] - qz) > 32) { q[s] = qx + randf(-30, 30); q[s + 2] = qz + randf(-30, 30); var sf = inWing(q[s], q[s + 2]) ? WING.h + 0.6 : (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) ? HALL.h + 0.6 : 6; q[s + 1] = randf(sf, 16); } } yard.snow.geometry.attributes.position.needsUpdate = true; }
+    if (raining) { var p = yard.rain.geometry.attributes.position.array, px = player.x, pz = player.z, tbs = S.trucks.map(trailerBounds), pn = Math.min(p.length, (yard.rainN || 7000) * 3); for (var r = 0; r < pn; r += 3) { p[r + 1] -= (9 + (W.kind === 'storm' ? 4 : 0)) * dt; var inWg = inWing(p[r], p[r + 2]), inHall = (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) || inWg || !!inAnnex(p[r], p[r + 2]), roofY = inWg ? WING.h + 0.3 : inHall ? HALL.h + 0.3 : YARD_Y; if (!inHall) for (var tk = 0; tk < tbs.length; tk++) { var tb = tbs[tk]; if (p[r] > tb.x0 - 3.5 && p[r] < tb.x1 + 3.5 && p[r + 2] > tb.z0 - 0.4 && p[r + 2] < tb.z1 + 0.4) { roofY = TRAILER.h + 0.1; break; } } if (p[r + 1] < roofY || Math.abs(p[r] - px) > 26 || Math.abs(p[r + 2] - pz) > 26) { p[r] = px + randf(-24, 24); p[r + 2] = pz + randf(-24, 24); var rf = inWing(p[r], p[r + 2]) ? WING.h + 0.6 : (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) ? HALL.h + 0.6 : 6; p[r + 1] = randf(rf, 16); } } yard.rain.geometry.attributes.position.needsUpdate = true; }
+    if (snowing) { var q = yard.snow.geometry.attributes.position.array, qx = player.x, qz = player.z, qn = Math.min(q.length, (yard.snowN || 3000) * 3); for (var s = 0; s < qn; s += 3) { q[s + 1] -= 1.3 * dt; q[s] += Math.sin(yard.windT + s) * 0.4 * dt; var inH = (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) || inWing(q[s], q[s + 2]) || !!inAnnex(q[s], q[s + 2]); if (q[s + 1] < (inWing(q[s], q[s + 2]) ? WING.h + 0.3 : inH ? HALL.h + 0.3 : YARD_Y) || Math.abs(q[s] - qx) > 32 || Math.abs(q[s + 2] - qz) > 32) { q[s] = qx + randf(-30, 30); q[s + 2] = qz + randf(-30, 30); var sf = inWing(q[s], q[s + 2]) ? WING.h + 0.6 : (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) ? HALL.h + 0.6 : 6; q[s + 1] = randf(sf, 16); } } yard.snow.geometry.attributes.position.needsUpdate = true; }
     yard.puddles.forEach(function (pm) { pm.material.opacity = W.wet * 0.85; });
-    var snowCol = 0xdfe4e9; MAT.yard.color.setHex(0xffffff).lerp(new THREE.Color(snowCol), W.snow * 0.9); MAT.grass.color.setHex(0xffffff).lerp(new THREE.Color(0xf4f6f8), W.snow);
+    MAT.yard.color.setHex(0xffffff).lerp(SNOW_COL, W.snow * 0.9); MAT.grass.color.setHex(0xffffff).lerp(SNOW_GRASS, W.snow); if (yard.roadMat) yard.roadMat.color.setHex(0xffffff).lerp(SNOW_COL, W.snow * 0.9);   // the road whitens with the yard (it stayed black in a white yard); the two colours are shared, not two new ones a frame
     var overcast = raining ? 0.75 : snowing ? 0.6 : W.kind === 'overcast' ? 0.5 : 0;
     var cday = 0.12 + 0.88 * Math.sin(Math.PI * clamp((S.time - 6) / 16, 0, 1)); yard.clouds.forEach(function (c) { c.sp.material.color.setScalar((1 - overcast * 0.55) * cday); c.sp.material.opacity = 0.5 + overcast * 0.5; });   // grey at night, not white
   }

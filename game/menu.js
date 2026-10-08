@@ -25,7 +25,7 @@
   else { setTimeout(endSplash, 3400); splash.addEventListener('click', endSplash); window.addEventListener('keydown', function once() { window.removeEventListener('keydown', once); endSplash(); }); }
 
   function body(html) { $('dc-menu-main').innerHTML = html; }
-  function line(s) { return 'Day ' + (s.day || 1) + ' · level ' + (s.level || 1) + ' · ' + money(s.bank) + ' · rep ' + Math.round(s.rep || 0) + ' · ' + (s.stats && s.stats.shipped || 0) + ' orders shipped'; }
+  function line(s) { return 'Day ' + (s.day || 1) + ' · level ' + (s.level || 1) + ' · ' + money(s.bank) + ' · rep ' + Math.round(s.rep || 0) + ' · ' + (s.stats && s.stats.shipped || 0) + ' orders shipped' + (s.savedAt ? ' · saved ' + new Date(s.savedAt).toLocaleString() : ''); }   // when the slot was last written, so three depots side by side tell themselves apart
   function slotRow(n) {
     var s = readSlot(n), on = n === active();
     return '<div class="dc-slot' + (on ? ' on' : '') + '"><div class="dc-slot-info"><b>Slot ' + n + (on ? ' · loaded' : '') + '</b><span>' + (s ? line(s) : 'Empty. A new depot starts with $600, two rack rows and two pallet jacks.') + '</span></div>' +

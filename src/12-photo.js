@@ -2,15 +2,17 @@
   // ── Photo mode ────────────────────────────────────────────────────
   // 1.16.0. F9 lets go of the player: the camera flies free (WASD, Space up, C down, Shift fast, the mouse looks), the HUD goes,
   // the world holds still, and F12 takes the picture. F9 or Esc puts you back where you were standing.
-  var photo = { on: false, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 6 };
+  var photo = { on: false, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 6, fov: 75 };
   function photoToggle(on) {
     if (on === undefined) on = !photo.on; if (on === photo.on) return;
     if (on) {
       if (!ui.started || ui.blocked() || driving || pc.on || edit.on) return;
-      photo.on = true; photo.x = camera.position.x; photo.y = camera.position.y; photo.z = camera.position.z; photo.yaw = player.yaw; photo.pitch = player.pitch;
+      photo.on = true; photo.x = camera.position.x; photo.y = camera.position.y; photo.z = camera.position.z; photo.yaw = player.yaw; photo.pitch = player.pitch; photo.fov = SET.fov;
       scanToggle(false); $('dc-hud').hidden = true; dropMarker.g.visible = false; player.keys = {}; sfx('scan');
-    } else { photo.on = false; $('dc-hud').hidden = false; hudDirty = true; player.keys = {}; sfx('click'); }
+    } else { photo.on = false; $('dc-hud').hidden = false; hudDirty = true; player.keys = {}; sfx('click'); camera.fov = SET.fov; camera.updateProjectionMatrix(); }   // the lens goes back to the setting: a zoomed shot never follows you out
   }
+  // the wheel zooms the lens while the camera is free: a long lens from across the hall, a wide one in the aisle
+  function photoZoom(dir) { if (!photo.on) return; photo.fov = clamp(photo.fov + dir * 4, 20, 110); camera.fov = photo.fov; camera.updateProjectionMatrix(); }
   function photoTick(dt) {
     var k = player.keys, sp = photo.speed * (k.ShiftLeft || k.ShiftRight ? 3 : 1) * dt;
     var cp = Math.cos(photo.pitch), fx = -Math.sin(photo.yaw) * cp, fy = Math.sin(photo.pitch), fz = -Math.cos(photo.yaw) * cp, rx = Math.cos(photo.yaw), rz = -Math.sin(photo.yaw);

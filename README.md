@@ -61,9 +61,11 @@ It is one HTML page and plain JavaScript on top of [three.js](https://threejs.or
 | `W A S D` · `Shift` · `Space` | Move, run, jump |
 | `E` | Use, pick up, put on the rack or the bench, lift with the jack, pack, load |
 | `G` | Put down what you hold, let go of the jack or cart, get off the forklift |
-| `Tab` · `1`-`9` | Hand scanner and its pages; the wheel moves its cursor, `F` sets a waypoint, `X` clears it |
+| `Tab` · `1`-`9` | Hand scanner and its pages; the wheel moves its cursor, `F` sets a waypoint, `Enter` acts on the selected row, `X` clears the waypoint |
 | `W S A D` · `R F` on the forklift | Drive, steer, raise and lower the forks |
-| `F9` | Photo mode: a free camera with the HUD off |
+| `F9` | Photo mode: a free camera with the HUD off; the wheel zooms the lens |
+| `F2` · `C` | Build mode, and its catalogue |
+| `F8` | Dev console: money, the clock, weather, trucks, teleports |
 | `Esc` | Pause menu: settings, guide, stats, save file |
 | `F3` · `F12` · `F11` | FPS counter, screenshot, fullscreen |
 

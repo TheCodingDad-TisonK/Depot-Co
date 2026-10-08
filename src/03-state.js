@@ -89,7 +89,8 @@
   var saveT = 0;
   function save() {
     if (wiped) return;
-    try { S.savedAt = now(); localStorage.setItem(SAVE, JSON.stringify(S)); saveT = now(); } catch (e) {}
+    try { S.savedAt = now(); localStorage.setItem(SAVE, JSON.stringify(S)); saveT = now(); save.failed = false; }
+    catch (e) { if (!save.failed) { save.failed = true; toast('The save could not be written: the browser refused the storage. Export it from the pause menu.', 'bad'); if (typeof console !== 'undefined') console.error('Depot Co.: save failed', e); } }   // said once, not at every autosave: a full or blocked localStorage used to lose the game in silence
   }
   var wiped = false;
   function wipe() { wiped = true; try { localStorage.removeItem(SAVE); } catch (e) {} }

@@ -74,10 +74,11 @@
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
+  var HIGHBAY_REFL = std({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide });   // one reflector material for every lamp: thirty of them bake into one draw instead of thirty
   function highBay(x, y, z) {
     cyl(0.025, HALL.h - y - 0.22, MAT.steelDark, x, (HALL.h + y + 0.22) / 2, z, null, 6);   // the conduit drop from the roof to the ballast box
     box(0.34, 0.22, 0.26, MAT.steelDark, x, y + 0.11, z); box(0.1, 0.06, 0.06, MAT.black, x + 0.2, y + 0.12, z);
-    var refl = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.14, 0.42, 20, 1, true), std({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide })); refl.position.set(x, y - 0.21, z); scene.add(refl);
+    var refl = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.14, 0.42, 20, 1, true), HIGHBAY_REFL); refl.position.set(x, y - 0.21, z); scene.add(refl);
     var lens = cyl(0.42, 0.03, MAT.lamp, x, y - 0.41, z, null, 20); lens.castShadow = false; world.lampMeshes.push(lens);
   }
   // a recessed troffer in a room's ceiling: a white frame and a prismatic lens that dims when the power is off
@@ -129,7 +130,7 @@
     // the dock leveller: a plate from the hall edge out over the slot to the trailer bed, with a hinged lip and a hazard edge
     var lev = box(0.72, 0.05, 2.3, MAT.chequer, side * (HALL.x + 0.1), 0.0, z); lev.receiveShadow = true; box(0.2, 0.03, 2.3, MAT.hazard, side * (HALL.x + 0.5), 0.02, z).rotation.z = side * 0.12; box(0.06, 0.08, 2.3, MAT.steelDark, side * (HALL.x - 0.22), -0.02, z);
     var d = { i: i, side: side, z: z, panel: panel, anim: S.doors[i] ? 1 : 0 };
-    addInter(panel, { prompt: function () { return S.doors[i] ? null : DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock) ? 'OUT 3 · air freight dock · opens with the sortation deck' : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + (dockLane(i) ? ' (' + dockLane(i).name.toLowerCase() + ' lane)' : '') + ' · the cabinet and the consoles close it'); }, use: function () { if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });
+    addInter(panel, { prompt: function () { return S.doors[i] ? null : DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock) ? 'OUT 3 · air freight dock · opens with the sortation deck · E opens the shop' : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + (dockLane(i) ? ' (' + dockLane(i).name.toLowerCase() + ' lane)' : '') + ' · the cabinet and the consoles close it'); }, use: function () { if (DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock)) { if (!driving && !pc.on) openPanel('pc', 'shop'); return; } if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });   // E on the shut OUT 3 goes to the shop, where the deck that opens it is sold
     // a pull cord inside, to bring a door down without walking to the cabinet
     var cord = cyl(0.01, 1.2, MAT.red, x - side * 0.35, DOCKS.h - 0.6, z - DOCKS.w / 2 - 0.3, null, 4); var knob = box(0.08, 0.12, 0.08, MAT.red, x - side * 0.35, DOCKS.h - 1.25, z - DOCKS.w / 2 - 0.3);
     addInter(knob, { prompt: function () { return S.doors[i] ? 'Pull the cord: close dock door ' + dockLabel(i) : null; }, use: function () { if (S.doors[i]) setDoor(i, false); } });

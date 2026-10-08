@@ -48,7 +48,7 @@
     c.box(0.015, 0.2, 0.015, MAT.chrome, 0.1, 0.15, 0.2); c.box(0.1, 0.08, 0.005, MAT.black, 0.19, 0.2, 0.19); c.box(0.01, 0.01, 0.004, glowMat(0x5fd38d, 1.2), 0.19, 0.24, 0.193);
     for (var k = 0; k < 6; k++) c.box(0.02, 0.012, 0.004, DARKGREY, 0.165 + (k % 2) * 0.05, 0.1 - Math.floor(k / 2) * 0.025, 0.193);
     c.cyl(0.02, 0.01, MAT.black, -0.2, 0.005, -0.15, 8); c.cyl(0.02, 0.01, MAT.black, 0.2, 0.005, -0.15, 8); c.cyl(0.02, 0.01, MAT.black, -0.2, 0.005, 0.15, 8); c.cyl(0.02, 0.01, MAT.black, 0.2, 0.005, 0.15, 8);
-    c.hit(0.55, 0.35, 0.42, 0, 0.15, 0, { prompt: function () { return powered() ? 'The microwave · two minutes on full' : 'The microwave · no power'; }, use: function () { if (!powered()) { sfx('bad'); return; } sfx('click'); toast('Ping.', ''); } });
+    c.hit(0.55, 0.35, 0.42, 0, 0.15, 0, { prompt: function () { return powered() ? 'The microwave · two minutes on full' : 'The microwave · no power'; }, use: function () { if (!powered()) { sfx('bad'); return; } sfx('click'); toast('Two minutes on full.', ''); setTimeout(function () { if (powered() && ui.started) { sfx('chime'); toast('Ping.', ''); } }, 2200); } });   // the ping comes after the hum, not with the button
   }
   // ── The standing fan: the head turns while the power is on (its hub joins the ceiling fans' spin) ──
   function fanStandBuild(c) {
@@ -58,7 +58,7 @@
     for (var k = 0; k < 8; k++) { var a = k * Math.PI / 4, bar = box(0.004, 0.46, 0.004, MAT.chrome, 0, 0, 0.045, head); bar.rotation.z = a; }
     var hub = new THREE.Group(); hub.position.set(0, 0, 0); head.add(hub); cyl(0.03, 0.03, MAT.black, 0, 0, 0, hub, 10).rotation.x = Math.PI / 2;
     for (var b = 0; b < 3; b++) { var bl = new THREE.Mesh(bevelGeo(0.07, 0.19, 0.006, 0.01), std({ color: 0xdfe6ec, roughness: 0.4, metalness: 0.3 })); bl.position.set(Math.sin(b * 2.094) * 0.11, Math.cos(b * 2.094) * 0.11, 0); bl.rotation.z = -b * 2.094; bl.rotation.y = 0.5; hub.add(bl); }
-    dress.fans.push(hub);
+    dress.fans.push(hub); dress.fanHeads = dress.fanHeads || []; dress.fanHeads.push(head);   // the hub spins with the ceiling fans; the head sweeps side to side in tickDressing
     c.solid(-0.25, 0.25, -0.25, 0.25, 0, 1.5);
     c.hit(0.5, 1.5, 0.5, 0, 0.75, 0, { prompt: function () { return powered() ? 'The fan · turning' : 'The fan · no power'; }, use: function () { sfx('click'); } });
   }
@@ -72,8 +72,9 @@
   function bookshelfBuild(c) {
     var W = 1.2, H = 1.9, D = 0.34; c.box(0.03, H, D, OAK, -W / 2, H / 2, 0); c.box(0.03, H, D, OAK, W / 2, H / 2, 0); c.box(W, 0.03, D, OAK, 0, H - 0.015, 0); c.box(W, 0.03, D, OAK, 0, 0.05, 0); c.box(W, H, 0.015, WALNUT, 0, H / 2, -D / 2 + 0.008);
     [0.5, 0.95, 1.4].forEach(function (y) { c.box(W - 0.06, 0.025, D - 0.02, OAK, 0, y, 0); });
-    var cols = [0x9c2f2f, 0x2f5a9c, 0x3f8a4a, 0xd8b04a, 0x6b4a8a, 0xe6e2d8, 0x2a2d33, 0xc8742a];
-    [0.065, 0.515, 0.965, 1.415].forEach(function (y, row) { var x = -W / 2 + 0.06; while (x < W / 2 - 0.1) { var bw = 0.03 + Math.random() * 0.03, bh = 0.2 + Math.random() * 0.12, lean = Math.random() < 0.12; var bk = c.box(bw, bh, D - 0.08, std({ color: cols[Math.floor(Math.random() * cols.length)], roughness: 0.6 }), x + bw / 2, y + bh / 2, 0.01); if (lean) bk.rotation.z = 0.12; x += bw + 0.004; if (Math.random() < 0.08) x += 0.06; } });
+    if (!bookshelfBuild.mats) bookshelfBuild.mats = [0x9c2f2f, 0x2f5a9c, 0x3f8a4a, 0xd8b04a, 0x6b4a8a, 0xe6e2d8, 0x2a2d33, 0xc8742a].map(function (col) { return std({ color: col, roughness: 0.6 }); });   // eight materials for some eighty books, not eighty: the shelf bakes into eight draws
+    var cols = bookshelfBuild.mats;
+    [0.065, 0.515, 0.965, 1.415].forEach(function (y, row) { var x = -W / 2 + 0.06; while (x < W / 2 - 0.1) { var bw = 0.03 + Math.random() * 0.03, bh = 0.2 + Math.random() * 0.12, lean = Math.random() < 0.12; var bk = c.box(bw, bh, D - 0.08, cols[Math.floor(Math.random() * cols.length)], x + bw / 2, y + bh / 2, 0.01); if (lean) bk.rotation.z = 0.12; x += bw + 0.004; if (Math.random() < 0.08) x += 0.06; } });
     c.box(0.28, 0.26, 0.2, std({ color: 0x9a9890, roughness: 0.5 }), 0.35, H + 0.13, 0); c.cyl(0.06, 0.18, std({ color: 0x3f8a4a, roughness: 0.7 }), -0.35, H + 0.09, 0, 10);   // a box file and a vase on top
     c.solid(-W / 2 - 0.02, W / 2 + 0.02, -D / 2 - 0.02, D / 2 + 0.02, 0, H + 0.3);
     c.hit(W + 0.1, H + 0.4, D + 0.2, 0, H / 2 + 0.15, 0, { prompt: function () { return 'The bookshelf · manuals, ledgers and a thriller somebody left'; }, use: function () { sfx('click'); toast(pick(['"Warehouse Management, 4th ed." Riveting.', '"The Pallet Murders." Chapter three is missing.', 'Last year\'s ledger. Better not.', 'A manual for a forklift you do not own.']), ''); } });
@@ -147,4 +148,4 @@
   defProp('xRug', { extra: true, label: 'rug', ico: '🟫', cat: 'room', price: 70, desc: 'Two by two and a half. Comfort +0.5.', build: rugBuild(2.0, 2.5, '#5f3f2f', '#d9a12c') });
   defProp('xBookshelf', { extra: true, label: 'bookshelf', ico: '📚', cat: 'room', price: 130, desc: 'Oak, four shelves. Comfort +0.5.', build: bookshelfBuild });
   defProp('xPrinter', { extra: true, label: 'printer', ico: '🖨️', cat: 'room', price: 160, desc: 'Prints the day report. Comfort +0.', build: printerBuild });
-  defProp('xPicture', { extra: true, label: 'picture', ico: '🖼️', cat: 'wall', wall: true, price: 50, desc: 'One of three. Comfort +0.5.', build: function (c) { pictureBuild(pick(['depot', 'mountains', 'ship']))(c); } });
+  defProp('xPicture', { extra: true, label: 'picture', ico: '🖼️', cat: 'wall', wall: true, price: 50, desc: 'One of three. Comfort +0.5.', build: function (c, P, inst) { pictureBuild(['depot', 'mountains', 'ship'][Math.floor(propSeed(inst ? inst.id : 'pic', 1) * 3)])(c); } });   // the print is the picture's own: it used to change at every move and reload

@@ -32,6 +32,7 @@
       var dl = new THREE.PointLight(0xffb020, 0, 9, 2); dl.position.set(x - d.side * 0.9, ly - 0.3, z); scene.add(dl); dress.dockLamps.push({ m: lamp, l: dl, door: d.i });   // the beacon throws real amber on the apron while a truck is on its way
       box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.3); box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.6);
       var rx = d.side * (X - 0.15); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z - DOCKS.w / 2 - 0.05); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z + DOCKS.w / 2 + 0.05); cyl(0.1, 0.3, MAT.steelDark, rx - d.side * 0.15, DOCKS.h + 0.3, d.z + DOCKS.w / 2 + 0.35, null, 10).rotation.x = Math.PI / 2; cyl(0.006, DOCKS.h - 0.6, MAT.chrome, rx - d.side * 0.15, DOCKS.h / 2 + 0.2, d.z + DOCKS.w / 2 + 0.35, null, 4);
+    if (dress.apron) dress.apron(d);   // the tyre scuffs inside the door: at boot the dressing paints every door after this runs, so only a door built later takes this path
   }
   // a painted parking bay with its label; the meshes come back so a bay can be repainted elsewhere
   function paintBay(cx, cz, w, d, label) {
@@ -45,8 +46,8 @@
     // bollards guarding every dock door (the columns along the walls are the hall lining's, in 06-building)
     // the bollards of every door are in dressDoor, below, with the rest of the door kit
     // the north wall: cable tray, sprinkler main, extractor fans, the exit sign, the painted name
-    [[-X + 0.5, -15.8], [-14.2, 15.2], [16.8, X - 0.5]].forEach(function (s) { box(s[1] - s[0], 0.08, 0.3, MAT.steelDark, (s[0] + s[1]) / 2, 5.6, -Z + 0.35); }); for (var cx = -18; cx <= 18; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, 5.6, -Z + 0.35);
-    [-9.5, 9.5].forEach(function (z) { var p = cyl(0.07, 2 * X - 2, MAT.red, 0, 6.45, z, null, 10); p.rotation.z = Math.PI / 2; for (var sx = -16; sx <= 16; sx += 4) { cyl(0.025, 0.18, MAT.steelDark, sx, 6.3, z, null, 6); sphere(0.03, MAT.chrome, sx, 6.2, z); } });
+    [[-X + 0.5, -15.8], [-14.2, 15.2], [16.8, X - 0.5]].forEach(function (s) { box(s[1] - s[0], 0.08, 0.3, MAT.steelDark, (s[0] + s[1]) / 2, 5.6, -Z + 0.35); for (var cx = Math.ceil((s[0] + 0.5) / 2) * 2; cx <= s[1] - 0.5; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, 5.6, -Z + 0.35); });   // rungs the length of every tray run (they covered the middle 36 m of the old hall)
+    [-9.5, 9.5].forEach(function (z) { var p = cyl(0.07, 2 * X - 2, MAT.red, 0, 6.45, z, null, 10); p.rotation.z = Math.PI / 2; for (var sx = -X + 3; sx <= X - 3; sx += 4) { cyl(0.025, 0.18, MAT.steelDark, sx, 6.3, z, null, 6); sphere(0.03, MAT.chrome, sx, 6.2, z); } });   // heads along the whole 70 m main, not the middle 32
     [-15, 16].forEach(function (x) {
       var g = new THREE.Group(); g.userData.dynamic = true; g.position.set(x, 6.0, -Z + 0.4); scene.add(g);   // above the girt and the tray, between the windows
       var housing = cyl(0.62, 0.3, MAT.steelDark, 0, 0, 0, g, 24); housing.rotation.x = Math.PI / 2;
@@ -57,12 +58,13 @@
     });
     var exitSign = function (x, y, z, ry) { var m = sign(['EXIT'], 0.5, 0.2, x, y, z, ry, { w: 256, h: 96, bg: '#1f7a3a', fg: '#dfffe8' }); var b = box(0.54, 0.24, 0.04, MAT.exit, x, y, z + (ry ? 0 : 0.03), null); b.rotation.y = ry || 0; if (ry) b.position.x += ry > 0 ? -0.03 : 0.03; m.renderOrder = 1; };
 
-    [RACK.x0 - 1.0, -RACK.x0 + 1.0].forEach(function (x) { for (var z = RACK.rows[0] - 1; z <= RACK.rows[RACK.rows.length - 1] + 1; z += 0.7) plane(1.2, 0.35, MAT.whiteLine, x, 0.0065, z, -Math.PI / 2); });
+    [RACK.x0 - 1.0, RACK.x0 + RACK.bays * RACK.bayW + 1.0].forEach(function (x) { for (var z = RACK.rows[0] - 1; z <= RACK.rows[RACK.rows.length - 1] + 1; z += 0.7) plane(1.2, 0.35, MAT.whiteLine, x, 0.0065, z, -Math.PI / 2); });   // the east hatch a metre past the block's end (x 22), not at x 25 where the old hall's block ended
     doors.forEach(dressDoor); dress.door = dressDoor;   // bollards, beacon, chocks, rails and hoist for every door standing at boot
     // the forklift bay, the tool bays and the charger on the south wall
     sorterSpots();   // jack 2 lives by the north wall once the sorter is in: paint its bay where the jack is, not where it was (the old bay sat under the OUT 3 shipping bay and the air spiral)
     paintBay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK 1'); dress.jack2Bay = paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); paintBay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
     plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2); plane(1.0, 1.0, MAT.rubberMat, -X + 5.1, 0.004, 19.95, -Math.PI / 2);
+    plane(1.0, 1.0, MAT.rubberMat, -X + 7.6, 0.004, -22.45, -Math.PI / 2); plane(1.4, 0.08, MAT.yellowLine, -X + 7.0, 0.0062, -22.45, -Math.PI / 2);   // the break room door gets the mat and the crossing the lobby and office doors have
     // the office blinds and the crossing into it
     for (var bl2 = 0; bl2 < 14; bl2++) box(3.9, 0.05, 0.02, MAT.trim, X - 4, 2.26 - bl2 * 0.08, 18.58);
     plane(1.4, 0.08, MAT.yellowLine, -X + 4.5, 0.0062, 19.95, -Math.PI / 2);
@@ -78,7 +80,7 @@
     hallSegs(-Z + 0.3, Z - 0.3, LC.cutZ['1']).forEach(function (sg) { gw(sg[1] - sg[0] - 0.2, 0.7, X - 0.19, 0.35, (sg[0] + sg[1]) / 2, -Math.PI / 2); });
     var markTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.35)'); g.addColorStop(0.7, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
     var markMat = new THREE.MeshBasicMaterial({ map: markTex, transparent: true, depthWrite: false, opacity: 0.8 }); markMat.userData.noBake = true;
-    doors.forEach(function (dk) { var m = plane(6, 1.3, markMat, dk.side * (X - 4.5), 0.0045, dk.z + randf(-0.3, 0.3), -Math.PI / 2, 0); m.rotation.z = randf(-0.08, 0.08); m.renderOrder = 1; m.userData.noBake = true; });
+    dress.apron = function (dk) { var m = plane(6, 1.3, markMat, dk.side * (X - 4.5), 0.0045, dk.z + randf(-0.3, 0.3), -Math.PI / 2, 0); m.rotation.z = randf(-0.08, 0.08); m.renderOrder = 1; m.userData.noBake = true; }; doors.forEach(dress.apron);   // kept on dress so a dock built mid-game (IN 3, the returns dock) gets its scuffs from dressDoor at once, not at the next reload
     [-12, -6, 0, 6, 12].forEach(function (z) { for (var mx = -20; mx <= 20; mx += 7) { var m = plane(5, 1.1, markMat, mx + randf(-1, 1), 0.0045, z + randf(-0.4, 0.4), -Math.PI / 2, 0); m.rotation.z = randf(-0.1, 0.1); m.renderOrder = 1; m.userData.noBake = true; } });
     var oilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(10,10,14,0.55)'); g.addColorStop(0.7, 'rgba(10,10,14,0.25)'); g.addColorStop(1, 'rgba(10,10,14,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
     var oilMat = new THREE.MeshBasicMaterial({ map: oilTex, transparent: true, depthWrite: false }); oilMat.userData.noBake = true;
@@ -113,7 +115,7 @@
     pigeons.forEach(function (p) {
       if (p.state === 'perch') {
         p.t += dt; p.g.rotation.y += Math.sin(p.t * 0.7) * 0.004; p.wl.rotation.z = 0; p.wr.rotation.z = 0;
-        if (dist2(player.x, player.z, p.x, p.z) < 30 && insideHall(player.x, player.z) && Math.random() < dt * 2) { p.state = 'fly'; p.t = 0; p.from = { x: p.x, z: p.z }; p.to = { x: clamp(p.x + randf(-14, 14), -17, 17), z: p.z > 0 ? -9.5 : 9.5 }; sfx('flap'); p.g.rotation.y = Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z); }
+        if (dist2(player.x, player.z, p.x, p.z) < 30 && insideHall(player.x, player.z) && Math.random() < dt * 2) { p.state = 'fly'; p.t = 0; p.from = { x: p.x, z: p.z }; p.to = { x: clamp(p.x + randf(-14, 14), -HALL.x + 3, HALL.x - 3), z: p.z > 0 ? -9.5 : 9.5 }; sfx('flap'); p.g.rotation.y = Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z); }
       } else {
         p.t += dt / 3.5; var k = Math.min(1, p.t);
         p.x = lerp(p.from.x, p.to.x, k); p.z = lerp(p.from.z, p.to.z, k); p.y = 6.6 - Math.sin(k * Math.PI) * 1.6;
@@ -127,6 +129,7 @@
     tickPigeons(dt);
     var power = !S.events.power;
     dress.fans.forEach(function (f) { f.rotation.z += dt * (power ? 9 : 0.5); });
+    if (power && dress.fanHeads) dress.fanHeads.forEach(function (h) { h.rotation.y = Math.sin(worldTime * 0.45) * 0.7; });   // the standing fan's head sweeps side to side, as its comment always said
     if (dress.turntable) dress.turntable.rotation.y += dt * (wrapperBusy() ? 1.4 : 0);
     if (dress.wrapCarriage) dress.wrapCarriage.position.y = wrapperBusy() ? 0.5 + Math.abs(Math.sin(worldTime * 0.9)) * 1.0 : 1.0;
     dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return doorIndex(t.dir, t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); var on = coming ? (Math.sin(worldTime * 8) > 0 ? 1 : 0.1) : (S.doors[d.i] ? 0.55 : 0.1); l.m.material.emissiveIntensity = 0.2 + on * 2.0; if (l.l) l.l.intensity = power ? on * 1.3 : 0; });

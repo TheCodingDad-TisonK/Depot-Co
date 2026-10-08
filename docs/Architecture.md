@@ -13,7 +13,7 @@ Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built fro
 | `game/version.js` | **Generated** from `package.json` by `tools/sync-version.js`. |
 | `game/logo-256.png`, `logo.png`, `wordmark.png` | **Generated** by `tools/render-brand.js` (a canvas drawing in a hidden Electron window). |
 | `main.js` | The Electron shell: one window, no menu bar, screenshots to `Pictures\Depot Co`. |
-| `tools/smoke.js` | `npm test`. Boots the real page headless and plays several days through the test handle: 320 checks, from the first truck to the sortation deck, the annex halls, the scanner, the returns desk and the day report. |
+| `tools/smoke.js` | `npm test`. Boots the real page headless and plays several days through the test handle: 340 checks, from the first truck to the sortation deck, the annex halls, the scanner, the returns desk and the day report. The scenario is one template literal evaluated in the page, so a check message must not carry an escaped apostrophe (the literal eats the backslash and the quote closes early). |
 
 ## The parts of `src/`
 

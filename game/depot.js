@@ -27,7 +27,7 @@
   var uid = (function () { var n = 0; return function (p) { n++; return (p || 'id') + '-' + Date.now().toString(36) + '-' + n.toString(36); }; })();
 
   // ── Settings (not part of the save: they belong to the machine) ───
-  var SET = { sens: 1, invertY: false, quality: 'high', sound: true, vol: 0.8, fps: false, fov: 75, film: true };
+  var SET = { sens: 1, invertY: false, quality: 'high', sound: true, vol: 0.8, fps: false, fov: 75, film: true, bob: true };   // bob: the walking head bob, off for anyone it makes queasy
   try { var ss = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null'); if (ss) for (var sk in ss) if (sk in SET) SET[sk] = ss[sk]; } catch (e) {}
   function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) {} }
   // ── Goods ─────────────────────────────────────────────────────────
@@ -253,7 +253,8 @@
   var saveT = 0;
   function save() {
     if (wiped) return;
-    try { S.savedAt = now(); localStorage.setItem(SAVE, JSON.stringify(S)); saveT = now(); } catch (e) {}
+    try { S.savedAt = now(); localStorage.setItem(SAVE, JSON.stringify(S)); saveT = now(); save.failed = false; }
+    catch (e) { if (!save.failed) { save.failed = true; toast('The save could not be written: the browser refused the storage. Export it from the pause menu.', 'bad'); if (typeof console !== 'undefined') console.error('Depot Co.: save failed', e); } }   // said once, not at every autosave: a full or blocked localStorage used to lose the game in silence
   }
   var wiped = false;
   function wipe() { wiped = true; try { localStorage.removeItem(SAVE); } catch (e) {} }
@@ -819,10 +820,11 @@
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
+  var HIGHBAY_REFL = std({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide });   // one reflector material for every lamp: thirty of them bake into one draw instead of thirty
   function highBay(x, y, z) {
     cyl(0.025, HALL.h - y - 0.22, MAT.steelDark, x, (HALL.h + y + 0.22) / 2, z, null, 6);   // the conduit drop from the roof to the ballast box
     box(0.34, 0.22, 0.26, MAT.steelDark, x, y + 0.11, z); box(0.1, 0.06, 0.06, MAT.black, x + 0.2, y + 0.12, z);
-    var refl = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.14, 0.42, 20, 1, true), std({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide })); refl.position.set(x, y - 0.21, z); scene.add(refl);
+    var refl = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.14, 0.42, 20, 1, true), HIGHBAY_REFL); refl.position.set(x, y - 0.21, z); scene.add(refl);
     var lens = cyl(0.42, 0.03, MAT.lamp, x, y - 0.41, z, null, 20); lens.castShadow = false; world.lampMeshes.push(lens);
   }
   // a recessed troffer in a room's ceiling: a white frame and a prismatic lens that dims when the power is off
@@ -874,7 +876,7 @@
     // the dock leveller: a plate from the hall edge out over the slot to the trailer bed, with a hinged lip and a hazard edge
     var lev = box(0.72, 0.05, 2.3, MAT.chequer, side * (HALL.x + 0.1), 0.0, z); lev.receiveShadow = true; box(0.2, 0.03, 2.3, MAT.hazard, side * (HALL.x + 0.5), 0.02, z).rotation.z = side * 0.12; box(0.06, 0.08, 2.3, MAT.steelDark, side * (HALL.x - 0.22), -0.02, z);
     var d = { i: i, side: side, z: z, panel: panel, anim: S.doors[i] ? 1 : 0 };
-    addInter(panel, { prompt: function () { return S.doors[i] ? null : DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock) ? 'OUT 3 · air freight dock · opens with the sortation deck' : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + (dockLane(i) ? ' (' + dockLane(i).name.toLowerCase() + ' lane)' : '') + ' · the cabinet and the consoles close it'); }, use: function () { if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });
+    addInter(panel, { prompt: function () { return S.doors[i] ? null : DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock) ? 'OUT 3 · air freight dock · opens with the sortation deck · E opens the shop' : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + (dockLane(i) ? ' (' + dockLane(i).name.toLowerCase() + ' lane)' : '') + ' · the cabinet and the consoles close it'); }, use: function () { if (DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock)) { if (!driving && !pc.on) openPanel('pc', 'shop'); return; } if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });   // E on the shut OUT 3 goes to the shop, where the deck that opens it is sold
     // a pull cord inside, to bring a door down without walking to the cabinet
     var cord = cyl(0.01, 1.2, MAT.red, x - side * 0.35, DOCKS.h - 0.6, z - DOCKS.w / 2 - 0.3, null, 4); var knob = box(0.08, 0.12, 0.08, MAT.red, x - side * 0.35, DOCKS.h - 1.25, z - DOCKS.w / 2 - 0.3);
     addInter(knob, { prompt: function () { return S.doors[i] ? 'Pull the cord: close dock door ' + dockLabel(i) : null; }, use: function () { if (S.doors[i]) setDoor(i, false); } });
@@ -1060,8 +1062,9 @@
     var handle = box(alongX ? 0.14 : 0.04, 0.03, alongX ? 0.04 : 0.14, MAT.chrome, alongX ? w - 0.15 : 0.06, 1.05, alongX ? 0.06 : w - 0.15, hinge); box(alongX ? 0.14 : 0.04, 0.03, alongX ? 0.04 : 0.14, MAT.chrome, alongX ? w - 0.15 : -0.06, 1.05, alongX ? -0.06 : w - 0.15, hinge);
     if (opt.pushbar) box(alongX ? 0.8 : 0.05, 0.05, alongX ? 0.05 : 0.8, MAT.chrome, alongX ? w / 2 : 0.07, 1.0, alongX ? 0.07 : w / 2, hinge);
     var led = box(0.03, 0.03, 0.03, glowMat(0x39d353, 1.2), alongX ? w - 0.1 : 0.05, 2.0, alongX ? 0.05 : w - 0.1, hinge);
-    // the frame
-    var fm = MAT.steelDark; if (alongX) { box(0.08, h + 0.1, t + 0.06, fm, -0.04, (h + 0.1) / 2, 0, g); box(0.08, h + 0.1, t + 0.06, fm, w + 0.04, (h + 0.1) / 2, 0, g); box(w + 0.16, 0.08, t + 0.06, fm, w / 2, h + 0.09, 0, g); } else { box(t + 0.06, h + 0.1, 0.08, fm, 0, (h + 0.1) / 2, -0.04, g); box(t + 0.06, h + 0.1, 0.08, fm, 0, (h + 0.1) / 2, w + 0.04, g); box(t + 0.06, 0.08, w + 0.16, fm, 0, h + 0.09, w / 2, g); }
+    // the frame: on a group of its own, so it joins the static bake (the leaf's group is dynamic and the frame never moves)
+    var fg = new THREE.Group(); fg.position.set(x, 0, z); scene.add(fg);
+    var fm = MAT.steelDark; if (alongX) { box(0.08, h + 0.1, t + 0.06, fm, -0.04, (h + 0.1) / 2, 0, fg); box(0.08, h + 0.1, t + 0.06, fm, w + 0.04, (h + 0.1) / 2, 0, fg); box(w + 0.16, 0.08, t + 0.06, fm, w / 2, h + 0.09, 0, fg); } else { box(t + 0.06, h + 0.1, 0.08, fm, 0, (h + 0.1) / 2, -0.04, fg); box(t + 0.06, h + 0.1, 0.08, fm, 0, (h + 0.1) / 2, w + 0.04, fg); box(t + 0.06, 0.08, w + 0.16, fm, 0, h + 0.09, w / 2, fg); }
     var d = { id: id, g: g, hinge: hinge, led: led, x: x, z: z, alongX: alongX, w: w, t: 0, label: label, swing: opt.swing || 1 };
     var hit = hitBox(alongX ? w : 0.4, h, alongX ? 0.4 : w, alongX ? w / 2 : 0, h / 2, alongX ? 0 : w / 2, { prompt: function () { return doorPrompt(d); }, use: function () { doorUse(d); }, alt: function () { doorLock(d); } }, g);
     d.hit = hit;
@@ -1145,6 +1148,7 @@
       var dl = new THREE.PointLight(0xffb020, 0, 9, 2); dl.position.set(x - d.side * 0.9, ly - 0.3, z); scene.add(dl); dress.dockLamps.push({ m: lamp, l: dl, door: d.i });   // the beacon throws real amber on the apron while a truck is on its way
       box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.3); box(0.35, 0.15, 0.2, MAT.rubber, d.side * (X - 1.6), 0.075, d.z + DOCKS.w / 2 - 0.6);
       var rx = d.side * (X - 0.15); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z - DOCKS.w / 2 - 0.05); box(0.06, DOCKS.h, 0.06, MAT.steelDark, rx, DOCKS.h / 2, d.z + DOCKS.w / 2 + 0.05); cyl(0.1, 0.3, MAT.steelDark, rx - d.side * 0.15, DOCKS.h + 0.3, d.z + DOCKS.w / 2 + 0.35, null, 10).rotation.x = Math.PI / 2; cyl(0.006, DOCKS.h - 0.6, MAT.chrome, rx - d.side * 0.15, DOCKS.h / 2 + 0.2, d.z + DOCKS.w / 2 + 0.35, null, 4);
+    if (dress.apron) dress.apron(d);   // the tyre scuffs inside the door: at boot the dressing paints every door after this runs, so only a door built later takes this path
   }
   // a painted parking bay with its label; the meshes come back so a bay can be repainted elsewhere
   function paintBay(cx, cz, w, d, label) {
@@ -1158,8 +1162,8 @@
     // bollards guarding every dock door (the columns along the walls are the hall lining's, in 06-building)
     // the bollards of every door are in dressDoor, below, with the rest of the door kit
     // the north wall: cable tray, sprinkler main, extractor fans, the exit sign, the painted name
-    [[-X + 0.5, -15.8], [-14.2, 15.2], [16.8, X - 0.5]].forEach(function (s) { box(s[1] - s[0], 0.08, 0.3, MAT.steelDark, (s[0] + s[1]) / 2, 5.6, -Z + 0.35); }); for (var cx = -18; cx <= 18; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, 5.6, -Z + 0.35);
-    [-9.5, 9.5].forEach(function (z) { var p = cyl(0.07, 2 * X - 2, MAT.red, 0, 6.45, z, null, 10); p.rotation.z = Math.PI / 2; for (var sx = -16; sx <= 16; sx += 4) { cyl(0.025, 0.18, MAT.steelDark, sx, 6.3, z, null, 6); sphere(0.03, MAT.chrome, sx, 6.2, z); } });
+    [[-X + 0.5, -15.8], [-14.2, 15.2], [16.8, X - 0.5]].forEach(function (s) { box(s[1] - s[0], 0.08, 0.3, MAT.steelDark, (s[0] + s[1]) / 2, 5.6, -Z + 0.35); for (var cx = Math.ceil((s[0] + 0.5) / 2) * 2; cx <= s[1] - 0.5; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, 5.6, -Z + 0.35); });   // rungs the length of every tray run (they covered the middle 36 m of the old hall)
+    [-9.5, 9.5].forEach(function (z) { var p = cyl(0.07, 2 * X - 2, MAT.red, 0, 6.45, z, null, 10); p.rotation.z = Math.PI / 2; for (var sx = -X + 3; sx <= X - 3; sx += 4) { cyl(0.025, 0.18, MAT.steelDark, sx, 6.3, z, null, 6); sphere(0.03, MAT.chrome, sx, 6.2, z); } });   // heads along the whole 70 m main, not the middle 32
     [-15, 16].forEach(function (x) {
       var g = new THREE.Group(); g.userData.dynamic = true; g.position.set(x, 6.0, -Z + 0.4); scene.add(g);   // above the girt and the tray, between the windows
       var housing = cyl(0.62, 0.3, MAT.steelDark, 0, 0, 0, g, 24); housing.rotation.x = Math.PI / 2;
@@ -1170,12 +1174,13 @@
     });
     var exitSign = function (x, y, z, ry) { var m = sign(['EXIT'], 0.5, 0.2, x, y, z, ry, { w: 256, h: 96, bg: '#1f7a3a', fg: '#dfffe8' }); var b = box(0.54, 0.24, 0.04, MAT.exit, x, y, z + (ry ? 0 : 0.03), null); b.rotation.y = ry || 0; if (ry) b.position.x += ry > 0 ? -0.03 : 0.03; m.renderOrder = 1; };
 
-    [RACK.x0 - 1.0, -RACK.x0 + 1.0].forEach(function (x) { for (var z = RACK.rows[0] - 1; z <= RACK.rows[RACK.rows.length - 1] + 1; z += 0.7) plane(1.2, 0.35, MAT.whiteLine, x, 0.0065, z, -Math.PI / 2); });
+    [RACK.x0 - 1.0, RACK.x0 + RACK.bays * RACK.bayW + 1.0].forEach(function (x) { for (var z = RACK.rows[0] - 1; z <= RACK.rows[RACK.rows.length - 1] + 1; z += 0.7) plane(1.2, 0.35, MAT.whiteLine, x, 0.0065, z, -Math.PI / 2); });   // the east hatch a metre past the block's end (x 22), not at x 25 where the old hall's block ended
     doors.forEach(dressDoor); dress.door = dressDoor;   // bollards, beacon, chocks, rails and hoist for every door standing at boot
     // the forklift bay, the tool bays and the charger on the south wall
     sorterSpots();   // jack 2 lives by the north wall once the sorter is in: paint its bay where the jack is, not where it was (the old bay sat under the OUT 3 shipping bay and the air spiral)
     paintBay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK 1'); dress.jack2Bay = paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); paintBay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
     plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2); plane(1.0, 1.0, MAT.rubberMat, -X + 5.1, 0.004, 19.95, -Math.PI / 2);
+    plane(1.0, 1.0, MAT.rubberMat, -X + 7.6, 0.004, -22.45, -Math.PI / 2); plane(1.4, 0.08, MAT.yellowLine, -X + 7.0, 0.0062, -22.45, -Math.PI / 2);   // the break room door gets the mat and the crossing the lobby and office doors have
     // the office blinds and the crossing into it
     for (var bl2 = 0; bl2 < 14; bl2++) box(3.9, 0.05, 0.02, MAT.trim, X - 4, 2.26 - bl2 * 0.08, 18.58);
     plane(1.4, 0.08, MAT.yellowLine, -X + 4.5, 0.0062, 19.95, -Math.PI / 2);
@@ -1191,7 +1196,7 @@
     hallSegs(-Z + 0.3, Z - 0.3, LC.cutZ['1']).forEach(function (sg) { gw(sg[1] - sg[0] - 0.2, 0.7, X - 0.19, 0.35, (sg[0] + sg[1]) / 2, -Math.PI / 2); });
     var markTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.35)'); g.addColorStop(0.7, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
     var markMat = new THREE.MeshBasicMaterial({ map: markTex, transparent: true, depthWrite: false, opacity: 0.8 }); markMat.userData.noBake = true;
-    doors.forEach(function (dk) { var m = plane(6, 1.3, markMat, dk.side * (X - 4.5), 0.0045, dk.z + randf(-0.3, 0.3), -Math.PI / 2, 0); m.rotation.z = randf(-0.08, 0.08); m.renderOrder = 1; m.userData.noBake = true; });
+    dress.apron = function (dk) { var m = plane(6, 1.3, markMat, dk.side * (X - 4.5), 0.0045, dk.z + randf(-0.3, 0.3), -Math.PI / 2, 0); m.rotation.z = randf(-0.08, 0.08); m.renderOrder = 1; m.userData.noBake = true; }; doors.forEach(dress.apron);   // kept on dress so a dock built mid-game (IN 3, the returns dock) gets its scuffs from dressDoor at once, not at the next reload
     [-12, -6, 0, 6, 12].forEach(function (z) { for (var mx = -20; mx <= 20; mx += 7) { var m = plane(5, 1.1, markMat, mx + randf(-1, 1), 0.0045, z + randf(-0.4, 0.4), -Math.PI / 2, 0); m.rotation.z = randf(-0.1, 0.1); m.renderOrder = 1; m.userData.noBake = true; } });
     var oilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(10,10,14,0.55)'); g.addColorStop(0.7, 'rgba(10,10,14,0.25)'); g.addColorStop(1, 'rgba(10,10,14,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
     var oilMat = new THREE.MeshBasicMaterial({ map: oilTex, transparent: true, depthWrite: false }); oilMat.userData.noBake = true;
@@ -1226,7 +1231,7 @@
     pigeons.forEach(function (p) {
       if (p.state === 'perch') {
         p.t += dt; p.g.rotation.y += Math.sin(p.t * 0.7) * 0.004; p.wl.rotation.z = 0; p.wr.rotation.z = 0;
-        if (dist2(player.x, player.z, p.x, p.z) < 30 && insideHall(player.x, player.z) && Math.random() < dt * 2) { p.state = 'fly'; p.t = 0; p.from = { x: p.x, z: p.z }; p.to = { x: clamp(p.x + randf(-14, 14), -17, 17), z: p.z > 0 ? -9.5 : 9.5 }; sfx('flap'); p.g.rotation.y = Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z); }
+        if (dist2(player.x, player.z, p.x, p.z) < 30 && insideHall(player.x, player.z) && Math.random() < dt * 2) { p.state = 'fly'; p.t = 0; p.from = { x: p.x, z: p.z }; p.to = { x: clamp(p.x + randf(-14, 14), -HALL.x + 3, HALL.x - 3), z: p.z > 0 ? -9.5 : 9.5 }; sfx('flap'); p.g.rotation.y = Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z); }
       } else {
         p.t += dt / 3.5; var k = Math.min(1, p.t);
         p.x = lerp(p.from.x, p.to.x, k); p.z = lerp(p.from.z, p.to.z, k); p.y = 6.6 - Math.sin(k * Math.PI) * 1.6;
@@ -1240,6 +1245,7 @@
     tickPigeons(dt);
     var power = !S.events.power;
     dress.fans.forEach(function (f) { f.rotation.z += dt * (power ? 9 : 0.5); });
+    if (power && dress.fanHeads) dress.fanHeads.forEach(function (h) { h.rotation.y = Math.sin(worldTime * 0.45) * 0.7; });   // the standing fan's head sweeps side to side, as its comment always said
     if (dress.turntable) dress.turntable.rotation.y += dt * (wrapperBusy() ? 1.4 : 0);
     if (dress.wrapCarriage) dress.wrapCarriage.position.y = wrapperBusy() ? 0.5 + Math.abs(Math.sin(worldTime * 0.9)) * 1.0 : 1.0;
     dress.dockLamps.forEach(function (l) { var d = doors[l.door]; var coming = S.trucks.some(function (t) { return doorIndex(t.dir, t.dock) === d.i && (t.state === 'coming' || t.state === 'leaving'); }); var on = coming ? (Math.sin(worldTime * 8) > 0 ? 1 : 0.1) : (S.doors[d.i] ? 0.55 : 0.1); l.m.material.emissiveIntensity = 0.2 + on * 2.0; if (l.l) l.l.intensity = power ? on * 1.3 : 0; });
@@ -1296,6 +1302,7 @@
     var inGroup = function (o) { for (var p = o; p; p = p.parent) if (p === inst.g) return true; return false; };
     yard.lampLenses = yard.lampLenses.filter(function (l) { return !inGroup(l); }); for (var yl = yardLights.length - 1; yl >= 0; yl--) if (inGroup(yardLights[yl])) yardLights.splice(yl, 1);
     dress.clocks = dress.clocks.filter(function (c) { return !c.group || !inGroup(c.group); }); for (var si = screens.length - 1; si >= 0; si--) if (inGroup(screens[si].mesh)) screens.splice(si, 1);
+    dress.fans = dress.fans.filter(function (f) { return !inGroup(f); }); if (dress.fanHeads) dress.fanHeads = dress.fanHeads.filter(function (f) { return !inGroup(f); });   // a standing fan that is moved leaves no hub spinning off-scene
     BELT_PLANES = BELT_PLANES.filter(function (p) { return !inGroup(p); });
     for (var i = solids.length - 1; i >= 0; i--) if (solids[i].prop === id) solids.splice(i, 1);
     delete propInst[id]; NAV.dirty = true; beltsChanged();
@@ -1347,14 +1354,31 @@
   // where the carried prop goes: the point on the floor the player aims at, or 2.6 m ahead; wall props sit on the nearest wall face
   var WALLS = [];
   function wallPlanes() {
-    if (WALLS.length) return WALLS;
     var X = HALL.x, Z = HALL.z;
-    WALLS.push({ a: 'x', v: -X + 0.17, n: 1, z0: -Z, z1: Z }, { a: 'x', v: X - 0.17, n: -1, z0: -Z, z1: Z }, { a: 'z', v: -Z + 0.17, n: 1, x0: -X, x1: X }, { a: 'z', v: Z - 0.17, n: -1, x0: -X, x1: X });
-    WALLS.push({ a: 'x', v: X - 7.58, n: -1, z0: 18.5, z1: Z }, { a: 'x', v: X - 7.42, n: 1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: X - 7.5, x1: X }, { a: 'z', v: 18.58, n: 1, x0: X - 7.5, x1: X });
-    WALLS.push({ a: 'x', v: -X + 4.42, n: 1, z0: 18.5, z1: Z }, { a: 'x', v: -X + 4.58, n: -1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: -X, x1: -X + 4.5 }, { a: 'z', v: 18.58, n: 1, x0: -X, x1: -X + 4.5 });
-    WALLS.push({ a: 'x', v: -X + 6.92, n: 1, z0: -Z, z1: -20.2 }, { a: 'x', v: -X + 7.08, n: -1, z0: -Z, z1: -20.2 }, { a: 'z', v: -20.28, n: -1, x0: -X, x1: -X + 7 }, { a: 'z', v: -20.12, n: 1, x0: -X, x1: -X + 7 });
-    return WALLS;
+    if (!WALLS.length) {
+      WALLS.push({ a: 'x', v: -X + 0.17, n: 1, z0: -Z, z1: Z }, { a: 'x', v: X - 0.17, n: -1, z0: -Z, z1: Z }, { a: 'z', v: -Z + 0.17, n: 1, x0: -X, x1: X }, { a: 'z', v: Z - 0.17, n: -1, x0: -X, x1: X });
+      WALLS.push({ a: 'x', v: X - 7.58, n: -1, z0: 18.5, z1: Z }, { a: 'x', v: X - 7.42, n: 1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: X - 7.5, x1: X }, { a: 'z', v: 18.58, n: 1, x0: X - 7.5, x1: X });
+      WALLS.push({ a: 'x', v: -X + 4.42, n: 1, z0: 18.5, z1: Z }, { a: 'x', v: -X + 4.58, n: -1, z0: 18.5, z1: Z }, { a: 'z', v: 18.42, n: -1, x0: -X, x1: -X + 4.5 }, { a: 'z', v: 18.58, n: 1, x0: -X, x1: -X + 4.5 });
+      WALLS.push({ a: 'x', v: -X + 6.92, n: 1, z0: -Z, z1: -20.2 }, { a: 'x', v: -X + 7.08, n: -1, z0: -Z, z1: -20.2 }, { a: 'z', v: -20.28, n: -1, x0: -X, x1: -X + 7 }, { a: 'z', v: -20.12, n: 1, x0: -X, x1: -X + 7 });
+      // the production wing's three walls (its south wall is the main hall's north wall, listed above)
+      WALLS.push({ a: 'x', v: WING.x0 + 0.17, n: 1, z0: WING.z0, z1: WING.z1 }, { a: 'x', v: WING.x1 - 0.17, n: -1, z0: WING.z0, z1: WING.z1 }, { a: 'z', v: WING.z0 + 0.17, n: 1, x0: WING.x0, x1: WING.x1 });
+    }
+    // the annex halls' inside faces join the list once the hall is bought: a poster carried into Hall 3 used to find no wall and land in mid-air
+    var out = WALLS.slice();
+    for (var hk in HALLS) if (hallOwned(hk)) { var H = HALLS[hk]; out.push({ a: 'x', v: H.x0 + 0.17, n: 1, z0: H.z0, z1: H.z1 }, { a: 'x', v: H.x1 - 0.17, n: -1, z0: H.z0, z1: H.z1 }, { a: 'z', v: H.z0 + 0.17, n: 1, x0: H.x0, x1: H.x1 }, { a: 'z', v: H.z1 - 0.17, n: -1, x0: H.x0, x1: H.x1 }); }
+    return out;
   }
+  // where a prop stands, in words, for the catalogue's Removed list (five props are all "fire extinguisher")
+  function propWhere(id) {
+    var P = propPlacement(id), x = P.x, z = P.z;
+    if (inWing(x, z)) return 'production wing';
+    var h = inAnyAnnexFootprint(x, z); if (h) return HALLS[h].name.toLowerCase();
+    if (Math.abs(x) < HALL.x + 0.5 && Math.abs(z) < HALL.z + 0.5) { if (z > 18.3 && x > HALL.x - 7.7) return 'office'; if (z > 18.3 && x < -HALL.x + 4.7) return 'lobby'; if (z < -20 && x < -HALL.x + 7.2) return 'break room'; return 'main hall' + (x < -12 ? ', west side' : x > 12 ? ', east side' : z < -12 ? ', north' : z > 12 ? ', south' : ''); }
+    return 'yard' + (z > HALL.z + 2 ? ', south' : z < -HALL.z - 2 ? ', north' : x < 0 ? ', west' : ', east');
+  }
+  // a prop's own dice: the same throw every time it is built, so a bought picture keeps its print and a tree its size through every move, turn and reload
+  function propSeed(id, k) { var s = String(id) + ':' + (k || 0), n = 2166136261; for (var i = 0; i < s.length; i++) { n ^= s.charCodeAt(i); n = Math.imul(n, 16777619) >>> 0; } return (n % 100000) / 100000; }
+  function seededF(id, k, a, b) { return a + propSeed(id, k) * (b - a); }
   function editAim(def) {
     ray.setFromCamera(centre, camera);
     var dir = ray.ray.direction, o = ray.ray.origin, y = Math.max(YARD_Y, floorY(player.x, player.z)), pt;
@@ -1457,10 +1481,10 @@
   function catalogueHtml() {
     var h = '<p>Build mode. Press <kbd>E</kbd> on a prop to carry it, <kbd>R</kbd> to turn it (a carried belt piece first walks through the snap points near your aim, then turns freely), <kbd>Backspace</kbd> to put it back where it started, <kbd>Del</kbd> to remove it. Bought extras sell back for half.</p>';
     var hidden = PROP_ORDER.filter(function (id) { return !PROPS[id].extra && propPlacement(id).hidden; });
-    if (hidden.length) h += '<h3>Removed</h3><div class="dc-grid">' + hidden.map(function (id) { return '<div class="dc-card"><div class="body"><b>' + esc(PROPS[id].label) + '</b></div>' + btn('restore', id, 'Bring back', 'primary') + '</div>'; }).join('') + '</div>';
+    if (hidden.length) h += '<h3>Removed</h3><div class="dc-grid">' + hidden.map(function (id) { return '<div class="dc-card"><div class="body"><b>' + esc(PROPS[id].label) + '</b><small>' + esc(propWhere(id)) + '</small></div>' + btn('restore', id, 'Bring back', 'primary') + '</div>'; }).join('') + '</div>';
     CAT_GROUPS.forEach(function (gr) {
       var items = PROP_ORDER.filter(function (id) { return PROPS[id].extra && PROPS[id].cat === gr[0]; }); if (!items.length) return;
-      h += '<h3>' + gr[1] + '</h3><div class="dc-grid">' + items.map(function (id) { var d = PROPS[id]; return '<div class="dc-card"><div class="body"><b>' + (d.ico || '') + ' ' + esc(d.label) + '</b><small>' + esc(d.desc || '') + '</small></div><div style="text-align:right"><div class="price">' + (d.price ? money(d.price) : 'free') + '</div>' + btn('buy', id, 'Add', 'primary', d.price > S.bank) + '</div></div>'; }).join('') + '</div>';
+      h += '<h3>' + gr[1] + (gr[0] === 'room' ? ' <small style="color:var(--muted);font-weight:normal">' + esc(comfortText()) + '</small>' : '') + '</h3><div class="dc-grid">' + items.map(function (id) { var d = PROPS[id]; return '<div class="dc-card"><div class="body"><b>' + (d.ico || '') + ' ' + esc(d.label) + '</b><small>' + esc(d.desc || '') + '</small></div><div style="text-align:right"><div class="price">' + (d.price ? money(d.price) : 'free') + '</div>' + btn('buy', id, 'Add', 'primary', d.price > S.bank) + '</div></div>'; }).join('') + '</div>';
     });
     return h;
   }
@@ -1514,7 +1538,7 @@
     c.box(0.3, 0.025, 0.16, MAT.chrome, -0.35, 0.955, 0.16); for (var dr = 0; dr < 6; dr++) c.box(0.26, 0.005, 0.01, MAT.black, -0.35, 0.97, 0.1 + dr * 0.024); c.cyl(0.03, 0.06, MAT.chrome, -0.35, 1.0, 0.1, 12); c.cyl(0.02, 0.12, MAT.chrome, -0.35, 0.97, 0.16, 8).rotation.x = Math.PI / 2; c.cyl(0.012, 0.07, MAT.black, -0.35, 0.97, 0.23, 8).rotation.x = Math.PI / 2;
     c.cyl(0.035, 0.09, MAT.white, -0.35, 0.995, 0.16, 12); c.cyl(0.015, 0.2, MAT.chrome, -0.14, 1.0, 0.1, 8).rotation.x = 0.6; c.plane(0.14, 0.08, MAT.screen, -0.35, 1.26, 0.125, 0, 0); c.box(0.03, 0.03, 0.01, MAT.green, -0.42, 1.18, 0.125); c.box(0.03, 0.03, 0.01, MAT.red, -0.28, 1.18, 0.125); c.box(0.06, 0.012, 0.012, MAT.chrome, -0.35, 1.08, 0.125);
     c.cyl(0.035, 0.08, MAT.white, -0.55, 1.41, -0.1, 10); c.cyl(0.035, 0.08, MAT.white, -0.47, 1.41, -0.14, 10); c.cyl(0.035, 0.08, MAT.white, -0.22, 1.41, -0.14, 10);
-    c.hit(0.5, 0.6, 0.5, -0.35, 1.19, -0.05, { prompt: function () { return S.events.power ? 'The coffee machine is off' : (buff.coffeeUntil > S.time && buff.coffeeDay === S.day ? 'Coffee is still working' : 'Have a coffee (walk faster for an hour)'); }, use: function () { drinkCoffee(); } });
+    c.hit(0.5, 0.6, 0.5, -0.35, 1.19, -0.05, { prompt: function () { return S.events.power ? 'The coffee machine is off' : (buff.coffeeUntil > S.time && buff.coffeeDay === S.day ? 'Coffee is still working until ' + fmtTime(buff.coffeeUntil) : 'Have a coffee (walk faster for an hour)'); }, use: function () { drinkCoffee(); } });
     c.cyl(0.08, 0.2, MAT.chrome, 0.1, 1.04, -0.1, 12); c.cyl(0.02, 0.1, MAT.chrome, 0.17, 1.07, -0.04, 6).rotation.z = -0.8; c.cyl(0.045, 0.1, MAT.white, 0.25, 0.99, 0.12, 10); c.cyl(0.045, 0.1, MAT.red, 0.35, 0.99, 0.02, 10);
     c.box(0.5, 0.3, 0.38, MAT.black, 0.42, 1.09, -0.08); c.plane(0.3, 0.16, MAT.glass, 0.42, 1.11, 0.115, 0, 0); c.box(0.06, 0.1, 0.02, MAT.black, 0.62, 1.09, 0.12);
     var rg = new THREE.Group(); rg.position.set(-0.05, 1.02, 0.1); c.add(rg); dress.radio = rg; rg.userData.worldOf = c.group;
@@ -1525,14 +1549,15 @@
     var BODY = new THREE.MeshPhysicalMaterial({ color: 0x1f4e8c, roughness: 0.35, metalness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.2 });
     var body = new THREE.Mesh(bevelGeo(0.96, 1.9, 0.8, 0.03), BODY); body.position.set(0, 0.97, 0); body.castShadow = true; c.group.add(body); c.box(0.98, 0.08, 0.82, MAT.black, 0, 0.04, 0); [[-0.4, -0.3], [0.4, -0.3], [-0.4, 0.3], [0.4, 0.3]].forEach(function (f) { c.cyl(0.03, 0.03, MAT.black, f[0], 0.015, f[1], 8); });
     c.box(0.66, 1.2, 0.3, MAT.black, -0.1, 1.17, 0.26); c.plane(0.6, 1.1, glowMat(0x9ad0ff, 0.35), -0.1, 1.15, 0.405, 0, 0);
-    for (var vr = 0; vr < 4; vr++) { c.box(0.6, 0.012, 0.28, MAT.chrome, -0.1, 0.7 + vr * 0.25, 0.27); for (var vc = 0; vc < 4; vc++) { var pm = std({ color: [0xd14a3a, 0x5fd38d, 0xf0b94d, 0x3fa7d6, 0xf2f2f2][(vr + vc) % 5], roughness: 0.5 }); c.box(0.09, 0.14, 0.08, pm, -0.33 + vc * 0.15, 0.78 + vr * 0.25, 0.3); c.cyl(0.015, 0.26, MAT.chrome, -0.26 + vc * 0.15, 0.72 + vr * 0.25, 0.3, 6).rotation.x = Math.PI / 2; } }
+    if (!vendingBuild.mats) vendingBuild.mats = [0xd14a3a, 0x5fd38d, 0xf0b94d, 0x3fa7d6, 0xf2f2f2].map(function (col) { return std({ color: col, roughness: 0.5 }); });   // five materials shared by the sixteen packets, not sixteen: a material of its own is a draw of its own
+    for (var vr = 0; vr < 4; vr++) { c.box(0.6, 0.012, 0.28, MAT.chrome, -0.1, 0.7 + vr * 0.25, 0.27); for (var vc = 0; vc < 4; vc++) { var pm = vendingBuild.mats[(vr + vc) % 5]; c.box(0.09, 0.14, 0.08, pm, -0.33 + vc * 0.15, 0.78 + vr * 0.25, 0.3); c.cyl(0.015, 0.26, MAT.chrome, -0.26 + vc * 0.15, 0.72 + vr * 0.25, 0.3, 6).rotation.x = Math.PI / 2; } }
     var gf = c.box(0.64, 1.16, 0.01, MAT.glass, -0.1, 1.15, 0.415); gf.userData.noBake = true; c.box(0.6, 0.02, 0.3, glowMat(0xdfe9ff, 0.5), -0.1, 1.73, 0.26);
     c.box(0.22, 0.5, 0.02, MAT.black, 0.33, 1.3, 0.405); c.plane(0.16, 0.08, MAT.screen, 0.33, 1.48, 0.416, 0, 0); c.box(0.04, 0.06, 0.012, MAT.chrome, 0.33, 1.36, 0.414); c.box(0.03, 0.01, 0.012, MAT.black, 0.33, 1.36, 0.42);
     for (var kp = 0; kp < 12; kp++) c.box(0.035, 0.035, 0.01, MAT.white, 0.26 + (kp % 3) * 0.05, 1.26 - Math.floor(kp / 3) * 0.045, 0.416);
     c.box(0.56, 0.22, 0.04, MAT.black, -0.1, 0.33, 0.405); c.box(0.5, 0.16, 0.02, std({ color: 0x3a3e45, roughness: 0.4, metalness: 0.4 }), -0.1, 0.33, 0.425); c.box(0.44, 0.03, 0.02, MAT.chrome, -0.1, 0.44, 0.432);
     c.sign(['SNACKS'], 0.7, 0.2, -0.1, 1.82, 0.405, 0, { w: 256, h: 64, bg: '#f5b53d', fg: '#1a1205' }); c.sign(['COLD DRINKS · CRISPS · BARS'], 0.76, 0.1, 0, 1.96, 0.405, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#eef1f5' }); c.plane(0.7, 1.4, std({ color: 0x163b6b, roughness: 0.5 }), 0.485, 1.0, 0, 0, Math.PI / 2);
     c.solid(-0.5, 0.5, -0.4, 0.4, 0, 2);
-    dress.vending = c.hit(1.0, 1.9, 0.9, 0, 0.95, 0, { prompt: function () { return S.events.power ? 'The vending machine is dark' : 'Buy a snack ($3): walk faster for half an hour'; }, use: function () { buySnack(); } });
+    dress.vending = c.hit(1.0, 1.9, 0.9, 0, 0.95, 0, { prompt: function () { return S.events.power ? 'The vending machine is dark' : buff.snackDay === S.day && buff.snackUntil > S.time ? 'The snack is still working until ' + fmtTime(buff.snackUntil) : S.bank < 3 ? 'Buy a snack ($3): no change on you' : 'Buy a snack ($3): walk faster for half an hour'; }, use: function () { buySnack(); } });   // says what the coffee machine says: still working, or short of change, before you press
   }  function fridgeBuild(c) {
     var FW = new THREE.MeshPhysicalMaterial({ color: 0xf2f3f0, roughness: 0.3, metalness: 0.05, clearcoat: 0.6, clearcoatRoughness: 0.2 }); var body = new THREE.Mesh(bevelGeo(0.7, 1.72, 0.68, 0.03), FW); body.position.set(0, 0.96, -0.02); body.castShadow = true; c.group.add(body);
     var dl = new THREE.Mesh(bevelGeo(0.66, 0.52, 0.03, 0.012), FW); dl.position.set(0, 1.56, 0.335); c.group.add(dl); var dl2 = new THREE.Mesh(bevelGeo(0.66, 1.1, 0.03, 0.012), FW); dl2.position.set(0, 0.72, 0.335); c.group.add(dl2); c.box(0.66, 0.01, 0.02, MAT.black, 0, 1.29, 0.345);
@@ -1547,9 +1572,9 @@
     c.box(0.08, 0.24, 0.08, CW, 0.23, 0.9, 0); c.cyl(0.03, 0.08, MAT.white, 0.23, 1.06, 0, 10); c.solid(-0.22, 0.22, -0.22, 0.22, 0, 1.6);
   }
   function hooksBuild(c) { c.box(1.9, 0.04, 0.12, MAT.wood, 0, 1.82, 0); for (var hk = 0; hk < 4; hk++) { var hx = -0.68 + hk * 0.45; c.cyl(0.015, 0.1, MAT.chrome, hx, 1.75, 0.05, 6).rotation.x = Math.PI / 2; if (hk !== 2) { c.box(0.36, 0.5, 0.06, hk === 1 ? MAT.hivisOrange : MAT.hivis, hx, 1.45, 0.06); c.box(0.1, 0.06, 0.07, MAT.hivis, hx, 1.72, 0.06); } } }
-  function noticeBuild(c) { c.box(1.6, 1.0, 0.04, MAT.wood, 0, 1.9, 0); c.plane(1.5, 0.9, MAT.cork, 0, 1.9, 0.025, 0, 0); c.sign(['TRUCKS', 'IN ' + TRUCK_IN.map(fmtTime).join(' · '), 'SEA ' + TRUCK_OUT[0].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · '), 'LAND ' + TRUCK_OUT[1].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · '), 'AIR ' + TRUCK_OUT[2].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · ')], 0.9, 0.5, -0.25, 2.05, 0.03, 0, { w: 512, h: 320, bg: '#f5f1e6', fg: '#1b232c', size: 40 }); [[0.45, 1.75, -0.1], [-0.1, 1.6, 0.15], [0.55, 1.65, 0.05]].forEach(function (n) { var nb = c.box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], 0.03); nb.rotation.z = n[2]; c.cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, 0.035, 8).rotation.x = Math.PI / 2; }); }
+  function noticeBuild(c) { c.box(1.6, 1.0, 0.04, MAT.wood, 0, 1.9, 0); c.plane(1.5, 0.9, MAT.cork, 0, 1.9, 0.025, 0, 0); var tt = ['TRUCKS', 'IN ' + TRUCK_IN.map(fmtTime).join(' · '), 'SEA ' + TRUCK_OUT[0].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · '), 'LAND ' + TRUCK_OUT[1].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · '), 'AIR ' + TRUCK_OUT[2].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · ')]; if (returnsHall()) tt.push('RET ' + TRUCK_RET.map(fmtTime).join(' · ')); c.sign(tt, 0.9, 0.5, -0.25, 2.05, 0.03, 0, { w: 512, h: 320, bg: '#f5f1e6', fg: '#1b232c', size: tt.length > 5 ? 34 : 40 }); /* the returns truck joins the timetable once its hall is open (buildHall rebuilds the board) */ [[0.45, 1.75, -0.1], [-0.1, 1.6, 0.15], [0.55, 1.65, 0.05]].forEach(function (n) { var nb = c.box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], 0.03); nb.rotation.z = n[2]; c.cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, 0.035, 8).rotation.x = Math.PI / 2; }); }
   function calendarBuild(c) { c.box(0.4, 0.5, 0.02, MAT.paper, 0, 1.7, 0); c.sign(['OCTOBER', '', '1  2  3  4  5  6  7', '8  9 10 11 12 13 14'], 0.36, 0.44, 0, 1.7, 0.012, 0, { w: 256, h: 320, bg: '#f3efe4', fg: '#1b232c', size: 28 }); }
-  function clockBuild(r) { return function (c) { var g = new THREE.Group(); g.position.set(0, 2.7, 0.02); c.add(g); var face = cyl(r, 0.03, MAT.white, 0, 0, 0, g, 32); face.rotation.x = Math.PI / 2; var rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 32), MAT.steelDark); g.add(rim); for (var i = 0; i < 12; i++) { var t = box(i % 3 ? 0.015 : 0.03, i % 3 ? 0.04 : 0.07, 0.01, MAT.black, Math.sin(i / 12 * 6.283) * (r - 0.07), Math.cos(i / 12 * 6.283) * (r - 0.07), 0.02, g); t.rotation.z = -i / 12 * 6.283; } var hh = new THREE.Group(), mh = new THREE.Group(); hh.position.z = 0.025; mh.position.z = 0.03; g.add(hh); g.add(mh); box(0.035, r * 0.55, 0.01, MAT.black, 0, r * 0.22, 0, hh); box(0.025, r * 0.85, 0.01, MAT.black, 0, r * 0.37, 0, mh); cyl(0.03, 0.02, MAT.red, 0, 0, 0.035, g, 10).rotation.x = Math.PI / 2; g.userData.dynamic = true; dress.clocks.push({ h: hh, m: mh, group: c.group }); }; }
+  function clockBuild(r) { return function (c) { var g = new THREE.Group(); g.position.set(0, 2.7, 0.02); c.add(g); var face = cyl(r, 0.03, MAT.white, 0, 0, 0, g, 32); face.rotation.x = Math.PI / 2; var rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 32), MAT.steelDark); g.add(rim); for (var i = 0; i < 12; i++) { var t = box(i % 3 ? 0.015 : 0.03, i % 3 ? 0.04 : 0.07, 0.01, MAT.black, Math.sin(i / 12 * 6.283) * (r - 0.07), Math.cos(i / 12 * 6.283) * (r - 0.07), 0.02, g); t.rotation.z = -i / 12 * 6.283; } var dg = new THREE.Group(); dg.userData.dynamic = true; g.add(dg); var hh = new THREE.Group(), mh = new THREE.Group(); hh.position.z = 0.025; mh.position.z = 0.03; dg.add(hh); dg.add(mh); box(0.035, r * 0.55, 0.01, MAT.black, 0, r * 0.22, 0, hh); box(0.025, r * 0.85, 0.01, MAT.black, 0, r * 0.37, 0, mh); cyl(0.03, 0.02, MAT.red, 0, 0, 0.035, g, 10).rotation.x = Math.PI / 2; dress.clocks.push({ h: hh, m: mh, group: c.group }); }; }   // only the hands are dynamic: the face, the rim and the twelve ticks join the bake
   // a framed poster: the print on a white mount, a sheet of glass over it that catches the lamps at an angle, a black frame round the lot
   function posterBuild(kind, w, h) { return function (c) { c.box(w + 0.05, h + 0.05, 0.012, MAT.white, 0, 2.0, 0.002).castShadow = false; c.poster(kind, w - 0.04, h - 0.04, 0, 2.0, 0.01, 0); var gl = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.05, h + 0.05), MAT.screenGlass); gl.position.set(0, 2.0, 0.016); gl.renderOrder = 2; c.add(gl); var fw = w + 0.08, fh = h + 0.08; c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 + fh / 2, 0.004); c.box(fw, 0.03, 0.03, MAT.black, 0, 2.0 - fh / 2, 0.004); c.box(0.03, fh, 0.03, MAT.black, -fw / 2, 2.0, 0.004); c.box(0.03, fh, 0.03, MAT.black, fw / 2, 2.0, 0.004); }; }
   function extinguisherBuild(c) { c.cyl(0.08, 0.5, MAT.red, 0, 1.0, 0.12, 12); c.cyl(0.05, 0.08, MAT.black, 0, 1.28, 0.12, 10); c.box(0.03, 0.12, 0.1, MAT.black, 0, 1.36, 0.14); c.cyl(0.012, 0.42, MAT.black, 0.08, 1.0, 0.15, 6).rotation.z = 0.15; c.cyl(0.02, 0.07, MAT.black, 0.11, 0.79, 0.17, 8, 0.03); c.cyl(0.025, 0.02, MAT.white, 0.0, 1.3, 0.21, 10).rotation.x = Math.PI / 2; c.box(0.1, 0.1, 0.002, MAT.paper, 0, 1.0, 0.202); c.box(0.2, 0.04, 0.1, MAT.steelDark, 0, 0.72, 0.05); c.sign(['FIRE'], 0.3, 0.12, 0, 1.6, 0.04, 0, { w: 128, h: 48, bg: '#c8342a', fg: '#fff' }); }
@@ -1597,10 +1622,10 @@
     c.solid(-1.25, 1.1, -0.5, 0.55, 0, 2.8); c.solid(1.2, 2.3, -0.4, 1.4, 0, 1.0);
   }
   function wrapperBuild(c, P, inst) {
-    var wg = c.group; wg.userData.dynamic = true; dress.wrapper = wg;
-    var tt = c.cyl(0.95, 0.1, MAT.steelDark, 0, 0.05, 0, 32); dress.turntable = tt; plane(1.7, 1.7, MAT.rubberMat, 0, 0.101, 0, -Math.PI / 2, 0, tt); for (var tk = 0; tk < 8; tk++) box(0.04, 0.02, 0.5, MAT.yellow, Math.sin(tk / 8 * 6.283) * 0.7, 0.105, Math.cos(tk / 8 * 6.283) * 0.7, tt).rotation.y = tk / 8 * 6.283;
+    var wg = c.group; dress.wrapper = wg; var wdyn = new THREE.Group(); wdyn.userData.dynamic = true; wg.add(wdyn);   // the turntable and the carriage move; the column, the ramp, the cabinet and the sign join the bake (the whole group was dynamic until this pass)
+    var tt = c.cyl(0.95, 0.1, MAT.steelDark, 0, 0.05, 0, 32); wdyn.add(tt); dress.turntable = tt; plane(1.7, 1.7, MAT.rubberMat, 0, 0.101, 0, -Math.PI / 2, 0, tt); for (var tk = 0; tk < 8; tk++) box(0.04, 0.02, 0.5, MAT.yellow, Math.sin(tk / 8 * 6.283) * 0.7, 0.105, Math.cos(tk / 8 * 6.283) * 0.7, tt).rotation.y = tk / 8 * 6.283;
     var rp = c.box(1.2, 0.1, 0.9, MAT.steelDark, 0, 0.03, 1.35); rp.rotation.x = 0.11; c.box(0.35, 2.7, 0.35, MAT.blue, 0, 1.35, -1.15); c.box(0.45, 0.12, 0.45, MAT.steelDark, 0, 0.06, -1.15); c.box(0.1, 2.5, 0.05, MAT.chrome, -0.1, 1.4, -0.95); c.box(0.1, 2.5, 0.05, MAT.chrome, 0.1, 1.4, -0.95);
-    var carr = new THREE.Group(); carr.position.set(0, 1.0, -0.8); wg.add(carr); dress.wrapCarriage = carr; box(0.5, 0.4, 0.3, MAT.steelDark, 0, 0, 0, carr); cyl(0.14, 0.52, MAT.white, 0.35, 0, 0.1, carr, 14); cyl(0.02, 0.6, MAT.chrome, 0.35, 0, 0.1, carr, 6); cyl(0.05, 0.3, MAT.rubber, -0.3, 0, 0.1, carr, 8);
+    var carr = new THREE.Group(); carr.position.set(0, 1.0, -0.8); wdyn.add(carr); dress.wrapCarriage = carr; box(0.5, 0.4, 0.3, MAT.steelDark, 0, 0, 0, carr); cyl(0.14, 0.52, MAT.white, 0.35, 0, 0.1, carr, 14); cyl(0.02, 0.6, MAT.chrome, 0.35, 0, 0.1, carr, 6); cyl(0.05, 0.3, MAT.rubber, -0.3, 0, 0.1, carr, 8);
     cabinet(c, 0.75, 1.45, -1.15, 0.4, 0.9, 0.22); var wscr = touchScreen({ w: 240, h: 170, pw: 0.3, ph: 0.21, x: 0.75, y: 1.62, z: -1.03, ry: 0, parent: c.group, title: 'Stretch wrapper', draw: wrapperScreenDraw }); wscr.mesh.userData.propId = 'wrapper'; eStop(c, 0.75, 1.2, -1.03); MACH.wrapper.lamps = lampStack(c, 0.75, 1.95, -1.15); c.cyl(0.02, 0.5, MAT.black, 0.55, 1.1, -1.15, 6);
     c.sign(['STRETCH WRAP'], 1.2, 0.25, 0, 2.5, -0.9, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#78bdf5' }); c.solid(-1, 1, -1.4, 1.0, 0, 3);
     c.hit(1.0, 2.4, 0.8, 0, 1.2, -1.05, { prompt: function () { return wrapperPrompt(); }, use: function () { wrapperUse(); } });
@@ -1620,7 +1645,8 @@
     var ped = new THREE.Mesh(bevelGeo(0.45, 0.66, 0.6, 0.02), std({ color: 0xcfd4d9, roughness: 0.5 })); ped.position.set(-0.75, 0.37, 0); c.group.add(ped); for (var dw = 0; dw < 3; dw++) { c.box(0.4, 0.19, 0.012, std({ color: 0xbfc6cc, roughness: 0.5 }), -0.75, 0.15 + dw * 0.21, -0.31); c.box(0.12, 0.02, 0.025, MAT.chrome, -0.75, 0.22 + dw * 0.21, 0.32); }
     c.cyl(0.14, 0.02, MAT_MACH.frame, 0, 0.785, 0.2, 14); c.cyl(0.025, 0.3, MAT_MACH.frame, 0, 0.93, 0.22, 8); var bez = new THREE.Mesh(bevelGeo(0.82, 0.52, 0.03, 0.01), MAT.black); bez.position.set(0, 1.25, 0.25); c.group.add(bez);
     pc.screen = touchScreen({ w: 800, h: 500, pw: 0.74, ph: 0.46, x: 0, y: 1.25, z: 0.225, ry: Math.PI, parent: c.group, title: 'Office PC', draw: drawPc });
-    c.box(0.62, 0.012, 0.42, std({ color: 0x1f2a36, roughness: 1 }), -0.1, 0.785, -0.15); for (var kr = 0; kr < 4; kr++) for (var kc = 0; kc < 12; kc++) c.box(0.032, 0.012, 0.03, std({ color: 0x4a515b, roughness: 0.6 }), -0.34 + kc * 0.044, 0.82, -0.26 + kr * 0.05);
+    if (!deskBuild.keyMat) deskBuild.keyMat = std({ color: 0x4a515b, roughness: 0.6 });   // one material for the 48 keys, not 48: they bake into one draw
+    c.box(0.62, 0.012, 0.42, std({ color: 0x1f2a36, roughness: 1 }), -0.1, 0.785, -0.15); for (var kr = 0; kr < 4; kr++) for (var kc = 0; kc < 12; kc++) c.box(0.032, 0.012, 0.03, deskBuild.keyMat, -0.34 + kc * 0.044, 0.82, -0.26 + kr * 0.05);
     var mouse = new THREE.Mesh(bevelGeo(0.06, 0.03, 0.1, 0.012), MAT.black); mouse.position.set(0.5, 0.8, -0.18); c.group.add(mouse); c.box(0.2, 0.06, 0.16, MAT.black, -0.75, 0.81, 0.26); c.cyl(0.012, 0.18, MAT.black, -0.75, 0.9, 0.26, 6).rotation.z = Math.PI / 2;
     c.cyl(0.03, 0.09, MAT.black, 0.9, 0.82, -0.05, 8); c.cyl(0.004, 0.14, MAT.blue, 0.9, 0.9, -0.05, 4).rotation.z = 0.2; c.cyl(0.04, 0.09, MAT.white, 0.7, 0.82, -0.1, 10); c.box(0.2, 0.01, 0.28, MAT.paper, -0.75, 0.785, -0.1); c.box(0.18, 0.012, 0.26, MAT.paper, -0.72, 0.795, -0.08).rotation.y = 0.1;
     c.cyl(0.02, 0.4, MAT_MACH.frame, 0.95, 0.98, 0.25, 8).rotation.z = -0.3; c.cyl(0.07, 0.1, MAT_MACH.frame, 0.84, 1.17, 0.25, 12, 0.03); c.cyl(0.05, 0.02, glowMat(0xfff2c0, 0.6), 0.84, 1.12, 0.25, 12);
@@ -1710,12 +1736,13 @@
   // a low-poly tree: a tapered trunk with bark, two limbs, and a canopy of jittered icosahedra in three greens, flat shaded
   var BARK = std({ color: 0x5a4634, roughness: 1, normalMap: NRM.wood, normalScale: new THREE.Vector2(0.8, 0.8) });
   var LEAF = [std({ color: 0x3f6f2e, roughness: 1, flatShading: true }), std({ color: 0x5c8f44, roughness: 1, flatShading: true }), std({ color: 0x4a7d33, roughness: 1, flatShading: true })];
-  function canopy(c, r, x, y, z, mat) { var g = new THREE.IcosahedronGeometry(r, 1), p = g.attributes.position; for (var i = 0; i < p.count; i++) { var k = 1 + (Math.random() - 0.5) * 0.35; p.setXYZ(i, p.getX(i) * k, p.getY(i) * (0.8 + Math.random() * 0.3), p.getZ(i) * k); } g.computeVertexNormals(); var m = new THREE.Mesh(g, mat); m.position.set(x, y, z); m.castShadow = true; c.group.add(m); return m; }
-  function treeBuild(c) {
-    var s = randf(0.85, 1.25), lean = randf(-0.06, 0.06);
+  function canopy(c, r, x, y, z, mat, rnd) { rnd = rnd || Math.random; var g = new THREE.IcosahedronGeometry(r, 1), p = g.attributes.position; for (var i = 0; i < p.count; i++) { var k = 1 + (rnd() - 0.5) * 0.35; p.setXYZ(i, p.getX(i) * k, p.getY(i) * (0.8 + rnd() * 0.3), p.getZ(i) * k); } g.computeVertexNormals(); var m = new THREE.Mesh(g, mat); m.position.set(x, y, z); m.castShadow = true; c.group.add(m); return m; }
+  function treeBuild(c, P, inst) {
+    // the tree's size, lean and leaf jitter come from its own seed: a tree used to grow or shrink at every move, turn and reload
+    var id = inst ? inst.id : 'tree', s = seededF(id, 1, 0.85, 1.25), lean = seededF(id, 2, -0.06, 0.06), seed = Math.floor(propSeed(id, 3) * 2147483647) || 1, rnd = function () { seed = (seed * 48271) % 2147483647; return seed / 2147483647; };
     var trunk = c.cyl(0.11 * s, 2.8 * s, BARK, 0, 1.4 * s, 0, 9, 0.2 * s); trunk.rotation.z = lean;
     var l1 = c.cyl(0.05 * s, 1.1 * s, BARK, 0.35 * s, 2.5 * s, 0.1 * s, 6, 0.09 * s); l1.rotation.z = -0.7; var l2 = c.cyl(0.05 * s, 0.9 * s, BARK, -0.3 * s, 2.7 * s, -0.2 * s, 6, 0.08 * s); l2.rotation.z = 0.8; l2.rotation.x = 0.4;
-    canopy(c, 1.35 * s, 0, 3.4 * s, 0, LEAF[0]); canopy(c, 1.0 * s, 0.8 * s, 3.0 * s, 0.4 * s, LEAF[1]); canopy(c, 0.95 * s, -0.75 * s, 3.2 * s, -0.5 * s, LEAF[2]); canopy(c, 0.8 * s, 0.1 * s, 4.3 * s, 0.1 * s, LEAF[1]); canopy(c, 0.7 * s, -0.2 * s, 2.6 * s, 0.8 * s, LEAF[0]);
+    canopy(c, 1.35 * s, 0, 3.4 * s, 0, LEAF[0], rnd); canopy(c, 1.0 * s, 0.8 * s, 3.0 * s, 0.4 * s, LEAF[1], rnd); canopy(c, 0.95 * s, -0.75 * s, 3.2 * s, -0.5 * s, LEAF[2], rnd); canopy(c, 0.8 * s, 0.1 * s, 4.3 * s, 0.1 * s, LEAF[1], rnd); canopy(c, 0.7 * s, -0.2 * s, 2.6 * s, 0.8 * s, LEAF[0], rnd);
     c.solid(-0.2, 0.2, -0.2, 0.2, -2, 2);
   }
   function bollardBuild(c) { c.cyl(0.11, 1.0, MAT.yellow, 0, 0.5, 0, 10); c.cyl(0.14, 0.05, MAT.black, 0, 0.025, 0, 10); c.solid(-0.12, 0.12, -0.12, 0.12, -2, 1); }
@@ -1723,7 +1750,7 @@
 
   // stations and fabric that move too
   function timeclockBuild(c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame;
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame;
     var hous = new THREE.Mesh(bevelGeo(0.4, 0.56, 0.12, 0.02), LG); hous.position.set(0, 1.5, 0); hous.castShadow = true; c.group.add(hous); c.box(0.42, 0.03, 0.14, DG, 0, 1.79, 0); c.box(0.42, 0.03, 0.14, DG, 0, 1.21, 0);
     c.box(0.34, 0.36, 0.01, MAT.black, 0, 1.52, 0.05); c.box(0.14, 0.012, 0.03, MAT.black, 0, 1.28, 0.07); c.box(0.12, 0.004, 0.01, MAT.chrome, 0, 1.283, 0.08); tclock.lamp = c.box(0.03, 0.03, 0.02, glowMat(0x39d353, 1.2), 0.15, 1.72, 0.065); c.box(0.03, 0.03, 0.02, glowMat(0xff3b2f, 0.3), -0.15, 1.72, 0.065);
     c.box(0.5, 0.56, 0.08, DG, 0.58, 1.5, -0.02); c.box(0.48, 0.02, 0.06, LG, 0.58, 1.75, 0.0); for (var k = 0; k < 8; k++) { c.box(0.07, 0.15, 0.03, MAT.paper, 0.4 + Math.floor(k / 4) * 0.12 + 0.06 * (k % 2 ? 0 : 0), 1.62 - (k % 4) * 0.13, 0.04); } c.box(0.5, 0.02, 0.03, DG, 0.58, 1.26, 0.03);
@@ -1732,7 +1759,7 @@
     touchScreen({ w: 300, h: 320, pw: 0.3, ph: 0.32, x: 0, y: 1.5, z: 0.07, ry: 0, parent: c.group, title: 'Time clock', draw: drawTimeClock });
   }  function consoleBuild(di) { return function (c) {
     var dir = DOOR_MAP[di].dir, inbound = dir === 'in', ret = dir === 'ret', k = DOOR_MAP[di].dock, lane = inbound || ret ? null : MODES[TRUCK_OUT[k].mode];
-    var hous = new THREE.Mesh(bevelGeo(0.5, 0.62, 0.12, 0.02), std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 })); hous.position.set(0, 1.45, 0); hous.castShadow = true; c.group.add(hous); c.box(0.44, 0.34, 0.01, MAT.black, 0, 1.47, 0.05); c.box(0.54, 0.04, 0.14, inbound ? MAT.hazard : MAT.yellow, 0, 1.78, 0); c.box(0.54, 0.04, 0.14, MAT_MACH.frame, 0, 1.12, 0); c.cyl(0.012, 1.0, MAT.black, 0, 0.6, -0.03, 6); c.cyl(0.03, 0.03, MAT.red, -0.17, 1.22, 0.07, 10).rotation.x = Math.PI / 2; c.box(0.05, 0.05, 0.02, MAT.yellow, -0.17, 1.22, 0.06); c.box(0.03, 0.03, 0.02, glowMat(0x5fd38d, 1.0), 0.17, 1.22, 0.065); c.box(0.08, 0.06, 0.04, MAT_MACH.frame, 0, 1.08, -0.02);
+    var hous = new THREE.Mesh(bevelGeo(0.5, 0.62, 0.12, 0.02), MAT_MACH.panel); hous.position.set(0, 1.45, 0); hous.castShadow = true; c.group.add(hous); c.box(0.44, 0.34, 0.01, MAT.black, 0, 1.47, 0.05); c.box(0.54, 0.04, 0.14, inbound ? MAT.hazard : MAT.yellow, 0, 1.78, 0); c.box(0.54, 0.04, 0.14, MAT_MACH.frame, 0, 1.12, 0); c.cyl(0.012, 1.0, MAT.black, 0, 0.6, -0.03, 6); c.cyl(0.03, 0.03, MAT.red, -0.17, 1.22, 0.07, 10).rotation.x = Math.PI / 2; c.box(0.05, 0.05, 0.02, MAT.yellow, -0.17, 1.22, 0.06); c.box(0.03, 0.03, 0.02, glowMat(0x5fd38d, 1.0), 0.17, 1.22, 0.065); c.box(0.08, 0.06, 0.04, MAT_MACH.frame, 0, 1.08, -0.02);
     touchScreen({ w: 320, h: 240, pw: 0.4, ph: 0.3, x: 0, y: 1.47, z: 0.065, ry: 0, parent: c.group, title: 'Dock console ' + dockLabel(di), draw: function (cc, sc) {
       scBg(cc, sc.w, sc.h, inbound || ret ? 'rgba(245,181,61,0.16)' : 'rgba(95,211,141,0.16)'); scHead(cc, sc.w, 'DOCK ' + dockLabel(di), lane ? lane.name.toUpperCase() + ' LANE' : undefined);
       var t = truckAtDoor(di);
@@ -1814,7 +1841,7 @@
   var treeN = 0; for (var tx = -56; tx <= 56; tx += 14) { defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: tx, z: -64, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: tx + 7, z: 56, rot: 0, build: treeBuild }); }
   defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: -30, z: 24, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: 30, z: 26, rot: 0, build: treeBuild });
   defProp('xLampPost', { extra: true, label: 'lamp post', ico: '💡', cat: 'yard', yard: true, price: 350, desc: 'Lights the yard at night.', build: lampPostBuild });
-  defProp('xCar', { extra: true, label: 'parked car', ico: '🚗', cat: 'yard', yard: true, price: 0, desc: 'Somebody is in.', build: function (c) { carBuild(pick(CAR_COLS))(c); } });
+  defProp('xCar', { extra: true, label: 'parked car', ico: '🚗', cat: 'yard', yard: true, price: 0, desc: 'Somebody is in.', build: function (c, P, inst) { carBuild(CAR_COLS[Math.floor(propSeed(inst ? inst.id : 'car', 1) * CAR_COLS.length)])(c); } });   // the colour is the car's own, not a new one every time it is moved
   defProp('xAisleSign', { extra: true, label: 'aisle sign', ico: '🪧', cat: 'hall', price: 40, desc: 'Hangs from the roof.', build: aisleSignBuild('AISLE') });
 
   // The entrance lobby (x -30 to -25.5, z 18.5 to 24): the staff door on the west wall at z 22, the lobby door east at z 20.
@@ -2000,7 +2027,7 @@
   // is docked with the door up. mirror: the inlet faces north instead of south (OUT 1's stands under the deck edge, fed from the north)
   function dockLoaderBuildFor(id, label, mirror) { return function (c) {
     var m = mirror ? -1 : 1, Z = function (z) { return z * m; }, door = LOADER_DOORS[id];
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, BL = MAT_MACH.blue;
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame, BL = MAT_MACH.blue;
     var rbx = function (w, h, d, r, mat, x, y, z, parent) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; (parent || c.group).add(mm); return mm; };
     rbx(1.6, 0.26, 2.2, 0.03, DG, -0.2, 0.13, Z(0.6)); [[-0.9, -0.4], [0.5, -0.4], [-0.9, 1.6], [0.5, 1.6]].forEach(function (p) { c.cyl(0.07, 0.04, DG, p[0], 0.02, Z(p[1]), 10); c.box(0.12, 0.3, 0.12, DG, p[0], 0.3, Z(p[1])); });
     [-0.46, 0.26].forEach(function (sx) { c.box(0.04, 0.16, 1.9, LG, sx, BELT_Y - 0.06, Z(0.75)); c.box(0.05, 0.02, 1.9, BL, sx, BELT_Y + 0.035, Z(0.75)); });
@@ -2027,7 +2054,7 @@
   }; }
   var dockLoaderBuild = dockLoaderBuildFor('dockLoader2', 'OUT 2', false);
   function gantryBuild(r) { return function (c) {
-    var DG = MAT_MACH.frame, YL = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.3 }), LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), GT = gantryTop(r), GD = GT - 5.0;   // GT: rail height; the upper crane is two metres lower
+    var DG = MAT_MACH.frame, YL = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.3 }), LG = MAT_MACH.panel, GT = gantryTop(r), GD = GT - 5.0;   // GT: rail height; the upper crane is two metres lower
     // end columns stand clear of the racking at the row ends; the mid columns stand tight against the rack faces, out of the aisles
     // the east pair stands at 47.2, past the overhead pick belt that runs along the row ends at 46
     // every column stands tight against the rack face and reaches the rails on an outrigger, so nothing stands in the aisle
@@ -2053,7 +2080,7 @@
   function pickMergeBuild(c) { conveyorPath(c, BELTS.pickMerge.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 2.0, BELT_Y + 2.4 + 0.3, 0.45, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function pickBelt2Build(c) { conveyorPath(c, BELTS.pickBelt2.path); c.sign(['TO THE BENCH'], 0.7, 0.14, 0, BELT_Y + 2.4 + 0.3, -4, -Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   function agvDockBuild(c) {
-    var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.2, 0.76, -0.84); agvScreen = touchScreen({ w: 300, h: 200, pw: 0.33, ph: 0.22, x: 0, y: 0.57, z: -0.845, ry: 0, parent: c.group, title: 'AGV dock', draw: agvScreenDraw }); agvScreen.mesh.userData.propId = 'agvDock';
+    var DG = MAT_MACH.frame; c.box(1.2, 0.012, 1.8, MAT.hazard, 0, 0.006, 0); c.box(0.5, 0.9, 0.3, MAT_MACH.panel, 0, 0.45, -1.0); c.box(0.52, 0.06, 0.32, DG, 0, 0.03, -1.0); c.box(0.3, 0.08, 0.04, MAT.chrome, 0, 0.35, -0.83); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), -0.2, 0.76, -0.84); agvScreen = touchScreen({ w: 300, h: 200, pw: 0.33, ph: 0.22, x: 0, y: 0.57, z: -0.845, ry: 0, parent: c.group, title: 'AGV dock', draw: agvScreenDraw }); agvScreen.mesh.userData.propId = 'agvDock';
     c.sign(['AGV DOCK'], 0.5, 0.12, 0, 0.82, -0.84, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#f5b53d' });
     [[-1.0, 1.6], [1.0, 1.6], [-1.0, 3.6], [1.0, 3.6]].forEach(function (p) { c.cyl(0.04, 0.5, MAT.yellow, p[0], 0.25, p[1], 8); });
     [[0, 1.6, 2.0, 0.08], [0, 3.6, 2.0, 0.08]].forEach(function (l) { c.plane(l[2], l[3], MAT.yellowLine, l[0], 0.0065, l[1], -Math.PI / 2); }); c.plane(0.08, 2.0, MAT.yellowLine, -1.0, 0.0065, 2.6, -Math.PI / 2); c.plane(0.08, 2.0, MAT.yellowLine, 1.0, 0.0065, 2.6, -Math.PI / 2);
@@ -2065,7 +2092,7 @@
   function cabinet(c, x, y, z, w, h, d) { c.box(w, h, d, MAT_MACH.panel, x, y, z); c.box(w + 0.02, 0.05, d + 0.02, MAT_MACH.frame, x, y + h / 2, z); c.box(w - 0.1, h - 0.12, 0.01, std({ color: 0xcfd4d9, roughness: 0.5 }), x, y, z + d / 2 + 0.004); c.box(0.025, 0.08, 0.02, MAT.chrome, x + w / 2 - 0.08, y, z + d / 2 + 0.015); }
   // ── The pack line prop: infeed belt, the case taper, outfeed belt, the gravity shelf
   function packLineBuild(c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, BL = MAT_MACH.blue;
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame, BL = MAT_MACH.blue;
     var rbx = function (w, h, d, r, mat, x, y, z) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; mm.receiveShadow = true; c.group.add(mm); return mm; };
     conveyorBuild(c, 0, 0, 2.0, { noEye: true });
     // the taper body on four legs: lower skirt, louvred side panels, a top housing with a window onto the tape head, service doors
@@ -2094,7 +2121,7 @@
   }  function shelfSlot(i) { var k = i % 8, up = i >= 8 ? 0.27 : 0; return { lx: k % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(k / 2) * 0.26, y: 0.66 - Math.floor(k / 2) * 0.016 + 0.2 + up }; }   // twelve: eight on the rails, four more stacked on the back two rows
   // ── The moulding line prop: hopper throat, heated barrel, clamp with a moving platen between tie bars, cooling fan, control cabinet, outfeed belt
   function moulderBuild(c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), BL = MAT_MACH.blue, CH = MAT.chrome;
+    var LG = MAT_MACH.panel, DG = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), BL = MAT_MACH.blue, CH = MAT.chrome;
     var rbx = function (w, h, d, r, mat, x, y, z, parent) { var mm = new THREE.Mesh(bevelGeo(w, h, d, r), mat); mm.position.set(x, y, z); mm.castShadow = true; mm.receiveShadow = true; (parent || c.group).add(mm); return mm; };
     var dyn = new THREE.Group(); dyn.userData.dynamic = true; c.group.add(dyn);
     // the base: a dark skirt on levelling feet, a light bevelled bed, a hazard band, the cable chain down the operator side
@@ -2141,7 +2168,7 @@
   }
   // ── The hopper prop: a cone on legs with a ladder and cage, a vibrating feeder into the pipe that runs to the moulder, a level gauge
   function hopperBuild(c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, hdyn = new THREE.Group(); hdyn.userData.dynamic = true; c.group.add(hdyn);
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame, hdyn = new THREE.Group(); hdyn.userData.dynamic = true; c.group.add(hdyn);
     // legs: square section with footplates and bolts, cross bracing on every face, a ring girder under the cone
     var L = 2.3; [[-0.85, -0.85], [0.85, -0.85], [-0.85, 0.85], [0.85, 0.85]].forEach(function (p) { c.box(0.16, L, 0.16, DG, p[0], L / 2, p[1]); c.box(0.36, 0.03, 0.36, DG, p[0], 0.015, p[1]); [[-0.12, -0.12], [0.12, -0.12], [-0.12, 0.12], [0.12, 0.12]].forEach(function (b) { c.cyl(0.02, 0.05, MAT.chrome, p[0] + b[0], 0.04, p[1] + b[1], 6); }); });
     [[0, -0.85, 0], [0, 0.85, 0], [-0.85, 0, 1], [0.85, 0, 1]].forEach(function (f) { var d1 = c.box(0.06, 2.3, 0.02, DG, f[0], L / 2, f[1]); var d2 = c.box(0.06, 2.3, 0.02, DG, f[0], L / 2, f[1]); if (f[2]) { d1.rotation.y = Math.PI / 2; d2.rotation.y = Math.PI / 2; d1.rotation.x = 0.63; d2.rotation.x = -0.63; } else { d1.rotation.z = 0.63; d2.rotation.z = -0.63; } c.box(f[2] ? 0.08 : 1.86, 0.08, f[2] ? 1.86 : 0.08, DG, f[0], 1.0, f[1]); });
@@ -2173,7 +2200,7 @@
 
   // ── The palletiser prop: a gantry over a roller cradle, the pusher on its ram, infeed rollers off the belt, a drop zone for the finished pallet
   function palletiserBuild(c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame;
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame;
     c.box(2.6, 0.08, 2.6, DG, 0, 0.04, 0); c.box(2.62, 0.03, 2.62, MAT.hazard, 0, 0.085, 0);
     [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]].forEach(function (p) { c.box(0.2, 3.0, 0.2, MAT_MACH.blue, p[0], 1.5, p[1]); c.box(0.36, 0.04, 0.36, DG, p[0], 0.1, p[1]); });
     c.box(2.4, 0.2, 0.2, MAT_MACH.blue, 0, 3.0, -1.1); c.box(2.4, 0.2, 0.2, MAT_MACH.blue, 0, 3.0, 1.1); c.box(0.2, 0.2, 2.4, MAT_MACH.blue, -1.1, 3.0, 0); c.box(0.2, 0.2, 2.4, MAT_MACH.blue, 1.1, 3.0, 0);
@@ -2234,7 +2261,7 @@
     c.solid(-1.0, 1.0, -0.5, 0.5, 0, 2.2);
   }
   function chillerBuild(c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame;
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame;
     var body = new THREE.Mesh(bevelGeo(2.2, 1.9, 1.1, 0.04), LG); body.position.set(0, 1.05, 0); body.castShadow = true; c.group.add(body); c.box(2.24, 0.12, 1.14, DG, 0, 0.06, 0); c.box(2.24, 0.06, 1.14, DG, 0, 2.03, 0);
     for (var g = -0.95; g < 0.95; g += 0.075) { c.box(0.03, 1.4, 0.02, DG, g, 1.05, 0.56); c.box(0.03, 1.4, 0.02, DG, g, 1.05, -0.56); }
     [-0.55, 0.55].forEach(function (x) { c.cyl(0.42, 0.06, DG, x, 2.09, 0, 24); var fan = c.cyl(0.34, 0.03, MAT.black, x, 2.13, 0, 20); for (var b = 0; b < 6; b++) { var bl = box(0.6, 0.01, 0.1, DG, 0, 0, 0, fan); bl.rotation.y = b * 1.047; } c.cyl(0.06, 0.08, MAT.black, x, 2.17, 0, 10); var guard = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.015, 6, 24), DG); guard.position.set(x, 2.2, 0); guard.rotation.x = Math.PI / 2; c.group.add(guard); for (var sp = 0; sp < 4; sp++) { var spk = box(0.8, 0.01, 0.02, DG, 0, 0, 0, fan); spk.position.y = 0.07; spk.rotation.y = sp * 0.785; } });
@@ -2245,7 +2272,7 @@
     c.solid(-1.15, 1.75, -0.6, 0.6, 0, 2.3);
   }
   function dryerBuild(c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame;
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame;
     var cab = new THREE.Mesh(bevelGeo(1.2, 1.5, 0.9, 0.04), LG); cab.position.set(0, 0.85, 0); cab.castShadow = true; c.group.add(cab); c.box(1.24, 0.12, 0.94, DG, 0, 0.06, 0); c.box(1.24, 0.06, 0.94, DG, 0, 1.63, 0);
     c.box(0.5, 1.1, 0.02, std({ color: 0xcfd4d9, roughness: 0.5 }), -0.3, 0.85, 0.46); c.box(0.03, 0.12, 0.03, MAT.chrome, -0.1, 0.85, 0.48); c.plane(0.3, 0.16, MAT.screen, 0.3, 1.25, 0.465, 0, 0); c.box(0.04, 0.04, 0.02, glowMat(0x5fd38d, 1.2), 0.18, 1.0, 0.465); c.box(0.04, 0.04, 0.02, glowMat(0xf5b53d, 1.2), 0.28, 1.0, 0.465); eStop(c, 0.42, 0.95, 0.465);
     [[-0.5, -0.4], [0.5, -0.4], [-0.5, 0.4], [0.5, 0.4]].forEach(function (p) { c.box(0.1, 0.9, 0.1, DG, p[0], 2.1, p[1]); }); c.box(1.1, 0.08, 0.9, DG, 0, 2.55, 0);
@@ -2266,11 +2293,12 @@
   }
   function partsShelfBuild(c) {
     [[-0.9, -0.3], [0.9, -0.3], [-0.9, 0.3], [0.9, 0.3]].forEach(function (p) { c.box(0.05, 2.0, 0.05, MAT_MACH.frame, p[0], 1.0, p[1]); }); [0.1, 0.6, 1.1, 1.6].forEach(function (y) { c.box(1.85, 0.03, 0.65, MAT_MACH.frame, 0, y, 0); });
-    var cols = [0x2f6b9a, 0xb3261e, 0xf5b53d, 0x6b8e23, 0x3a4149]; for (var s = 0; s < 4; s++) for (var b = 0; b < 6; b++) { var bm = std({ color: cols[(s + b) % 5], roughness: 0.6 }); c.box(0.26, 0.2, 0.4, bm, -0.75 + b * 0.3, 0.1 + s * 0.5 + 0.12, 0.05); }
+    if (!partsShelfBuild.mats) partsShelfBuild.mats = [0x2f6b9a, 0xb3261e, 0xf5b53d, 0x6b8e23, 0x3a4149].map(function (col) { return std({ color: col, roughness: 0.6 }); });   // five materials for the 24 bins, not 24
+    for (var s = 0; s < 4; s++) for (var b = 0; b < 6; b++) { var bm = partsShelfBuild.mats[(s + b) % 5]; c.box(0.26, 0.2, 0.4, bm, -0.75 + b * 0.3, 0.1 + s * 0.5 + 0.12, 0.05); }
     c.sign(['SPARES'], 0.6, 0.18, 0, 2.15, 0.33, 0, { w: 256, h: 80, bg: '#1b232c', fg: '#eef1f5' });
     c.solid(-0.95, 0.95, -0.35, 0.35, 0, 2.1);
   }
-  function shiftBoardBuild(c) { c.box(1.6, 1.0, 0.04, MAT.white, 0, 1.9, 0); c.box(1.64, 1.04, 0.02, MAT_MACH.frame, 0, 1.9, -0.015); var scr = touchScreen({ w: 400, h: 250, pw: 1.5, ph: 0.92, x: 0, y: 1.9, z: 0.025, ry: 0, parent: c.group, title: 'Shift board', draw: function (cc, sc) { cc.fillStyle = '#f7f7f4'; cc.fillRect(0, 0, sc.w, sc.h); cc.fillStyle = '#1b232c'; cc.font = 'bold 26px Bahnschrift, Arial'; cc.fillText('SHIFT OUTPUT · DAY ' + S.day, 16, 36); cc.font = '18px Bahnschrift, Arial'; cc.fillStyle = '#2f6b9a'; cc.fillText('Boxes moulded: ' + S.factory.made, 16, 80); cc.fillText('Pallets finished: ' + (S.stats.palletised || 0), 16, 108); cc.fillText('Hopper: ' + S.factory.raw + ' units', 16, 136); cc.fillStyle = '#b3261e'; cc.fillText('Jams: ' + (S.factory.jam ? 'LINE JAMMED' : 'none'), 16, 164); cc.fillStyle = '#6b7784'; cc.font = '14px Bahnschrift, Arial'; cc.fillText('Target 60 a day · keep the hopper above 40', 16, 220); } }); scr.mesh.userData.propId = 'shiftBoard'; c.box(0.4, 0.03, 0.06, MAT_MACH.frame, 0, 1.36, 0.03); c.cyl(0.01, 0.12, MAT.black, 0.1, 1.4, 0.05, 6).rotation.z = Math.PI / 2; }
+  function shiftBoardBuild(c) { c.box(1.6, 1.0, 0.04, MAT.white, 0, 1.9, 0); c.box(1.64, 1.04, 0.02, MAT_MACH.frame, 0, 1.9, -0.015); var scr = touchScreen({ w: 400, h: 250, pw: 1.5, ph: 0.92, x: 0, y: 1.9, z: 0.025, ry: 0, parent: c.group, title: 'Shift board', draw: function (cc, sc) { cc.fillStyle = '#f7f7f4'; cc.fillRect(0, 0, sc.w, sc.h); cc.fillStyle = '#1b232c'; cc.font = 'bold 26px Bahnschrift, Arial'; cc.fillText('SHIFT OUTPUT · DAY ' + S.day, 16, 36); cc.font = '18px Bahnschrift, Arial'; cc.fillStyle = '#2f6b9a'; cc.fillText('Boxes moulded today: ' + (S.factory.madeOn === S.day ? (S.factory.madeDay || 0) : 0) + ' · all time ' + S.factory.made, 16, 80); cc.fillText('Pallets finished: ' + (S.stats.palletised || 0), 16, 108); cc.fillText('Hopper: ' + S.factory.raw + ' units', 16, 136); cc.fillStyle = S.factory.jam ? '#b3261e' : '#1e7a3a'; cc.fillText('Jams: ' + (S.factory.jam ? 'LINE JAMMED' : 'none'), 16, 164); cc.fillStyle = '#6b7784'; cc.font = '14px Bahnschrift, Arial'; cc.fillText('Target 60 a day · keep the hopper above 40', 16, 220); } }); scr.mesh.userData.propId = 'shiftBoard'; c.box(0.4, 0.03, 0.06, MAT_MACH.frame, 0, 1.36, 0.03); c.cyl(0.01, 0.12, MAT.black, 0.1, 1.4, 0.05, 6).rotation.z = Math.PI / 2; }
   // ── Conveyor pieces: belts you build from parts ──
   // Every piece is a prop with a path in its own frame (it starts at the origin running along +z; heights are above BELT_Y, plus
   // the height the piece was snapped at) and is put on the belt list when it is built, so items ride it like any other belt. In
@@ -2416,7 +2444,7 @@
     for (var tx = Math.ceil((H.x0 + 2) / 8) * 8; tx < H.x1 - 1; tx += 8) c.box(0.25, 0.6, wz - 0.4, FR, tx, h - 0.35, cz);
     for (var pz = H.z0 + 3; pz < H.z1 - 1; pz += 4) c.box(wx - 0.4, 0.12, 0.12, FR, cx, h - 0.1, pz);
     [cx - wx / 4, cx + wx / 4].forEach(function (vx) { c.cyl(0.45, 0.6, MAT.steel, vx, h + 0.6, cz, 12); c.cyl(0.6, 0.15, FR, vx, h + 0.95, cz, 12); });
-    H.lights.forEach(function (p, i) { highBay(p[0], 7.0, p[1]); var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l); });
+    H.lights.forEach(function (p, i) { highBay(p[0], 7.6, p[1]);   /* 7.6 like the main hall's (the light at 7.3 sits just above the lens); at 7.0 the lamp hung 0.6 m lower with the light inside the ballast box */ var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l); });
     // the inside faces: the far wall with the tray and windows, the wall it opens off with the doorway cut, the two sides
     var dcut = [D.x0 - 0.1, D.x1 + 0.1];
     hallFace(c, 'z', H.z0, 1, H.x0, H.x1, [], { windows: true, tray: true });
@@ -2447,7 +2475,7 @@
     c.box(w, D.h, 0.12, MAT.door, cx, D.h / 2, D.z); for (var y = 0.5; y < D.h; y += 0.5) c.box(w, 0.04, 0.14, MAT.steelDark, cx, y, D.z);
     c.sign([HALLS[id].name.toUpperCase(), 'in the shop'], 1.6, 0.5, cx, D.h / 2, D.z + 0.08, 0, { w: 448, h: 128, bg: '#1b232c', fg: '#a0acb8' }); c.sign([HALLS[id].name.toUpperCase()], 1.6, 0.5, cx, D.h / 2, D.z - 0.08, Math.PI, { w: 448, h: 128, bg: '#1b232c', fg: '#a0acb8' });
     c.solid(D.x0 - 0.1, D.x1 + 0.1, D.z - 0.2, D.z + 0.2, 0, D.h);
-    c.hit(w, D.h, 0.5, cx, D.h / 2, D.z, { prompt: function () { var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; return HALLS[id].name + ' · ' + (u ? money(u.price) + ' in the shop' : 'not open') + (u && u.needs && !S.up[u.needs] ? ' · needs ' + upgradeName(u.needs).toLowerCase() : ''); }, use: function () { sfx('click'); } });
+    c.hit(w, D.h, 0.5, cx, D.h / 2, D.z, { prompt: function () { var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; return HALLS[id].name + ' · ' + (u ? money(u.price) + ' in the shop' : 'not open') + (u && u.needs && !S.up[u.needs] ? ' · needs ' + upgradeName(u.needs).toLowerCase() : '') + ' · E opens the shop'; }, use: function () { sfx('click'); if (!driving && !pc.on) openPanel('pc', 'shop'); } });   // E on the shutter opens the shop page instead of clicking at nothing
   }; }
   for (var hid in HALLS) (function (id) {
     var H = HALLS[id];
@@ -2460,6 +2488,7 @@
     defProp('ext' + id, { label: H.name + ' extinguisher', cat: 'wall', wall: true, abs: true, keep: true, x: H.x1 - 2.5, z: H.z0 + 0.17, rot: 0, build: extinguisherBuild, when: when });
     defProp('posterExit' + id, { label: H.name + ' fire-exit poster', cat: 'wall', wall: true, abs: true, keep: true, x: D.x0 - 1.6, z: D.z - 0.17, rot: 2, build: posterBuild('exit', 0.6, 0.9), when: when });
     defProp('posterSmoke' + id, { label: H.name + ' no-smoking poster', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 2.5, z: H.z0 + 0.17, rot: 0, build: posterBuild('nosmoking', 0.6, 0.8), when: when });
+    defProp('firstAid' + id, { label: H.name + ' first-aid box', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 4.0, z: H.z0 + 0.17, rot: 0, build: firstAidBuild, when: when });   // the lobby and the wing have one; the halls did not
     defProp('clock' + id, { label: H.name + ' clock', cat: 'wall', wall: true, abs: true, keep: true, x: cx + 3.2, z: H.z0 + 0.3, rot: 0, build: function (c) { var f = clockBuild(0.4); f(c); }, when: when });
     if (H.rows.length) defProp('aisle' + id, { label: H.name + ' aisle sign', cat: 'hall', abs: true, keep: true, fixed: true, x: cx, z: (H.rowZ[0] + H.rowZ[1]) / 2, rot: 0, build: aisleSignBuild(H.name.toUpperCase() + ' · ' + 'HIJKLM'[H.rows[0] - 20] + ' / ' + 'HIJKLM'[H.rows[1] - 20]), when: when });
   })(hfid);
@@ -2467,9 +2496,9 @@
   // buying a hall: it stands, its rows stand, its shutter goes, Hall 3 gets its dock door and lane, the silo moves out of Hall 3's way
   function buildHall(id) {
     var H = HALLS[id];
-    if (id === 'hall2') { if (!doors[6]) { buildDoor(6, 1, DOCKS.ret[0].z); if (yard.dock) yard.dock(doors[6]); dressDoor(doors[6]); } if (propInst.returnsDesk) removePropInst('returnsDesk'); RET_PROPS.forEach(function (pid) { buildProp(pid); }); migrateReturnsHall(); }   // the returns hall: its dock, its fixtures, and the desk by the bench goes
+    if (id === 'hall2') { if (!doors[6]) { buildDoor(6, 1, DOCKS.ret[0].z); if (yard.dock) yard.dock(doors[6]); dressDoor(doors[6]); } if (propInst.returnsDesk) removePropInst('returnsDesk'); RET_PROPS.forEach(function (pid) { buildProp(pid); }); migrateReturnsHall(); if (propInst.notice) buildProp('notice'); }   // the returns hall: its dock, its fixtures, and the desk by the bench goes; the lobby timetable gains the returns truck
     if (id === 'hall3') { var sp = propPlacement('silo'); if (inRectH(sp.x, sp.z, H) || (sp.x > H.x0 - 3 && sp.x < H.x1 + 3 && sp.z > H.z0 - 3 && sp.z < H.z1 + 3)) { S.layout.silo = { x: -26, z: -50, rot: 0 }; buildProp('silo'); } if (!doors[5]) { buildDoor(5, -1, DOCKS.in[2].z); if (yard.dock) yard.dock(doors[5]); dressDoor(doors[5]); } buildProp('consoleIn2'); }
-    buildProp(id); H.rows.forEach(function (r) { buildProp('rack' + r); }); buildProp('shut' + id); ['ext', 'posterExit', 'posterSmoke', 'clock', 'aisle'].forEach(function (k) { if (PROPS[k + id]) buildProp(k + id); });
+    buildProp(id); H.rows.forEach(function (r) { buildProp('rack' + r); }); buildProp('shut' + id); ['ext', 'posterExit', 'posterSmoke', 'firstAid', 'clock', 'aisle'].forEach(function (k) { if (PROPS[k + id]) buildProp(k + id); });
     NAV.dirty = true; shadowDirty = true; beltsChanged(); if (!edit.on) { unbakeStatic(); bakeStatic(); }
     logEvent(H.name + ' is open: ' + (id === 'hall2' ? 'a returns dock of its own, the belt to the intake, three inspection desks, the restock cage and the compactor. The desk by the bench has gone.' : H.rows.length + ' rack rows of ' + H.bays + ' bays' + (id === 'hall3' ? ', and IN 3 on its west wall' : '')), 'good');
   }
@@ -2522,7 +2551,7 @@
     c.box(0.015, 0.2, 0.015, MAT.chrome, 0.1, 0.15, 0.2); c.box(0.1, 0.08, 0.005, MAT.black, 0.19, 0.2, 0.19); c.box(0.01, 0.01, 0.004, glowMat(0x5fd38d, 1.2), 0.19, 0.24, 0.193);
     for (var k = 0; k < 6; k++) c.box(0.02, 0.012, 0.004, DARKGREY, 0.165 + (k % 2) * 0.05, 0.1 - Math.floor(k / 2) * 0.025, 0.193);
     c.cyl(0.02, 0.01, MAT.black, -0.2, 0.005, -0.15, 8); c.cyl(0.02, 0.01, MAT.black, 0.2, 0.005, -0.15, 8); c.cyl(0.02, 0.01, MAT.black, -0.2, 0.005, 0.15, 8); c.cyl(0.02, 0.01, MAT.black, 0.2, 0.005, 0.15, 8);
-    c.hit(0.55, 0.35, 0.42, 0, 0.15, 0, { prompt: function () { return powered() ? 'The microwave · two minutes on full' : 'The microwave · no power'; }, use: function () { if (!powered()) { sfx('bad'); return; } sfx('click'); toast('Ping.', ''); } });
+    c.hit(0.55, 0.35, 0.42, 0, 0.15, 0, { prompt: function () { return powered() ? 'The microwave · two minutes on full' : 'The microwave · no power'; }, use: function () { if (!powered()) { sfx('bad'); return; } sfx('click'); toast('Two minutes on full.', ''); setTimeout(function () { if (powered() && ui.started) { sfx('chime'); toast('Ping.', ''); } }, 2200); } });   // the ping comes after the hum, not with the button
   }
   // ── The standing fan: the head turns while the power is on (its hub joins the ceiling fans' spin) ──
   function fanStandBuild(c) {
@@ -2532,7 +2561,7 @@
     for (var k = 0; k < 8; k++) { var a = k * Math.PI / 4, bar = box(0.004, 0.46, 0.004, MAT.chrome, 0, 0, 0.045, head); bar.rotation.z = a; }
     var hub = new THREE.Group(); hub.position.set(0, 0, 0); head.add(hub); cyl(0.03, 0.03, MAT.black, 0, 0, 0, hub, 10).rotation.x = Math.PI / 2;
     for (var b = 0; b < 3; b++) { var bl = new THREE.Mesh(bevelGeo(0.07, 0.19, 0.006, 0.01), std({ color: 0xdfe6ec, roughness: 0.4, metalness: 0.3 })); bl.position.set(Math.sin(b * 2.094) * 0.11, Math.cos(b * 2.094) * 0.11, 0); bl.rotation.z = -b * 2.094; bl.rotation.y = 0.5; hub.add(bl); }
-    dress.fans.push(hub);
+    dress.fans.push(hub); dress.fanHeads = dress.fanHeads || []; dress.fanHeads.push(head);   // the hub spins with the ceiling fans; the head sweeps side to side in tickDressing
     c.solid(-0.25, 0.25, -0.25, 0.25, 0, 1.5);
     c.hit(0.5, 1.5, 0.5, 0, 0.75, 0, { prompt: function () { return powered() ? 'The fan · turning' : 'The fan · no power'; }, use: function () { sfx('click'); } });
   }
@@ -2546,8 +2575,9 @@
   function bookshelfBuild(c) {
     var W = 1.2, H = 1.9, D = 0.34; c.box(0.03, H, D, OAK, -W / 2, H / 2, 0); c.box(0.03, H, D, OAK, W / 2, H / 2, 0); c.box(W, 0.03, D, OAK, 0, H - 0.015, 0); c.box(W, 0.03, D, OAK, 0, 0.05, 0); c.box(W, H, 0.015, WALNUT, 0, H / 2, -D / 2 + 0.008);
     [0.5, 0.95, 1.4].forEach(function (y) { c.box(W - 0.06, 0.025, D - 0.02, OAK, 0, y, 0); });
-    var cols = [0x9c2f2f, 0x2f5a9c, 0x3f8a4a, 0xd8b04a, 0x6b4a8a, 0xe6e2d8, 0x2a2d33, 0xc8742a];
-    [0.065, 0.515, 0.965, 1.415].forEach(function (y, row) { var x = -W / 2 + 0.06; while (x < W / 2 - 0.1) { var bw = 0.03 + Math.random() * 0.03, bh = 0.2 + Math.random() * 0.12, lean = Math.random() < 0.12; var bk = c.box(bw, bh, D - 0.08, std({ color: cols[Math.floor(Math.random() * cols.length)], roughness: 0.6 }), x + bw / 2, y + bh / 2, 0.01); if (lean) bk.rotation.z = 0.12; x += bw + 0.004; if (Math.random() < 0.08) x += 0.06; } });
+    if (!bookshelfBuild.mats) bookshelfBuild.mats = [0x9c2f2f, 0x2f5a9c, 0x3f8a4a, 0xd8b04a, 0x6b4a8a, 0xe6e2d8, 0x2a2d33, 0xc8742a].map(function (col) { return std({ color: col, roughness: 0.6 }); });   // eight materials for some eighty books, not eighty: the shelf bakes into eight draws
+    var cols = bookshelfBuild.mats;
+    [0.065, 0.515, 0.965, 1.415].forEach(function (y, row) { var x = -W / 2 + 0.06; while (x < W / 2 - 0.1) { var bw = 0.03 + Math.random() * 0.03, bh = 0.2 + Math.random() * 0.12, lean = Math.random() < 0.12; var bk = c.box(bw, bh, D - 0.08, cols[Math.floor(Math.random() * cols.length)], x + bw / 2, y + bh / 2, 0.01); if (lean) bk.rotation.z = 0.12; x += bw + 0.004; if (Math.random() < 0.08) x += 0.06; } });
     c.box(0.28, 0.26, 0.2, std({ color: 0x9a9890, roughness: 0.5 }), 0.35, H + 0.13, 0); c.cyl(0.06, 0.18, std({ color: 0x3f8a4a, roughness: 0.7 }), -0.35, H + 0.09, 0, 10);   // a box file and a vase on top
     c.solid(-W / 2 - 0.02, W / 2 + 0.02, -D / 2 - 0.02, D / 2 + 0.02, 0, H + 0.3);
     c.hit(W + 0.1, H + 0.4, D + 0.2, 0, H / 2 + 0.15, 0, { prompt: function () { return 'The bookshelf · manuals, ledgers and a thriller somebody left'; }, use: function () { sfx('click'); toast(pick(['"Warehouse Management, 4th ed." Riveting.', '"The Pallet Murders." Chapter three is missing.', 'Last year\'s ledger. Better not.', 'A manual for a forklift you do not own.']), ''); } });
@@ -2621,7 +2651,7 @@
   defProp('xRug', { extra: true, label: 'rug', ico: '🟫', cat: 'room', price: 70, desc: 'Two by two and a half. Comfort +0.5.', build: rugBuild(2.0, 2.5, '#5f3f2f', '#d9a12c') });
   defProp('xBookshelf', { extra: true, label: 'bookshelf', ico: '📚', cat: 'room', price: 130, desc: 'Oak, four shelves. Comfort +0.5.', build: bookshelfBuild });
   defProp('xPrinter', { extra: true, label: 'printer', ico: '🖨️', cat: 'room', price: 160, desc: 'Prints the day report. Comfort +0.', build: printerBuild });
-  defProp('xPicture', { extra: true, label: 'picture', ico: '🖼️', cat: 'wall', wall: true, price: 50, desc: 'One of three. Comfort +0.5.', build: function (c) { pictureBuild(pick(['depot', 'mountains', 'ship']))(c); } });
+  defProp('xPicture', { extra: true, label: 'picture', ico: '🖼️', cat: 'wall', wall: true, price: 50, desc: 'One of three. Comfort +0.5.', build: function (c, P, inst) { pictureBuild(['depot', 'mountains', 'ship'][Math.floor(propSeed(inst ? inst.id : 'pic', 1) * 3)])(c); } });   // the print is the picture's own: it used to change at every move and reload
   // ── The yard ──────────────────────────────────────────────────────
   var yard = { gates: [], guards: [], traffic: [], clouds: [], sunDisc: null, moon: null, puddles: [], rain: null, snow: null, flag: null, lampLenses: [], windT: 0 };
   var CAR_COLS = [0xb8322a, 0x2c5f9e, 0xd8dbdf, 0x2a2d33, 0x7a8691, 0xe0a02a, 0x4f6a3a];
@@ -2665,9 +2695,11 @@
     var dome = new THREE.Mesh(new THREE.SphereGeometry(230, 32, 16), skyMat); dome.position.y = YARD_Y; yard.dome = dome; dome.renderOrder = -10; dome.userData.noBake = true; dome.frustumCulled = false; scene.add(dome); yard.sky = skyMat;
     // truck lanes to every dock: edge lines, a centre dash, and a hatched keep-clear apron
     // the steps go on the side with room: IN 1's and OUT 3's north, the rest south, and OUT 1 has none (shelters on both sides)
+    var ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });   // the steps' render and the handrails' paint, shared by every dock (a pair a dock was a draw a dock)
     function yardDock(d) {
       // the steps: 6 risers from the yard to the landing at hall level, outside the dock door on its +z side, with a tube handrail
-      var fz = dockStepSide(d.i), sx = side_(d.side), ST = std({ map: TEX.plaster, color: 0x9a9890, roughness: 0.95 }), HR = std({ color: 0xf5b53d, roughness: 0.5, metalness: 0.4 });
+      var fz = dockStepSide(d.i), sx = side_(d.side);
+      if (yard.apron) yard.apron(d);   // the tyre marks and oil on the apron: set below after the boot doors are painted, so only a dock built mid-game takes this path
       if (d.i !== 2) { for (var st = 0; st < 6; st++) { box(1.1, 0.2, (6 - st) * 0.3, ST, sx * (X + 0.85), YARD_Y + 0.1 + st * 0.2, d.z + fz * 4.4 + (6 - st) * 0.15); }
       box(1.1, 1.2, 1.6, ST, sx * (X + 0.85), YARD_Y + 0.6, d.z + fz * 3.6);
       [-0.5, 0.5].forEach(function (hx) { var px = sx * (X + 0.85 + hx); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 3.0, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 4.3, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 0.5, d.z + fz * 6.1, null, 8); var rail = cyl(0.025, 1.5, HR, px, YARD_Y + 2.2, d.z + fz * 3.65, null, 8); rail.rotation.x = Math.PI / 2; var rail2 = cyl(0.025, 2.2, HR, px, YARD_Y + 1.6, d.z + fz * 5.2, null, 8); rail2.rotation.x = Math.PI / 2 + 0.58 * fz; });
@@ -2749,7 +2781,7 @@
     });
     // the road: two lanes, dashes, kerbs, lamp posts, and the traffic that uses it
     var roadMat = MAT.yard.clone(); roadMat.map = TEX.asphalt.clone(); roadMat.map.needsUpdate = true; roadMat.map.wrapS = roadMat.map.wrapT = THREE.RepeatWrapping; roadMat.map.repeat.set(260 / 7, 11 / 7); if (roadMat.normalMap) { roadMat.normalMap = roadMat.normalMap.clone(); roadMat.normalMap.needsUpdate = true; roadMat.normalMap.wrapS = roadMat.normalMap.wrapT = THREE.RepeatWrapping; roadMat.normalMap.repeat.set(260 / 7, 11 / 7); }   // the yard's repeat squashed the texture across the 11 m road
-    plane(260, 11, roadMat, 0, YARD_Y + 0.01, 75, -Math.PI / 2); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 69.4); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 80.6);
+    yard.roadMat = roadMat; plane(260, 11, roadMat, 0, YARD_Y + 0.01, 75, -Math.PI / 2); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 69.4); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 80.6);
     for (var i = -120; i < 120; i += 6) plane(3, 0.2, MAT.whiteLine, i, YARD_Y + 0.02, 75, -Math.PI / 2);
     for (var lp = -110; lp <= 110; lp += 28) { cyl(0.06, 7, MAT.steelDark, lp, YARD_Y + 3.5, 81.5, null, 8, 0.09); box(0.08, 0.08, 1.4, MAT.steelDark, lp, YARD_Y + 6.9, 80.8); var ll = box(0.5, 0.14, 0.32, glowMat(0xfff2c0, 0.2), lp, YARD_Y + 6.85, 80.2); yard.lampLenses.push(ll); }
     for (var c = 0; c < 8; c++) { var cm = carMesh(pick(CAR_COLS)); cm.userData.dynamic = true; var dir = c % 2 ? -1 : 1; cm.position.set(-130 + (c >> 1) * 65 + randf(0, 20), YARD_Y, dir > 0 ? 72.5 : 77.5); cm.rotation.y = dir > 0 ? 0 : Math.PI; scene.add(cm); yard.traffic.push({ g: cm, dir: dir, v: dir > 0 ? 12 : 10.5 }); }   // one speed a lane: they used to drive through each other
@@ -2759,10 +2791,10 @@
     var yMarkMat = new THREE.MeshBasicMaterial({ map: yMarkTex, transparent: true, depthWrite: false, opacity: 0.75 }); yMarkMat.userData.noBake = true;
     var yOilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(6,6,8,0.55)'); g.addColorStop(0.7, 'rgba(6,6,8,0.25)'); g.addColorStop(1, 'rgba(6,6,8,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
     var yOilMat = new THREE.MeshBasicMaterial({ map: yOilTex, transparent: true, depthWrite: false }); yOilMat.userData.noBake = true;
-    doors.forEach(function (d) {
+    yard.apron = function (d) {   // kept on yard so a dock built mid-game (IN 3, the returns dock) gets its marks from yardDock at once
       for (var k = 0; k < 3; k++) { var m = plane(9, 1.5, yMarkMat, d.side * (X + 6 + k * 7.5), YARD_Y + 0.014, d.z + randf(-0.6, 0.6), -Math.PI / 2, 0); m.rotation.z = randf(-0.05, 0.05); m.renderOrder = 1; m.userData.noBake = true; }
       var o = plane(2.6, 2.6, yOilMat, d.side * (X + 9), YARD_Y + 0.015, d.z + randf(-0.8, 0.8), -Math.PI / 2, 0); o.rotation.z = randf(0, 3); o.renderOrder = 1; o.userData.noBake = true;
-    });
+    }; doors.forEach(yard.apron);
     var sceneCtx = { add: function (m) { scene.add(m); return m; } };
     [[-X - 2.6, 1.2, 5], [-X - 2.6, 2.6, 7], [X + 2.6, 1.3, 4]].forEach(function (p) { for (var i = 0; i < p[2]; i++) palletModel(sceneCtx, p[0] + randf(-0.02, 0.02), YARD_Y + i * 0.128, p[1] + randf(-0.02, 0.02), randf(-0.03, 0.03)); solid(p[0] - 0.65, p[0] + 0.65, p[1] - 0.55, p[1] + 0.55, YARD_Y, YARD_Y + 1.2); });
     // the skip: a steel box with sloped ends, lifting lugs, hazard stripes, the hire firm's name, cardboard showing over the lip
@@ -2783,6 +2815,7 @@
     yard.rain = mkPoints(7000, 0.26, streak, 24); yard.rain.material.opacity = 0.5; yard.rain.material.color.setHex(0xc7d3de); yard.snow = mkPoints(3000, 0.22, flake, 30);   // a drop is a thin grey streak, not a white blob
   }
 
+  var SNOW_COL = new THREE.Color(0xdfe4e9), SNOW_GRASS = new THREE.Color(0xf4f6f8);
   function tickYard(dt) {
     yard.windT += dt;
     // gates slide open while a truck is coming in or going out on that side
@@ -2798,10 +2831,10 @@
     var W = S.weather || { kind: 'clear', wet: 0, snow: 0, wind: 0.4 };
     var raining = W.kind === 'rain' || W.kind === 'storm', snowing = W.kind === 'snow';
     yard.rain.visible = raining; yard.snow.visible = snowing;
-    if (raining) { var p = yard.rain.geometry.attributes.position.array, px = player.x, pz = player.z; for (var r = 0; r < p.length; r += 3) { p[r + 1] -= (9 + (W.kind === 'storm' ? 4 : 0)) * dt; var inWg = inWing(p[r], p[r + 2]), inHall = (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) || inWg || !!inAnnex(p[r], p[r + 2]), roofY = inWg ? WING.h + 0.3 : inHall ? HALL.h + 0.3 : YARD_Y; if (!inHall) for (var tk = 0; tk < S.trucks.length; tk++) { var tb = trailerBounds(S.trucks[tk]); if (p[r] > tb.x0 - 3.5 && p[r] < tb.x1 + 3.5 && p[r + 2] > tb.z0 - 0.4 && p[r + 2] < tb.z1 + 0.4) { roofY = TRAILER.h + 0.1; break; } } if (p[r + 1] < roofY || Math.abs(p[r] - px) > 26 || Math.abs(p[r + 2] - pz) > 26) { p[r] = px + randf(-24, 24); p[r + 2] = pz + randf(-24, 24); var rf = inWing(p[r], p[r + 2]) ? WING.h + 0.6 : (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) ? HALL.h + 0.6 : 6; p[r + 1] = randf(rf, 16); } } yard.rain.geometry.attributes.position.needsUpdate = true; }
-    if (snowing) { var q = yard.snow.geometry.attributes.position.array, qx = player.x, qz = player.z; for (var s = 0; s < q.length; s += 3) { q[s + 1] -= 1.3 * dt; q[s] += Math.sin(yard.windT + s) * 0.4 * dt; var inH = (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) || inWing(q[s], q[s + 2]) || !!inAnnex(q[s], q[s + 2]); if (q[s + 1] < (inWing(q[s], q[s + 2]) ? WING.h + 0.3 : inH ? HALL.h + 0.3 : YARD_Y) || Math.abs(q[s] - qx) > 32 || Math.abs(q[s + 2] - qz) > 32) { q[s] = qx + randf(-30, 30); q[s + 2] = qz + randf(-30, 30); var sf = inWing(q[s], q[s + 2]) ? WING.h + 0.6 : (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) ? HALL.h + 0.6 : 6; q[s + 1] = randf(sf, 16); } } yard.snow.geometry.attributes.position.needsUpdate = true; }
+    if (raining) { var p = yard.rain.geometry.attributes.position.array, px = player.x, pz = player.z, tbs = S.trucks.map(trailerBounds), pn = Math.min(p.length, (yard.rainN || 7000) * 3); for (var r = 0; r < pn; r += 3) { p[r + 1] -= (9 + (W.kind === 'storm' ? 4 : 0)) * dt; var inWg = inWing(p[r], p[r + 2]), inHall = (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) || inWg || !!inAnnex(p[r], p[r + 2]), roofY = inWg ? WING.h + 0.3 : inHall ? HALL.h + 0.3 : YARD_Y; if (!inHall) for (var tk = 0; tk < tbs.length; tk++) { var tb = tbs[tk]; if (p[r] > tb.x0 - 3.5 && p[r] < tb.x1 + 3.5 && p[r + 2] > tb.z0 - 0.4 && p[r + 2] < tb.z1 + 0.4) { roofY = TRAILER.h + 0.1; break; } } if (p[r + 1] < roofY || Math.abs(p[r] - px) > 26 || Math.abs(p[r + 2] - pz) > 26) { p[r] = px + randf(-24, 24); p[r + 2] = pz + randf(-24, 24); var rf = inWing(p[r], p[r + 2]) ? WING.h + 0.6 : (Math.abs(p[r]) < HALL.x && Math.abs(p[r + 2]) < HALL.z) ? HALL.h + 0.6 : 6; p[r + 1] = randf(rf, 16); } } yard.rain.geometry.attributes.position.needsUpdate = true; }
+    if (snowing) { var q = yard.snow.geometry.attributes.position.array, qx = player.x, qz = player.z, qn = Math.min(q.length, (yard.snowN || 3000) * 3); for (var s = 0; s < qn; s += 3) { q[s + 1] -= 1.3 * dt; q[s] += Math.sin(yard.windT + s) * 0.4 * dt; var inH = (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) || inWing(q[s], q[s + 2]) || !!inAnnex(q[s], q[s + 2]); if (q[s + 1] < (inWing(q[s], q[s + 2]) ? WING.h + 0.3 : inH ? HALL.h + 0.3 : YARD_Y) || Math.abs(q[s] - qx) > 32 || Math.abs(q[s + 2] - qz) > 32) { q[s] = qx + randf(-30, 30); q[s + 2] = qz + randf(-30, 30); var sf = inWing(q[s], q[s + 2]) ? WING.h + 0.6 : (Math.abs(q[s]) < HALL.x && Math.abs(q[s + 2]) < HALL.z) ? HALL.h + 0.6 : 6; q[s + 1] = randf(sf, 16); } } yard.snow.geometry.attributes.position.needsUpdate = true; }
     yard.puddles.forEach(function (pm) { pm.material.opacity = W.wet * 0.85; });
-    var snowCol = 0xdfe4e9; MAT.yard.color.setHex(0xffffff).lerp(new THREE.Color(snowCol), W.snow * 0.9); MAT.grass.color.setHex(0xffffff).lerp(new THREE.Color(0xf4f6f8), W.snow);
+    MAT.yard.color.setHex(0xffffff).lerp(SNOW_COL, W.snow * 0.9); MAT.grass.color.setHex(0xffffff).lerp(SNOW_GRASS, W.snow); if (yard.roadMat) yard.roadMat.color.setHex(0xffffff).lerp(SNOW_COL, W.snow * 0.9);   // the road whitens with the yard (it stayed black in a white yard); the two colours are shared, not two new ones a frame
     var overcast = raining ? 0.75 : snowing ? 0.6 : W.kind === 'overcast' ? 0.5 : 0;
     var cday = 0.12 + 0.88 * Math.sin(Math.PI * clamp((S.time - 6) / 16, 0, 1)); yard.clouds.forEach(function (c) { c.sp.material.color.setScalar((1 - overcast * 0.55) * cday); c.sp.material.opacity = 0.5 + overcast * 0.5; });   // grey at night, not white
   }
@@ -2872,7 +2905,7 @@
   function formMat(f) { return f === 'crate' ? MAT.crate : f === 'strap' ? MAT.strapped : f === 'pouch' ? MAT.airbox : MAT.parcel; }
   function updateHandMesh() { var h = S.hand; handBox.visible = !!(h && h.kind === 'box'); handParcel.visible = !!(h && (h.kind === 'parcel' || h.kind === 'return')); if (h && h.kind === 'box') handBox.material = CARD[h.sku] || CARD.paint; if (h && h.kind === 'parcel') handParcel.material = formMat(parcelForm(h.order)); if (h && h.kind === 'return') handParcel.material = MAT.returned; }
   function handSet(h) { S.hand = h; hudDirty = true; updateHandMesh(); }
-  function handLabel() { var h = S.hand; if (!h) return null; if (h.kind === 'return') { var rr = returnById(h.id); return { t: rr ? returnLabel(rr) : 'A return', s: 'to the returns desk · G puts it down' }; } if (h.kind === 'box') return { t: (h.damaged ? 'A damaged box of ' : 'A box of ') + skuName(h.sku), s: h.damaged ? 'bin it by the bench' : 'G puts it down' }; var o = orderById(h.order); return { t: 'Parcel #' + (o ? o.num : '?'), s: o ? 'for ' + clientName(o.client) + ' · G puts it down' : '' }; }
+  function handLabel() { var h = S.hand; if (!h) return null; if (h.kind === 'return') { var rr = returnById(h.id); return { t: rr ? returnLabel(rr) : 'A return', s: (returnsHall() ? 'to the intake in the returns hall' : 'to the returns desk') + ' · G puts it down' }; } if (h.kind === 'box') return { t: (h.damaged ? 'A damaged box of ' : 'A box of ') + skuName(h.sku), s: h.damaged ? 'bin it by the bench' : 'G puts it down' }; var o = orderById(h.order); return { t: 'Parcel #' + (o ? o.num : '?'), s: o ? 'for ' + clientName(o.client) + ' · G puts it down' : '' }; }
 
   // ── Rack slots ────────────────────────────────────────────────────
   function slotGet(key) { return S.slots[key] || null; }
@@ -3194,7 +3227,7 @@
   function loadUse(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return;
     if (player.tool === 'cart' && cartParcels().length && t.dir !== 'ret') { var n = 0; cartParcels().slice().forEach(function (oid) { var oc = orderById(oid); if (oc) { t.parcels.push(oc.id); oc.state = 'loaded'; n++; addXp(XP.ship); laneWarn(oc, t); } }); cartParcels().length = 0; sfx('crate'); introStep('load'); rebuildBoardSoon(); feedPush(n + ' parcel' + (n === 1 ? '' : 's') + ' loaded from the cart', 'good'); hudDirty = true; return; }
-    if (!S.hand && !player.tool && t.returns && t.returns.length) { var rid = t.returns.shift(), rr = returnById(rid); handSet({ kind: 'return', id: rid }); sfx('pickup'); feedPush('Return #' + (rr ? rr.num : '?') + ' off the truck: it goes to the returns desk', ''); hudDirty = true; return; }
+    if (!S.hand && !player.tool && t.returns && t.returns.length) { var rid = t.returns.shift(), rr = returnById(rid); handSet({ kind: 'return', id: rid }); sfx('pickup'); feedPush('Return #' + (rr ? rr.num : '?') + ' off the truck: it goes to the ' + (returnsHall() ? 'intake in the returns hall' : 'returns desk'), ''); hudDirty = true; return; }
     if (!(S.hand && S.hand.kind === 'parcel') || t.dir === 'ret') return;
     var o = orderById(S.hand.order); if (!o) { handSet(null); return; }
     t.parcels.push(o.id); o.state = 'loaded'; handSet(null); sfx('crate'); addXp(XP.ship); introStep('load'); rebuildBoardSoon();
@@ -3270,6 +3303,9 @@
     S.contract = { client: client.id, need: need, done: 0, until: (S.day + days) * 24 + 18, bonus: need * 60 + S.level * 40, penalty: 150, accepted: false, offeredDay: S.day };
     logEvent(client.name + ' offers a contract: ' + need + ' orders on time in ' + days + ' days for a ' + money(S.contract.bonus) + ' bonus. Accept it on the office PC.', 'rare'); toast('Contract offer from ' + client.name + ' on the PC', 'rare'); sfx('chime');
   }
+  // the offer is taken or turned down from the panel, the office PC or the scanner's Home page: one place for what that does
+  function contractAccept() { var c = S.contract; if (!c || c.accepted) return false; c.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(c.client), 'good'); hudDirty = true; return true; }
+  function contractDecline() { var c = S.contract; if (!c || c.accepted) return false; logEvent('Declined the contract from ' + clientName(c.client)); S.contract = null; S.nextOffer = S.day + 2; hudDirty = true; return true; }
   function contractTick() {
     var c = S.contract; if (!c) { if (S.level >= 3 && S.day >= S.nextOffer && S.time >= 9 && S.time < 9.2 && !isSunday()) offerContract(); return; }
     if (!c.accepted && S.day > c.offeredDay) { S.contract = null; S.nextOffer = S.day + 2; logEvent('The contract offer from ' + clientName(c.client) + ' lapsed'); return; }
@@ -4653,7 +4689,7 @@
     if (!propInst.moulder) return;
     if (powered() && F.on && !F.jam && F.raw > 0) {
       F.t += dt * speedOf('moulder');
-      if (F.t >= FACTORY_RATE) { if (beltPush('moulderOut', { kind: 'box', sku: F.product })) { F.t = 0; F.raw--; F.made++; S.stats.made = (S.stats.made || 0) + 1; if (S.seenSkus.indexOf(F.product) < 0) S.seenSkus.push(F.product); if (Math.random() < 0.02) { F.jam = true; toast('The moulding line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); } } }
+      if (F.t >= FACTORY_RATE) { if (beltPush('moulderOut', { kind: 'box', sku: F.product })) { F.t = 0; F.raw--; F.made++; if (F.madeOn !== S.day) { F.madeOn = S.day; F.madeDay = 0; } F.madeDay = (F.madeDay || 0) + 1; S.stats.made = (S.stats.made || 0) + 1;   /* the day's count for the shift board, which read the all-time count against a daily target */ if (S.seenSkus.indexOf(F.product) < 0) S.seenSkus.push(F.product); if (Math.random() < 0.02) { F.jam = true; toast('The moulding line has jammed. Press E on it to clear it.', 'bad'); sfx('bad'); } } }
       if (F.raw <= 0) { F.on = false; toast('The hopper is empty: the moulding line stopped.', 'bad'); screenDirtyAll(); }
     }
     if (MACH.moulder.anim) { var a = MACH.moulder.anim, run = factoryStatus() === 'run'; var open = run ? 0.5 + 0.5 * Math.cos(F.t / FACTORY_RATE * Math.PI * 2) : 1; a.ram.position.z = 1.0 + 0.45 * open; a.wheel.rotation.x += (run ? 9 : 0) * dt; a.spin.rotation.y += (run ? 6 : 0) * dt; }
@@ -5262,7 +5298,7 @@
     c.sign(['STEP OVER'], 0.6, 0.12, 0, H + 1.12, PW / 2 + 0.01, 0, { w: 256, h: 56, bg: '#f5b53d', fg: '#1a1205' }); c.sign(['STEP OVER'], 0.6, 0.12, 0, H + 1.12, -PW / 2 - 0.01, Math.PI, { w: 256, h: 56, bg: '#f5b53d', fg: '#1a1205' });
   }
   function cellBuild(cd) { return function (c) {
-    var LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 }), DG = MAT_MACH.frame, col = new THREE.Color(MODES[cd.mode].col), PM = std({ color: col, roughness: 0.5, metalness: 0.3 });
+    var LG = MAT_MACH.panel, DG = MAT_MACH.frame, col = new THREE.Color(MODES[cd.mode].col), PM = std({ color: col, roughness: 0.5, metalness: 0.3 });
     [[-0.7, -0.55], [0.7, -0.55], [-0.7, 0.55], [0.7, 0.55]].forEach(function (p) { c.box(0.08, 0.7, 0.08, DG, p[0], 0.35, p[1]); c.box(0.18, 0.03, 0.18, DG, p[0], 0.015, p[1]); });
     c.box(1.6, 0.14, 1.3, DG, 0, 0.78, 0); for (var rx = -0.7; rx < 0.75; rx += 0.2) { var r = c.cyl(0.035, 1.2, MAT_MACH.roller, rx, BELT_Y - 0.02, 0, 10); r.rotation.x = Math.PI / 2; }
     var hood = new THREE.Mesh(bevelGeo(1.5, 0.9, 1.1, 0.04), LG); hood.position.set(0, 1.5, 0); hood.castShadow = true; c.group.add(hood); c.box(1.52, 0.06, 1.12, PM, 0, 1.97, 0); c.box(1.52, 0.04, 1.12, MAT.hazard, 0, 0.87, 0);
@@ -5285,7 +5321,7 @@
     c.solid(-1.0, 1.0, -1.0, 1.0, 0, 1.0);
   }
   function scannerBuild(c) {
-    var DG = MAT_MACH.frame, LG = std({ color: 0xd9dde2, roughness: 0.45, metalness: 0.2 });
+    var DG = MAT_MACH.frame, LG = MAT_MACH.panel;
     [-0.75, 0.75].forEach(function (x) { c.box(0.1, 2.3, 0.1, DG, x, 1.15, 0); c.box(0.24, 0.03, 0.24, DG, x, 0.015, 0); }); c.box(1.7, 0.16, 0.3, DG, 0, 2.3, 0);
     c.box(0.6, 0.12, 0.2, MAT.black, 0, 2.18, 0); c.box(0.5, 0.02, 0.02, glowMat(0xff3b2f, 1.6), 0, 2.11, 0); c.box(0.02, 1.3, 0.02, glowMat(0xff3b2f, 0.8), -0.72, 1.35, 0.06); c.box(0.02, 1.3, 0.02, glowMat(0xff3b2f, 0.8), 0.72, 1.35, 0.06);
     c.sign(['SCAN · LANE READ'], 1.0, 0.16, 0, 2.48, 0.16, 0, { w: 384, h: 64, bg: '#1b232c', fg: '#f5b53d' });
@@ -5437,15 +5473,17 @@
   // ── Photo mode ────────────────────────────────────────────────────
   // 1.16.0. F9 lets go of the player: the camera flies free (WASD, Space up, C down, Shift fast, the mouse looks), the HUD goes,
   // the world holds still, and F12 takes the picture. F9 or Esc puts you back where you were standing.
-  var photo = { on: false, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 6 };
+  var photo = { on: false, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, speed: 6, fov: 75 };
   function photoToggle(on) {
     if (on === undefined) on = !photo.on; if (on === photo.on) return;
     if (on) {
       if (!ui.started || ui.blocked() || driving || pc.on || edit.on) return;
-      photo.on = true; photo.x = camera.position.x; photo.y = camera.position.y; photo.z = camera.position.z; photo.yaw = player.yaw; photo.pitch = player.pitch;
+      photo.on = true; photo.x = camera.position.x; photo.y = camera.position.y; photo.z = camera.position.z; photo.yaw = player.yaw; photo.pitch = player.pitch; photo.fov = SET.fov;
       scanToggle(false); $('dc-hud').hidden = true; dropMarker.g.visible = false; player.keys = {}; sfx('scan');
-    } else { photo.on = false; $('dc-hud').hidden = false; hudDirty = true; player.keys = {}; sfx('click'); }
+    } else { photo.on = false; $('dc-hud').hidden = false; hudDirty = true; player.keys = {}; sfx('click'); camera.fov = SET.fov; camera.updateProjectionMatrix(); }   // the lens goes back to the setting: a zoomed shot never follows you out
   }
+  // the wheel zooms the lens while the camera is free: a long lens from across the hall, a wide one in the aisle
+  function photoZoom(dir) { if (!photo.on) return; photo.fov = clamp(photo.fov + dir * 4, 20, 110); camera.fov = photo.fov; camera.updateProjectionMatrix(); }
   function photoTick(dt) {
     var k = player.keys, sp = photo.speed * (k.ShiftLeft || k.ShiftRight ? 3 : 1) * dt;
     var cp = Math.cos(photo.pitch), fx = -Math.sin(photo.yaw) * cp, fy = Math.sin(photo.pitch), fz = -Math.cos(photo.yaw) * cp, rx = Math.cos(photo.yaw), rz = -Math.sin(photo.yaw);
@@ -5510,7 +5548,7 @@
     if (!k.Space) player.jumped = false;
     player.vy -= 16 * dt; player.y += player.vy * dt;
     if (player.y <= fy) { if (!player.grounded && player.vy < -6) sfx('putdown'); player.y = fy; player.vy = 0; player.grounded = true; } else player.grounded = false;
-    var bobY = (fwd || side) && player.grounded ? Math.sin(player.bob) * 0.03 : 0;
+    var bobY = SET.bob !== false && (fwd || side) && player.grounded ? Math.sin(player.bob) * 0.03 : 0;   // the head bob is a setting: off for anyone it makes queasy
     camera.position.set(player.x, player.y + 1.62 + bobY, player.z);
     camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
   }
@@ -5610,7 +5648,7 @@
     else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
-  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanScroll(e.deltaY > 0 ? 1 : -1); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });
+  document.addEventListener('wheel', function (e) { if (photo.on && ui.started && !ui.blocked()) photoZoom(e.deltaY > 0 ? 1 : -1); else if (ui.scanOpen && !ui.blocked()) scanScroll(e.deltaY > 0 ? 1 : -1); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });
   function screenUnderCrosshair() { for (var i = 0; i < screens.length; i++) { if (!screens[i].mesh.visible) continue; if (ray.intersectObject(screens[i].mesh, false).length) return screens[i]; } return null; }
   window.addEventListener('blur', function () { player.keys = {}; });
   // ── The office PC ─────────────────────────────────────────────────
@@ -5687,7 +5725,7 @@
     } else if (app === 'contracts') {
       scHead(c, w, 'CONTRACTS'); var ct = S.contract, rows2 = [];
       if (!ct) rows2.push({ text: 'No offer on the table', sub: S.level < 3 ? 'Reach level 3 and the clients start asking.' : 'Next offer around day ' + S.nextOffer + '.' });
-      else if (!ct.accepted) { rows2.push({ text: clientName(ct.client) + ' offers a contract', sub: ct.need + ' orders on time by ' + dueText(ct.until) + ' · bonus ' + money(ct.bonus) + ' · penalty ' + money(ct.penalty), btn: { label: 'ACCEPT', on: true, act: function () { ct.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(ct.client), 'good'); }, col: '#5fd38d' }, hi: true }); rows2.push({ text: 'Decline', sub: 'The next offer comes in a couple of days.', btn: { label: 'DECLINE', on: false, act: function () { logEvent('Declined the contract from ' + clientName(ct.client)); S.contract = null; S.nextOffer = S.day + 2; } } }); }
+      else if (!ct.accepted) { rows2.push({ text: clientName(ct.client) + ' offers a contract', sub: ct.need + ' orders on time by ' + dueText(ct.until) + ' · bonus ' + money(ct.bonus) + ' · penalty ' + money(ct.penalty), btn: { label: 'ACCEPT', on: true, act: function () { contractAccept(); }, col: '#5fd38d' }, hi: true }); rows2.push({ text: 'Decline', sub: 'The next offer comes in a couple of days.', btn: { label: 'DECLINE', on: false, act: function () { contractDecline(); } } }); }
       else rows2.push({ text: clientName(ct.client) + ' · ' + ct.done + ' of ' + ct.need + ' on time', sub: 'until ' + dueText(ct.until) + ' · bonus ' + money(ct.bonus) + ' · penalty ' + money(ct.penalty), right: Math.round(100 * ct.done / ct.need) + '%', hi: true });
       rows2.push({ text: 'How it works', sub: 'Every order of theirs shipped on time in the window counts. Miss the number and the penalty is taken. Contract clients order more while it runs.', col: '#a0acb8' });
       pcRows(sc, rows2, 60, 50);
@@ -5788,6 +5826,9 @@
   function scanDoorNav(i) { var at = doorInside(i); return at ? { x: at[0] + (DOOR_MAP[i].dir === 'in' ? 2.0 : -2.0), z: at[1], y: 0, label: 'Dock ' + dockLabel(i) } : null; }
   function scanPropNav(prop, label) { if (!propInst[prop]) return null; var P = propPlacement(prop), a = P.rot * Math.PI / 2; return { x: P.x + Math.sin(a) * 1.6, z: P.z + Math.cos(a) * 1.6, y: prop === 'scanner' ? UPPER.y : 0, label: label || propLabel(prop) }; }   // in front of the prop, whichever way it faces; the sorter's arch is up on the deck
   function scanLane(o) { var m = MODES[orderMode(o)]; return { col: m.col, tag: m.name.toUpperCase() }; }
+  // where a return goes: the desk by the bench, or the intake in the returns hall once that hall stands (the desk prop is gone by then, so a waypoint on it was null)
+  function scanReturnsNav() { return returnsHall() ? scanPropNav('retIntake', 'Returns intake') : scanPropNav('returnsDesk', 'Returns desk'); }
+  function scanReturnsWhere() { return returnsHall() ? 'the intake in the returns hall' : 'the returns desk by the bench'; }
   function scanPageRows(page) {
     var rows = [];
     if (page === MAP_PAGE) return rows;   // the map draws itself
@@ -5801,11 +5842,17 @@
       var al = [];
       if (S.events.power) al.push(['NO POWER', 'reset the breaker in the office', scanPropNav('breaker', 'Breaker panel')]);
       S.trucks.forEach(function (t) { if (t.dir === 'in' && t.state === 'docked' && !t.signed) al.push(['Unsigned delivery at ' + dockLabel(doorIndex('in', t.dock)), 'the driver waits by the door · Enter signs it from here', scanDoorNav(doorIndex('in', t.dock)), scanSignAct(t)]); });
+      // a truck about to go with work still to do: an inbound one in its last hour with pallets aboard, an outbound one at a manual dock with parcels of its lane packed and not loaded (a loader or the deck takes those by itself)
+      S.trucks.forEach(function (t) { if (t.state !== 'docked') return; var di = doorIndex(t.dir, t.dock);
+        if (t.dir === 'in') { var left = S.pallets.filter(function (p) { return p.place === 'truck' && p.truck === t.id && p.n > 0; }).length; if (left && S.time >= t.leave - 1) al.push([dockLabel(di) + ' truck leaves ' + fmtTime(t.leave) + ' · ' + left + ' pallet' + (left > 1 ? 's' : '') + ' aboard', 'whatever is still on it goes back unpaid', scanDoorNav(di)]); }
+        else if (t.dir === 'out' && !sorterOwned() && !(S.up.shipbelt && di === 3)) { var wait = S.orders.filter(function (o) { return o.state === 'packed' && orderMode(o) === t.mode; }).length; if (wait) al.push([wait + ' ' + t.mode + ' parcel' + (wait > 1 ? 's' : '') + ' not on the ' + dockLabel(di) + ' truck', 'it leaves ' + fmtTime(t.leave) + ' · the parcels are on the shelf, the floor or the cart', scanPropNav('packline', 'Parcel shelf')]); } });
+      if (S.contract && !S.contract.accepted) al.push(['Contract offer from ' + clientName(S.contract.client), S.contract.need + ' orders on time by ' + dueText(S.contract.until) + ' for ' + money(S.contract.bonus) + ' · Enter accepts, the PC declines', scanPropNav('desk', 'Office PC'), { label: 'ACCEPT', run: function () { contractAccept(); } }]);
+      if (propInst.wrapper && S.wrap && S.wrap.film <= 2) al.push(['Wrapper film ' + (S.wrap.film ? 'nearly out: ' + S.wrap.film + ' left' : 'finished'), 'a new roll is ' + money(FILM_PRICE) + ' on the wrapper screen', scanPropNav('wrapper', 'Stretch wrapper')]);
       if (S.pack && S.pack.jam) al.push(['Pack line jammed', 'Enter clears the jam from here', scanPropNav('packline', 'Pack line'), { label: 'CLEAR', run: function () { packUse(); } }]);
       if (S.factory && S.factory.jam) al.push(['Moulding line jammed', 'Enter clears the jam from here', scanPropNav('moulder', 'Moulding line'), { label: 'CLEAR', run: function () { moulderUse(); } }]);
       if (lateN) al.push([lateN + ' late order' + (lateN > 1 ? 's' : ''), 'half pay once shipped · cancelled after 30 h', null]);
       var surN = surplusCount(); if (surN) al.push([surN + ' surplus box' + (surN > 1 ? 'es' : ''), 'Enter puts them back on the racks', scanPropNav('bench', 'Packing bench'), { label: 'RETURN', run: function () { returnSurplus(); } }]);
-      var rpn = returnsPending(); if (rpn.length) al.push([rpn.length + ' return' + (rpn.length > 1 ? 's' : '') + ' to inspect', rpn.map(function (r) { return '#' + r.num + ' ' + returnPlaceText(r); }).join(' · '), scanPropNav('returnsDesk', 'Returns desk')]);
+      var rpn = returnsPending(); if (rpn.length) al.push([rpn.length + ' return' + (rpn.length > 1 ? 's' : '') + ' to inspect', rpn.map(function (r) { return '#' + r.num + ' ' + returnPlaceText(r); }).join(' · '), scanReturnsNav()]);
       var loose = S.floor.filter(function (f) { return f.kind === 'parcel'; }).length; if (loose) al.push([loose + ' parcel' + (loose > 1 ? 's' : '') + ' on the floor', 'the inspector counts these', null]);
       if (S.up.fork && (S.fork.batt === undefined ? 1 : S.fork.batt) < 0.25) al.push(['Forklift battery ' + Math.round((S.fork.batt || 0) * 100) + '%', 'plug it in at the charger by the south wall', scanPropNav('charger', 'Charger')]);
       for (var id in (S.stage || {})) if (S.stage[id].length >= STAGE_CAP - 1 && LOADER_DOORS[id] !== undefined) al.push([dockLabel(LOADER_DOORS[id]) + ' shipping bay nearly full', S.stage[id].length + ' of ' + STAGE_CAP + ' · it empties when a truck of its lane docks', scanDoorNav(LOADER_DOORS[id])]);
@@ -5821,7 +5868,7 @@
         rows.push({ text: '#' + o.num + ' ' + clientName(o.client).slice(0, 18) + (o.rush ? ' RUSH' : ''), sub: ln.tag + ' · ' + dockLabel(MODES[orderMode(o)].door) + ' · due ' + dueText(o.due) + (o.late ? ' LATE' : '') + ' · ' + money(o.pay) + (o.state !== 'open' ? ' · ' + o.state.toUpperCase() : ''), right: o.state === 'open' ? o.lines.reduce(function (a, l) { return a + Math.min(l.qty, S.bench.boxes[l.sku] || 0); }, 0) + '/' + o.lines.reduce(function (a, l) { return a + l.qty; }, 0) : '', col: o.late || o.rush ? '#ff6b5e' : o.state === 'packed' ? '#5fd38d' : '#eef1f5', sw: ln.col, nav: first, hi: o.state === 'packed', act: o.state === 'open' ? { label: 'PACK', on: canPack(o) && powered(), why: !powered() ? 'No power.' : 'Not every box is on the bench yet.', run: function () { packOrder(o); } } : null });
         if (o.state === 'open') o.lines.forEach(function (l) { var have = Math.min(l.qty, S.bench.boxes[l.sku] || 0), k = have < l.qty ? scanPickSlot(l.sku) : null; rows.push({ text: '   ' + skuName(l.sku), sub: '   ' + (have >= l.qty ? 'on the bench' : k ? slotName(k) : stockCount(l.sku) ? 'top level only: forklift' : 'not in stock'), right: have + '/' + l.qty, col: have >= l.qty ? '#5fd38d' : '#a0acb8', sw: SKU[l.sku].col, nav: k ? scanSlotNav(k, skuName(l.sku) + ' · ' + slotName(k)) : null }); });
       });
-      var rts = returnsPending(); if (rts.length) { rows.push({ text: 'Returns · ' + rts.length, sub: 'to the returns desk by the bench · ' + money(RETURNS.fee) + ' a return and ' + money(RETURNS.perBox) + ' a box', col: '#f5b53d', nav: scanPropNav('returnsDesk', 'Returns desk') }); rts.forEach(function (r) { var pl = returnPlace(r.id), nav = null; if (pl === 'truck') { var tt = S.trucks.filter(function (x) { return (x.returns || []).indexOf(r.id) >= 0; })[0]; if (tt) nav = scanDoorNav(doorIndex('out', tt.dock)); } else if (pl === 'floor') { var ff = S.floor.filter(function (f) { return f.kind === 'return' && f.id === r.id; })[0]; if (ff) nav = { x: ff.x, z: ff.z, y: 0, label: 'Return #' + r.num }; } else if (pl === 'desk' || pl === 'inspecting') nav = scanPropNav('returnsDesk', 'Returns desk'); rows.push({ text: '   #' + r.num + ' ' + clientName(r.client).slice(0, 16), sub: '   ' + r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r), right: pl === 'inspecting' ? 'INSPECTING' : '', col: r.late ? '#ff6b5e' : '#a0acb8', sw: MODES[r.mode] ? MODES[r.mode].col : null, nav: nav }); }); }
+      var rts = returnsPending(); if (rts.length) { rows.push({ text: 'Returns · ' + rts.length, sub: 'to ' + scanReturnsWhere() + ' · ' + money(RETURNS.fee) + ' a return and ' + money(RETURNS.perBox) + ' a box', col: '#f5b53d', nav: scanReturnsNav() }); rts.forEach(function (r) { var pl = returnPlace(r.id), nav = null; if (pl === 'truck') { var tt = S.trucks.filter(function (x) { return (x.returns || []).indexOf(r.id) >= 0; })[0]; if (tt) nav = scanDoorNav(doorIndex(tt.dir, tt.dock)); } else if (pl === 'floor') { var ff = S.floor.filter(function (f) { return f.kind === 'return' && f.id === r.id; })[0]; if (ff) nav = { x: ff.x, z: ff.z, y: 0, label: 'Return #' + r.num }; } else if (pl === 'desk' || pl === 'inspecting' || pl === 'belt') nav = scanReturnsNav(); rows.push({ text: '   #' + r.num + ' ' + clientName(r.client).slice(0, 16), sub: '   ' + r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r), right: pl === 'inspecting' ? 'INSPECTING' : '', col: r.late ? '#ff6b5e' : '#a0acb8', sw: MODES[r.mode] ? MODES[r.mode].col : null, nav: nav }); }); }
     } else if (page === 2) {   // PICKS: one list for every open order together, less the bench and what is already on its way, in walking order
       var need = benchNeed(), fl = pickInFlight(), items = [];
       for (var sku in need) { var n = need[sku] - (fl[sku] || 0); if (n <= 0) continue; var k2 = scanPickSlot(sku); items.push({ sku: sku, n: n, key: k2, p: k2 ? slotParse(k2) : null }); }
@@ -6017,12 +6064,12 @@
   function updateHud(dt) {
     hudT += dt; if (!hudDirty && hudT < 0.25) return; hudT = 0; hudDirty = false;
     $('h-cash').textContent = money(S.bank); $('h-cash').style.color = S.bank < 0 ? 'var(--red)' : '';
-    var open = S.orders.filter(function (o) { return o.state === 'open'; }).length, packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length;
-    $('h-orders').textContent = open + (packed ? ' + ' + packed + ' packed' : '');
+    var open = S.orders.filter(function (o) { return o.state === 'open'; }).length, packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length, lateN = S.orders.filter(function (o) { return o.late && o.state !== 'shipped'; }).length;
+    $('h-orders').textContent = open + (packed ? ' + ' + packed + ' packed' : '') + (lateN ? ' · ' + lateN + ' late' : ''); $('h-orders').style.color = lateN ? 'var(--red)' : '';   // a late order costs half its pay: it shows on the HUD, not only on the scanner
     $('h-stock').textContent = totalStock() + ' boxes';
     $('h-rep').textContent = Math.round(S.rep);
     $('h-lvl').textContent = 'Level ' + S.level; $('h-xp').textContent = S.xp + ' / ' + XP_FOR(S.level); $('h-xpbar').style.width = (100 * S.xp / XP_FOR(S.level)) + '%';
-    $('h-day').textContent = 'Day ' + S.day + (S.time >= DAY_END || S.time < DAY_START ? ' · night' : ''); $('h-clock').textContent = fmtTime(S.time);
+    $('h-day').textContent = 'Day ' + S.day + (isSunday() ? ' · Sunday' : '') + (S.time >= DAY_END || S.time < DAY_START ? ' · night' : ''); $('h-clock').textContent = fmtTime(S.time);   // Sunday on the clock all day, not only in the toast at the roll: no trucks and no orders is the depot closed, not the game stuck
     var ev = $('h-event'); if (S.events.power) { ev.hidden = false; ev.textContent = '⚡ Power cut: reset the breaker in the office'; } else ev.hidden = true;
     var held = $('h-held'), hl = handLabel();
     if (player.tool === 'cable') { held.hidden = false; held.innerHTML = 'Charging cable (forklift)<small>E on the forklift plugs it in · G hangs it back</small>'; }
@@ -6041,7 +6088,7 @@
   var scan = { page: 0, sel: 0, scroll: 0, nav: null };   // page, the cursor row, the first row shown, the waypoint { x, z, y, label, staff }
   var SCAN_PAGES = ['Home', 'Orders', 'Picks', 'Putaway', 'Stock', 'Docks', 'Plant', 'Crew', 'Map'];
   function scanToggle(on) { if (on && driving) return; ui.scanOpen = on; if (on) { sfx('scan'); introStep('scanner'); drawScanner(); } }
-  function scanPage(i) { scan.page = clamp(i, 0, SCAN_PAGES.length - 1); scan.sel = 0; scan.scroll = 0; sfx('click'); drawScanner(); }
+  function scanPage(i) { scan.selBy = scan.selBy || {}; scan.selBy[scan.page] = scan.sel; scan.page = clamp(i, 0, SCAN_PAGES.length - 1); scan.sel = scan.selBy[scan.page] || 0; scan.scroll = 0; sfx('click'); drawScanner(); }   // every page keeps its own cursor: a look at the map and back lands on the row you were on (drawScanner clamps it and scrolls to it)
   function sw(sku) { return '<span class="sw" style="background:' + SKU[sku].col + '"></span>'; }
 
   // ── Panels ────────────────────────────────────────────────────────
@@ -6075,7 +6122,7 @@
       var os = S.orders.slice().sort(function (a, b) { return a.due - b.due; });
       h += '<h3>Open orders (' + os.length + ')</h3>' + (os.length ? os.map(function (o) { return orderCard(o, false); }).join('') : '<p>Nothing open. Orders arrive between 08:00 and 17:00; more clients send more as your level rises.</p>');
       h += '<h3>Recently shipped</h3>' + (S.shipped.length ? '<table><tr><th>Order</th><th>Client</th><th>Day</th><th class="r">Paid</th></tr>' + S.shipped.slice(0, 12).map(function (s) { return '<tr><td>#' + s.num + (s.late ? ' <span class="dc-tag bad">late</span>' : '') + (s.short ? ' <span class="dc-tag warn">short</span>' : '') + '</td><td>' + esc(clientName(s.client)) + '</td><td>' + s.day + '</td><td class="r">' + money(s.paid) + '</td></tr>'; }).join('') + '</table>' : '<p>Nothing shipped yet.</p>');
-      var rts = returnsPending(); h += '<h3>Returns (' + rts.length + ' in play · ' + (S.rdesk ? S.rdesk.done : 0) + ' inspected)</h3>' + (rts.length ? rts.map(function (r) { return '<div class="dc-card"><div class="body"><b>' + esc(returnLabel(r)) + '</b><small>' + esc(r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r)) + '</small></div>' + (r.late ? '<span class="dc-tag bad">waiting a day</span>' : '<span class="dc-tag">' + money(returnFee(r)) + ' fee</span>') + '</div>'; }).join('') : '<p>None in play. From level ' + RETURNS.level + ' the outbound trucks bring the odd parcel back; the returns desk by the bench inspects them for a fee.</p>');
+      var rts = returnsPending(); h += '<h3>Returns (' + rts.length + ' in play · ' + (S.rdesk ? S.rdesk.done : 0) + ' inspected)</h3>' + (rts.length ? rts.map(function (r) { return '<div class="dc-card"><div class="body"><b>' + esc(returnLabel(r)) + '</b><small>' + esc(r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r)) + '</small></div>' + (r.late ? '<span class="dc-tag bad">waiting a day</span>' : '<span class="dc-tag">' + money(returnFee(r)) + ' fee</span>') + '</div>'; }).join('') : '<p>None in play. From level ' + RETURNS.level + ' the outbound trucks bring the odd parcel back; ' + (returnsHall() ? 'the returns hall inspects them for a fee, and the returns truck brings more' : 'the returns desk by the bench inspects them for a fee') + '.</p>');
     } else if (tab === 'contracts') {
       var c = S.contract;
       h += '<p>A client offers a run of orders. Ship every one of theirs on time inside the window and the bonus is yours; miss the count and there is a penalty. Offers come from level 3, every few days.</p>';
@@ -6166,8 +6213,8 @@
     else if (act === 'cross') { var s4 = staffById(arg); if (s4) staffCrossCycle(s4); }
     else if (act === 'dial') speedCycle(arg);
     else if (act === 'plant') { var pr = plantRows().filter(function (r) { return !r.dialOnly; })[+arg]; if (pr && pr.btn && pr.btn.on) pr.btn.act(); }
-    else if (act === 'accept') { if (S.contract) { S.contract.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(S.contract.client), 'good'); } }
-    else if (act === 'decline') { if (S.contract) { logEvent('Declined the contract from ' + clientName(S.contract.client)); S.contract = null; S.nextOffer = S.day + 2; } }
+    else if (act === 'accept') contractAccept();
+    else if (act === 'decline') contractDecline();
     else if (act === 'borrow') { if (S.level >= 2 && S.loan <= 0) { S.loan = 5000; pay(5000, 'Bank loan'); sfx('cash'); toast('$5,000 in the bank. 1.5% a day.', 'good'); } else toast(S.level < 2 ? 'The bank lends from level 2.' : 'One loan at a time.', 'bad'); }
     else if (act === 'repay') { var amt = Math.min(S.loan, Math.max(0, S.bank)); if (amt > 0) { S.loan -= amt; pay(-amt, 'Loan repayment'); sfx('cash'); toast('Repaid ' + money(amt), 'good'); } }
     else if (act === 'restore') { editRestore(arg); }
@@ -6190,7 +6237,7 @@
   $('dc-panel-close').addEventListener('click', closePanel);
 
   // ── Pause menu ────────────────────────────────────────────────────
-  function openMenu() { if (ui.menuOpen) return; ui.menuOpen = true; $('dc-menu').hidden = false; $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; scanToggle(false); ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {} save(); }
+  function openMenu() { if (ui.menuOpen) return; ui.menuOpen = true; $('dc-menu').hidden = false; $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; scanToggle(false); ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {} save(); var ms = $('dc-menu-sub'); if (ms) ms.textContent = 'The depot waits until you come back. ' + (saveT && !save.failed ? 'Saved at ' + new Date(saveT).toLocaleTimeString() + ', slot ' + BOOT_SLOT + '.' : 'The save could not be written: export it below.'); }   // the pause saves, and says so
   function closeMenu() { if (!ui.menuOpen) return; ui.menuOpen = false; $('dc-menu').hidden = true; lockPointer(); }
   function menuBody(html) { var b = $('dc-menu-body'); b.hidden = false; b.innerHTML = '<div class="dc-menu-row" style="margin:0 0 10px"><button data-menu="back" class="primary">← Back</button></div>' + html; $('dc-menu').querySelector('.dc-menu-btns').hidden = true; }   // the body takes the card over, with a way back, so a 720p screen is not two scroll bars deep
   $('dc-menu').addEventListener('click', function (e) {
@@ -6213,6 +6260,7 @@
       '<label><span>Mouse sensitivity</span><input type="range" min="0.3" max="2.5" step="0.1" value="' + SET.sens + '" data-set="sens"></label>' +
       '<label><span>Invert Y</span><input type="checkbox" ' + (SET.invertY ? 'checked' : '') + ' data-set="invertY"></label>' +
       '<label><span>Field of view</span><input type="range" min="60" max="100" step="1" value="' + SET.fov + '" data-set="fov"></label>' +
+      '<label><span>Head bob while walking</span><input type="checkbox" ' + (SET.bob !== false ? 'checked' : '') + ' data-set="bob"></label>' +
       '<label><span>Quality</span><select data-set="quality"><option value="high"' + (SET.quality === 'high' ? ' selected' : '') + '>High</option><option value="medium"' + (SET.quality === 'medium' ? ' selected' : '') + '>Medium</option><option value="low"' + (SET.quality === 'low' ? ' selected' : '') + '>Low (no shadows)</option></select></label>' +
       '<label><span>Sound</span><input type="checkbox" ' + (SET.sound ? 'checked' : '') + ' data-set="sound"></label>' +
       '<label><span>Volume</span><input type="range" min="0" max="1" step="0.05" value="' + SET.vol + '" data-set="vol"></label>' +
@@ -6231,6 +6279,8 @@
     camera.fov = SET.fov; camera.updateProjectionMatrix(); post.on = SET.film !== false;
     var pr = SET.quality === 'high' ? Math.min(window.devicePixelRatio || 1, 2) : SET.quality === 'medium' ? 1 : 0.75;
     renderer.setPixelRatio(pr); renderer.shadowMap.enabled = SET.quality !== 'low'; sun.castShadow = SET.quality !== 'low'; lightBudget.n = SET.quality === 'high' ? 16 : SET.quality === 'medium' ? 10 : 6;
+    var sm = SET.quality === 'high' ? 4096 : 2048; if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }   // the shadow map follows the quality too: medium draws a quarter of the texels; the renderer makes the new map on the next frame
+    if (yard.rain) { var rn = SET.quality === 'high' ? 7000 : SET.quality === 'medium' ? 4500 : 2500, snn = SET.quality === 'high' ? 3000 : SET.quality === 'medium' ? 2000 : 1200; yard.rainN = rn; yard.snowN = snn; yard.rain.geometry.setDrawRange(0, rn); yard.snow.geometry.setDrawRange(0, snn); }   // fewer drops and flakes to move and draw on the lower settings
     if (applySettings.q !== SET.quality) { applySettings.q = SET.quality; scene.traverse(function (o) { if (o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; }); }   // only a quality change recompiles the shaders, not every notch of a slider
     shadowDirty = true; $('h-fps').hidden = !SET.fps; if (sfxBus) sfxBus.gain.value = SET.vol;
   }
@@ -6257,7 +6307,7 @@
       '<h3>Returns</h3><p>From level 3 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong thing, or damaged in transit. With empty hands, <kbd>E</kbd> in the trailer takes it off. Carry it to the <b>returns desk</b> between the bench and the office: <kbd>E</kbd> puts it on the desk, <kbd>E</kbd> again starts the inspection, which runs by itself. The client pays a fee for every return and every box. The boxes come out on the desk shelves: good ones go back on a rack by hand or on the cart, damaged ones go in the bin at no charge. A return left lying for a day costs reputation; a truck that leaves with one still aboard has its driver set it down inside the door. The packer handles returns when the bench has nothing for them.</p>' +
       '<h3>The mezzanine and the halls</h3><p>The mezzanine (shop, level 6) is a steel deck over the receiving strip: set a pallet in the goods lift by IN 1 and it is racked upstairs by itself, and the upper crane sends boxes the bench needs down a chute into the pick line. The sortation deck builds on it and runs the three lanes. From level 7 the building grows off its north side: Hall 2 east of the production wing, Hall 3 west of it with a third inbound dock, Hall 4 behind the wing, each with two rack rows for the forklift, the AGV and the crew.</p>' +
       '<h3>The day report</h3><p>At every day roll the day that ended is closed off: money in and out (the morning rent and wages included), orders shipped and late, pallets received, boxes picked, returns inspected, the reputation change and the bank. A card shows on the HUD for a while (any key closes it) and the Stats app on the office PC keeps the last fortnight.</p>' +
-      '<h3>Photo mode</h3><p><kbd>F9</kbd> frees the camera: WASD flies it, Space and C take it up and down, Shift is fast, the mouse looks. The HUD goes and the world holds still while you line up the shot; <kbd>F12</kbd> takes it. <kbd>F9</kbd> or <kbd>Esc</kbd> puts you back where you stood.</p>' +
+      '<h3>Photo mode</h3><p><kbd>F9</kbd> frees the camera: WASD flies it, Space and C take it up and down, Shift is fast, the mouse looks, and the wheel zooms the lens from wide to long. The HUD goes and the world holds still while you line up the shot; <kbd>F12</kbd> takes it. <kbd>F9</kbd> or <kbd>Esc</kbd> puts you back where you stood, with the lens as it was.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office, or the grid restores it after an hour and a half. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
       '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
       '<h3>Contracts and the bank</h3><p>From level 3 a client offers a contract now and then: a number of their orders on time inside a window, for a bonus; miss it and there is a penalty. The bank lends $5,000 at 1.5% a day from level 2, and theft insurance at $40 a day pays most of what walks off at night.</p>' +
@@ -6523,10 +6573,11 @@
   }
   function rTone(type, f0, t, dur, gain, lp, f1) { var o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); var dest = radio.gain; if (lp) { var f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; g.connect(f); f.connect(dest); } else g.connect(dest); o.connect(g); o.start(t); o.stop(t + dur + 0.05); }
   function rNoise(t, dur, gain, freq) { var len = Math.floor(AC.sampleRate * dur), buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0); for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len); var src = AC.createBufferSource(); src.buffer = buf; var f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = freq; var g = AC.createGain(); g.gain.value = gain; src.connect(f); f.connect(g); g.connect(radio.gain); src.start(t); }
+  var radioV = new THREE.Vector3();   // one scratch vector for the radio's world position, not a new one every frame
   function tickRadio() {
     if (!AC) return; if (!radio.gain) { if (!(S.radio && S.radio.on)) return; radioStart(); if (!radio.gain) return; }   // a radio saved as on plays again after a reload
     var on = S.radio && S.radio.on && !S.events.power && SET.sound;
-    var rw = dress.radio ? dress.radio.getWorldPosition(new THREE.Vector3()) : null, d = rw ? Math.sqrt(dist2(player.x, player.z, rw.x, rw.z)) : 99;   // world position: the mesh is local to the coffee counter
+    var rw = dress.radio ? dress.radio.getWorldPosition(radioV) : null, d = rw ? Math.sqrt(dist2(player.x, player.z, rw.x, rw.z)) : 99;   // world position: the mesh is local to the coffee counter
     var g = on ? clamp(1 - d / 16, 0, 1) * 0.5 * (insideHall(player.x, player.z) ? 1 : 0.25) : 0;
     radio.gain.gain.setTargetAtTime(g, AC.currentTime, 0.2);
   }
@@ -6564,7 +6615,10 @@
     Object.keys(cables).forEach(function (k) {
       var cb = cables[k], reel = cableReel(cb.prop), end = reel ? cablePlugEnd(k) : null;
       if (player.tool === cb.tool && reel && Math.sqrt(dist2(reel.x, reel.z, player.x, player.z)) > CABLE_REACH + 0.5) { player.tool = null; toast('The cable only reaches ' + CABLE_REACH + ' m. It snapped back onto the reel.', 'bad'); sfx('bad'); hudDirty = true; end = null; }
-      if (!end) { if (cb.mesh) { cb.mesh.visible = false; } return; }
+      if (!end) { if (cb.mesh) { cb.mesh.visible = false; } cb.at = null; return; }
+      // the tube is rebuilt only when an end has moved: a forklift parked on charge all day used to cost a new TubeGeometry every frame
+      var at = cb.at; if (cb.mesh && at && Math.abs(at[0] - reel.x) < 0.002 && Math.abs(at[1] - reel.y) < 0.002 && Math.abs(at[2] - reel.z) < 0.002 && Math.abs(at[3] - end.x) < 0.002 && Math.abs(at[4] - end.y) < 0.002 && Math.abs(at[5] - end.z) < 0.002) { cb.mesh.visible = true; return; }
+      cb.at = [reel.x, reel.y, reel.z, end.x, end.y, end.z];
       var mid = new THREE.Vector3((reel.x + end.x) / 2, Math.min(reel.y, end.y) - 0.35 - Math.sqrt(dist2(reel.x, reel.z, end.x, end.z)) * 0.06, (reel.z + end.z) / 2);
       var curve = new THREE.CatmullRomCurve3([new THREE.Vector3(reel.x, reel.y, reel.z), new THREE.Vector3(reel.x, reel.y - 0.3, reel.z), mid, new THREE.Vector3(end.x, end.y - 0.15, end.z), new THREE.Vector3(end.x, end.y, end.z)]);
       var geo = new THREE.TubeGeometry(curve, 24, 0.018, 6, false);
@@ -6579,6 +6633,7 @@
   function tickBattery(dt) {
     if (!S.up.fork) return;
     if (S.fork.batt === undefined) S.fork.batt = 1;
+    var pct = Math.round(S.fork.batt * 100) + (S.fork.plugged ? 1000 : 0); if (pct !== tickBattery.shown) { tickBattery.shown = pct; for (var si = 0; si < screens.length; si++) if (screens[si].title === 'Charger display') screens[si].dirty = true; }   // the charger display follows the percentage, not the five-minute screen refresh
     if (driving && Math.abs(forkSpeed) > 0.1) { S.fork.batt = clamp(S.fork.batt - dt / 1500 * (S.fork.gear === 3 ? 1.8 : S.fork.gear === 1 ? 0.7 : 1), 0, 1); if (S.fork.batt <= 0 && !S.flags.battDead) { S.flags.battDead = 1; toast('Forklift battery flat: crawl mode. Bring it within cable reach of the charger and plug it in.', 'bad'); } }
     else if (forkCharging() && !S.events.power) { S.fork.batt = clamp(S.fork.batt + dt / 110, 0, 1); if (S.fork.batt > 0.2) forkLook.flatSaid = false; if (S.fork.batt >= 1 && S.flags.battDead) { S.flags.battDead = 0; toast('Forklift charged.', 'good'); } }
   }
@@ -6718,6 +6773,7 @@
       editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,
       propWorld: propWorld, rdesk: rdesk, rdeskUse: rdeskUse, rdeskBoxUse: rdeskBoxUse, rdeskStart: rdeskStart, returnPlace: returnPlace, returnById: returnById, addReturn: addReturn, returnsPending: returnsPending, loadPrompt: loadPrompt, receivePallet: receivePallet,
       photo: photo, photoToggle: photoToggle, photoTick: photoTick, drawScanMap: drawScanMap, MAP_PAGE: MAP_PAGE, closeDay: closeDay, reportHtml: reportHtml, dayReportShown: function () { return !$('h-report').hidden; }, outNext: outNext, orderLate: orderLate, truckWarn: truckWarn,
+      updateHud: updateHud, updatePlayer: updatePlayer, photoZoom: photoZoom, scanReturnsNav: scanReturnsNav, SET: SET, contractAccept: contractAccept, contractDecline: contractDecline, wallPlanes: wallPlanes, propWhere: propWhere, propSeed: propSeed, buff: buff, dress: dress,
       addXp: addXp, counts: function () { return { draws: (post.calls || renderer.info.render.calls), inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; }
     }
   };

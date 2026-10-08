@@ -4,12 +4,12 @@
   function updateHud(dt) {
     hudT += dt; if (!hudDirty && hudT < 0.25) return; hudT = 0; hudDirty = false;
     $('h-cash').textContent = money(S.bank); $('h-cash').style.color = S.bank < 0 ? 'var(--red)' : '';
-    var open = S.orders.filter(function (o) { return o.state === 'open'; }).length, packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length;
-    $('h-orders').textContent = open + (packed ? ' + ' + packed + ' packed' : '');
+    var open = S.orders.filter(function (o) { return o.state === 'open'; }).length, packed = S.orders.filter(function (o) { return o.state === 'packed'; }).length, lateN = S.orders.filter(function (o) { return o.late && o.state !== 'shipped'; }).length;
+    $('h-orders').textContent = open + (packed ? ' + ' + packed + ' packed' : '') + (lateN ? ' · ' + lateN + ' late' : ''); $('h-orders').style.color = lateN ? 'var(--red)' : '';   // a late order costs half its pay: it shows on the HUD, not only on the scanner
     $('h-stock').textContent = totalStock() + ' boxes';
     $('h-rep').textContent = Math.round(S.rep);
     $('h-lvl').textContent = 'Level ' + S.level; $('h-xp').textContent = S.xp + ' / ' + XP_FOR(S.level); $('h-xpbar').style.width = (100 * S.xp / XP_FOR(S.level)) + '%';
-    $('h-day').textContent = 'Day ' + S.day + (S.time >= DAY_END || S.time < DAY_START ? ' · night' : ''); $('h-clock').textContent = fmtTime(S.time);
+    $('h-day').textContent = 'Day ' + S.day + (isSunday() ? ' · Sunday' : '') + (S.time >= DAY_END || S.time < DAY_START ? ' · night' : ''); $('h-clock').textContent = fmtTime(S.time);   // Sunday on the clock all day, not only in the toast at the roll: no trucks and no orders is the depot closed, not the game stuck
     var ev = $('h-event'); if (S.events.power) { ev.hidden = false; ev.textContent = '⚡ Power cut: reset the breaker in the office'; } else ev.hidden = true;
     var held = $('h-held'), hl = handLabel();
     if (player.tool === 'cable') { held.hidden = false; held.innerHTML = 'Charging cable (forklift)<small>E on the forklift plugs it in · G hangs it back</small>'; }
@@ -28,7 +28,7 @@
   var scan = { page: 0, sel: 0, scroll: 0, nav: null };   // page, the cursor row, the first row shown, the waypoint { x, z, y, label, staff }
   var SCAN_PAGES = ['Home', 'Orders', 'Picks', 'Putaway', 'Stock', 'Docks', 'Plant', 'Crew', 'Map'];
   function scanToggle(on) { if (on && driving) return; ui.scanOpen = on; if (on) { sfx('scan'); introStep('scanner'); drawScanner(); } }
-  function scanPage(i) { scan.page = clamp(i, 0, SCAN_PAGES.length - 1); scan.sel = 0; scan.scroll = 0; sfx('click'); drawScanner(); }
+  function scanPage(i) { scan.selBy = scan.selBy || {}; scan.selBy[scan.page] = scan.sel; scan.page = clamp(i, 0, SCAN_PAGES.length - 1); scan.sel = scan.selBy[scan.page] || 0; scan.scroll = 0; sfx('click'); drawScanner(); }   // every page keeps its own cursor: a look at the map and back lands on the row you were on (drawScanner clamps it and scrolls to it)
   function sw(sku) { return '<span class="sw" style="background:' + SKU[sku].col + '"></span>'; }
 
   // ── Panels ────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@
       var os = S.orders.slice().sort(function (a, b) { return a.due - b.due; });
       h += '<h3>Open orders (' + os.length + ')</h3>' + (os.length ? os.map(function (o) { return orderCard(o, false); }).join('') : '<p>Nothing open. Orders arrive between 08:00 and 17:00; more clients send more as your level rises.</p>');
       h += '<h3>Recently shipped</h3>' + (S.shipped.length ? '<table><tr><th>Order</th><th>Client</th><th>Day</th><th class="r">Paid</th></tr>' + S.shipped.slice(0, 12).map(function (s) { return '<tr><td>#' + s.num + (s.late ? ' <span class="dc-tag bad">late</span>' : '') + (s.short ? ' <span class="dc-tag warn">short</span>' : '') + '</td><td>' + esc(clientName(s.client)) + '</td><td>' + s.day + '</td><td class="r">' + money(s.paid) + '</td></tr>'; }).join('') + '</table>' : '<p>Nothing shipped yet.</p>');
-      var rts = returnsPending(); h += '<h3>Returns (' + rts.length + ' in play · ' + (S.rdesk ? S.rdesk.done : 0) + ' inspected)</h3>' + (rts.length ? rts.map(function (r) { return '<div class="dc-card"><div class="body"><b>' + esc(returnLabel(r)) + '</b><small>' + esc(r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r)) + '</small></div>' + (r.late ? '<span class="dc-tag bad">waiting a day</span>' : '<span class="dc-tag">' + money(returnFee(r)) + ' fee</span>') + '</div>'; }).join('') : '<p>None in play. From level ' + RETURNS.level + ' the outbound trucks bring the odd parcel back; the returns desk by the bench inspects them for a fee.</p>');
+      var rts = returnsPending(); h += '<h3>Returns (' + rts.length + ' in play · ' + (S.rdesk ? S.rdesk.done : 0) + ' inspected)</h3>' + (rts.length ? rts.map(function (r) { return '<div class="dc-card"><div class="body"><b>' + esc(returnLabel(r)) + '</b><small>' + esc(r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r)) + '</small></div>' + (r.late ? '<span class="dc-tag bad">waiting a day</span>' : '<span class="dc-tag">' + money(returnFee(r)) + ' fee</span>') + '</div>'; }).join('') : '<p>None in play. From level ' + RETURNS.level + ' the outbound trucks bring the odd parcel back; ' + (returnsHall() ? 'the returns hall inspects them for a fee, and the returns truck brings more' : 'the returns desk by the bench inspects them for a fee') + '.</p>');
     } else if (tab === 'contracts') {
       var c = S.contract;
       h += '<p>A client offers a run of orders. Ship every one of theirs on time inside the window and the bonus is yours; miss the count and there is a penalty. Offers come from level 3, every few days.</p>';
@@ -153,8 +153,8 @@
     else if (act === 'cross') { var s4 = staffById(arg); if (s4) staffCrossCycle(s4); }
     else if (act === 'dial') speedCycle(arg);
     else if (act === 'plant') { var pr = plantRows().filter(function (r) { return !r.dialOnly; })[+arg]; if (pr && pr.btn && pr.btn.on) pr.btn.act(); }
-    else if (act === 'accept') { if (S.contract) { S.contract.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(S.contract.client), 'good'); } }
-    else if (act === 'decline') { if (S.contract) { logEvent('Declined the contract from ' + clientName(S.contract.client)); S.contract = null; S.nextOffer = S.day + 2; } }
+    else if (act === 'accept') contractAccept();
+    else if (act === 'decline') contractDecline();
     else if (act === 'borrow') { if (S.level >= 2 && S.loan <= 0) { S.loan = 5000; pay(5000, 'Bank loan'); sfx('cash'); toast('$5,000 in the bank. 1.5% a day.', 'good'); } else toast(S.level < 2 ? 'The bank lends from level 2.' : 'One loan at a time.', 'bad'); }
     else if (act === 'repay') { var amt = Math.min(S.loan, Math.max(0, S.bank)); if (amt > 0) { S.loan -= amt; pay(-amt, 'Loan repayment'); sfx('cash'); toast('Repaid ' + money(amt), 'good'); } }
     else if (act === 'restore') { editRestore(arg); }
@@ -177,7 +177,7 @@
   $('dc-panel-close').addEventListener('click', closePanel);
 
   // ── Pause menu ────────────────────────────────────────────────────
-  function openMenu() { if (ui.menuOpen) return; ui.menuOpen = true; $('dc-menu').hidden = false; $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; scanToggle(false); ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {} save(); }
+  function openMenu() { if (ui.menuOpen) return; ui.menuOpen = true; $('dc-menu').hidden = false; $('dc-menu-body').hidden = true; $('dc-menu').querySelector('.dc-menu-btns').hidden = false; scanToggle(false); ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {} save(); var ms = $('dc-menu-sub'); if (ms) ms.textContent = 'The depot waits until you come back. ' + (saveT && !save.failed ? 'Saved at ' + new Date(saveT).toLocaleTimeString() + ', slot ' + BOOT_SLOT + '.' : 'The save could not be written: export it below.'); }   // the pause saves, and says so
   function closeMenu() { if (!ui.menuOpen) return; ui.menuOpen = false; $('dc-menu').hidden = true; lockPointer(); }
   function menuBody(html) { var b = $('dc-menu-body'); b.hidden = false; b.innerHTML = '<div class="dc-menu-row" style="margin:0 0 10px"><button data-menu="back" class="primary">← Back</button></div>' + html; $('dc-menu').querySelector('.dc-menu-btns').hidden = true; }   // the body takes the card over, with a way back, so a 720p screen is not two scroll bars deep
   $('dc-menu').addEventListener('click', function (e) {
@@ -200,6 +200,7 @@
       '<label><span>Mouse sensitivity</span><input type="range" min="0.3" max="2.5" step="0.1" value="' + SET.sens + '" data-set="sens"></label>' +
       '<label><span>Invert Y</span><input type="checkbox" ' + (SET.invertY ? 'checked' : '') + ' data-set="invertY"></label>' +
       '<label><span>Field of view</span><input type="range" min="60" max="100" step="1" value="' + SET.fov + '" data-set="fov"></label>' +
+      '<label><span>Head bob while walking</span><input type="checkbox" ' + (SET.bob !== false ? 'checked' : '') + ' data-set="bob"></label>' +
       '<label><span>Quality</span><select data-set="quality"><option value="high"' + (SET.quality === 'high' ? ' selected' : '') + '>High</option><option value="medium"' + (SET.quality === 'medium' ? ' selected' : '') + '>Medium</option><option value="low"' + (SET.quality === 'low' ? ' selected' : '') + '>Low (no shadows)</option></select></label>' +
       '<label><span>Sound</span><input type="checkbox" ' + (SET.sound ? 'checked' : '') + ' data-set="sound"></label>' +
       '<label><span>Volume</span><input type="range" min="0" max="1" step="0.05" value="' + SET.vol + '" data-set="vol"></label>' +
@@ -218,6 +219,8 @@
     camera.fov = SET.fov; camera.updateProjectionMatrix(); post.on = SET.film !== false;
     var pr = SET.quality === 'high' ? Math.min(window.devicePixelRatio || 1, 2) : SET.quality === 'medium' ? 1 : 0.75;
     renderer.setPixelRatio(pr); renderer.shadowMap.enabled = SET.quality !== 'low'; sun.castShadow = SET.quality !== 'low'; lightBudget.n = SET.quality === 'high' ? 16 : SET.quality === 'medium' ? 10 : 6;
+    var sm = SET.quality === 'high' ? 4096 : 2048; if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }   // the shadow map follows the quality too: medium draws a quarter of the texels; the renderer makes the new map on the next frame
+    if (yard.rain) { var rn = SET.quality === 'high' ? 7000 : SET.quality === 'medium' ? 4500 : 2500, snn = SET.quality === 'high' ? 3000 : SET.quality === 'medium' ? 2000 : 1200; yard.rainN = rn; yard.snowN = snn; yard.rain.geometry.setDrawRange(0, rn); yard.snow.geometry.setDrawRange(0, snn); }   // fewer drops and flakes to move and draw on the lower settings
     if (applySettings.q !== SET.quality) { applySettings.q = SET.quality; scene.traverse(function (o) { if (o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; }); }   // only a quality change recompiles the shaders, not every notch of a slider
     shadowDirty = true; $('h-fps').hidden = !SET.fps; if (sfxBus) sfxBus.gain.value = SET.vol;
   }
@@ -244,7 +247,7 @@
       '<h3>Returns</h3><p>From level 3 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong thing, or damaged in transit. With empty hands, <kbd>E</kbd> in the trailer takes it off. Carry it to the <b>returns desk</b> between the bench and the office: <kbd>E</kbd> puts it on the desk, <kbd>E</kbd> again starts the inspection, which runs by itself. The client pays a fee for every return and every box. The boxes come out on the desk shelves: good ones go back on a rack by hand or on the cart, damaged ones go in the bin at no charge. A return left lying for a day costs reputation; a truck that leaves with one still aboard has its driver set it down inside the door. The packer handles returns when the bench has nothing for them.</p>' +
       '<h3>The mezzanine and the halls</h3><p>The mezzanine (shop, level 6) is a steel deck over the receiving strip: set a pallet in the goods lift by IN 1 and it is racked upstairs by itself, and the upper crane sends boxes the bench needs down a chute into the pick line. The sortation deck builds on it and runs the three lanes. From level 7 the building grows off its north side: Hall 2 east of the production wing, Hall 3 west of it with a third inbound dock, Hall 4 behind the wing, each with two rack rows for the forklift, the AGV and the crew.</p>' +
       '<h3>The day report</h3><p>At every day roll the day that ended is closed off: money in and out (the morning rent and wages included), orders shipped and late, pallets received, boxes picked, returns inspected, the reputation change and the bank. A card shows on the HUD for a while (any key closes it) and the Stats app on the office PC keeps the last fortnight.</p>' +
-      '<h3>Photo mode</h3><p><kbd>F9</kbd> frees the camera: WASD flies it, Space and C take it up and down, Shift is fast, the mouse looks. The HUD goes and the world holds still while you line up the shot; <kbd>F12</kbd> takes it. <kbd>F9</kbd> or <kbd>Esc</kbd> puts you back where you stood.</p>' +
+      '<h3>Photo mode</h3><p><kbd>F9</kbd> frees the camera: WASD flies it, Space and C take it up and down, Shift is fast, the mouse looks, and the wheel zooms the lens from wide to long. The HUD goes and the world holds still while you line up the shot; <kbd>F12</kbd> takes it. <kbd>F9</kbd> or <kbd>Esc</kbd> puts you back where you stood, with the lens as it was.</p>' +
       '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office, or the grid restores it after an hour and a half. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
       '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
       '<h3>Contracts and the bank</h3><p>From level 3 a client offers a contract now and then: a number of their orders on time inside a window, for a bonus; miss it and there is a penalty. The bank lends $5,000 at 1.5% a day from level 2, and theft insurance at $40 a day pays most of what walks off at night.</p>' +

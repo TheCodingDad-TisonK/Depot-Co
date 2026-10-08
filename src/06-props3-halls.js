@@ -76,7 +76,7 @@
     for (var tx = Math.ceil((H.x0 + 2) / 8) * 8; tx < H.x1 - 1; tx += 8) c.box(0.25, 0.6, wz - 0.4, FR, tx, h - 0.35, cz);
     for (var pz = H.z0 + 3; pz < H.z1 - 1; pz += 4) c.box(wx - 0.4, 0.12, 0.12, FR, cx, h - 0.1, pz);
     [cx - wx / 4, cx + wx / 4].forEach(function (vx) { c.cyl(0.45, 0.6, MAT.steel, vx, h + 0.6, cz, 12); c.cyl(0.6, 0.15, FR, vx, h + 0.95, cz, 12); });
-    H.lights.forEach(function (p, i) { highBay(p[0], 7.0, p[1]); var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l); });
+    H.lights.forEach(function (p, i) { highBay(p[0], 7.6, p[1]);   /* 7.6 like the main hall's (the light at 7.3 sits just above the lens); at 7.0 the lamp hung 0.6 m lower with the light inside the ballast box */ var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l); });
     // the inside faces: the far wall with the tray and windows, the wall it opens off with the doorway cut, the two sides
     var dcut = [D.x0 - 0.1, D.x1 + 0.1];
     hallFace(c, 'z', H.z0, 1, H.x0, H.x1, [], { windows: true, tray: true });
@@ -107,7 +107,7 @@
     c.box(w, D.h, 0.12, MAT.door, cx, D.h / 2, D.z); for (var y = 0.5; y < D.h; y += 0.5) c.box(w, 0.04, 0.14, MAT.steelDark, cx, y, D.z);
     c.sign([HALLS[id].name.toUpperCase(), 'in the shop'], 1.6, 0.5, cx, D.h / 2, D.z + 0.08, 0, { w: 448, h: 128, bg: '#1b232c', fg: '#a0acb8' }); c.sign([HALLS[id].name.toUpperCase()], 1.6, 0.5, cx, D.h / 2, D.z - 0.08, Math.PI, { w: 448, h: 128, bg: '#1b232c', fg: '#a0acb8' });
     c.solid(D.x0 - 0.1, D.x1 + 0.1, D.z - 0.2, D.z + 0.2, 0, D.h);
-    c.hit(w, D.h, 0.5, cx, D.h / 2, D.z, { prompt: function () { var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; return HALLS[id].name + ' · ' + (u ? money(u.price) + ' in the shop' : 'not open') + (u && u.needs && !S.up[u.needs] ? ' · needs ' + upgradeName(u.needs).toLowerCase() : ''); }, use: function () { sfx('click'); } });
+    c.hit(w, D.h, 0.5, cx, D.h / 2, D.z, { prompt: function () { var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; return HALLS[id].name + ' · ' + (u ? money(u.price) + ' in the shop' : 'not open') + (u && u.needs && !S.up[u.needs] ? ' · needs ' + upgradeName(u.needs).toLowerCase() : '') + ' · E opens the shop'; }, use: function () { sfx('click'); if (!driving && !pc.on) openPanel('pc', 'shop'); } });   // E on the shutter opens the shop page instead of clicking at nothing
   }; }
   for (var hid in HALLS) (function (id) {
     var H = HALLS[id];
@@ -120,6 +120,7 @@
     defProp('ext' + id, { label: H.name + ' extinguisher', cat: 'wall', wall: true, abs: true, keep: true, x: H.x1 - 2.5, z: H.z0 + 0.17, rot: 0, build: extinguisherBuild, when: when });
     defProp('posterExit' + id, { label: H.name + ' fire-exit poster', cat: 'wall', wall: true, abs: true, keep: true, x: D.x0 - 1.6, z: D.z - 0.17, rot: 2, build: posterBuild('exit', 0.6, 0.9), when: when });
     defProp('posterSmoke' + id, { label: H.name + ' no-smoking poster', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 2.5, z: H.z0 + 0.17, rot: 0, build: posterBuild('nosmoking', 0.6, 0.8), when: when });
+    defProp('firstAid' + id, { label: H.name + ' first-aid box', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 4.0, z: H.z0 + 0.17, rot: 0, build: firstAidBuild, when: when });   // the lobby and the wing have one; the halls did not
     defProp('clock' + id, { label: H.name + ' clock', cat: 'wall', wall: true, abs: true, keep: true, x: cx + 3.2, z: H.z0 + 0.3, rot: 0, build: function (c) { var f = clockBuild(0.4); f(c); }, when: when });
     if (H.rows.length) defProp('aisle' + id, { label: H.name + ' aisle sign', cat: 'hall', abs: true, keep: true, fixed: true, x: cx, z: (H.rowZ[0] + H.rowZ[1]) / 2, rot: 0, build: aisleSignBuild(H.name.toUpperCase() + ' · ' + 'HIJKLM'[H.rows[0] - 20] + ' / ' + 'HIJKLM'[H.rows[1] - 20]), when: when });
   })(hfid);
@@ -127,9 +128,9 @@
   // buying a hall: it stands, its rows stand, its shutter goes, Hall 3 gets its dock door and lane, the silo moves out of Hall 3's way
   function buildHall(id) {
     var H = HALLS[id];
-    if (id === 'hall2') { if (!doors[6]) { buildDoor(6, 1, DOCKS.ret[0].z); if (yard.dock) yard.dock(doors[6]); dressDoor(doors[6]); } if (propInst.returnsDesk) removePropInst('returnsDesk'); RET_PROPS.forEach(function (pid) { buildProp(pid); }); migrateReturnsHall(); }   // the returns hall: its dock, its fixtures, and the desk by the bench goes
+    if (id === 'hall2') { if (!doors[6]) { buildDoor(6, 1, DOCKS.ret[0].z); if (yard.dock) yard.dock(doors[6]); dressDoor(doors[6]); } if (propInst.returnsDesk) removePropInst('returnsDesk'); RET_PROPS.forEach(function (pid) { buildProp(pid); }); migrateReturnsHall(); if (propInst.notice) buildProp('notice'); }   // the returns hall: its dock, its fixtures, and the desk by the bench goes; the lobby timetable gains the returns truck
     if (id === 'hall3') { var sp = propPlacement('silo'); if (inRectH(sp.x, sp.z, H) || (sp.x > H.x0 - 3 && sp.x < H.x1 + 3 && sp.z > H.z0 - 3 && sp.z < H.z1 + 3)) { S.layout.silo = { x: -26, z: -50, rot: 0 }; buildProp('silo'); } if (!doors[5]) { buildDoor(5, -1, DOCKS.in[2].z); if (yard.dock) yard.dock(doors[5]); dressDoor(doors[5]); } buildProp('consoleIn2'); }
-    buildProp(id); H.rows.forEach(function (r) { buildProp('rack' + r); }); buildProp('shut' + id); ['ext', 'posterExit', 'posterSmoke', 'clock', 'aisle'].forEach(function (k) { if (PROPS[k + id]) buildProp(k + id); });
+    buildProp(id); H.rows.forEach(function (r) { buildProp('rack' + r); }); buildProp('shut' + id); ['ext', 'posterExit', 'posterSmoke', 'firstAid', 'clock', 'aisle'].forEach(function (k) { if (PROPS[k + id]) buildProp(k + id); });
     NAV.dirty = true; shadowDirty = true; beltsChanged(); if (!edit.on) { unbakeStatic(); bakeStatic(); }
     logEvent(H.name + ' is open: ' + (id === 'hall2' ? 'a returns dock of its own, the belt to the intake, three inspection desks, the restock cage and the compactor. The desk by the bench has gone.' : H.rows.length + ' rack rows of ' + H.bays + ' bays' + (id === 'hall3' ? ', and IN 3 on its west wall' : '')), 'good');
   }

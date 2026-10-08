@@ -67,10 +67,11 @@
   }
   function rTone(type, f0, t, dur, gain, lp, f1) { var o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); var dest = radio.gain; if (lp) { var f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; g.connect(f); f.connect(dest); } else g.connect(dest); o.connect(g); o.start(t); o.stop(t + dur + 0.05); }
   function rNoise(t, dur, gain, freq) { var len = Math.floor(AC.sampleRate * dur), buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0); for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len); var src = AC.createBufferSource(); src.buffer = buf; var f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = freq; var g = AC.createGain(); g.gain.value = gain; src.connect(f); f.connect(g); g.connect(radio.gain); src.start(t); }
+  var radioV = new THREE.Vector3();   // one scratch vector for the radio's world position, not a new one every frame
   function tickRadio() {
     if (!AC) return; if (!radio.gain) { if (!(S.radio && S.radio.on)) return; radioStart(); if (!radio.gain) return; }   // a radio saved as on plays again after a reload
     var on = S.radio && S.radio.on && !S.events.power && SET.sound;
-    var rw = dress.radio ? dress.radio.getWorldPosition(new THREE.Vector3()) : null, d = rw ? Math.sqrt(dist2(player.x, player.z, rw.x, rw.z)) : 99;   // world position: the mesh is local to the coffee counter
+    var rw = dress.radio ? dress.radio.getWorldPosition(radioV) : null, d = rw ? Math.sqrt(dist2(player.x, player.z, rw.x, rw.z)) : 99;   // world position: the mesh is local to the coffee counter
     var g = on ? clamp(1 - d / 16, 0, 1) * 0.5 * (insideHall(player.x, player.z) ? 1 : 0.25) : 0;
     radio.gain.gain.setTargetAtTime(g, AC.currentTime, 0.2);
   }
@@ -108,7 +109,10 @@
     Object.keys(cables).forEach(function (k) {
       var cb = cables[k], reel = cableReel(cb.prop), end = reel ? cablePlugEnd(k) : null;
       if (player.tool === cb.tool && reel && Math.sqrt(dist2(reel.x, reel.z, player.x, player.z)) > CABLE_REACH + 0.5) { player.tool = null; toast('The cable only reaches ' + CABLE_REACH + ' m. It snapped back onto the reel.', 'bad'); sfx('bad'); hudDirty = true; end = null; }
-      if (!end) { if (cb.mesh) { cb.mesh.visible = false; } return; }
+      if (!end) { if (cb.mesh) { cb.mesh.visible = false; } cb.at = null; return; }
+      // the tube is rebuilt only when an end has moved: a forklift parked on charge all day used to cost a new TubeGeometry every frame
+      var at = cb.at; if (cb.mesh && at && Math.abs(at[0] - reel.x) < 0.002 && Math.abs(at[1] - reel.y) < 0.002 && Math.abs(at[2] - reel.z) < 0.002 && Math.abs(at[3] - end.x) < 0.002 && Math.abs(at[4] - end.y) < 0.002 && Math.abs(at[5] - end.z) < 0.002) { cb.mesh.visible = true; return; }
+      cb.at = [reel.x, reel.y, reel.z, end.x, end.y, end.z];
       var mid = new THREE.Vector3((reel.x + end.x) / 2, Math.min(reel.y, end.y) - 0.35 - Math.sqrt(dist2(reel.x, reel.z, end.x, end.z)) * 0.06, (reel.z + end.z) / 2);
       var curve = new THREE.CatmullRomCurve3([new THREE.Vector3(reel.x, reel.y, reel.z), new THREE.Vector3(reel.x, reel.y - 0.3, reel.z), mid, new THREE.Vector3(end.x, end.y - 0.15, end.z), new THREE.Vector3(end.x, end.y, end.z)]);
       var geo = new THREE.TubeGeometry(curve, 24, 0.018, 6, false);
@@ -123,6 +127,7 @@
   function tickBattery(dt) {
     if (!S.up.fork) return;
     if (S.fork.batt === undefined) S.fork.batt = 1;
+    var pct = Math.round(S.fork.batt * 100) + (S.fork.plugged ? 1000 : 0); if (pct !== tickBattery.shown) { tickBattery.shown = pct; for (var si = 0; si < screens.length; si++) if (screens[si].title === 'Charger display') screens[si].dirty = true; }   // the charger display follows the percentage, not the five-minute screen refresh
     if (driving && Math.abs(forkSpeed) > 0.1) { S.fork.batt = clamp(S.fork.batt - dt / 1500 * (S.fork.gear === 3 ? 1.8 : S.fork.gear === 1 ? 0.7 : 1), 0, 1); if (S.fork.batt <= 0 && !S.flags.battDead) { S.flags.battDead = 1; toast('Forklift battery flat: crawl mode. Bring it within cable reach of the charger and plug it in.', 'bad'); } }
     else if (forkCharging() && !S.events.power) { S.fork.batt = clamp(S.fork.batt + dt / 110, 0, 1); if (S.fork.batt > 0.2) forkLook.flatSaid = false; if (S.fork.batt >= 1 && S.flags.battDead) { S.flags.battDead = 0; toast('Forklift charged.', 'good'); } }
   }

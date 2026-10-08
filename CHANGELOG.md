@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.20.0 (2026-10-08)
+
+An improvement pass over the whole game: nothing removed, the rough edges smoothed.
+
+**The scanner**
+- The Home page alerts more of what wants a hand: a docked inbound truck in its last hour with pallets still aboard, an outbound truck at a manual dock with parcels of its lane packed and not loaded, a contract offer (Enter accepts it, the PC still declines), and a wrapper film nearly out.
+- Every page keeps its own cursor row: a look at the map and back lands on the row you were on.
+- With the returns hall open, the returns alert and the Orders page point their waypoint at the intake instead of at the desk that is no longer there; a return on the returns belt has a waypoint too. The text in the hand, the feed and the office PC says the hall when it is the hall.
+
+**The HUD and the menus**
+- The clock says Sunday all day, so no trucks and no orders reads as the depot closed rather than the game stuck.
+- The orders count turns red and counts the late ones.
+- The pause menu says when it saved and to which slot, and the main menu's slot rows show when each depot was last saved.
+- A save that cannot be written (a full or blocked browser storage) is said once on the HUD instead of lost in silence.
+
+**Settings and photo mode**
+- The head bob while walking is a setting, on by default.
+- The wheel zooms the photo lens from wide to long; leaving photo mode puts the lens back.
+
+**The building and the yard**
+- Wall pieces hang on the walls of the production wing and the annex halls in build mode. A poster carried into Hall 3 used to find no wall and land in mid-air.
+- The catalogue's Removed list says where each piece stood (five of them are all "fire extinguisher"), and the room group's heading shows the depot's comfort.
+- A bought picture keeps its print, a parked car its colour and a tree its size through every move, turn and reload. They were rolled again at every build.
+- The lobby timetable lists the returns truck once the returns hall is open.
+- The shift board in the wing counts today's boxes against its daily target (it showed the all-time count) and its jam line is green when there is no jam.
+- The vending machine says when the snack is still working and when you are short of change, the way the coffee machine does; the coffee prompt says until when.
+- E on a hall shutter, or on the shut OUT 3 door, opens the shop page where the thing that opens it is sold.
+- The charger display follows the battery percentage as it charges instead of jumping every five minutes.
+- The standing fan's head sweeps side to side, as its label always said. The microwave pings after its two minutes, not with the button.
+- The annex halls get a first-aid box each, and their high bays hang at the main hall's height (they hung 0.6 m lower with the light inside the ballast box).
+- The cable tray rungs, the sprinkler heads and the rack-end hatch run the length of the 72 m hall, and the pigeons fly all of it. They stopped at the old 40 m hall's bounds.
+- The break room door gets the mat and the crossing line the lobby and office doors have.
+- A dock built mid-game (IN 3, the returns dock) gets its tyre marks and oil inside and out at once instead of at the next reload.
+- The road whitens with the yard in snow.
+
+**Under the hood**
+- The forklift's charging cable rebuilds its tube only when an end has moved: a forklift parked on charge all day cost a new geometry every frame.
+- The radio reads its world position into one scratch vector instead of a new one a frame.
+- Only the moving parts of the clocks, the stretch wrapper and the hinged doors are dynamic now; the faces, the column, the cabinet and the door frames join the static bake.
+- One shared material for the high-bay reflectors, the dock steps and rails, every console and cabinet panel, the desk keys, the books, the parts bins and the vending packets. Each of those used to be a material of its own, and so a draw of its own.
+- The rain and snow loops read the trailer bounds once a frame, not once a drop, and the snow tint colours are shared.
+- The quality setting also sets the shadow map size (2048 on medium) and how many drops and flakes fall.
+- A standing fan that is moved leaves no hub spinning off-scene.
+- Accepting or declining a contract is one function, used by the panel, the office PC and the scanner alike.
+- The smoke test covers the new behaviour.
+
 ## 1.19.0 (2026-10-08)
 
 **New**

@@ -56,7 +56,7 @@
     if (!k.Space) player.jumped = false;
     player.vy -= 16 * dt; player.y += player.vy * dt;
     if (player.y <= fy) { if (!player.grounded && player.vy < -6) sfx('putdown'); player.y = fy; player.vy = 0; player.grounded = true; } else player.grounded = false;
-    var bobY = (fwd || side) && player.grounded ? Math.sin(player.bob) * 0.03 : 0;
+    var bobY = SET.bob !== false && (fwd || side) && player.grounded ? Math.sin(player.bob) * 0.03 : 0;   // the head bob is a setting: off for anyone it makes queasy
     camera.position.set(player.x, player.y + 1.62 + bobY, player.z);
     camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
   }
@@ -156,6 +156,6 @@
     else if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && driving) forkGearCycle();
   });
   document.addEventListener('keyup', function (e) { player.keys[e.code] = false; });
-  document.addEventListener('wheel', function (e) { if (ui.scanOpen && !ui.blocked()) scanScroll(e.deltaY > 0 ? 1 : -1); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });
+  document.addEventListener('wheel', function (e) { if (photo.on && ui.started && !ui.blocked()) photoZoom(e.deltaY > 0 ? 1 : -1); else if (ui.scanOpen && !ui.blocked()) scanScroll(e.deltaY > 0 ? 1 : -1); else if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + (e.deltaY > 0 ? 1 : -1)); pc.screen.dirty = true; } else if (ui.started && !ui.blocked() && !driving) { var ssc = screenUnderCrosshair(); if (ssc && ssc.scrollable) { ssc.scroll = clamp((ssc.scroll || 0) + (e.deltaY > 0 ? 1 : -1), 0, ssc.scrollMax || 0); ssc.userScrollAt = worldTime; ssc.dirty = true; } } }, { passive: true });
   function screenUnderCrosshair() { for (var i = 0; i < screens.length; i++) { if (!screens[i].mesh.visible) continue; if (ray.intersectObject(screens[i].mesh, false).length) return screens[i]; } return null; }
   window.addEventListener('blur', function () { player.keys = {}; });

@@ -56,6 +56,9 @@
     S.contract = { client: client.id, need: need, done: 0, until: (S.day + days) * 24 + 18, bonus: need * 60 + S.level * 40, penalty: 150, accepted: false, offeredDay: S.day };
     logEvent(client.name + ' offers a contract: ' + need + ' orders on time in ' + days + ' days for a ' + money(S.contract.bonus) + ' bonus. Accept it on the office PC.', 'rare'); toast('Contract offer from ' + client.name + ' on the PC', 'rare'); sfx('chime');
   }
+  // the offer is taken or turned down from the panel, the office PC or the scanner's Home page: one place for what that does
+  function contractAccept() { var c = S.contract; if (!c || c.accepted) return false; c.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(c.client), 'good'); hudDirty = true; return true; }
+  function contractDecline() { var c = S.contract; if (!c || c.accepted) return false; logEvent('Declined the contract from ' + clientName(c.client)); S.contract = null; S.nextOffer = S.day + 2; hudDirty = true; return true; }
   function contractTick() {
     var c = S.contract; if (!c) { if (S.level >= 3 && S.day >= S.nextOffer && S.time >= 9 && S.time < 9.2 && !isSunday()) offerContract(); return; }
     if (!c.accepted && S.day > c.offeredDay) { S.contract = null; S.nextOffer = S.day + 2; logEvent('The contract offer from ' + clientName(c.client) + ' lapsed'); return; }
