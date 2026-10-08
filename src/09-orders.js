@@ -2,9 +2,9 @@
   // ── Orders ────────────────────────────────────────────────────────
   function clientName(id) { for (var i = 0; i < CLIENTS.length; i++) if (CLIENTS[i].id === id) return CLIENTS[i].name; return id || 'Walk-in'; }
   function orderById(id) { for (var i = 0; i < S.orders.length; i++) if (S.orders[i].id === id) return S.orders[i]; return null; }
-  function unlockedSkus() { var tier = tierFor(S.level); return SKUS.filter(function (s) { return s.tier <= tier; }).map(function (s) { return s.id; }); }
+  function unlockedSkus() { return SKUS.filter(skuOpen).map(function (s) { return s.id; }); }   // the lines the level has opened (1.21.0)
   function openOrders() { return S.orders.filter(function (o) { return o.state === 'open'; }); }
-  function activeClients() { return CLIENTS.filter(function (c) { return !c.deck || sorterOwned(); }); }   // the deck accounts wait for the sortation deck
+  function activeClients() { var out = CLIENTS.filter(function (c) { return S.level >= (c.lvl || 1) && (!c.deck || sorterOwned()); }); return out.length ? out : CLIENTS.slice(0, 2); }   // the clients the level has found you, and the deck accounts wait for the sortation deck
   function dueText(abs) { var day = Math.floor(abs / 24), t = abs % 24; return fmtTime(t) + (day > S.day + 1 ? ' in ' + (day - S.day) + ' days' : day > S.day ? ' tomorrow' : abs < nowAbs() ? ' (overdue)' : ''); }
   function orderLate(o) { return nowAbs() > o.due + 0.05; }   // three minutes' grace: a truck leaves on the tick that crosses its hour, and the order due at that hour is on time
   function nextOutLeave(minAbs, dock) {   // the next departure from one dock (the order's lane), or from any dock you own
@@ -29,8 +29,8 @@
   function benchSurplus() { var want = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); var sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
   function genOrder(rush) {
     var free = freeStock(), avail = unlockedSkus().filter(function (s) { return (free[s] || 0) > 0; }); if (!avail.length) return null;
-    var client = S.contract && S.contract.accepted && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === S.contract.client; })[0] : pick(activeClients()), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
-    var nLines = client.deck ? randi(2, 4) : randi(1, Math.min(3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));   // a deck account orders two to four lines
+    var live = contractsLive(), cc = live.length && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === pick(live).client; })[0] : null, client = cc || pick(activeClients()), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
+    var nLines = client.deck ? randi(2, 4) : randi(1, Math.min(BOOT_STAGE === 0 ? 2 : 3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));   // a deck account orders two to four lines; the shed's orders are one or two
     var lines = [], used = {};
     for (var i = 0; i < nLines; i++) {
       // what the client likes and you have free, else anything you have free; never more of a line than is free
@@ -43,43 +43,56 @@
     }
     if (!lines.length) return null;
     var value = 0; lines.forEach(function (l) { value += l.qty * SKU[l.sku].val; });
-    var mode = clientMode(client.id), due = nextOutLeave(nowAbs() + (rush ? 0.5 : 1.5), MODES[mode].door - 2);   // due at the next truck of its own lane; a rush order must make the very next one
+    var mode = clientMode(client.id), due = nextOutLeave(nowAbs() + (rush ? 0.5 : 1.5), modeDock(mode));   // due at the next truck of its own lane (the one dock, before the lanes); a rush order must make the very next one
     var o = { id: uid('or'), num: S.orderSeq++, client: client.id, mode: mode, lines: lines, created: nowAbs(), due: due, state: 'open', pay: Math.round((value * ECON.margin + ECON.handling) * (mode === 'air' ? AIR_RATE : 1) * (client.deck ? DECK_RATE : 1)) * (rush ? 2 : 1), rush: !!rush, late: false, short: false };
     S.orders.push(o);
-    logEvent('Order #' + o.num + ' from ' + client.name + ' (' + MODES[mode].name.toUpperCase() + ' lane, ' + dockLabel(MODES[mode].door) + '): ' + lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + (rush ? ' · RUSH, due ' + fmtTime(due) : ''), 'rare');
+    logEvent('Order #' + o.num + ' from ' + client.name + (lanesOn() ? ' (' + MODES[mode].name.toUpperCase() + ' lane, ' + dockLabel(modeDoor(mode)) + ')' : '') + ': ' + lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + (rush ? ' · RUSH, due ' + fmtTime(due) : ''), 'rare');
     sfx('chime'); rebuildBoardSoon(); introStep('order'); hudDirty = true;
     return o;
   }
-  // contracts: every few days a client offers a run; every order of theirs shipped on time in the window counts
-  function offerContract() {
-    var client = pick(activeClients()), need = 3 + Math.floor(S.level / 2), days = 3;
-    S.contract = { client: client.id, need: need, done: 0, until: (S.day + days) * 24 + 18, bonus: need * 60 + S.level * 40, penalty: 150, accepted: false, offeredDay: S.day };
-    logEvent(client.name + ' offers a contract: ' + need + ' orders on time in ' + days + ' days for a ' + money(S.contract.bonus) + ' bonus. Accept it on the office PC.', 'rare'); toast('Contract offer from ' + client.name + ' on the PC', 'rare'); sfx('chime');
+  // contracts: every few days a client offers a run; every order of theirs shipped on time in the window counts. 1.21.0: from the
+  // ladder's level (5); bigger from 17 (two more orders, a bigger bonus); two at once from 21 (a second slot, S.contract2); the long
+  // contract from 24 (five days, twice the bonus, now and then). The slots are S.contract and S.contract2; every function takes the slot key.
+  function contractSlots() { return unlocked('twoContracts') ? ['contract', 'contract2'] : ['contract']; }
+  function contractsAll() { return contractSlots().map(function (k) { return S[k]; }).filter(Boolean); }
+  function contractsLive() { return contractsAll().filter(function (c) { return c.accepted; }); }
+  function contractOffer() { return contractsAll().filter(function (c) { return !c.accepted; })[0] || null; }
+  function contractSlotOf(c) { for (var i = 0; i < contractSlots().length; i++) if (S[contractSlots()[i]] === c) return contractSlots()[i]; return null; }
+  function offerContract(k) {
+    k = k || contractSlots().filter(function (q) { return !S[q]; })[0]; if (!k) return null;
+    var big = unlocked('contractsBig'), long = unlocked('longContract') && Math.random() < 0.4, client = pick(activeClients()), need = 3 + Math.floor(S.level / 2) + (big ? 2 : 0), days = long ? 5 : 3, bonus = Math.round((need * 60 + S.level * 40) * (big ? 1.4 : 1) * (long ? 1.6 : 1));
+    S[k] = { client: client.id, need: need, done: 0, until: (S.day + days) * 24 + 18, bonus: bonus, penalty: long ? 300 : 150, accepted: false, offeredDay: S.day, long: long };
+    logEvent(client.name + ' offers a ' + (long ? 'long ' : '') + 'contract: ' + need + ' orders on time in ' + days + ' days for a ' + money(bonus) + ' bonus. Accept it on the office PC.', 'rare'); toast('Contract offer from ' + client.name + (unlocked('pc') ? ' on the PC' : ' on the clipboard'), 'rare'); sfx('chime');
+    return S[k];
   }
   // the offer is taken or turned down from the panel, the office PC or the scanner's Home page: one place for what that does
-  function contractAccept() { var c = S.contract; if (!c || c.accepted) return false; c.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(c.client), 'good'); hudDirty = true; return true; }
-  function contractDecline() { var c = S.contract; if (!c || c.accepted) return false; logEvent('Declined the contract from ' + clientName(c.client)); S.contract = null; S.nextOffer = S.day + 2; hudDirty = true; return true; }
+  function contractAccept(k) { var c = k ? S[k] : contractOffer(); if (!c || c.accepted) return false; c.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(c.client), 'good'); hudDirty = true; return true; }
+  function contractDecline(k) { var c = k ? S[k] : contractOffer(); if (!c || c.accepted) return false; logEvent('Declined the contract from ' + clientName(c.client)); S[contractSlotOf(c)] = null; S.nextOffer = S.day + 2; hudDirty = true; return true; }
   function contractTick() {
-    var c = S.contract; if (!c) { if (S.level >= 3 && S.day >= S.nextOffer && S.time >= 9 && S.time < 9.2 && !isSunday()) offerContract(); return; }
-    if (!c.accepted && S.day > c.offeredDay) { S.contract = null; S.nextOffer = S.day + 2; logEvent('The contract offer from ' + clientName(c.client) + ' lapsed'); return; }
-    if (c.accepted && nowAbs() > c.until) contractSettle();
+    var offerDue = unlocked('contracts') && S.day >= S.nextOffer && S.time >= 9 && S.time < 9.2 && !isSunday() && !contractOffer();
+    contractSlots().forEach(function (k) {
+      var c = S[k];
+      if (!c) { if (offerDue) { offerContract(k); offerDue = false; } return; }
+      if (!c.accepted && S.day > c.offeredDay) { S[k] = null; S.nextOffer = S.day + 2; logEvent('The contract offer from ' + clientName(c.client) + ' lapsed'); return; }
+      if (c.accepted && nowAbs() > c.until) contractSettle(k);
+    });
   }
   // the contract pays out the moment the count is met, or charges when the window closes short
-  function contractSettle() {
-    var c = S.contract; if (!c) return;
+  function contractSettle(k) {
+    var c = S[k || 'contract']; if (!c) return;
     if (c.done >= c.need) { pay(c.bonus, 'Contract bonus, ' + clientName(c.client)); addRep(6); toast('Contract complete: ' + money(c.bonus) + ' bonus', 'rare'); logEvent('Contract with ' + clientName(c.client) + ' complete: ' + money(c.bonus) + ' bonus', 'rare'); sfx('fanfare'); addXp(40); }
     else { pay(-c.penalty, 'Contract penalty, ' + clientName(c.client)); addRep(-4); toast('Contract missed: ' + c.done + ' of ' + c.need + '. Penalty ' + money(c.penalty), 'bad'); logEvent('Contract with ' + clientName(c.client) + ' missed (' + c.done + ' of ' + c.need + ')', 'bad'); }
-    S.contract = null; S.nextOffer = S.day + randi(2, 4);
+    S[k || 'contract'] = null; S.nextOffer = S.day + randi(2, 4);
   }
   function tickOrders() {
     var n = nowAbs();
     if (Math.floor(S.time * 5) !== S.flags.ctQ) { S.flags.ctQ = Math.floor(S.time * 5); contractTick(); }
     if (S.time >= 8 && S.time < 17 && !S.events.power && !isSunday()) {
       var openN = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }).length;
-      var maxOpen = 3 + S.level, gap = Math.max(0.8, 2.3 - S.level * 0.12);
+      var maxOpen = STAGE.maxOpen, gap = Math.max(0.8, 2.3 - S.level * 0.12);   // the volume is the building's (two open orders in the shed, ten in the annexes), the pace the level's
       // the first order waits for stock: until something is on site and signed for there is nothing a client can order
       if (S.day === 1 && !S.flags.firstOrder) { if (S.time >= 8.5 && n - (S.flags.firstTry || 0) >= 0.1) { S.flags.firstTry = n; if (genOrder(false)) { S.flags.firstOrder = 1; S.lastOrderAt = n; } } }
-      else if (openN < maxOpen && n - S.lastOrderAt >= gap && !S.flags.noOrders) { S.lastOrderAt = n + randf(-0.3, 0.3); genOrder(Math.random() < 0.12 && S.level >= 3); }
+      else if (openN < maxOpen && n - S.lastOrderAt >= gap && !S.flags.noOrders) { S.lastOrderAt = n + randf(-0.3, 0.3); genOrder(Math.random() < 0.12 && unlocked('rush')); }
     }
     for (var i = S.orders.length - 1; i >= 0; i--) {
       var o = S.orders[i];
@@ -93,38 +106,39 @@
   function benchAdd(sku, n) { S.bench.boxes[sku] = (S.bench.boxes[sku] || 0) + n; }
   function benchTake(sku, n) { var k = Math.min(n, S.bench.boxes[sku] || 0); if (!k) { delete S.bench.boxes[sku]; return 0; } S.bench.boxes[sku] -= k; if (S.bench.boxes[sku] <= 0) delete S.bench.boxes[sku]; return k; }   /* a SKU the bench never held used to go undefined minus zero, NaN, and the terminal read NaN / 16 */
   // what the cart would do at the bench: the boxes the orders still want come off it, and the bench's surplus goes onto it
-  function cartAtBench() { var need = benchNeed(), off = 0, on = 0, room = ECON.benchCap - benchCount(); S.cart.boxes.forEach(function (sku) { if ((need[sku] || 0) > 0 && off < room) { need[sku]--; off++; } }); var sur = benchSurplus(); for (var k in sur) on += sur[k]; on = Math.min(on, ECON.cartCap - (cartLoad() - off)); return { off: off, on: Math.max(0, on) }; }
+  function cartAtBench() { var need = benchNeed(), off = 0, on = 0, room = benchCapNow() - benchCount(); S.cart.boxes.forEach(function (sku) { if ((need[sku] || 0) > 0 && off < room) { need[sku]--; off++; } }); var sur = benchSurplus(); for (var k in sur) on += sur[k]; on = Math.min(on, ECON.cartCap - (cartLoad() - off)); return { off: off, on: Math.max(0, on) }; }
   function benchPrompt() {
     if (player.tool === 'cart') { var c = cartAtBench(); return (c.off ? 'Unload ' + c.off + ' wanted ' + (c.off === 1 ? 'box' : 'boxes') : '') + (c.off && c.on ? ', ' : '') + (c.on ? 'take ' + c.on + ' surplus back on the cart' : '') || 'Packing bench · nothing on the cart the orders want'; }
     if (isJack(player.tool)) return null;
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Damaged boxes do not ship: bin it';
-    if (S.hand && S.hand.kind === 'box') return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
+    if (S.hand && S.hand.kind === 'box') return benchCount() < benchCapNow() ? 'Put the box on the ' + (BOOT_STAGE === 0 ? 'table' : 'bench') : 'The ' + (BOOT_STAGE === 0 ? 'table' : 'bench') + ' is full';
     if (S.hand) return null;
     var sur = benchSurplus(), sn = 0; for (var k in sur) sn += sur[k];
-    return 'Packing bench · ' + benchCount() + (benchCount() === 1 ? ' box' : ' boxes') + ' · ' + openOrders().length + (openOrders().length === 1 ? ' open order' : ' open orders') + (sn ? ' · ' + sn + ' surplus (look at a box to take it back)' : '');
+    return (BOOT_STAGE === 0 ? 'Packing table · ' : 'Packing bench · ') + benchCount() + (benchCount() === 1 ? ' box' : ' boxes') + ' · ' + openOrders().length + (openOrders().length === 1 ? ' open order' : ' open orders') + (sn ? ' · ' + sn + ' surplus (look at a box to take it back)' : '');
   }
   function benchUse() {
     if (player.tool === 'cart') {
       // the boxes the open orders still want come off the cart; the surplus on the bench goes onto the cart, to go back on the racks
       var need = benchNeed(), off = 0, on = 0;
-      for (var i = S.cart.boxes.length - 1; i >= 0; i--) { var sku = S.cart.boxes[i]; if ((need[sku] || 0) > 0 && benchCount() < ECON.benchCap) { S.cart.boxes.splice(i, 1); benchAdd(sku, 1); need[sku]--; off++; } }
+      for (var i = S.cart.boxes.length - 1; i >= 0; i--) { var sku = S.cart.boxes[i]; if ((need[sku] || 0) > 0 && benchCount() < benchCapNow()) { S.cart.boxes.splice(i, 1); benchAdd(sku, 1); need[sku]--; off++; } }
       var sur = benchSurplus(); for (var k in sur) while (sur[k] > 0 && cartLoad() < ECON.cartCap) { benchTake(k, 1); S.cart.boxes.push(k); sur[k]--; on++; }
       if (off || on) { sfx('putdown'); introStep('bench'); toast((off ? off + ' onto the bench' : '') + (off && on ? ' · ' : '') + (on ? on + ' surplus onto the cart' : ''), 'good'); hudDirty = true; }
-      else if (S.cart.boxes.length) toast(benchCount() >= ECON.benchCap ? 'The bench is full.' : 'No open order wants what is on the cart. Put it back on the racks.', 'bad');
+      else if (S.cart.boxes.length) toast(benchCount() >= benchCapNow() ? 'The bench is full.' : 'No open order wants what is on the cart. Put it back on the racks.', 'bad');
       else toast('Nothing surplus on the bench.', '');
       return;
     }
     if (isJack(player.tool)) return;
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. Bin it.', 'bad'); return; }
-    if (S.hand && S.hand.kind === 'box') { if (benchCount() >= ECON.benchCap) { toast('The bench is full.', 'bad'); return; } benchAdd(S.hand.sku, 1); handSet(null); sfx('putdown'); introStep('bench'); return; }
+    if (S.hand && S.hand.kind === 'box') { if (benchCount() >= benchCapNow()) { toast('The ' + (BOOT_STAGE === 0 ? 'table' : 'bench') + ' is full.', 'bad'); return; } benchAdd(S.hand.sku, 1); handSet(null); sfx('putdown'); introStep('bench'); return; }
     if (S.hand) return;
+    if (BOOT_STAGE === 0) { var ready = openOrders().filter(canPack).sort(function (a, b) { return a.due - b.due; })[0]; if (ready) { if (packOrder(ready)) { toast('Packing #' + ready.num + ' by hand: four seconds', 'good'); } } else if (S.pack && S.pack.job) toast('Packing #' + (orderById(S.pack.job.order) || { num: '?' }).num + '...', ''); else toast(openOrders().length ? 'Not every box of an order is on the table yet.' : 'No open orders. Boxes you leave here stay on the table.', ''); return; }   // the shed: E on the table packs the first whole order on it, by hand
     sfx('click'); toast('Look at a box on the bench and press E to take it back. The terminal at the end packs the orders.', '');
   }
   // a box on the bench is a thing you look at: E takes it back into your hand (or onto the cart)
   function benchBoxPrompt(src) {
     var sku = src.sku, sur = benchSurplus()[sku] || 0, tag = sur ? ' · surplus, no order wants it' : ' · an open order wants it';
     if (player.tool === 'cart') return cartLoad() < ECON.cartCap ? 'Put the box of ' + skuName(sku) + ' on the cart' + tag : 'The cart is full';
-    if (S.hand && S.hand.kind === 'box' && !S.hand.damaged) return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
+    if (S.hand && S.hand.kind === 'box' && !S.hand.damaged) return benchCount() < benchCapNow() ? 'Put the box on the bench' : 'The bench is full';
     if (S.hand || player.tool) return null;
     return 'Take the box of ' + skuName(sku) + ' off the bench' + tag;
   }
@@ -148,16 +162,16 @@
   function surplusCount() { var sur = benchSurplus(), n = 0; for (var k in sur) n += sur[k]; S.floor.forEach(function (f) { if (f.kind === 'box' && !f.damaged && insideHall(f.x, f.z)) n++; }); return n; }
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }
-  function canPackShort(o) { var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }
+  function canPackShort(o) { if (BOOT_STAGE === 0) return false; var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }   // no short packs by hand in the shed
   function shelfPrompt(src) { var o = orderById(src.order); if (player.tool === 'cart') return cartLoad() < ECON.cartCap ? 'Load parcel #' + (o ? o.num : '?') + ' onto the cart (' + cartLoadText() + ')' : 'The cart is full'; if (S.hand || player.tool) return null; return 'Pick up parcel #' + (o ? o.num : '?') + (o ? ' for ' + clientName(o.client) : ''); }
   function shelfUse(src) { if (player.tool === 'cart') { if (cartLoad() >= ECON.cartCap) { sfx('bad'); return; } var kc = S.bench.parcels.indexOf(src.order); if (kc < 0) return; S.bench.parcels.splice(kc, 1); cartParcels().push(src.order); sfx('pickup'); hudDirty = true; return; } if (S.hand || player.tool) return; var k = S.bench.parcels.indexOf(src.order); if (k < 0) return; S.bench.parcels.splice(k, 1); handSet({ kind: 'parcel', order: src.order }); sfx('pickup'); }
 
   // ── Shipping ──────────────────────────────────────────────────────
   function shipOrder(o, door) {   // door: the outbound door the parcel left by; the wrong lane's door pays the forwarding fee
-    var late = orderLate(o), m = orderMode(o), wrong = door !== undefined && MODES[m].door !== door && !sorterOwned(), amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1) * (wrong ? MODE_FEE : 1));
+    var late = orderLate(o), m = orderMode(o), wrong = lanesOn() && door !== undefined && modeDoor(m) !== door && !sorterOwned(), amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1) * (wrong ? MODE_FEE : 1));
     if (wrong) S.stats.misrouted = (S.stats.misrouted || 0) + 1;
     pay(amount, 'Order #' + o.num + ' shipped to ' + clientName(o.client) + (late ? ' (late)' : '') + (o.short ? ' (short)' : '') + (wrong ? ' (' + m + ' parcel out of ' + dockLabel(door) + ': forwarding fee)' : ''));
-    if (!late && S.contract && S.contract.accepted && S.contract.client === o.client) { S.contract.done++; if (S.contract.done >= S.contract.need) contractSettle(); else feedPush('Contract: ' + S.contract.done + ' of ' + S.contract.need, 'good'); }
+    if (!late) contractSlots().forEach(function (k) { var c = S[k]; if (c && c.accepted && c.client === o.client) { c.done++; if (c.done >= c.need) contractSettle(k); else feedPush('Contract: ' + c.done + ' of ' + c.need, 'good'); } });
     addRep(late ? -1 : o.rush ? 3 : 1.5); S.stats.shipped++; if (late) S.stats.late++; addXp(XP.ship);
     o.state = 'shipped'; o.shippedAt = nowAbs(); o.paid = amount;
     for (var i = 0; i < S.orders.length; i++) if (S.orders[i] === o) { S.orders.splice(i, 1); break; }

@@ -164,13 +164,13 @@
     if (it.kind !== 'pallet') return false; var key = upperSlotFor(it.sku, it.n); if (!key) return false;
     slotAdd(key, it.sku, it.n); S.slots[key].pal = true; S.slots[key].wrapped = !!it.wrapped; S.stats.putaway += it.n; S.stats.upperIn = (S.stats.upperIn || 0) + 1; sfx('crate'); return true;
   } });
-  defProp('mezz', { label: 'mezzanine', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: mezzBuild, when: upperOwned });
-  defProp('lift', { label: 'goods lift', cat: 'hall', abs: true, keep: true, fixed: true, x: UPPER.lift.x, z: UPPER.lift.z, rot: 0, build: liftBuild, when: upperOwned });
-  defProp('rack5', { label: 'upper rack row', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: UPPER.rowZ, rot: 0, build: upperRackBuild, after: raiseToDeck, when: upperOwned });
-  defProp('gantry5', { label: 'upper gantry picker', cat: 'hall', abs: true, keep: true, fixed: true, x: -24, z: UPPER.rowZ, rot: 0, build: gantryBuild(UPPER.row), after: raiseToDeck, when: upperOwned });
-  defProp('upperFeed', { label: 'lift feed belt', cat: 'hall', abs: true, keep: true, fixed: true, x: UPPER.lift.x + 1.4, z: UPPER.lift.z, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperFeed.path); }, when: upperOwned });
-  defProp('upperPick', { label: 'upper pick belt', cat: 'hall', abs: true, keep: true, fixed: true, x: 22.0, z: UPPER.rowZ, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperPick.path); c.sign(['TO THE CHUTE'], 0.9, 0.14, 0.5, UPPER.y + 1.3, 3.8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }, when: upperOwned });
-  defProp('upperChute', { label: 'upper chute', cat: 'hall', abs: true, keep: true, fixed: true, x: 22.0, z: UPPER.z1 - 0.1, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperChute.path); c.sign(['DOWN TO THE PICK LINE'], 0.9, 0.14, 0.5, UPPER.y + 1.0, 0.6, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }, when: upperOwned });
+  defProp('mezz', { stage: 3, label: 'mezzanine', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: mezzBuild, when: upperOwned });
+  defProp('lift', { stage: 3, label: 'goods lift', cat: 'hall', abs: true, keep: true, fixed: true, x: UPPER.lift.x, z: UPPER.lift.z, rot: 0, build: liftBuild, when: upperOwned });
+  defProp('rack5', { stage: 3, label: 'upper rack row', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: UPPER.rowZ, rot: 0, build: upperRackBuild, after: raiseToDeck, when: upperOwned });
+  defProp('gantry5', { stage: 3, label: 'upper gantry picker', cat: 'hall', abs: true, keep: true, fixed: true, x: -24, z: UPPER.rowZ, rot: 0, build: gantryBuild(UPPER.row), after: raiseToDeck, when: upperOwned });
+  defProp('upperFeed', { stage: 3, label: 'lift feed belt', cat: 'hall', abs: true, keep: true, fixed: true, x: UPPER.lift.x + 1.4, z: UPPER.lift.z, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperFeed.path); }, when: upperOwned });
+  defProp('upperPick', { stage: 3, label: 'upper pick belt', cat: 'hall', abs: true, keep: true, fixed: true, x: 22.0, z: UPPER.rowZ, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperPick.path); c.sign(['TO THE CHUTE'], 0.9, 0.14, 0.5, UPPER.y + 1.3, 3.8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }, when: upperOwned });
+  defProp('upperChute', { stage: 3, label: 'upper chute', cat: 'hall', abs: true, keep: true, fixed: true, x: 22.0, z: UPPER.z1 - 0.1, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperChute.path); c.sign(['DOWN TO THE PICK LINE'], 0.9, 0.14, 0.5, UPPER.y + 1.0, 0.6, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }, when: upperOwned });
 
   function groundStock(sku) { var n = 0; for (var k in S.slots) { var s = S.slots[k]; if (s && s.n > 0 && s.sku === sku && slotParse(k).r !== UPPER.row) n += s.n; } return n; }
   function buildUpper() { ['mezz', 'lift', 'rack5', 'gantry5', 'upperFeed', 'upperPick', 'upperChute'].forEach(function (id) { buildProp(id); }); if (S.up.sorter) buildSorter(); else { beltsChanged(); if (!edit.on) { unbakeStatic(); bakeStatic(); } } }

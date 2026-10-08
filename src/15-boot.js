@@ -1,6 +1,10 @@
 //@ boot: load the save, build the world, the frame loop, autosave, the window handle
   // ── Boot ──────────────────────────────────────────────────────────
   var loaded = load(); sorterSpots();   // a save that owns the sortation deck keeps jack 2 out from under the spirals
+  if (loaded && S.site !== BOOT_STAGE) { S.site = BOOT_STAGE; if (S.siteDue < S.site) S.siteDue = S.site; stageFlags(S.up, S.site); }   // the page is laid out for the stage the raw save said: the state agrees with the walls
+  // the walls moved overnight: the tools stand in the bays the new layout gives them, not where the old hall left them (jack 2 would be under the spirals)
+  if (S.flags.rebuiltFrom !== undefined) { S.jack.x = SPOT.jack.x; S.jack.z = SPOT.jack.z; S.jack.rot = Math.PI / 2; if (S.jack2) { S.jack2.x = SPOT.jack2.x; S.jack2.z = SPOT.jack2.z; S.jack2.rot = S.up.sorter ? Math.PI : -Math.PI / 2; } S.cart.x = SPOT.cart.x; S.cart.z = SPOT.cart.z; S.cart.rot = 0; S.fork.x = SPOT.fork.x; S.fork.z = SPOT.fork.z; S.fork.yaw = Math.PI; S.fork.lift = 0.1; }
+  if (S.flags.rebuiltFrom !== undefined) { var rbFrom = S.flags.rebuiltFrom; delete S.flags.rebuiltFrom; setTimeout(function () { toast('The builders were in: welcome to ' + stageName(S.site).toLowerCase() + '.', 'rare'); feedPush(LADDER_TIPS[STAGES[S.site].level] || ('The building grew from ' + stageName(rbFrom).toLowerCase() + '.'), 'good'); }, 1500); }
   buildWorld(); buildTools(); buildScanner();
   S.trucks.forEach(buildTruckMesh); S.staff.forEach(buildStaffMesh);
   // a packed order whose parcel is nowhere (an old save, say) goes back to open with its boxes on the bench
@@ -13,14 +17,15 @@
   buildAgv();
   if (!/nobake=1/.test(location.search)) bakeStatic();
   camera.position.set(12, 3.6, 0); camera.lookAt(0, 1.4, 0); if (!loaded) S.time = 10.5;
-  $('dc-start-stats').innerHTML = loaded ? ['Day ' + S.day, 'Level ' + S.level, money(S.bank), Math.round(S.rep) + ' rep', S.stats.shipped + ' shipped'].map(function (s) { return '<span>' + s + '</span>'; }).join('') : ['New depot', money(ECON.start), '2 rack rows', 'two pallet jacks'].map(function (s) { return '<span>' + s + '</span>'; }).join('');
+  $('dc-start-stats').innerHTML = loaded ? ['Day ' + S.day, 'Level ' + S.level, stageName(S.site), money(S.bank), Math.round(S.rep) + ' rep', S.stats.shipped + ' shipped'].map(function (s) { return '<span>' + s + '</span>'; }).join('') : ['New depot', 'The shed', money(ECON.start), 'one rack, one jack, a van'].map(function (s) { return '<span>' + s + '</span>'; }).join('');
   $('dc-start-note').textContent = loaded ? 'Slot ' + BOOT_SLOT + ' · last saved ' + (S.savedAt ? new Date(S.savedAt).toLocaleString() : 'never') : 'Slot ' + BOOT_SLOT + ' · the first truck is due at 07:30';
 
   function enter() {
     if (ui.started) return;
     ui.started = true; $('dc-start').hidden = true; $('dc-hud').hidden = false; hudDirty = true;
     lockPointer(); sfx('ok');
-    if (!loaded) { S.time = DAY_START; logEvent('Welcome to Depot Co. Open dock IN 1: the first truck is due at 07:30.', 'rare'); save(); }   // the menu backdrop showed 10:30; the shift starts at 06:00
+    if (!loaded) { S.time = DAY_START; logEvent('Welcome to Depot Co. This is your shed. Open the roll door IN 1: the first truck is due at 07:30.', 'rare'); save(); }   // the menu backdrop showed 10:30; the shift starts at 06:00
+    if (/[?&]dev=1/.test(location.search) && !devLink.on) devLinkToggle();   // started with --dev-link: linked from the first frame
     else logEvent('Back on shift. Day ' + S.day + ', ' + fmtTime(S.time) + '.');
   }
   $('dc-start-btn').addEventListener('click', enter);
@@ -35,7 +40,7 @@
     if (ui.started && !ui.blocked()) { if (photo.on) photoTick(dt); else { tickWorld(dt); updatePlayer(dt); } autosaveT += dt; if (autosaveT > 30) { autosaveT = 0; save(); } }   // photo mode holds the world and flies the camera
     worldTime += dt;
     doorAnim(dt); placeTools(dt); syncInstances(); lighting(dt); updateLightBudget(); shadowTick(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); tickScanner(dt); tickReport(dt); editTick(); tickTimeClock(dt); tickPc(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
-    interact(); updatePrompt(); updateHud(dt);
+    interact(); updatePrompt(); updateHud(dt); tickLevelCard(dt); tickDevLink(dt);
     renderFrame(dt);
     if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + (post.calls || renderer.info.render.calls) + ' draws'; fpsN = 0; fpsT = 0; } }
   }
@@ -70,7 +75,9 @@
       propWorld: propWorld, rdesk: rdesk, rdeskUse: rdeskUse, rdeskBoxUse: rdeskBoxUse, rdeskStart: rdeskStart, returnPlace: returnPlace, returnById: returnById, addReturn: addReturn, returnsPending: returnsPending, loadPrompt: loadPrompt, receivePallet: receivePallet,
       photo: photo, photoToggle: photoToggle, photoTick: photoTick, drawScanMap: drawScanMap, MAP_PAGE: MAP_PAGE, closeDay: closeDay, reportHtml: reportHtml, dayReportShown: function () { return !$('h-report').hidden; }, outNext: outNext, orderLate: orderLate, truckWarn: truckWarn,
       updateHud: updateHud, updatePlayer: updatePlayer, photoZoom: photoZoom, scanReturnsNav: scanReturnsNav, SET: SET, contractAccept: contractAccept, contractDecline: contractDecline, wallPlanes: wallPlanes, propWhere: propWhere, propSeed: propSeed, buff: buff, dress: dress,
-      addXp: addXp, counts: function () { return { draws: (post.calls || renderer.info.render.calls), inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; }
+      addXp: addXp, counts: function () { return { draws: (post.calls || renderer.info.render.calls), inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; },
+      // 1.21.0: the ladder and the stages
+      BOOT_STAGE: BOOT_STAGE, stageForOwned: stageForOwned, dockLabel: dockLabel, dockOwned: dockOwned, removePallet: removePallet, DOCKS: DOCKS, TRUCK_IN: TRUCK_IN, UPGRADES: UPGRADES, canPackShort: canPackShort, nextOutLeave: nextOutLeave, toolPrompt: toolPrompt, STAGES: STAGES, STAGE: STAGE, STAGE_LAST: STAGE_LAST, stageHas: stageHas, stageForLevel: stageForLevel, stageName: stageName, stageFlags: stageFlags, stageEarn: stageEarn, stageRebuild: stageRebuild, UNLOCK: UNLOCK, unlocked: unlocked, XP_TABLE: XP_TABLE, XP_FOR: XP_FOR, LEVEL_CAP: LEVEL_CAP, LEVEL_BONUS: LEVEL_BONUS, STAFF_CAPS: STAFF_CAPS, staffCapAt: staffCapAt, levelOpens: levelOpens, nextLevelText: nextLevelText, LADDER_NOTES: LADDER_NOTES, skuOpen: skuOpen, unlockedSkus: unlockedSkus, modeDock: modeDock, modeDoor: modeDoor, lanesOn: lanesOn, VAN: VAN, FIRE_X: FIRE_X, SHIP_PATH: SHIP_PATH, LOADER_DOORS: LOADER_DOORS, BAY: BAY, shelfCap: shelfCap, benchCapNow: benchCapNow, stageRent: stageRent, propStageOk: propStageOk, applyLevelUnlocks: applyLevelUnlocks, contractSlots: contractSlots, contractsAll: contractsAll, contractOffer: contractOffer, offerContract: offerContract, contractSettle: contractSettle, devCommand: devCommand, DEV_COMMANDS: DEV_COMMANDS, devLink: devLink, devLinkToggle: devLinkToggle, devState: devState, scanPageOpen: scanPageOpen, pcApps: pcApps, pcTabs: pcTabs, shopShows: shopShows, INTRO: INTRO, introText: introText, rowBays: rowBays, levelCardShown: function () { return !$('h-level').hidden; }, truckDockX: truckDockX, trailerBounds: trailerBounds, truckParcelPos: truckParcelPos, hdoors: hdoors, doors: doors, yard: yard, world: world, RACK_SLOTS: function () { return Object.keys(slotHits).length; }
     }
   };
 })();

@@ -6,8 +6,8 @@
   // trucks at the docks, and the waypoint ring. North is up; the inbound docks are on the left.
   var MAP_PAGE = 8;
   function mapBounds() {
-    var b = { x0: -HALL.x - 16, x1: HALL.x + 16, z0: WING.z0 - 2, z1: HALL.z + 3 };   // the hall, the wing, and the trucks on both aprons
-    for (var h in HALLS) if (hallOwned(h) || S.level >= 7) { var H = HALLS[h]; b.x0 = Math.min(b.x0, H.x0 - (H.dockIn !== undefined ? 16 : 2)); b.x1 = Math.max(b.x1, H.x1 + 2); b.z0 = Math.min(b.z0, H.z0 - 2); }
+    var b = { x0: -HALL.x - 16, x1: HALL.x + 16, z0: stageHas('wing') ? WING.z0 - 2 : -HALL.z - 3, z1: HALL.z + (BOOT_STAGE === 0 ? 8 : 3) };   // the hall, the wing (from the hall stage), the trucks on both aprons, the van at the shed front
+    for (var h in HALLS) if (hallOwned(h) || stageHas('hallDoors')) { var H = HALLS[h]; b.x0 = Math.min(b.x0, H.x0 - (H.dockIn !== undefined ? 16 : 2)); b.x1 = Math.max(b.x1, H.x1 + 2); b.z0 = Math.min(b.z0, H.z0 - 2); }
     return b;
   }
   function drawScanMap(c, x, y, w, h) {
@@ -19,11 +19,12 @@
     c.fillStyle = 'rgba(255,255,255,0.035)'; c.fillRect(X(-HALL.x - 16), Z(-17), 16 * s, 14 * s); c.fillRect(X(HALL.x), Z(returnsHall() ? -37 : -25), 16 * s, (returnsHall() ? 34 : 22) * s);   // the aprons the trucks back onto (the east one reaches the returns dock once the returns hall is open)
     var FLOOR = 'rgba(120,140,160,0.13)', WALL = 'rgba(200,215,230,0.55)';
     rect(-HALL.x, HALL.x, -HALL.z, HALL.z, FLOOR, WALL);
-    rect(WING.x0, WING.x1, WING.z0, WING.z1, FLOOR, WALL); label('WING', (WING.x0 + WING.x1) / 2, WING.z0 + 3.2, '#6b7784', 8);
-    for (var hk in HALLS) { var H = HALLS[hk], own = hallOwned(hk); if (!own && S.level < 7) continue; rect(H.x0, H.x1, H.z0, H.z1, own ? FLOOR : null, own ? WALL : 'rgba(200,215,230,0.22)', !own); label(H.name.toUpperCase(), (H.x0 + H.x1) / 2, H.z0 + 3.2, own ? '#6b7784' : '#3d4652', 8); }
-    rect(HALL.x - 7.5, HALL.x, 18.5, HALL.z, 'rgba(245,181,61,0.08)', 'rgba(245,181,61,0.35)'); label('OFFICE', HALL.x - 3.75, 21.8, '#f5b53d', 7);
-    rect(-HALL.x, -HALL.x + 4.5, 18.5, HALL.z, null, 'rgba(200,215,230,0.3)'); label('LOBBY', -HALL.x + 2.25, 21.8, '#6b7784', 6);
-    rect(-HALL.x, -HALL.x + 7, -HALL.z, -20.2, null, 'rgba(200,215,230,0.3)'); label('BREAK', -HALL.x + 3.5, -21.6, '#6b7784', 6);
+    if (stageHas('wing')) { rect(WING.x0, WING.x1, WING.z0, WING.z1, FLOOR, WALL); label('WING', (WING.x0 + WING.x1) / 2, WING.z0 + 3.2, '#6b7784', 8); }
+    for (var hk in HALLS) { var H = HALLS[hk], own = hallOwned(hk); if (!own && !stageHas('hallDoors')) continue; rect(H.x0, H.x1, H.z0, H.z1, own ? FLOOR : null, own ? WALL : 'rgba(200,215,230,0.22)', !own); label(H.name.toUpperCase(), (H.x0 + H.x1) / 2, H.z0 + 3.2, own ? '#6b7784' : '#3d4652', 8); }
+    if (stageHas('rooms')) { var zs = HALL.z - 24, zn = 24 - HALL.z; rect(HALL.x - 7.5, HALL.x, 18.5 + zs, HALL.z, 'rgba(245,181,61,0.08)', 'rgba(245,181,61,0.35)'); label('OFFICE', HALL.x - 3.75, 21.8 + zs, '#f5b53d', 7);
+      rect(-HALL.x, -HALL.x + 4.5, 18.5 + zs, HALL.z, null, 'rgba(200,215,230,0.3)'); label('LOBBY', -HALL.x + 2.25, 21.8 + zs, '#6b7784', 6);
+      rect(-HALL.x, -HALL.x + 7, -HALL.z, -20.2 + zn, null, 'rgba(200,215,230,0.3)'); label('BREAK', -HALL.x + 3.5, -21.6 + zn, '#6b7784', 6); }
+    else label('THE SHED', 0, -HALL.z - 1.2, '#6b7784', 7);
     if (upperOwned()) { rect(-HALL.x, HALL.x, UPPER.z0, UPPER.z1, 'rgba(120,189,245,0.08)', 'rgba(120,189,245,0.3)'); label(sorterOwned() ? 'SORTATION DECK' : 'MEZZANINE', 0, UPPER.z1 - 1.0, '#78bdf5', 7); }
     // the rack rows you own, lettered, and the upper row
     groundRows().forEach(function (r) { var p0 = rackSlotPos(r, 0, 0), p1 = rackSlotPos(r, rowBays(r) - 1, 0), lo = Math.min(p0.x, p1.x) - RACK.bayW / 2, hi = Math.max(p0.x, p1.x) + RACK.bayW / 2; rect(lo, hi, p0.z - RACK.depth / 2, p0.z + RACK.depth / 2, 'rgba(245,181,61,0.55)', null); label(rowLetter(r), lo - 1.0, p0.z + 1.0, '#f5b53d', 7, 'right'); });

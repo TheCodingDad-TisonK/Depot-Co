@@ -24,17 +24,17 @@
   function discTex(col) { return tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, col); g.addColorStop(0.45, col); g.addColorStop(0.6, 'rgba(255,240,200,0.35)'); g.addColorStop(1, 'rgba(255,240,200,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); }); }
 
   function buildYard() {
-    var X = HALL.x, Z = HALL.z;
+    var X = HALL.x, Z = HALL.z, F = STAGE.fence, big = BOOT_STAGE >= 2;   // 1.21.0: the yard is the stage's: its slab, its fence, its lanes; the car park, the road and the neighbours come with the stages that have them
     // the ground: grass to the horizon, the asphalt yard, the plinth the hall stands on, a lighter apron round it
     plane(600, 600, MAT.grass, 0, YARD_Y - 0.03, 0, -Math.PI / 2);
-    plane(170, 140, MAT.yard, 0, YARD_Y, -8, -Math.PI / 2);
+    plane(big ? 170 : 2 * F.x + 2, big ? 140 : F.z1 - F.z0 + 2, MAT.yard, 0, YARD_Y, big ? -8 : (F.z0 + F.z1) / 2, -Math.PI / 2);
     box(2 * X + 0.6, 1.2, 2 * Z + 0.6, MAT.grey, 0, YARD_Y + 0.6, 0);
     // street furniture in the slab: manhole covers, gully grates against the plinth, a kerb round the car park, wheel stops in the bays, weeds along the fence
     var IRON = std({ color: 0x2c2e31, roughness: 0.6, metalness: 0.5 });
-    [[-30, -22], [8, 30], [34, 10], [-40, 26], [22, -30], [-10, 36]].forEach(function (p) { cyl(0.42, 0.02, IRON, p[0], YARD_Y + 0.012, p[1], null, 20); var ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.02, 6, 24), MAT.grey); ring.rotation.x = Math.PI / 2; ring.position.set(p[0], YARD_Y + 0.012, p[1]); scene.add(ring); for (var mb = 0; mb < 2; mb++) box(0.06, 0.012, 0.3, MAT.black, p[0] + (mb ? 0.18 : -0.18), YARD_Y + 0.03, p[1]); });
+    [[-30, -22], [8, 30], [34, 10], [-40, 26], [22, -30], [-10, 36]].filter(function (p) { return Math.abs(p[0]) < F.x - 2 && p[1] > F.z0 + 2 && p[1] < F.z1 - 2 && !(Math.abs(p[0]) < X + 1 && Math.abs(p[1]) < Z + 1); }).forEach(function (p) { cyl(0.42, 0.02, IRON, p[0], YARD_Y + 0.012, p[1], null, 20); var ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.02, 6, 24), MAT.grey); ring.rotation.x = Math.PI / 2; ring.position.set(p[0], YARD_Y + 0.012, p[1]); scene.add(ring); for (var mb = 0; mb < 2; mb++) box(0.06, 0.012, 0.3, MAT.black, p[0] + (mb ? 0.18 : -0.18), YARD_Y + 0.03, p[1]); });
     [[-X - 1.0, -11], [-X - 1.0, 11], [X + 1.0, -11], [X + 1.0, 11], [0, Z + 1.0], [-10, Z + 1.0], [10, -Z - 1.0]].forEach(function (p) { box(0.5, 0.02, 0.35, IRON, p[0], YARD_Y + 0.012, p[1]); for (var gb = 0; gb < 6; gb++) box(0.5, 0.012, 0.025, MAT.black, p[0], YARD_Y + 0.03, p[1] - 0.14 + gb * 0.056); plane(1.2, 0.8, std({ color: 0x1e2024, roughness: 0.9, transparent: true, opacity: 0.35 }), p[0], YARD_Y + 0.011, p[1], -Math.PI / 2); });
-    box(13.6, 0.12, 0.25, MAT.grey, -23.6, YARD_Y + 0.06, 34.6); box(0.25, 0.12, 6.2, MAT.grey, -30.5, YARD_Y + 0.06, 31.5); [0, 1, 2, 3, 4].forEach(function (k) { box(1.6, 0.1, 0.18, MAT.yellow, -27.65 + k * 2.7, YARD_Y + 0.05, 33.4); });
-    var WEED = std({ color: 0x5d7a3a, roughness: 1, flatShading: true }); for (var wd = -70; wd <= 70; wd += randf(2.5, 5)) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(wd, YARD_Y + 0.08, 56.6 + randf(-0.3, 0.3)); wg.scale.y = 0.6; scene.add(wg); }
+    if (stageHas('carpark')) { box(13.6, 0.12, 0.25, MAT.grey, -23.6, YARD_Y + 0.06, 34.6); box(0.25, 0.12, 6.2, MAT.grey, -30.5, YARD_Y + 0.06, 31.5); [0, 1, 2, 3, 4].forEach(function (k) { box(1.6, 0.1, 0.18, MAT.yellow, -27.65 + k * 2.7, YARD_Y + 0.05, 33.4); }); }
+    var WEED = std({ color: 0x5d7a3a, roughness: 1, flatShading: true }); for (var wd = -F.x + 14; wd <= F.x - 14; wd += randf(2.5, 5)) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(wd, YARD_Y + 0.08, F.z1 - 3.4 + randf(-0.3, 0.3)); wg.scale.y = 0.6; scene.add(wg); }
     // the sky: a dome with a zenith-to-horizon gradient and a haze band at the horizon, driven by the time of day
     var skyMat = new THREE.ShaderMaterial({ uniforms: { top: { value: new THREE.Color(0x4f7fb8) }, mid: { value: new THREE.Color(0x8fb0d4) }, bot: { value: new THREE.Color(0xd6e2ec) } }, side: THREE.BackSide, depthWrite: false, fog: false,
       vertexShader: 'varying vec3 vW; void main() { vW = normalize((modelMatrix * vec4(position, 1.0)).xyz); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -51,9 +51,9 @@
       box(1.1, 1.2, 1.6, ST, sx * (X + 0.85), YARD_Y + 0.6, d.z + fz * 3.6);
       [-0.5, 0.5].forEach(function (hx) { var px = sx * (X + 0.85 + hx); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 3.0, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 4.3, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 0.5, d.z + fz * 6.1, null, 8); var rail = cyl(0.025, 1.5, HR, px, YARD_Y + 2.2, d.z + fz * 3.65, null, 8); rail.rotation.x = Math.PI / 2; var rail2 = cyl(0.025, 2.2, HR, px, YARD_Y + 1.6, d.z + fz * 5.2, null, 8); rail2.rotation.x = Math.PI / 2 + 0.58 * fz; });
       solid(sx * (X + 0.3), sx * (X + 1.4), d.z + fz * 2.8, d.z + fz * 6.3, YARD_Y, YARD_Y + 1.3); }
-      var side = d.side, x0 = side * (X + 1), x1 = side * 76, cx = (x0 + x1) / 2, len = Math.abs(x1 - x0);
+      var side = d.side, x0 = side * (X + 1), x1 = side * (F.x - 8), cx = (x0 + x1) / 2, len = Math.abs(x1 - x0);
       plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z - 2.2, -Math.PI / 2); plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z + 2.2, -Math.PI / 2);
-      for (var x = side * (X + 8); Math.abs(x) < 74; x += side * 4) plane(2, 0.12, MAT.whiteLine, x, YARD_Y + 0.012, d.z, -Math.PI / 2);
+      for (var x = side * (X + 8); Math.abs(x) < F.x - 10; x += side * 4) plane(2, 0.12, MAT.whiteLine, x, YARD_Y + 0.012, d.z, -Math.PI / 2);
       for (var k = 0; k < 6; k++) { var hp = plane(5, 0.14, MAT.yellowLine, side * (X + 3.5), YARD_Y + 0.013, d.z - 2 + k * 0.8, -Math.PI / 2); hp.rotation.z = side * 0.6; }
       sign([DOOR_MAP[d.i].dir === 'ret' ? 'R' : String(DOOR_MAP[d.i].dock + 1)], 2.4, 2.4, side * (X + 4), YARD_Y + 0.014, d.z - 1, 0, { w: 128, h: 128, bg: '#3b3d40', fg: '#d8dbdf' }).rotation.set(-Math.PI / 2, 0, side > 0 ? -Math.PI / 2 : Math.PI / 2);
       // the dock shelter and its lamp
@@ -82,22 +82,33 @@
       solid(Math.min(x0, x1) - 0.06, Math.max(x0, x1) + 0.06, Math.min(z0, z1) - 0.06, Math.max(z0, z1) + 0.06, YARD_Y, YARD_Y + 2.6);   // the fence is a fence: nobody walks through it
       [0, 1, 2].forEach(function (k) { var wy = YARD_Y + 2.62 + k * 0.17, wo = 0.22 + k * 0.14; var wire = cyl(0.006, len, FWIRE, (x0 + x1) / 2 + nx * wo, wy, (z0 + z1) / 2 + nz * wo, null, 4); wire.rotation.x = Math.PI / 2; wire.rotation.z = 0; wire.rotation.order = 'YXZ'; wire.rotation.y = ang; });
     }
-    fenceRun(-84, -68, 84, -68); fenceRun(-84, 60, 84, 60);
+    // the fence, the stage's: a run on each side with a gap where every truck lane goes through (the van's lane too, in the shed's yard),
+    // and from the small hall on a barrier lane per dock with its gatehouse and guard. The lane gaps come from the dock lists, so a
+    // dock the stage has not built yet has no hole in the fence waiting for it.
+    fenceRun(-F.x, F.z0, F.x, F.z0); fenceRun(-F.x, F.z1, F.x, F.z1);
+    function laneGaps(side) {
+      var zs = (side < 0 ? DOCKS.in : DOCKS.out.concat(DOCKS.ret)).map(function (d) { return d.z; }); if (side < 0 && TRUCK_OUT[0] && TRUCK_OUT[0].van) zs.push(VAN.z);
+      var gaps = zs.sort(function (a, b) { return a - b; }).map(function (z) { return [z - 3.6, z + 3.6]; }), out = [];
+      gaps.forEach(function (g) { var last = out[out.length - 1]; if (last && g[0] <= last[1] + 0.1) last[1] = Math.max(last[1], g[1]); else out.push(g.slice()); });   /* lanes 8 m apart share one gap, as the two IN docks always did */
+      return out;
+    }
     [-1, 1].forEach(function (side) {
-      var gx = side * 84; if (side < 0) { fenceRun(gx, -68, gx, -37.6); fenceRun(gx, -30.4, gx, -17.6); solid(gx - 0.5, gx + 0.5, -37.6, -30.4, YARD_Y, YARD_Y + 1.1); solid(gx - 0.5, gx + 0.5, -17.6, -2.4, YARD_Y, YARD_Y + 1.1); } else { fenceRun(gx, -68, gx, -37.6); fenceRun(gx, -30.4, gx, -25.2); solid(gx - 0.5, gx + 0.5, -37.6, -30.4, YARD_Y, YARD_Y + 1.1); solid(gx - 0.5, gx + 0.5, -25.2, -2.4, YARD_Y, YARD_Y + 1.1); } fenceRun(gx, -2.4, gx, 60);   // gaps where the lanes run: IN 3 at z -34, the docks at -14 and -6, OUT 3 at -21.6; a waist-high bar keeps you in
-      // two barrier lanes on the dock lines, an island between them, and the gatehouse with the guard
-      [[-14, 'DOCK 1'], [-6, 'DOCK 2']].forEach(function (lane) {
-        var lz = lane[0], post = cyl(0.1, 1.2, MAT.steelDark, gx, YARD_Y + 0.6, lz + 3.2, null, 10); box(0.5, 0.9, 0.4, MAT.hazard, gx, YARD_Y + 0.45, lz + 3.2); box(0.3, 0.35, 0.3, MAT.steelDark, gx, YARD_Y + 1.1, lz + 3.2);
+      var gx = side * F.x, z = F.z0; laneGaps(side).forEach(function (g) { if (g[0] > z) fenceRun(gx, z, gx, g[0]); solid(gx - 0.5, gx + 0.5, g[0], g[1], YARD_Y, YARD_Y + 1.1); z = g[1]; }); if (z < F.z1) fenceRun(gx, z, gx, F.z1);   // a waist-high bar keeps you in where the fence is open
+      if (!stageHas('gates')) return;
+      // a barrier lane on every dock line (the first two at most), an island between two, and the gatehouse with the guard
+      var lanes = (side < 0 ? DOCKS.in : DOCKS.out).filter(function (d) { return Math.abs(d.z) < Z - 1; }).slice(0, 2);
+      lanes.forEach(function (d, li) {
+        var lz = d.z, post = cyl(0.1, 1.2, MAT.steelDark, gx, YARD_Y + 0.6, lz + 3.2, null, 10); box(0.5, 0.9, 0.4, MAT.hazard, gx, YARD_Y + 0.45, lz + 3.2); box(0.3, 0.35, 0.3, MAT.steelDark, gx, YARD_Y + 1.1, lz + 3.2);
         var arm = new THREE.Group(); arm.userData.dynamic = true; arm.position.set(gx, YARD_Y + 1.05, lz + 3.0); scene.add(arm);
         var bar = box(0.1, 0.1, 6.2, MAT.white, 0, 0, -3.1, arm); for (var s = 0; s < 6; s += 2) box(0.102, 0.102, 0.95, MAT.red, 0, 0, -0.5 - s, arm); box(0.16, 0.6, 0.16, MAT.black, 0, -0.1, 0.1, arm); cyl(0.04, 0.5, MAT.steelDark, 0, -0.4, -5.9, arm, 8);
         yard.gates.push({ g: arm, side: side, z: lz, open: 0 });
         cyl(0.1, 1.2, MAT.steelDark, gx, YARD_Y + 0.6, lz - 3.2, null, 10); box(0.5, 0.9, 0.4, MAT.hazard, gx, YARD_Y + 0.45, lz - 3.2);
         for (var sb = 0; sb < 3; sb++) plane(1.6, 0.5, MAT.hazard, gx + side * (6 + sb * 2.5), YARD_Y + 0.013, lz, -Math.PI / 2);   // the speed bumps
-        sign([lane[1]], 0.9, 0.5, gx + side * 2.5, YARD_Y + 2.6, lz, side > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 128, bg: '#1b232c', fg: '#f5b53d' }); cyl(0.04, 2.6, MAT.steelDark, gx + side * 2.5, YARD_Y + 1.3, lz - 0.5, null, 6);
+        sign([(side < 0 ? 'DOCK ' : 'OUT ') + (li + 1)], 0.9, 0.5, gx + side * 2.5, YARD_Y + 2.6, lz, side > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 128, bg: '#1b232c', fg: '#f5b53d' }); cyl(0.04, 2.6, MAT.steelDark, gx + side * 2.5, YARD_Y + 1.3, lz - 0.5, null, 6);
       });
-      box(0.6, 0.3, 2.0, MAT.grey, gx, YARD_Y + 0.15, -10); cyl(0.1, 1.0, MAT.yellow, gx, YARD_Y + 0.5, -9.2, null, 10); cyl(0.1, 1.0, MAT.yellow, gx, YARD_Y + 0.5, -10.8, null, 10);
+      if (lanes.length > 1) { var iz = (lanes[0].z + lanes[1].z) / 2; box(0.6, 0.3, 2.0, MAT.grey, gx, YARD_Y + 0.15, iz); cyl(0.1, 1.0, MAT.yellow, gx, YARD_Y + 0.5, iz + 0.8, null, 10); cyl(0.1, 1.0, MAT.yellow, gx, YARD_Y + 0.5, iz - 0.8, null, 10); }
       // the gatehouse: glazed on three sides, a counter, a door at the back, a roof with an overhang, the guard inside; inside the fence line, clear of its posts
-      var hx = gx - side * 1.6, hz = 6.3; solid(hx - 1.45, hx + 1.45, hz - 1.45, hz + 1.45, YARD_Y, YARD_Y + 3);
+      var hx = gx - side * 1.6, hz = Math.min(6.3, F.z1 - 6); solid(hx - 1.45, hx + 1.45, hz - 1.45, hz + 1.45, YARD_Y, YARD_Y + 3);
       box(2.8, 0.2, 2.8, MAT.grey, hx, YARD_Y + 0.1, hz); box(2.8, 1.0, 0.12, MAT.plaster, hx, YARD_Y + 0.7, hz - 1.34); box(0.12, 1.0, 2.8, MAT.plaster, hx - side * 1.34, YARD_Y + 0.7, hz); box(0.12, 1.0, 2.8, MAT.plaster, hx + side * 1.34, YARD_Y + 0.7, hz); box(2.8, 2.6, 0.12, MAT.plaster, hx, YARD_Y + 1.5, hz + 1.34);
       [[0, -1.34, 0], [-1.34, 0, 1], [1.34, 0, 1]].forEach(function (wl) { var gl = box(wl[2] ? 0.04 : 2.6, 1.3, wl[2] ? 2.6 : 0.04, MAT.glass, hx + (wl[2] ? wl[0] * side : 0), YARD_Y + 1.85, hz + wl[1], null); gl.userData.noBake = true; });
       [[0, -1.34, 0], [-1.34, 0, 1], [1.34, 0, 1]].forEach(function (wl) { for (var c = -0.9; c <= 0.9; c += 0.9) cyl(0.025, 1.3, MAT.steelDark, hx + (wl[2] ? wl[0] * side : c), YARD_Y + 1.85, hz + (wl[2] ? c : wl[1]), null, 6); });
@@ -111,8 +122,8 @@
       var guard = makeHuman({ vest: MAT.hivis, cap: true, capMat: MAT.black, shirt: MAT.jeans }); guard.position.set(hx, YARD_Y + 0.2, hz - 0.2); guard.userData.baseY = YARD_Y + 0.2; guard.userData.dynamic = true; guard.rotation.y = Math.PI; scene.add(guard); yard.guards.push({ g: guard, side: side });
     });
     // the staff car park, the smoking shelter, the dumpster, the flag
-    for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -29 + b * 2.7, YARD_Y + 0.012, 31, -Math.PI / 2);
-    plane(16.2, 0.12, MAT.whiteLine, -20.9, YARD_Y + 0.012, 28.25, -Math.PI / 2);
+    if (stageHas('carpark')) { for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -29 + b * 2.7, YARD_Y + 0.012, 31, -Math.PI / 2); plane(16.2, 0.12, MAT.whiteLine, -20.9, YARD_Y + 0.012, 28.25, -Math.PI / 2); }
+    if (stageHas('neighbours')) {
     // the neighbours across the fence, each with its own dock doors and a name
     [[-130, -30, 40, 9, 32, 'NORTHGATE LOGISTICS', 1], [128, -24, 44, 8, 30, 'VOLT & CO. DISTRIBUTION', 1], [-118, 106, 34, 7, 26, 'FAIRLANE FREIGHT', 0], [0, 150, 90, 12, 40, 'KESSLER WHOLESALE', 0], [136, 116, 40, 10, 30, 'PINECREST STORAGE', 0], [-44, -124, 50, 9, 28, 'LITTLE WONDERS DC', 1]].forEach(function (b) {
       var NB = std({ map: TEX.corrugated, color: pick([0xd8dcdf, 0xc9d3dc, 0xe2e0d8, 0xcfd6c9]), roughness: 0.5, metalness: 0.3, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }); box(b[2], b[3], b[4], NB, b[0], YARD_Y + b[3] / 2, b[1]); box(b[2] + 0.1, 1.4, b[4] + 0.1, MAT.brick, b[0], YARD_Y + 0.7, b[1]); box(b[2] + 0.12, 0.8, b[4] + 0.12, std({ color: pick([0x1f4e8c, 0xb3261e, 0x2f6b3a, 0xe0862a]), roughness: 0.5 }), b[0], YARD_Y + b[3] - 2.6, b[1]);
@@ -126,12 +137,15 @@
       var dr2 = plane(1.0, 2.1, MAT.door, b[0] + b[2] * 0.3, YARD_Y + 1.05, fz - face * 0.12, 0, fry); dr2.receiveShadow = false; box(0.3, 0.1, 0.3, MAT.steelDark, b[0] + b[2] * 0.3, YARD_Y + 2.5, fz - face * 0.3); var nl = box(0.3, 0.08, 0.2, glowMat(0xfff2c0, 0.2), b[0] + b[2] * 0.3, YARD_Y + 2.42, fz - face * 0.4); yard.lampLenses.push(nl);
       for (var bo = -b[2] / 2 + 3; bo < b[2] / 2; bo += 6) cyl(0.12, 1.0, MAT.yellow, b[0] + bo, YARD_Y + 0.5, fz - face * 1.2, null, 8);
     });
+    }
+    if (stageHas('road')) {
     // the road: two lanes, dashes, kerbs, lamp posts, and the traffic that uses it
     var roadMat = MAT.yard.clone(); roadMat.map = TEX.asphalt.clone(); roadMat.map.needsUpdate = true; roadMat.map.wrapS = roadMat.map.wrapT = THREE.RepeatWrapping; roadMat.map.repeat.set(260 / 7, 11 / 7); if (roadMat.normalMap) { roadMat.normalMap = roadMat.normalMap.clone(); roadMat.normalMap.needsUpdate = true; roadMat.normalMap.wrapS = roadMat.normalMap.wrapT = THREE.RepeatWrapping; roadMat.normalMap.repeat.set(260 / 7, 11 / 7); }   // the yard's repeat squashed the texture across the 11 m road
     yard.roadMat = roadMat; plane(260, 11, roadMat, 0, YARD_Y + 0.01, 75, -Math.PI / 2); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 69.4); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 80.6);
     for (var i = -120; i < 120; i += 6) plane(3, 0.2, MAT.whiteLine, i, YARD_Y + 0.02, 75, -Math.PI / 2);
     for (var lp = -110; lp <= 110; lp += 28) { cyl(0.06, 7, MAT.steelDark, lp, YARD_Y + 3.5, 81.5, null, 8, 0.09); box(0.08, 0.08, 1.4, MAT.steelDark, lp, YARD_Y + 6.9, 80.8); var ll = box(0.5, 0.14, 0.32, glowMat(0xfff2c0, 0.2), lp, YARD_Y + 6.85, 80.2); yard.lampLenses.push(ll); }
     for (var c = 0; c < 8; c++) { var cm = carMesh(pick(CAR_COLS)); cm.userData.dynamic = true; var dir = c % 2 ? -1 : 1; cm.position.set(-130 + (c >> 1) * 65 + randf(0, 20), YARD_Y, dir > 0 ? 72.5 : 77.5); cm.rotation.y = dir > 0 ? 0 : Math.PI; scene.add(cm); yard.traffic.push({ g: cm, dir: dir, v: dir > 0 ? 12 : 10.5 }); }   // one speed a lane: they used to drive through each other
+    }
     // the yard, worked: tyre marks on the aprons where the trucks swing in and oil where they stand, pallets stacked by the inbound
     // docks, a skip by the dumpster, an empty trailer dropped on the far side, weeds along every fence line
     var yMarkTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.4)'); g.addColorStop(0.7, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
@@ -143,19 +157,21 @@
       var o = plane(2.6, 2.6, yOilMat, d.side * (X + 9), YARD_Y + 0.015, d.z + randf(-0.8, 0.8), -Math.PI / 2, 0); o.rotation.z = randf(0, 3); o.renderOrder = 1; o.userData.noBake = true;
     }; doors.forEach(yard.apron);
     var sceneCtx = { add: function (m) { scene.add(m); return m; } };
-    [[-X - 2.6, 1.2, 5], [-X - 2.6, 2.6, 7], [X + 2.6, 1.3, 4]].forEach(function (p) { for (var i = 0; i < p[2]; i++) palletModel(sceneCtx, p[0] + randf(-0.02, 0.02), YARD_Y + i * 0.128, p[1] + randf(-0.02, 0.02), randf(-0.03, 0.03)); solid(p[0] - 0.65, p[0] + 0.65, p[1] - 0.55, p[1] + 0.55, YARD_Y, YARD_Y + 1.2); });
+    if (big) [[-X - 2.6, 1.2, 5], [-X - 2.6, 2.6, 7], [X + 2.6, 1.3, 4]].forEach(function (p) { for (var i = 0; i < p[2]; i++) palletModel(sceneCtx, p[0] + randf(-0.02, 0.02), YARD_Y + i * 0.128, p[1] + randf(-0.02, 0.02), randf(-0.03, 0.03)); solid(p[0] - 0.65, p[0] + 0.65, p[1] - 0.55, p[1] + 0.55, YARD_Y, YARD_Y + 1.2); });
+    if (stageHas('neighbours')) {
     // the skip: a steel box with sloped ends, lifting lugs, hazard stripes, the hire firm's name, cardboard showing over the lip
     (function () { var sx = X + 7, sz = 21, SK = std({ color: 0x9a8a2a, roughness: 0.6, metalness: 0.4 }); box(3.4, 1.5, 1.7, SK, sx, YARD_Y + 0.75, sz); [-1, 1].forEach(function (e) { var end = box(1.1, 1.5, 1.7, SK, sx + e * 1.95, YARD_Y + 0.75, sz); end.rotation.z = e * 0.35; [-0.6, 0.6].forEach(function (lz) { box(0.12, 0.3, 0.12, MAT.steelDark, sx + e * 1.6, YARD_Y + 1.6, sz + lz); }); }); plane(3.4, 0.25, MAT.hazard, sx, YARD_Y + 1.42, sz + 0.86, 0, 0); plane(3.4, 0.25, MAT.hazard, sx, YARD_Y + 1.42, sz - 0.86, 0, Math.PI); sign(['HILLSIDE SKIPS · 0800 300 300'], 2.2, 0.3, sx, YARD_Y + 0.95, sz + 0.86, 0, { w: 512, h: 72, bg: '#2a2d33', fg: '#eef1f5' }); for (var cb = 0; cb < 6; cb++) { var card = box(randf(0.5, 0.9), 0.1, randf(0.4, 0.7), MAT.parcel, sx + randf(-1.2, 1.2), YARD_Y + 1.45 + cb * 0.04, sz + randf(-0.5, 0.5)); card.rotation.y = randf(0, 3); card.rotation.z = randf(-0.3, 0.3); } solid(sx - 2.4, sx + 2.4, sz - 0.9, sz + 0.9, YARD_Y, YARD_Y + 1.6); })();
     // an empty trailer dropped on its landing legs at the far side of the yard, nose to the road
     (function () { var tx = 54, tz = 46, TR = std({ map: TEX.corrugated, color: 0xdfe3e6, roughness: 0.55, metalness: 0.25, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }); box(2.5, 2.7, 12, TR, tx, YARD_Y + 2.1, tz); box(2.5, 0.4, 12, MAT.steelDark, tx, YARD_Y + 0.6, tz); [-0.9, 0.9].forEach(function (wx) { for (var tw = 0; tw < 2; tw++) { var ty = cyl(0.5, 0.3, MAT.rubber, tx + wx, YARD_Y + 0.5, tz - 3.6 - tw * 1.3, null, 16); ty.rotation.z = Math.PI / 2; } }); cyl(0.06, 1.0, MAT.steelDark, tx - 0.9, YARD_Y + 0.5, tz + 3.8, null, 6); cyl(0.06, 1.0, MAT.steelDark, tx + 0.9, YARD_Y + 0.5, tz + 3.8, null, 6); box(2.5, 2.7, 0.08, MAT.steelDark, tx, YARD_Y + 2.1, tz + 6.0); sign(['DEPOT CO. · DROP TRAILER'], 2.0, 0.3, tx - 1.26, YARD_Y + 1.6, tz, -Math.PI / 2, { w: 512, h: 72, bg: '#1b232c', fg: '#a0acb8' }); box(0.3, 0.1, 0.3, MAT.yellow, tx - 1.0, YARD_Y + 0.05, tz - 4.9); solid(tx - 1.3, tx + 1.3, tz - 6, tz + 6.1, YARD_Y, YARD_Y + 3); })();
-    for (var wd2 = -58; wd2 <= 58; wd2 += randf(2.5, 5)) { [[-83.4, wd2], [83.4, wd2]].forEach(function (p) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(p[0] + randf(-0.3, 0.3), YARD_Y + 0.08, p[1]); wg.scale.y = 0.6; scene.add(wg); }); }
-    for (var wd3 = -82; wd3 <= 82; wd3 += randf(2.5, 5)) { var wg2 = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg2.position.set(wd3, YARD_Y + 0.08, -67.4 + randf(-0.3, 0.3)); wg2.scale.y = 0.6; scene.add(wg2); }
+    }
+    for (var wd2 = F.z0 + 10; wd2 <= F.z1 - 2; wd2 += randf(2.5, 5)) { [[-F.x + 0.6, wd2], [F.x - 0.6, wd2]].forEach(function (p) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(p[0] + randf(-0.3, 0.3), YARD_Y + 0.08, p[1]); wg.scale.y = 0.6; scene.add(wg); }); }
+    for (var wd3 = -F.x + 2; wd3 <= F.x - 2; wd3 += randf(2.5, 5)) { var wg2 = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg2.position.set(wd3, YARD_Y + 0.08, F.z0 + 0.6 + randf(-0.3, 0.3)); wg2.scale.y = 0.6; scene.add(wg2); }
     // the sky: a sun, a moon, clouds; the weather: puddles, rain, snow
     var sunSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(255,244,214,1)'), transparent: true, depthWrite: false, fog: false })); sunSp.scale.set(26, 26, 1); scene.add(sunSp); yard.sunDisc = sunSp;
     var moonSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(225,230,240,0.9)'), transparent: true, depthWrite: false, fog: false })); moonSp.scale.set(12, 12, 1); scene.add(moonSp); yard.moon = moonSp;
     var ct = cloudTex();
     for (var k = 0; k < 10; k++) { var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ct, transparent: true, depthWrite: false, opacity: 0.85, fog: false })); var s = randf(50, 90); sp.scale.set(s, s * 0.5, 1); sp.position.set(randf(-150, 150), randf(70, 100), randf(-150, 150)); scene.add(sp); yard.clouds.push({ sp: sp, v: randf(0.6, 1.4) }); }
-    for (var p = 0; p < 12; p++) { var pm = new THREE.Mesh(new THREE.CircleGeometry(randf(1.2, 3.2), 18), std({ color: 0x151a22, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0 })); pm.rotation.x = -Math.PI / 2; var px = 0, pz = 0, tries = 0; do { px = randf(-70, 70); pz = randf(-50, 50); tries++; } while (tries < 20 && Math.abs(px) < HALL.x + 3 && pz > -67 && pz < HALL.z + 3); pm.position.set(px, YARD_Y + 0.02, pz); pm.scale.x = randf(1, 2.2); scene.add(pm); yard.puddles.push(pm); }
+    for (var p = 0; p < 12; p++) { var pm = new THREE.Mesh(new THREE.CircleGeometry(randf(1.2, 3.2), 18), std({ color: 0x151a22, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0 })); pm.rotation.x = -Math.PI / 2; var px = 0, pz = 0, tries = 0; do { px = randf(-F.x + 4, F.x - 4); pz = randf(F.z0 + 4, Math.min(F.z1 - 4, 50)); tries++; } while (tries < 20 && Math.abs(px) < HALL.x + 3 && pz > F.z0 + 1 && pz < HALL.z + 3); pm.position.set(px, YARD_Y + 0.02, pz); pm.scale.x = randf(1, 2.2); scene.add(pm); yard.puddles.push(pm); }
     var streak = tex(16, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(210,225,240,0)'); g.addColorStop(0.5, 'rgba(210,225,240,0.9)'); g.addColorStop(1, 'rgba(210,225,240,0)'); c.fillStyle = g; c.fillRect(6, 0, 4, h); });
     var flake = tex(32, 32, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
     var mkPoints = function (n, size, map, range) { var geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { pos[i * 3] = randf(-range, range); pos[i * 3 + 1] = randf(0, 16); pos[i * 3 + 2] = randf(-range, range); } geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); var pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: map, size: size, transparent: true, opacity: 0.85, depthWrite: false, alphaTest: 0.05 })); pts.visible = false; pts.frustumCulled = false; scene.add(pts); return pts; };

@@ -12,14 +12,14 @@
   // the south one just past row D, ramping south to the bench's west inlet; the north one just past row E, ramping north to a second inlet
   // the two feeders stay high along the row ends, turn in past row D and row E and meet hung over the lane at the merge point (26.6, 5.2);
   // from there one merge belt crosses the rest of the lane on rods and ramps down to bench height at the bench's north-west corner
-  var PICK_MERGE = { x: 26.6, z: 5.2 };
+  var PICK_MERGE = BOOT_STAGE === 2 ? { x: 22.6, z: 5.2 } : { x: 26.6, z: 5.2 };   // the hall (1.21.0): the bench itself stands at 26.6, so the merge point sits 4 m west of it and the merge belt runs east to the bench inlet
   var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[2] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H, 'hang'], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();   // hung from the roof end to end: no legs in the walk round the rack ends
   var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[3] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H, 'hang'], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
-  var PB_M = [[0, 0, PICK_H], [3.6, 0, PICK_H, 'hang'], [3.6, -1.6, 1.35, 'hang'], [3.6, -3.2, 0.2]];   // the drop is two runs: the upper one hangs high enough to walk under, so only its last 1.6 m stands on the floor beside the bench
+  var PB_M = BOOT_STAGE === 2 ? [[0, 0, PICK_H], [1.6, 0, PICK_H, 'hang'], [1.6, -1.6, 1.35, 'hang'], [1.6, -3.2, 0.2]] : [[0, 0, PICK_H], [3.6, 0, PICK_H, 'hang'], [3.6, -1.6, 1.35, 'hang'], [3.6, -3.2, 0.2]];   // the hall (1.21.0): the merge point is 4 m west of the bench, so the merge runs 1.6 m east and down to the inlet at the bench's north-west corner; the big halls: 3.6 m east across the lane to the bench at 32.6   // the drop is two runs: the upper one hangs high enough to walk under, so only its last 1.6 m stands on the floor beside the bench
   defBelt('pickMerge', { prop: 'pickMerge', path: PB_M, speedKey: 'pickBelt' });
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
   defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
-  function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
+  function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= benchCapNow()) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
   defMachine('benchIn', { prop: 'bench', inlets: [[-2.4, -3.2], [0, 2.3], [-1.1, 0], [1.1, 0.6], [1.1, -0.6]], accept: benchAccept });   // where the merge belt lands, and the bench's own ends and sides, so a run of pieces can feed it from any side
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= UPPER.row ? 'upperPick' : r >= 3 ? 'pickBelt2' : 'pickBelt'; }
@@ -64,7 +64,7 @@
     scText(c, 16, 70, G.sku ? 'Picking ' + skuName(G.sku) : G.paused ? 'Held: finishing nothing' : 'Watching the orders', '#eef1f5', 16);
     scText(c, 16, 94, pos + ' · trolley ' + G.x.toFixed(1) + ' m · hook ' + G.lift.toFixed(1) + ' m', '#a0acb8', 13);
     scText(c, 16, 118, 'Row ' + rowLetter(r) + ': ' + rs.n + ' boxes in ' + rs.slots + ' slots · picked ' + G.picked, '#a0acb8', 13);
-    scText(c, 16, 136, 'Belt ' + beltItems(gantryBeltFor(r)).length + ' · bench ' + benchCount() + '/' + ECON.benchCap, '#a0acb8', 13);
+    scText(c, 16, 136, 'Belt ' + beltItems(gantryBeltFor(r)).length + ' · bench ' + benchCount() + '/' + benchCapNow(), '#a0acb8', 13);
     speedButton(sc, 208, 152, 76, 'gantry' + r); scText(c, 212, 148, 'crane', '#6b7784', 9); speedButton(sc, 208, 116, 76, 'pickBelt'); scText(c, 212, 112, 'pick belt', '#6b7784', 9);
     scButton(sc, 16, 150, 80, 34, G.paused ? 'RESUME' : 'PAUSE', !G.paused, function () { G.paused = !G.paused; toast('Gantry ' + rowLetter(r) + (G.paused ? ' will hold after this pick' : ' running'), G.paused ? 'bad' : 'good'); }, G.paused ? '#5fd38d' : '#f5b53d');
     scButton(sc, 102, 150, 100, 34, 'RESET JOB', G.state !== 'idle', function () { if (G.state === 'idle') return; if (G.sku && /^(up|toDrop|lower|drop)$/.test(G.state)) { var back = G.key && slotSpace(G.key, G.sku) > 0 ? G.key : findSlotFor(G.sku, 1, 2); if (back) slotAdd(back, G.sku, 1); else S.floor.push({ kind: 'box', sku: G.sku, x: RACK.x0 + G.x, y: 0, z: RACK.rows[r] + 1.2, rot: 0 }); } G.sku = null; G.key = null; G.state = 'up'; sfx('hydraulic'); toast('Gantry ' + rowLetter(r) + ' dropped its job and is coming home', 'good'); }, '#ff6b5e');

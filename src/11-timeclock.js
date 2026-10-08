@@ -3,20 +3,22 @@
   // Nobody is paid a flat wage. The crew clock in at the reader by the staff door when they arrive and clock out when
   // they leave; the day's pay at the day roll is their clocked hours at the hourly rate, with anything past ten hours at
   // time and a half. Punctuality is a trait: some are early, some drift in late, and a word puts them right for a while.
-  var RAMP_BOTTOM = { x: -HALL.x - 7.3, z: 22 }, SHIFT_START = 8;
+  var RAMP_BOTTOM = { x: -HALL.x - 7.3, z: SPOT.staffDoor.z }, SHIFT_START = 8;   // the foot of the ramp outside the staff door, whichever wall that is in
   // the staff options (1.14.0): a shift pattern, a training course, a raise that fixes timekeeping, a second role, a bigger crew at level 7
   var STAFF_SHIFTS = { early: { start: 6, end: 16 }, day: { start: 8, end: 18 }, late: { start: 12, end: 22 } }, TRAIN_PRICE = 400, CROSS_PRICE = 350, RAISE_PRICE = 250;
+  function staffOption(what) { return unlocked(what); }   // shifts, training, raise, cross: each on the ladder
   function shiftOf(st) { return STAFF_SHIFTS[st.shift] || STAFF_SHIFTS.day; }
   function shiftStart(st) { return shiftOf(st).start; }
   function hourly(st) { return STAFF_ROLES[st.role].wage / 10 * (st.raise ? 1.1 : 1); }
   function shiftEnd(st) { var e = shiftOf(st).end; return st.overtime ? Math.min(DAY_END, e + 2) : e; }
   function staffArrival(st) { return shiftStart(st) + (st.arriveOff || 0) / 60; }
-  function staffCap() { return S.level >= 7 ? 8 : 5; }
-  function staffTrain(st) { if (st.trained) return; if (S.bank < TRAIN_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-TRAIN_PRICE, 'Training course, ' + st.name); st.trained = true; sfx('cash'); toast(st.name + ' is trained: quicker on their feet and at every task', 'good'); logEvent(st.name + ' finished the ' + STAFF_ROLES[st.role].name.toLowerCase() + ' course', 'good'); }
-  function staffRaise(st) { if (st.raise) return; if (S.bank < RAISE_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-RAISE_PRICE, 'Raise for ' + st.name); st.raise = true; st.punct = 1; if ((st.arriveOff || 0) > 0) st.arriveOff = 0; sfx('cash'); staffSay(st, pick(['Cheers, boss.', 'I will not let you down.', 'Appreciated.']), '#5fd38d'); logEvent(st.name + ' got a raise: 10% more an hour, and on time from now on', 'good'); }
+  function staffCap() { return staffCapAt(S.level); }   // the ladder's heads by level (1.21.0)
+  function staffTrain(st) { if (st.trained) return; if (!unlocked('training')) { toast('Training courses come at level ' + UNLOCK.training + '.', 'bad'); return; } if (S.bank < TRAIN_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-TRAIN_PRICE, 'Training course, ' + st.name); st.trained = true; sfx('cash'); toast(st.name + ' is trained: quicker on their feet and at every task', 'good'); logEvent(st.name + ' finished the ' + STAFF_ROLES[st.role].name.toLowerCase() + ' course', 'good'); }
+  function staffRaise(st) { if (st.raise) return; if (!unlocked('raise')) { toast('Raises come at level ' + UNLOCK.raise + '.', 'bad'); return; } if (S.bank < RAISE_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-RAISE_PRICE, 'Raise for ' + st.name); st.raise = true; st.punct = 1; if ((st.arriveOff || 0) > 0) st.arriveOff = 0; sfx('cash'); staffSay(st, pick(['Cheers, boss.', 'I will not let you down.', 'Appreciated.']), '#5fd38d'); logEvent(st.name + ' got a raise: 10% more an hour, and on time from now on', 'good'); }
   // a new shift pattern starts tomorrow for anyone who has been in today (a day worker put on early at 16:00 used to clock out on the spot and drop what they held); someone not yet in today takes it now
-  function staffShiftCycle(st) { var order = ['day', 'early', 'late'], cur = st.shiftNext || st.shift || 'day', nx = order[(order.indexOf(cur) + 1) % 3], now = st.state === 'home' && !st.clocked && !st.clockedOutAt; if (now) { st.shift = nx; st.shiftNext = null; } else st.shiftNext = nx; var sh = STAFF_SHIFTS[nx]; sfx('click'); toast(st.name + ' moves to the ' + nx + ' shift' + (now ? '' : ' from tomorrow') + ' (' + fmtTime(sh.start) + ' to ' + fmtTime(sh.end) + ')', 'good'); logEvent(st.name + ' moves to the ' + nx + ' shift' + (now ? '' : ' from tomorrow')); }
+  function staffShiftCycle(st) { if (!unlocked('shifts')) { toast('Shift patterns come at level ' + UNLOCK.shifts + '.', 'bad'); return; } var order = ['day', 'early', 'late'], cur = st.shiftNext || st.shift || 'day', nx = order[(order.indexOf(cur) + 1) % 3], now = st.state === 'home' && !st.clocked && !st.clockedOutAt; if (now) { st.shift = nx; st.shiftNext = null; } else st.shiftNext = nx; var sh = STAFF_SHIFTS[nx]; sfx('click'); toast(st.name + ' moves to the ' + nx + ' shift' + (now ? '' : ' from tomorrow') + ' (' + fmtTime(sh.start) + ' to ' + fmtTime(sh.end) + ')', 'good'); logEvent(st.name + ' moves to the ' + nx + ' shift' + (now ? '' : ' from tomorrow')); }
   function staffCrossCycle(st) {
+    if (!unlocked('cross')) { toast('Second roles come at level ' + UNLOCK.cross + '.', 'bad'); return; }
     var roles = Object.keys(STAFF_ROLES).filter(function (r) { return r !== st.role && !(STAFF_ROLES[r].needs && !S.up[STAFF_ROLES[r].needs]); }); if (!roles.length) return;
     var i = roles.indexOf(st.cross || ''), next = i < 0 ? roles[0] : i + 1 < roles.length ? roles[i + 1] : null;
     if (next && !st.crossPaid) { if (S.bank < CROSS_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-CROSS_PRICE, 'Cross-training, ' + st.name); st.crossPaid = true; }

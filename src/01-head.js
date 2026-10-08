@@ -12,6 +12,12 @@
   // ── Utilities ─────────────────────────────────────────────────────
   var BOOT_SLOT = (function () { try { var sl = +(localStorage.getItem('depotco-slot') || 1); return sl >= 1 && sl <= 3 ? sl : 1; } catch (e) { return 1; } })();
   var SAVE = 'depotco-slot' + BOOT_SLOT;
+  // 1.21.0: the building stage is read off the slot before anything is laid out, because every layout table is built once a page
+  // load for it (02-config). A save from 1.20 or earlier has no site field: it lived in the 72 m hall, so it gets the big hall at
+  // least, the annexes if it owns a hall, the far end if it owns Hall 4 (stageForOwned). No save: the shed.
+  var BOOT_SAVE = (function () { try { var raw = localStorage.getItem(SAVE), s = raw ? JSON.parse(raw) : null; return s && typeof s === 'object' ? s : null; } catch (e) { return null; } })();
+  function stageForOwned(up) { up = up || {}; return up.hall4 ? 5 : (up.hall2 || up.hall3) ? 4 : 3; }
+  var BOOT_STAGE = BOOT_SAVE ? (typeof BOOT_SAVE.site === 'number' ? Math.max(0, Math.min(5, Math.floor(BOOT_SAVE.site))) : stageForOwned(BOOT_SAVE.up)) : 0;
   var SETTINGS_KEY = 'depotco-settings';
   var now = function () { return Date.now(); };
   var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };

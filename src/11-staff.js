@@ -202,7 +202,7 @@
     var b = NAV.grid[j * NAV.w + i]; if (b === 0) return true; if (b === 1) return false;
     var x = NAV.x0 + (i + 0.5) * NAV.cell, z = NAV.z0 + (j + 0.5) * NAV.cell;
     if (x <= -HALL.x + 0.6 && x > -HALL.x - 7.6 && Math.abs(z - SPOT.staffDoor.z) < 0.8) return true;
-    for (var k = 0; k < S.trucks.length; k++) { var t = S.trucks[k]; if (t.state !== 'docked') continue; var tb = trailerBounds(t); if (x > tb.x0 - 0.3 && x < tb.x1 - 0.6 && z > tb.z0 + 0.3 && z < tb.z1 - 0.3) return true; if (Math.abs(z - t.z) < 1.0 && ((t.side < 0 && x < -HALL.x + 0.5 && x > tb.x0) || (t.side > 0 && x > HALL.x - 0.5 && x < tb.x1))) return true; }
+    for (var k = 0; k < S.trucks.length; k++) { var t = S.trucks[k]; if (t.state !== 'docked' || t.van) continue; var tb = trailerBounds(t); if (x > tb.x0 - 0.3 && x < tb.x1 - 0.6 && z > tb.z0 + 0.3 && z < tb.z1 - 0.3) return true; if (Math.abs(z - t.z) < 1.0 && ((t.side < 0 && x < -HALL.x + 0.5 && x > tb.x0) || (t.side > 0 && x > HALL.x - 0.5 && x < tb.x1))) return true; }
     return false;
   }
   function navCell(p) { return { i: clamp(Math.floor((p.x - NAV.x0) / NAV.cell), 0, NAV.w - 1), j: clamp(Math.floor((p.z - NAV.z0) / NAV.cell), 0, NAV.h - 1) }; }
@@ -254,6 +254,7 @@
   function onBreak(st) { var b = shiftStart(st) + 4; return S.time >= b && S.time < b + breakLen(); }   // four hours into their own shift; half an hour bare, down to a quarter with the rooms furnished (breakLen, 06-props4-furniture)
   function hireStaff(role) {
     var def = STAFF_ROLES[role]; if (!def) return;
+    if (S.level < def.lvl) { toast('A ' + def.name.toLowerCase() + ' can be hired from level ' + def.lvl + '.', 'bad'); return; } if (S.staff.length >= staffCap()) { toast('The crew is ' + staffCap() + ' at this level: it grows as you level.', 'bad'); return; }   // the ladder gates the hire itself, not only the buttons (1.21.0)
     if (def.needs && !S.up[def.needs]) { toast('Buy the forklift first: a driver needs something to drive.', 'bad'); return; }
     var used = S.staff.map(function (s) { return s.name; }), free = STAFF_NAMES.filter(function (n) { return used.indexOf(n) < 0; }), name = free.length ? free[S.nextStaffName++ % free.length] : STAFF_NAMES[S.nextStaffName++ % STAFF_NAMES.length];   // no two Jos
     var st = { id: uid('st'), name: name, role: role, x: SPOT.spawn.x, z: SPOT.spawn.z, yaw: 0, state: 'home', path: [], timer: 0, carry: null, task: null, hiredDay: S.day, look: { skin: pick(SKINS), hair: pick(HAIRS), style: pick(['short', 'long', 'bun', 'bald', 'short']) }, said: 0, punct: randf(0.2, 1), arriveOff: 0, hoursToday: 0, sheet: [] };
@@ -299,7 +300,7 @@
       var cy = st.carry, bk = cy.kind === 'box' && !cy.damaged ? findSlotFor(cy.sku, 1, 1) : null;
       if (cy.kind === 'box') { if (bk) slotAdd(bk, cy.sku, 1); else S.floor.push({ kind: 'box', sku: cy.sku, damaged: !!cy.damaged, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); }
       else if (cy.kind === 'return') { if (rdesk().queue.length < rdeskCap()) rdesk().queue.push(cy.id); else S.floor.push({ kind: 'return', id: cy.id, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); }
-      else if (orderById(cy.order) && S.bench.parcels.length < 12) S.bench.parcels.push(cy.order);
+      else if (orderById(cy.order) && S.bench.parcels.length < shelfCap()) S.bench.parcels.push(cy.order);
       else if (orderById(cy.order)) S.floor.push({ kind: 'parcel', order: cy.order, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw });
       st.carry = null;
     }
@@ -359,7 +360,7 @@
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && S.time < end;   // on the clock and inside the shift. Not the old st.leaving flag: set at every shift end since 1.4.0 and never cleared, it kept a worker idle at the clock from their second morning on
-      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait' && st.state !== 'drive') { st.task = null; st.jackParked = true; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -HALL.x + 3.7 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
+      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait' && st.state !== 'drive') { st.task = null; st.jackParked = true; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, breakSpot(), 'break'); }
       if (!brk && st.state === 'break') st.state = 'idle';
       // the driver: at the forklift, climbs on; on it, the forklift does the walking and the figure sits on the seat
       if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st) || dist2(player.x, player.z, S.fork.x, S.fork.z) < 6.5) { st.state = 'idle'; st.task = null; } else { if (S.fork.plugged) cableUnplugFork(st.name + ' drove off with the charger plugged in. The plug came out.'); st.jackParked = true; st.state = 'drive'; st.drive = { phase: st.task && st.task.park ? 'park' : st.task && st.task.held ? 'toSlot' : 'toPallet', path: null }; sfx('forklift'); } }   // a pallet already on the forks is the job
@@ -381,7 +382,7 @@
   function roleHasWork(role) {
     if (role === 'receiver') return S.trucks.some(function (t) { return t.dir === 'in' && t.state === 'docked' && t.signed && S.doors[doorIndex('in', t.dock)] && S.pallets.some(function (p) { return p.place === 'truck' && p.truck === t.id && p.n > 0; }); });
     if (role === 'picker') { var need = benchNeed(); for (var k in need) if (need[k] > 0 && slotsWith(k).some(function (q) { var sp = slotParse(q); return sp.l < RACK.top && sp.r !== UPPER.row; })) return true; return false; }   // stock a walker can reach, not the top level or the upper row
-    if (role === 'packer') { if (openOrders().some(canPack)) return true; var dk = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[doorIndex('out', x.dock)]; }); if (dk.length && S.bench.parcels.some(function (oid) { var oo = orderById(oid); return oo && dk.some(function (x) { return MODES[orderMode(oo)].door === doorIndex('out', x.dock); }); })) return true; return !!returnsJob(null); }   // a parcel counts only with the truck of its lane in
+    if (role === 'packer') { if (openOrders().some(canPack)) return true; var dk = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[doorIndex('out', x.dock)]; }); if (dk.length && S.bench.parcels.some(function (oid) { var oo = orderById(oid); return oo && dk.some(function (x) { return !lanesOn() || modeDoor(orderMode(oo)) === doorIndex('out', x.dock); }); })) return true; return !!returnsJob(null); }   // a parcel counts only with the truck of its lane in
     if (role === 'driver') return !!S.up.fork && !!driverJob();
     return false;
   }
@@ -467,7 +468,8 @@
   // like one figure with three jacks fanned out behind it (the jack parks behind its owner along their own heading)
   // the crew's jacks park in a row along the west wall north of the cart bay, one slot a jack by the owner's place in the line-up.
   // Until 1.18.0 a jack was left wherever its owner stood at clock-out, and three receivers' jacks ended up piled on one idle spot.
-  var JACK_HOME = { x: -HALL.x + 1.3, z0: 11.4, step: 1.5 };
+  var JACK_HOME = BOOT_STAGE === 0 ? { x: -3.9, z0: 4.1, step: 0 } : { x: -HALL.x + 1.3, z0: BOOT_STAGE >= 2 ? 11.4 : -2.0, step: 1.5 };   // the shed: one spot by the player's own jack; the small hall: along the west wall north of IN 1
+  function breakSpot() { return stageHas('rooms') ? { x: -HALL.x + 3.7 + randf(-1, 1), z: 2.8 - HALL.z + randf(-0.4, 0.4) } : { x: 2.6 + randf(-0.6, 0.6), z: 1.2 + randf(-0.3, 0.3) }; }   // the break room (z -21.2 in the big hall is 2.8 m in from the north wall), or by the shed table
   function hasJack(st) { return st.role === 'receiver' || st.cross === 'receiver'; }
   function jackRank(st, list) { var n = 0; list = list || S.staff; for (var i = 0; i < list.length; i++) { var o = list[i]; if (o === st) return n; if (hasJack(o)) n++; } return n; }
   function jackHome(st, list) { var k = jackRank(st, list); return { x: JACK_HOME.x, z: JACK_HOME.z0 + k * JACK_HOME.step, ry: -Math.PI / 2 }; }   // pointing west: the owner's stand is east of it, on open floor
@@ -511,7 +513,7 @@
     if (st.carry && st.carry.back) { carryBack(st); return; }
     if (st.carry) {
       staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true;
-      st.after = function () { if (!st.carry) return; if (benchCount() < ECON.benchCap) { benchAdd(st.carry.sku, 1); st.carry = null; sfx('putdown'); addXp(XP.box); } else { staffSay(st, voice(st).full, '#ff6b5e'); staffWait(st, 3); } st.task = null; };
+      st.after = function () { if (!st.carry) return; if (benchCount() < benchCapNow()) { benchAdd(st.carry.sku, 1); st.carry = null; sfx('putdown'); addXp(XP.box); } else { staffSay(st, voice(st).full, '#ff6b5e'); staffWait(st, 3); } st.task = null; };
       return;
     }
     var want = null;
@@ -522,7 +524,7 @@
       var sur = benchSurplus(), rsku = null; for (var sk in sur) if (sur[sk] > 0) { rsku = sk; break; }
       var rkey = rsku ? findSlotFor(rsku, 1, 1) : null;
       if (rkey && !S.staff.some(function (o) { return o !== st && o.task && o.task.kind === 'return'; })) { st.task = { kind: 'return', sku: rsku, key: rkey }; staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true; st.after = function () { if (benchTake(rsku, 1)) { st.carry = { kind: 'box', sku: rsku, back: rkey }; sfx('pickup'); } else st.task = null; }; return; }
-      idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 2.0, z: 2.6 }, { x: 0, z: -1.2 }, { x: -1.4, z: 0 })); return;
+      idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 2.0, z: SPOT.bench.z - 2.6 }, { x: 0, z: -1.2 }, { x: -1.4, z: 0 })); return;
     }
     st.task = { kind: 'pick', sku: want.sku, key: want.key };
     staffGo(st, slotStand(want.key), 'wait'); st.timer = 1.0; st.working = true;
@@ -532,8 +534,8 @@
     if (st.carry && st.carry.kind === 'return') { packerReturns(st, { kind: 'rdesk' }); return; }
     if (st.carry && st.carry.kind === 'box') { if (st.carry.bin) carryToBin(st); else if (st.carry.back) carryBack(st); else pickerThink(st); return; }
     if (st.carry && st.carry.kind === 'parcel') {
-      var co = orderById(st.carry.order), t = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[doorIndex('out', x.dock)] && (!co || MODES[orderMode(co)].door === doorIndex('out', x.dock)); })[0];   // the truck of the parcel's lane, never the wrong door
-      if (!t) { if (S.bench.parcels.length >= 12) { staffWait(st, 2); return; } staffGo(st, benchSide(2.3), 'wait'); st.timer = 0.7; st.working = true; st.after = function () { if (st.carry && st.carry.kind === 'parcel') { S.bench.parcels.push(st.carry.order); st.carry = null; sfx('putdown'); } }; return; }   // the truck has gone: back on the shelf, not held all shift
+      var co = orderById(st.carry.order), t = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && !x.van && S.doors[doorIndex('out', x.dock)] && (!co || !lanesOn() || modeDoor(orderMode(co)) === doorIndex('out', x.dock)); })[0];   // the truck of the parcel's lane, never the wrong door
+      if (!t) { if (S.bench.parcels.length >= shelfCap()) { staffWait(st, 2); return; } staffGo(st, benchSide(2.3), 'wait'); st.timer = 0.7; st.working = true; st.after = function () { if (st.carry && st.carry.kind === 'parcel') { S.bench.parcels.push(st.carry.order); st.carry = null; sfx('putdown'); } }; return; }   // the truck has gone: back on the shelf, not held all shift
       staffGo(st, { x: t.x + t.side * 1.6, z: t.z }, 'wait'); st.timer = 0.9; st.working = true;
       st.after = function () { if (!st.carry) return; var tt = truckById(t.id); var o = orderById(st.carry.order); if (tt && tt.state === 'docked' && o) { tt.parcels.push(o.id); o.state = 'loaded'; sfx('crate'); addXp(XP.ship); rebuildBoardSoon(); st.carry = null; } else { staffWait(st, 2); } };
       return;
@@ -544,7 +546,7 @@
       st.after = function () { if (canPack(packable)) { packOrder(packable); } };
       return;
     }
-    var docked = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[doorIndex('out', x.dock)]; }), forLane = function (oid) { var oo = orderById(oid); return oo && docked.some(function (x) { return MODES[orderMode(oo)].door === doorIndex('out', x.dock); }); };
+    var docked = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && !x.van && S.doors[doorIndex('out', x.dock)]; }), forLane = function (oid) { var oo = orderById(oid); return oo && docked.some(function (x) { return !lanesOn() || modeDoor(orderMode(oo)) === doorIndex('out', x.dock); }); };
     var truck = docked.length && S.bench.parcels.some(forLane) ? docked[0] : null;
     if (truck && S.bench.parcels.length) {
       staffGo(st, benchSide(2.3), 'wait'); st.timer = 0.7; st.working = true;
@@ -552,5 +554,5 @@
       return;
     }
     var rj = returnsJob(st); if (rj) { packerReturns(st, rj); return; }
-    idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 1.8, z: 7.4 }, { x: 0, z: 1.2 }, { x: -1.4, z: 0 }));
+    idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 1.8, z: SPOT.bench.z + 2.2 }, { x: 0, z: 1.2 }, { x: -1.4, z: 0 }));
   }

@@ -1,7 +1,7 @@
 {
   "name": "depot-co",
   "productName": "Depot Co",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "description": "Standalone hobby game, NOT a Farming Simulator product. First-person warehouse simulator: receive trucks, put stock away, pick orders, pack them and ship them, then hire a crew and buy a forklift.",
   "main": "main.js",
   "author": "TheCodingDad-TisonK",
@@ -12,7 +12,9 @@
     "serve": "node tools/serve.js",
     "build": "node tools/build-game.js && node tools/sync-version.js",
     "check": "node tools/build-game.js --check && node tools/sync-version.js && node tools/lint-gate.js && node --check game/depot.js && node --check game/menu.js && node --check main.js",
-    "test": "node tools/build-game.js --check && electron tools/smoke.js",
+    "test": "node tools/build-game.js --check && node tools/devconsole/selftest.js && electron tools/smoke.js",
+    "devconsole": "electron tools/devconsole/main.js",
+    "dev": "electron . --dev-link",
     "brand": "electron tools/render-brand.js",
     "icon": "node tools/make-icon.js",
     "installer": "npm run check && npm run brand && npm run icon && electron-builder --win nsis --x64 --publish never"

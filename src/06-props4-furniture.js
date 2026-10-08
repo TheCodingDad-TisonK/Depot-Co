@@ -137,15 +137,15 @@
   defProp('pictureOffice', { label: 'picture', cat: 'wall', wall: true, abs: true, keep: true, x: 29.6, z: 23.83, rot: 2, build: pictureBuild('depot') });
   defProp('pictureLobby', { label: 'picture', cat: 'wall', wall: true, abs: true, keep: true, x: -35.0, z: 18.67, rot: 0, build: pictureBuild('mountains') });
   // ── The shop ──
-  defProp('xSofa', { extra: true, label: 'sofa', ico: '🛋️', cat: 'room', price: 220, desc: 'Two seats and a cushion. Comfort +2.', build: seatBuild(1.7, FABRIC) });
-  defProp('xArmchair', { extra: true, label: 'armchair', ico: '🪑', cat: 'room', price: 140, desc: 'One seat, deep. Comfort +1.', build: seatBuild(0.95, FABRIC2) });
-  defProp('xPaddedChair', { extra: true, label: 'padded chair', ico: '🪑', cat: 'room', price: 45, desc: 'The canteen chair with a cushion. Comfort +0.5.', build: paddedChairBuild });
-  defProp('xRoundTable', { extra: true, label: 'round table', ico: '🪵', cat: 'room', price: 90, desc: 'Seats six. Comfort +1.', build: roundTableBuild });
-  defProp('xTv', { extra: true, label: 'TV', ico: '📺', cat: 'wall', wall: true, price: 300, desc: 'Depot news on a wall of your choosing. Comfort +1.', build: tvBuild });
-  defProp('xDartboard', { extra: true, label: 'dartboard', ico: '🎯', cat: 'wall', wall: true, price: 35, desc: 'Comfort +1.', build: dartboardBuild });
-  defProp('xMicrowave', { extra: true, label: 'microwave', ico: '🍱', cat: 'room', price: 110, desc: 'Sits on anything flat. Comfort +1.', build: microwaveBuild });
-  defProp('xFan', { extra: true, label: 'standing fan', ico: '🌀', cat: 'room', price: 60, desc: 'Turns while the power is on. Comfort +1.', build: fanStandBuild });
-  defProp('xRug', { extra: true, label: 'rug', ico: '🟫', cat: 'room', price: 70, desc: 'Two by two and a half. Comfort +0.5.', build: rugBuild(2.0, 2.5, '#5f3f2f', '#d9a12c') });
-  defProp('xBookshelf', { extra: true, label: 'bookshelf', ico: '📚', cat: 'room', price: 130, desc: 'Oak, four shelves. Comfort +0.5.', build: bookshelfBuild });
-  defProp('xPrinter', { extra: true, label: 'printer', ico: '🖨️', cat: 'room', price: 160, desc: 'Prints the day report. Comfort +0.', build: printerBuild });
-  defProp('xPicture', { extra: true, label: 'picture', ico: '🖼️', cat: 'wall', wall: true, price: 50, desc: 'One of three. Comfort +0.5.', build: function (c, P, inst) { pictureBuild(['depot', 'mountains', 'ship'][Math.floor(propSeed(inst ? inst.id : 'pic', 1) * 3)])(c); } });   // the print is the picture's own: it used to change at every move and reload
+  defProp('xSofa', { extra: true, lvl: UNLOCK.seating, label: 'sofa', ico: '🛋️', cat: 'room', price: 220, desc: 'Two seats and a cushion. Comfort +2.', build: seatBuild(1.7, FABRIC) });
+  defProp('xArmchair', { extra: true, lvl: UNLOCK.seating, label: 'armchair', ico: '🪑', cat: 'room', price: 140, desc: 'One seat, deep. Comfort +1.', build: seatBuild(0.95, FABRIC2) });
+  defProp('xPaddedChair', { extra: true, lvl: UNLOCK.seating, label: 'padded chair', ico: '🪑', cat: 'room', price: 45, desc: 'The canteen chair with a cushion. Comfort +0.5.', build: paddedChairBuild });
+  defProp('xRoundTable', { extra: true, lvl: UNLOCK.seating, label: 'round table', ico: '🪵', cat: 'room', price: 90, desc: 'Seats six. Comfort +1.', build: roundTableBuild });
+  defProp('xTv', { extra: true, lvl: UNLOCK.decor, label: 'TV', ico: '📺', cat: 'wall', wall: true, price: 300, desc: 'Depot news on a wall of your choosing. Comfort +1.', build: tvBuild });
+  defProp('xDartboard', { extra: true, lvl: UNLOCK.decor, label: 'dartboard', ico: '🎯', cat: 'wall', wall: true, price: 35, desc: 'Comfort +1.', build: dartboardBuild });
+  defProp('xMicrowave', { extra: true, lvl: UNLOCK.decor, label: 'microwave', ico: '🍱', cat: 'room', price: 110, desc: 'Sits on anything flat. Comfort +1.', build: microwaveBuild });
+  defProp('xFan', { extra: true, lvl: UNLOCK.decor, label: 'standing fan', ico: '🌀', cat: 'room', price: 60, desc: 'Turns while the power is on. Comfort +1.', build: fanStandBuild });
+  defProp('xRug', { extra: true, lvl: UNLOCK.decor, label: 'rug', ico: '🟫', cat: 'room', price: 70, desc: 'Two by two and a half. Comfort +0.5.', build: rugBuild(2.0, 2.5, '#5f3f2f', '#d9a12c') });
+  defProp('xBookshelf', { extra: true, lvl: UNLOCK.decor, label: 'bookshelf', ico: '📚', cat: 'room', price: 130, desc: 'Oak, four shelves. Comfort +0.5.', build: bookshelfBuild });
+  defProp('xPrinter', { extra: true, lvl: UNLOCK.decor, label: 'printer', ico: '🖨️', cat: 'room', price: 160, desc: 'Prints the day report. Comfort +0.', build: printerBuild });
+  defProp('xPicture', { extra: true, lvl: UNLOCK.decor, label: 'picture', ico: '🖼️', cat: 'wall', wall: true, price: 50, desc: 'One of three. Comfort +0.5.', build: function (c, P, inst) { pictureBuild(['depot', 'mountains', 'ship'][Math.floor(propSeed(inst ? inst.id : 'pic', 1) * 3)])(c); } });   // the print is the picture's own: it used to change at every move and reload

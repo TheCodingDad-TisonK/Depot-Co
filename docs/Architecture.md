@@ -12,8 +12,9 @@ Depot Co. is one HTML page, one stylesheet, and one JavaScript closure built fro
 | `game/menu.js` | The splash and the main menu with the three save slots. Talks to the game through `window.DEPOT`. |
 | `game/version.js` | **Generated** from `package.json` by `tools/sync-version.js`. |
 | `game/logo-256.png`, `logo.png`, `wordmark.png` | **Generated** by `tools/render-brand.js` (a canvas drawing in a hidden Electron window). |
-| `main.js` | The Electron shell: one window, no menu bar, screenshots to `Pictures\Depot Co`. |
-| `tools/smoke.js` | `npm test`. Boots the real page headless and plays several days through the test handle: 340 checks, from the first truck to the sortation deck, the annex halls, the scanner, the returns desk and the day report. The scenario is one template literal evaluated in the page, so a check message must not carry an escaped apostrophe (the literal eats the backslash and the quote closes early). |
+| `main.js` | The Electron shell: one window, no menu bar, screenshots to `Pictures\Depot Co`. `--dev-link` starts the game linked to the dev console. |
+| `tools/smoke.js` | `npm test`. Boots the real page headless and climbs the ladder across reloads: seven scenarios in `tools/smoke-*.js` (the shed, the small hall, the hall, the big hall, the annexes, the far end, a 1.20 save), each a template literal evaluated in the page with the shared prologue from `tools/smoke-lib.js`. A scenario ends by sleeping, which books the next building; the runner reloads the page the way the game would and the next scenario carries on with that save. A check message must not carry an escaped apostrophe (the literal eats the backslash and the quote closes early). |
+| `tools/devconsole/` | The dev console (1.21.0): `main.js` an Electron window of its own, `server.js` a Node http server on 127.0.0.1:8432 (an event stream of commands to the game, the game's readout posted back, the page for the window), `index.html` the console page, `selftest.js` its round-trip test. `npm run devconsole`. |
 
 ## The parts of `src/`
 
@@ -21,12 +22,12 @@ They join in file-name order into one function scope, so every `function` is hoi
 
 | Part | Holds |
 |---|---|
-| `01-head` | The closure, utilities, the save key for the active slot, the machine settings (`SET`). |
-| `02-config` | The sixteen lines (`SKUS`), the nine clients, the three lanes, the clock, the economy, the upgrades, staff roles, and every layout number (`HALL`, `RACK`, `DOCKS`, `SPOT`). |
+| `01-head` | The closure, utilities, the save key for the active slot, `BOOT_STAGE` (the building stage read off the raw save before anything is laid out), the machine settings (`SET`). |
+| `02-config` | The sixteen lines (`SKUS`) and nine clients with the level each arrives at, the three lanes, the ladder (`LEVEL_CAP`, `XP_TABLE`, `UNLOCK`, `STAFF_CAPS`, `LADDER_NOTES`, `levelOpens`), the six building stages (`STAGES`, `STAGE`, `stageHas`, `stageFlags`), the clock, the economy, the upgrades (`free: <stage>` marks the structure a stage brings), staff roles, and every layout number for the stage the page booted at (`HALL`, `RACK`, `DOCKS`, `SPOT`, `TRUCK_OUT`, `VAN`). |
 | `03-state` | `freshState()`, `load()`, `save()`, `pay()`, `addXp()`, `addRep()`. The state is the single object `S`. |
 | `04-sound` | The feed, toasts, and every sound effect as a small Web Audio synth. |
 | `05-three` | Renderer, camera, lights, every texture drawn on a canvas, every material, the `box`/`plane`/`sign`/`hitBox` helpers, the `inter` list and the `solids` list. |
-| `06-building` | The hall, the dock doors, the racks (`buildRack`), the office, the bench, the break room, the order board, `floorY()`. |
+| `06-building` | The hall for the stage (the shed and its lining, or the hall with its rooms slid to its walls), the dock doors, the racks (`buildRack`), the office, the bench, the break room, the order board, `floorY()`. |
 | `06-doors` | The touch-screen kit (`touchScreen`, UV tap mapping), hinged doors with locks, the control cabinet. |
 | `06-dressing` | Everything that makes the hall look worked in: clocks, fans, posters, fire points, the baler and wrapper, the break room and office props, the KPI board. |
 | `06-yard` | The yard: lanes, dock shelters, fence, barrier gates, gatehouses and guards, car park, neighbours, the road and its traffic, sun, moon, clouds, puddles, rain and snow particles. |
@@ -43,7 +44,8 @@ They join in file-name order into one function scope, so every `function` is hoi
 | `13-scanner-map` | The scanner's map page: the site from above with you, the crew, the trucks and the waypoint (1.16.0). |
 | `13-ui` | HUD, the PC and bench panels, the pause menu, settings, the guide. (The HTML scanner that lived here until 1.16.0 is gone; the device in `13-scanner-device` is the scanner.) |
 | `14-bake` | The static-geometry bake: every mesh that never moves is merged by material. Groups flagged `userData.dynamic`, glowing materials and anything interactive are left alone. |
-| `14-events` | The clock, the day roll, lighting by the hour, sleep, coffee, power cuts, the inspector, the prowler, levels, the guided intro. |
+| `14-events` | The clock, the day roll, lighting by the hour, sleep, coffee, power cuts, the inspector, the prowler, the level-up engine (`onLevelUp`, the level card, `stageEarn`, `stageRebuild`), the guided intro. |
+| `14-devlink` | The dev console link (1.21.0): Ctrl+Shift+D or `?dev=1` opens an event stream from the console's server, posts the readout once a second, runs every command through `devCommand` (13-ui). |
 | `14-life` | Seasons and weather, rain ambience and thunder, the radio sequencer, the forklift battery, the stretch wrapper. |
 | `14-report` | The day report: the day closed off at every roll, the HUD card, the fortnight's table (1.16.0). |
 | `15-boot` | Load, build, the frame loop, autosave, `window.DEPOT`. |
@@ -53,6 +55,7 @@ They join in file-name order into one function scope, so every `function` is hoi
 - **The save is the world.** Boxes, pallets and parcels have no meshes of their own. `syncInstances()` rebuilds three `InstancedMesh` objects from `S` every frame, and records for each instance where it came from (`instSrc`) so the raycast can say "that box is on pallet X on the floor". Nothing can drift out of sync with the save because there is no second copy.
 - **Interaction is a raycast from the screen centre** against `inter` (hit meshes with a `userData.it` of `{ prompt(), use() }`) plus the three instanced meshes. The nearest hit whose `prompt()` returns text becomes `focus`. `E` calls `focus.use()`.
 - **Collision is axis-aligned boxes.** `solids` is static (walls, racks, furniture). `dyn` is rebuilt every tick from pallets on the floor, docked trailers, closed doors, the forklift. The player is a circle of radius 0.32 moved one axis at a time. `floorY(x, z)` says whether the ground here is the hall (0), a docked trailer (0), the ramp, or the yard (-1.2); a rise of more than half a metre counts as a wall.
+- **The building stages (1.21.0).** Six rectangles in one world frame, each inside the next: the shed (14 x 10), the small hall (40 x 28), the hall (60 x 48), the big hall (72 x 48), the same with the annexes, the same with Hall 4. `BOOT_STAGE` is read off the raw save in `01-head` before `02-config` runs, so every layout table (`HALL`, `RACK`, `DOCKS`, `SPOT`, `TRUCK_OUT`) is built once a page load for that stage and nothing downstream needs a second code path. A level that earns a bigger stage marks it due (`S.siteDue`); at the day roll `stageRebuild` sets `S.site`, saves and reloads behind a fade. Prop defaults are laid out per stage in `defProp` (06-props): a 40-frame default is used raw in the small hall, grown in the hall and wall-shifted in the big halls; a 60-frame default (`abs`) is pulled in by `ungrown` for the small hall; a 72-frame default (`abs, keep`) first by `unwallX`; `at[stage]` names a spot outright; `stage` and `lvl` say when a prop stands, `shed` lets it stand in the shed. The save fields are `site` and `siteDue` (not `stage`: that word was the deck's shipping bays). A save without them boots in the big hall at least (`stageForOwned`).
 - **Time** runs at one game hour per 75 real seconds while open, four times that at night, and stops while a panel or the pause menu is open. Trucks spawn when the clock crosses their slot and a flag keyed by day keeps them from spawning twice.
 - **The hall grew again** from 60 x 48 to 72 x 48 on 2026-10-03: the side walls moved from x 30 to x 36. The config defines wallX(x, z, yard): a hall position with |x| in the old wall zone (22.1 up to 30.5) moves out by 6 m, a yard position beside a side wall moves with it, and defProp applies it after grown(). The SPOT table is shifted the same way, the rooms are built from HALL.x, and a hall-3 save migrates its layout, custom props, floor pallets, staff and tools once (03-state). The pick belts cross the east corridor hung from the roof (a path point flagged hang draws rods instead of legs) and ramp down beside the bench to two inlets.
 - **The hall grew** from 40 x 28 to 60 x 48 on 2026-10-02. Prop defaults authored for the small hall are shifted at `defProp` by the `grown()` rule in `06-props` (a coordinate with |v| >= 8 moves 10 m outward) unless the def says `abs: true`; everything newer is authored in the big hall with `abs: true`. The save carries `hall: 3` and `load()` in `03-state` migrates older generations (clears layout overrides, parks the tools, evicts any truck that would sit inside the walls).
@@ -64,4 +67,5 @@ They join in file-name order into one function scope, so every `function` is hoi
 
 - A line: add a row to `SKUS` in `02-config`. Its cardboard texture, colour band and label are generated from it.
 - A client: add to `CLIENTS` with the lines it likes. The trailer sign is drawn from the name.
-- An upgrade: add to `UPGRADES`, then handle its id in `buyUpgrade()` (13-ui) and wherever it changes play.
+- An upgrade: add to `UPGRADES` with its `lvl` from `UNLOCK`, then handle its id in `buyUpgrade()` (13-ui) and wherever it changes play.
+- A level: add a row to `XP_TABLE`, raise `LEVEL_CAP`, give the level a line in `LADDER_NOTES` and put something on it in `UNLOCK`; `levelOpens` and the card read the tables. A stage: a row in `STAGES` with its hall size, rows, docks and fence, a `level`, and the `STAGE_OF` keys for what it brings.

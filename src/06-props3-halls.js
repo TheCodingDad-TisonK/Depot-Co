@@ -17,7 +17,7 @@
   function hallOfRow(r) { return HALL_OF_ROW[r] || null; }
   function isAnnexRow(r) { return r >= 20; }
   function annexRowOwned(r) { var h = hallOfRow(r); return !!h && hallOwned(h); }
-  function rowBays(r) { var h = hallOfRow(r); return h ? HALLS[h].bays : RACK.bays; }
+  function rowBays(r) { var h = hallOfRow(r); if (h) return HALLS[h].bays; return BOOT_STAGE === 0 ? Math.min(RACK.bays, Math.max(1, S.level)) : RACK.bays; }   // the shed's one row grows a bay a level (1.21.0)
   function rowLetter(r) { if (r === UPPER.row) return 'U'; if (isAnnexRow(r)) return 'HIJKLM'[r - 20]; return 'ABCDEF'[r]; }
   // the rows a walker, the forklift or the AGV can reach: the main rows you own and the rows of the halls you own
   function groundRows() { var out = []; for (var r = 0; r < S.up.rows; r++) out.push(r); for (var h in HALLS) if (hallOwned(h)) HALLS[h].rows.forEach(function (r) { out.push(r); }); return out; }
@@ -111,20 +111,20 @@
   }; }
   for (var hid in HALLS) (function (id) {
     var H = HALLS[id];
-    defProp(id, { label: H.name, cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: hallBuild(id), when: function () { return hallOwned(id); } });
-    defProp('shut' + id, { label: H.name + ' shutter', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: shutterBuild(id) });
-    H.rows.forEach(function (r, k) { defProp('rack' + r, { label: H.name + ' rack row ' + 'HIJKLM'[r - 20], cat: 'hall', abs: true, keep: true, fixed: true, x: H.rowX0 - RACK.x0, y: 0, z: H.rowZ[k], rot: 0, build: rackBuild(r), when: function () { return hallOwned(id); } }); });
+    defProp(id, { label: H.name, cat: 'hall', abs: true, keep: true, fixed: true, stage: id === 'hall4' ? 5 : 4, x: 0, z: 0, rot: 0, build: hallBuild(id), when: function () { return hallOwned(id); } });
+    defProp('shut' + id, { label: H.name + ' shutter', cat: 'hall', abs: true, keep: true, fixed: true, stage: id === 'hall4' ? 2 : 3, x: 0, z: 0, rot: 0, build: shutterBuild(id) });   // a shutter where the doorway is cut: the wing's north wall from the hall stage, the main hall's from the big hall
+    H.rows.forEach(function (r, k) { defProp('rack' + r, { label: H.name + ' rack row ' + 'HIJKLM'[r - 20], cat: 'hall', abs: true, keep: true, fixed: true, stage: id === 'hall4' ? 5 : 4, x: H.rowX0 - RACK.x0, y: 0, z: H.rowZ[k], rot: 0, build: rackBuild(r), when: function () { return hallOwned(id); } }); });
   })(hid);
   for (var hfid in HALLS) (function (id) {
-    var H = HALLS[id], when = function () { return hallOwned(id); }, cx = (H.x0 + H.x1) / 2, D = H.door;
-    defProp('ext' + id, { label: H.name + ' extinguisher', cat: 'wall', wall: true, abs: true, keep: true, x: H.x1 - 2.5, z: H.z0 + 0.17, rot: 0, build: extinguisherBuild, when: when });
-    defProp('posterExit' + id, { label: H.name + ' fire-exit poster', cat: 'wall', wall: true, abs: true, keep: true, x: D.x0 - 1.6, z: D.z - 0.17, rot: 2, build: posterBuild('exit', 0.6, 0.9), when: when });
-    defProp('posterSmoke' + id, { label: H.name + ' no-smoking poster', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 2.5, z: H.z0 + 0.17, rot: 0, build: posterBuild('nosmoking', 0.6, 0.8), when: when });
-    defProp('firstAid' + id, { label: H.name + ' first-aid box', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 4.0, z: H.z0 + 0.17, rot: 0, build: firstAidBuild, when: when });   // the lobby and the wing have one; the halls did not
-    defProp('clock' + id, { label: H.name + ' clock', cat: 'wall', wall: true, abs: true, keep: true, x: cx + 3.2, z: H.z0 + 0.3, rot: 0, build: function (c) { var f = clockBuild(0.4); f(c); }, when: when });
-    if (H.rows.length) defProp('aisle' + id, { label: H.name + ' aisle sign', cat: 'hall', abs: true, keep: true, fixed: true, x: cx, z: (H.rowZ[0] + H.rowZ[1]) / 2, rot: 0, build: aisleSignBuild(H.name.toUpperCase() + ' · ' + 'HIJKLM'[H.rows[0] - 20] + ' / ' + 'HIJKLM'[H.rows[1] - 20]), when: when });
+    var H = HALLS[id], when = function () { return hallOwned(id); }, cx = (H.x0 + H.x1) / 2, D = H.door, hs = id === 'hall4' ? 5 : 4;
+    defProp('ext' + id, { label: H.name + ' extinguisher', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: H.x1 - 2.5, z: H.z0 + 0.17, rot: 0, build: extinguisherBuild, when: when });
+    defProp('posterExit' + id, { label: H.name + ' fire-exit poster', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: D.x0 - 1.6, z: D.z - 0.17, rot: 2, build: posterBuild('exit', 0.6, 0.9), when: when });
+    defProp('posterSmoke' + id, { label: H.name + ' no-smoking poster', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: H.x0 + 2.5, z: H.z0 + 0.17, rot: 0, build: posterBuild('nosmoking', 0.6, 0.8), when: when });
+    defProp('firstAid' + id, { label: H.name + ' first-aid box', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: H.x0 + 4.0, z: H.z0 + 0.17, rot: 0, build: firstAidBuild, when: when });   // the lobby and the wing have one; the halls did not
+    defProp('clock' + id, { label: H.name + ' clock', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: cx + 3.2, z: H.z0 + 0.3, rot: 0, build: function (c) { var f = clockBuild(0.4); f(c); }, when: when });
+    if (H.rows.length) defProp('aisle' + id, { label: H.name + ' aisle sign', cat: 'hall', abs: true, keep: true, fixed: true, stage: hs, x: cx, z: (H.rowZ[0] + H.rowZ[1]) / 2, rot: 0, build: aisleSignBuild(H.name.toUpperCase() + ' · ' + 'HIJKLM'[H.rows[0] - 20] + ' / ' + 'HIJKLM'[H.rows[1] - 20]), when: when });
   })(hfid);
-  defProp('consoleIn2', { label: 'dock console IN 3', cat: 'wall', wall: true, abs: true, x: -29.7, z: -31.5, rot: 1, build: consoleBuild(5), when: function () { return hallOwned('hall3'); } });
+  defProp('consoleIn2', { label: 'dock console IN 3', cat: 'wall', wall: true, abs: true, stage: 4, x: -29.7, z: -31.5, rot: 1, build: consoleBuild(5), when: function () { return hallOwned('hall3'); } });
   // buying a hall: it stands, its rows stand, its shutter goes, Hall 3 gets its dock door and lane, the silo moves out of Hall 3's way
   function buildHall(id) {
     var H = HALLS[id];

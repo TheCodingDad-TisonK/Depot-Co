@@ -3,7 +3,7 @@
   // x -14..10, z -44..-24, under a 6 m roof. It shares the hall's north wall, which has a doorway with a strip curtain for people
   // and the forklift, and a low opening the main belt runs through.
   var WING = { x0: -14, x1: 10, z0: -HALL.z - 20, z1: -HALL.z, h: 6, door: { x0: 4, x1: 7.6, h: 4.2 }, belt: { x0: -5, x1: -3, h: 2.0 } };
-  function inWing(x, z) { return x > WING.x0 && x < WING.x1 && z > WING.z0 && z < WING.z1; }
+  function inWing(x, z) { return stageHas('wing') && x > WING.x0 && x < WING.x1 && z > WING.z0 && z < WING.z1; }   // the wing stands from the hall stage (1.21.0)
   function buildWing() {
     var W = WING, h = W.h, cx = (W.x0 + W.x1) / 2, cz = (W.z0 + W.z1) / 2, wx = W.x1 - W.x0, wz = W.z1 - W.z0;
     box(wx + 0.6, 1.2, wz + 0.3, MAT.grey, cx, YARD_Y + 0.6, cz - 0.15);                                   // the plinth it stands on
@@ -99,7 +99,8 @@
       var lo = Math.min(ay, by), onDeck = Math.abs(lo - UPPER.y) < 0.25 && Math.abs(ay - by) < 0.25;
       if (!spiral) { var nch = Math.abs(ay - by) > 0.3 ? Math.max(1, Math.ceil(run / 1.0)) : 1; for (var ch = 0; ch < nch; ch++) { var t0 = ch / nch, t1 = (ch + 1) / nch, cy = Math.min(ay + (by - ay) * t0, ay + (by - ay) * t1), cx0 = ax + (bx - ax) * t0, cx1 = ax + (bx - ax) * t1, cz0 = az + (bz - az) * t0, cz1 = az + (bz - az) * t1, chigh = cy > 1.2, clow = BELT_Y + cy - 0.15; c.solid(Math.min(cx0, cx1) - 0.4, Math.max(cx0, cx1) + 0.4, Math.min(cz0, cz1) - 0.4, Math.max(cz0, cz1) + 0.4, onDeck ? cy : chigh ? clow : 0, onDeck ? cy + 0.9 : chigh ? clow + 1.2 : 0.82); } }
     }
-  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -15.3], [0.4, -15.3], [0.4, -17.1]]); c.sign(['TO THE OUT 2 BAY'], 0.8, 0.14, 2.17, 1.05, -4, -Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  }  var SHIP_PATH = BOOT_STAGE === 1 ? [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -9.8], [0.4, -9.8], [0.4, -11.6]] : [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -15.3], [0.4, -15.3], [0.4, -17.1]];   // from the shelf down the east wall into the shipping bay: OUT 1's in the small hall, OUT 2's from the hall on
+  function shipBeltBuild(c) { conveyorPath(c, SHIP_PATH); c.sign(['TO THE ' + (BOOT_STAGE === 1 ? 'OUT 1' : 'OUT 2') + ' BAY'], 0.8, 0.14, 2.17, 1.05, BOOT_STAGE === 1 ? -2 : -4, -Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   // the dock loader: a fixed belt section that takes parcels off a belt end, and a boom that pushes them into the trailer when a truck
   // is docked with the door up. mirror: the inlet faces north instead of south (OUT 1's stands under the deck edge, fed from the north)
   function dockLoaderBuildFor(id, label, mirror) { return function (c) {
@@ -195,7 +196,7 @@
     [-0.38, 0.38].forEach(function (x) { var rail = c.box(0.04, 0.1, 1.2, DG, x, 0.64, 6.45); rail.rotation.x = 0.06; c.box(0.05, 0.55, 0.05, DG, x, 0.28, 5.95); c.box(0.05, 0.5, 0.05, DG, x, 0.25, 6.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 5.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 6.95); }); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 5.95); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 6.95);
     c.box(0.8, 0.12, 0.03, MAT_MACH.guard, 0, 0.68, 7.02); c.sign(['PARCELS · TAKE FROM HERE'], 0.8, 0.12, 0, 0.5, 7.03, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     c.solid(-0.45, 0.45, 5.8, 7.05, 0, 0.75);
-  }  function shelfSlot(i) { var k = i % 8, up = i >= 8 ? 0.27 : 0; return { lx: k % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(k / 2) * 0.26, y: 0.66 - Math.floor(k / 2) * 0.016 + 0.2 + up }; }   // twelve: eight on the rails, four more stacked on the back two rows
+  }  function shelfSlot(i) { if (BOOT_STAGE === 0) return { lx: -0.55 + (i % 3) * 0.55, lz: -0.1, y: 0.93 + 0.23 + Math.floor(i / 3) * 0.47 }; var k = i % 8, up = i >= 8 ? 0.27 : 0; return { lx: k % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(k / 2) * 0.26, y: 0.66 - Math.floor(k / 2) * 0.016 + 0.2 + up }; }   // the shed: three across the back of the table, two high   // twelve: eight on the rails, four more stacked on the back two rows
   // ── The moulding line prop: hopper throat, heated barrel, clamp with a moving platen between tie bars, cooling fan, control cabinet, outfeed belt
   function moulderBuild(c) {
     var LG = MAT_MACH.panel, DG = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), BL = MAT_MACH.blue, CH = MAT.chrome;
@@ -393,54 +394,54 @@
     beltHigh: { label: 'belt, high run', ico: '⤒', price: 240, desc: 'A 4 m run hung from the roof two metres up, for crossing a lane. Two inclines reach it.', path: [[0, 0, 2.0], [0, 4, 2.0, 'hang']] }
   };
   function beltPieceBuild(kind) { return function (c, P) { var h = P.h || 0, pts = BELT_PIECES[kind].path.map(function (p) { return [p[0], p[1], (p[2] || 0) + h, p[3]]; }); conveyorPath(c, pts); }; }
-  Object.keys(BELT_PIECES).forEach(function (k) { var bp = BELT_PIECES[k]; defProp('x' + k.charAt(0).toUpperCase() + k.slice(1), { extra: true, label: bp.label, ico: bp.ico, cat: 'belt', price: bp.price, desc: bp.desc, beltPath: bp.path, build: beltPieceBuild(k) }); });
+  Object.keys(BELT_PIECES).forEach(function (k) { var bp = BELT_PIECES[k]; defProp('x' + k.charAt(0).toUpperCase() + k.slice(1), { extra: true, label: bp.label, ico: bp.ico, cat: 'belt', lvl: /^beltS|^beltC/.test(k) ? UNLOCK.beltsA : UNLOCK.beltsB, price: bp.price, desc: bp.desc, beltPath: bp.path, build: beltPieceBuild(k) }); });
   // signs as props, so build mode can move them: a wall sign faces +z in its own frame, a floor painting lies flat
   function wallSignBuild(lines, w, h, y, opt) { return function (c) { var o = {}; for (var k in opt) o[k] = opt[k]; if (o.plate === undefined) o.plate = true; c.sign(lines, w, h, 0, y, 0.012, 0, o); }; }
   function floorSignBuild(lines, w, h, opt) { return function (c) { var m = c.sign(lines, w, h, 0, 0.008, 0, 0, opt); m.rotation.x = -Math.PI / 2; }; }
   // ── Defaults
-  defProp('packline', { label: 'pack line', cat: 'hall', abs: true, x: 26.6, z: 7.2, rot: 0, build: packLineBuild });
-  defProp('moulder', { label: 'moulding line', cat: 'factory', abs: true, x: -4, z: -37, rot: 0, build: moulderBuild });
-  defProp('beltMain', { label: 'main belt', cat: 'factory', abs: true, x: -4, z: -32.5, rot: 0, build: beltMainBuild });
-  defProp('palletiser', { label: 'palletiser', cat: 'hall', abs: true, x: -4, z: -20.6, rot: 0, build: palletiserBuild });
-  defProp('hopper', { label: 'raw hopper', cat: 'factory', abs: true, x: -9.5, z: -37, rot: 0, build: hopperBuild });
-  defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, x: 26.6, z: 14.3, rot: 0, build: shipBeltBuild, when: function () { return !!S.up.shipbelt && !S.up.sorter; } });   // the sortation deck takes the shelf over
-  defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
-  defProp('dockLoader1', { label: 'dock loader OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, x: 34.6, z: -13.9, rot: 0, build: dockLoaderBuildFor('dockLoader1', 'OUT 1', false), when: function () { return !!S.up.sorter; } });   // under the deck edge; its bay stands south of it in the apron, fed by the sea spiral
-  defProp('dockLoader3', { label: 'dock loader OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, x: 34.6, z: -21.4, rot: 0, build: dockLoaderBuildFor('dockLoader3', 'OUT 3', false), when: function () { return !!S.up.sorter; } });
-  defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
-  for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDE'[r], cat: 'hall', abs: true, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
-  defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[0], rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
-  defProp('pickMerge', { keep: true, label: 'pick belt merge', cat: 'hall', abs: true, x: 26.6, z: 5.2, rot: 0, build: pickMergeBuild, when: function () { return !!S.up.gantry; } });
-  defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[RACK.rows.length - 1], rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 3; } });
-  defProp('silo', { label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
-  defProp('extWing', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
-  defProp('qcBench', { label: 'quality bench', cat: 'factory', abs: true, x: 6.5, z: -29, rot: 2, build: qcBenchBuild });
-  defProp('workbench', { label: 'maintenance bench', cat: 'factory', abs: true, x: -12.8, z: -27.5, rot: 1, build: workbenchBuild });
-  defProp('toolCab', { label: 'tool cabinet', cat: 'factory', abs: true, x: -13.2, z: -25.4, rot: 1, build: toolCabBuild });
-  defProp('mouldRack', { label: 'mould store', cat: 'factory', abs: true, x: 2.5, z: -43.2, rot: 0, build: mouldRackBuild });
-  defProp('partsShelf', { label: 'spares shelf', cat: 'factory', abs: true, x: -1.0, z: -43.3, rot: 0, build: partsShelfBuild });
-  defProp('chiller', { label: 'chiller', cat: 'factory', abs: true, x: -11.5, z: -42.5, rot: 0, build: chillerBuild });
-  defProp('dryer', { label: 'granulate dryer', cat: 'factory', abs: true, x: -6.0, z: -42.8, rot: 0, build: dryerBuild });
-  defProp('switchboard', { label: 'switchboard', cat: 'wall', wall: true, abs: true, x: 9.8, z: -41, rot: 3, build: switchboardBuild });
-  defProp('shiftBoard', { label: 'shift board', cat: 'wall', wall: true, abs: true, x: 9.83, z: -33, rot: 3, build: shiftBoardBuild });
-  defProp('clockWing', { label: 'wing clock', cat: 'wall', wall: true, abs: true, x: 9.83, z: -27, rot: 3, build: function (c) { var f = clockBuild(0.4); f(c); c.group.children[c.group.children.length - 1].position.y = 3.6; } });
-  defProp('firstAidWing', { label: 'first-aid box', cat: 'wall', wall: true, abs: true, x: 9.83, z: -25.5, rot: 3, build: firstAidBuild });
+  defProp('packline', { label: 'pack line', cat: 'hall', abs: true, stage: 1, x: 26.6, z: 7.2, rot: 0, at: { 1: { x: 16.6, z: -0.2, rot: 0 } }, build: packLineBuild });   // two metres down the bench in every hall (the small hall's bench is at z -2.2)
+  defProp('moulder', { stage: 2, label: 'moulding line', cat: 'factory', abs: true, x: -4, z: -37, rot: 0, build: moulderBuild });
+  defProp('beltMain', { stage: 2, label: 'main belt', cat: 'factory', abs: true, x: -4, z: -32.5, rot: 0, build: beltMainBuild });
+  defProp('palletiser', { stage: 2, label: 'palletiser', cat: 'hall', abs: true, x: -4, z: -20.6, rot: 0, build: palletiserBuild });
+  defProp('hopper', { stage: 2, label: 'raw hopper', cat: 'factory', abs: true, x: -9.5, z: -37, rot: 0, build: hopperBuild });
+  defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, stage: 1, x: 26.6, z: 14.3, rot: 0, at: { 1: { x: 16.6, z: 6.8, rot: 0 } }, build: shipBeltBuild, when: function () { return !!S.up.shipbelt && !S.up.sorter; } });   // the sortation deck takes the shelf over
+  defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, stage: 1, x: 28.6, z: -5.9, rot: 0, at: { 1: { x: 18.6, z: -7.9, rot: 0 } }, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
+  defProp('dockLoader1', { label: 'dock loader OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: 34.6, z: -13.9, rot: 0, build: dockLoaderBuildFor('dockLoader1', 'OUT 1', false), when: function () { return !!S.up.sorter; } });   // under the deck edge; its bay stands south of it in the apron, fed by the sea spiral
+  defProp('dockLoader3', { label: 'dock loader OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: 34.6, z: -21.4, rot: 0, build: dockLoaderBuildFor('dockLoader3', 'OUT 3', false), when: function () { return !!S.up.sorter; } });
+  defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, stage: 2, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
+  for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDE'[r], cat: 'hall', abs: true, stage: 2, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
+  defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, stage: 2, x: 22.0, z: RACK.rows[0], rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickMerge', { keep: true, stage: 2, label: 'pick belt merge', cat: 'hall', abs: true, x: 26.6, z: 5.2, rot: 0, at: { 2: { x: 22.6, z: 5.2, rot: 0 } }, build: pickMergeBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, stage: 2, x: 22.0, z: RACK.rows[RACK.rows.length - 1], rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 3; } });
+  defProp('silo', { stage: 2, label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
+  defProp('extWing', { stage: 2, label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
+  defProp('qcBench', { stage: 2, label: 'quality bench', cat: 'factory', abs: true, x: 6.5, z: -29, rot: 2, build: qcBenchBuild });
+  defProp('workbench', { stage: 2, label: 'maintenance bench', cat: 'factory', abs: true, x: -12.8, z: -27.5, rot: 1, build: workbenchBuild });
+  defProp('toolCab', { stage: 2, label: 'tool cabinet', cat: 'factory', abs: true, x: -13.2, z: -25.4, rot: 1, build: toolCabBuild });
+  defProp('mouldRack', { stage: 2, label: 'mould store', cat: 'factory', abs: true, x: 2.5, z: -43.2, rot: 0, build: mouldRackBuild });
+  defProp('partsShelf', { stage: 2, label: 'spares shelf', cat: 'factory', abs: true, x: -1.0, z: -43.3, rot: 0, build: partsShelfBuild });
+  defProp('chiller', { stage: 2, label: 'chiller', cat: 'factory', abs: true, x: -11.5, z: -42.5, rot: 0, build: chillerBuild });
+  defProp('dryer', { stage: 2, label: 'granulate dryer', cat: 'factory', abs: true, x: -6.0, z: -42.8, rot: 0, build: dryerBuild });
+  defProp('switchboard', { stage: 2, label: 'switchboard', cat: 'wall', wall: true, abs: true, x: 9.8, z: -41, rot: 3, build: switchboardBuild });
+  defProp('shiftBoard', { stage: 2, label: 'shift board', cat: 'wall', wall: true, abs: true, x: 9.83, z: -33, rot: 3, build: shiftBoardBuild });
+  defProp('clockWing', { stage: 2, label: 'wing clock', cat: 'wall', wall: true, abs: true, x: 9.83, z: -27, rot: 3, build: function (c) { var f = clockBuild(0.4); f(c); c.group.children[c.group.children.length - 1].position.y = 3.6; } });
+  defProp('firstAidWing', { stage: 2, label: 'first-aid box', cat: 'wall', wall: true, abs: true, x: 9.83, z: -25.5, rot: 3, build: firstAidBuild });
   function exitSignBuild(c) { var m = c.sign(['EXIT'], 0.5, 0.2, 0, 2.6, 0.03, 0, { w: 256, h: 96, bg: '#1f7a3a', fg: '#dfffe8' }); m.renderOrder = 1; c.box(0.54, 0.24, 0.04, MAT.exit, 0, 2.6, 0); }
-  defProp('signStaff', { label: 'sign: STAFF', cat: 'wall', wall: true, abs: true, x: -30.17, z: 22, rot: 3, build: wallSignBuild(['STAFF'], 1.2, 0.4, 3.75, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('signFront', { label: 'sign: DEPOT CO. (front)', cat: 'wall', wall: true, abs: true, x: 0, z: 24.17, rot: 0, build: function (c) { c.sign(['DEPOT CO.'], 12, 2.6, 0, 5, 0.01, 0, { w: 1024, h: 224, bg: '#1b232c', fg: '#f5b53d', border: '#f5b53d' }); c.sign(['3PL · STORAGE · FULFILMENT'], 10, 0.8, 0, 3.2, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); } });
-  defProp('signOffice', { label: 'sign: OFFICE', cat: 'wall', wall: true, abs: true, x: 22.41, z: 19.95, rot: 3, build: wallSignBuild(['OFFICE'], 1.4, 0.45, 2.6, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('signLobby', { label: 'sign: LOBBY', cat: 'wall', wall: true, abs: true, x: -25.41, z: 19.95, rot: 1, build: wallSignBuild(['LOBBY'], 1.2, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('signBreak', { label: 'sign: BREAK ROOM', cat: 'wall', wall: true, abs: true, x: -22.91, z: -22.45, rot: 1, build: wallSignBuild(['BREAK ROOM'], 1.6, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('exitNorth', { keep: true, label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
-  defProp('exitStaff', { label: 'exit sign (staff door)', cat: 'wall', wall: true, abs: true, x: -29.8, z: 22, rot: 1, build: exitSignBuild });
-  defProp('signPacking', { label: 'sign: PACKING', cat: 'wall', wall: true, abs: true, x: 29.83, z: 5.2, rot: 3, build: wallSignBuild(['PACKING'], 1.8, 0.5, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' }) });
-  defProp('signProduction', { label: 'sign: PRODUCTION', cat: 'wall', wall: true, abs: true, x: 5.8, z: -23.83, rot: 0, build: wallSignBuild(['PRODUCTION'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#78bdf5' }) });
-  defProp('signWarehouse', { label: 'sign: WAREHOUSE', cat: 'wall', wall: true, abs: true, x: 5.8, z: -24.17, rot: 2, build: wallSignBuild(['WAREHOUSE'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' }) });
-  defProp('signPpe', { label: 'sign: PPE', cat: 'wall', wall: true, abs: true, x: 2.5, z: -23.83, rot: 0, build: wallSignBuild(['PPE BEYOND THIS POINT', 'ear defenders · safety boots · hi-vis'], 1.2, 0.5, 2.3, { w: 512, h: 200, bg: '#1f4e8c', fg: '#eef1f5' }) });
-  defProp('paintReceiving', { label: 'floor paint: RECEIVING', cat: 'hall', abs: true, x: SPOT.stageIn.x, z: SPOT.stageIn.z + 2.2, rot: 0, build: floorSignBuild(['RECEIVING'], 2.6, 0.9, { w: 512, h: 128, bg: '#2a2f36', fg: '#f5b53d' }) });
-  defProp('paintShipping', { label: 'floor paint: SHIPPING', cat: 'hall', abs: true, x: SPOT.stageOut.x - 2.3, z: SPOT.stageOut.z, rot: 1, build: floorSignBuild(['SHIPPING'], 2.6, 0.9, { w: 512, h: 128, bg: '#2a2f36', fg: '#5fd38d' }) });
-  defProp('paintFinished', { label: 'floor paint: FINISHED GOODS', cat: 'hall', abs: true, x: -1.0, z: -16.3, rot: 0, build: floorSignBuild(['FINISHED GOODS'], 1.8, 0.3, { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#f5b53d' }) });
-  defProp('paintRaw', { label: 'floor paint: RAW GRANULATE', cat: 'factory', abs: true, x: -9.5, z: -31.6, rot: 0, build: floorSignBuild(['RAW GRANULATE'], 1.6, 0.3, { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#eef1f5' }) });
-  defProp('xWallSign', { extra: true, label: 'wall sign (DEPOT CO.)', ico: '🪧', cat: 'wall', wall: true, price: 30, desc: 'A spare sign for any wall.', build: wallSignBuild(['DEPOT CO.'], 1.2, 0.4, 2.4, { w: 512, h: 160, bg: '#1b232c', fg: '#f5b53d' }) });
-  defProp('xFloorArrow', { extra: true, label: 'floor arrow', ico: '➡️', cat: 'hall', price: 10, desc: 'Points the way.', build: floorSignBuild(['➜'], 1.2, 0.6, { w: 256, h: 128, bg: 'rgba(0,0,0,0)', fg: '#f5b53d', size: 110 }) });
-  defProp('posterWing', { label: 'safety poster', cat: 'wall', wall: true, abs: true, x: 9.83, z: -36, rot: 3, build: posterBuild('safety', 0.7, 1.05) });
+  defProp('signStaff', { label: 'sign: STAFF', cat: 'wall', wall: true, abs: true, stage: 1, x: -30.17, z: 22, rot: 3, build: wallSignBuild(['STAFF'], 1.2, 0.4, 3.75, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signFront', { label: 'sign: DEPOT CO. (front)', cat: 'wall', wall: true, abs: true, stage: 1, x: 0, z: 24.17, rot: 0, build: function (c) { c.sign(['DEPOT CO.'], 12, 2.6, 0, 5, 0.01, 0, { w: 1024, h: 224, bg: '#1b232c', fg: '#f5b53d', border: '#f5b53d' }); c.sign(['3PL · STORAGE · FULFILMENT'], 10, 0.8, 0, 3.2, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); } });
+  defProp('signOffice', { label: 'sign: OFFICE', cat: 'wall', wall: true, abs: true, stage: 1, x: 22.41, z: 19.95, rot: 3, build: wallSignBuild(['OFFICE'], 1.4, 0.45, 2.6, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signLobby', { label: 'sign: LOBBY', cat: 'wall', wall: true, abs: true, stage: 1, x: -25.41, z: 19.95, rot: 1, build: wallSignBuild(['LOBBY'], 1.2, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signBreak', { label: 'sign: BREAK ROOM', cat: 'wall', wall: true, abs: true, stage: 1, x: -22.91, z: -22.45, rot: 1, build: wallSignBuild(['BREAK ROOM'], 1.6, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('exitNorth', { keep: true, stage: 1, label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
+  defProp('exitStaff', { label: 'exit sign (staff door)', cat: 'wall', wall: true, abs: true, stage: 1, x: -29.8, z: 22, rot: 1, build: exitSignBuild });
+  defProp('signPacking', { label: 'sign: PACKING', cat: 'wall', wall: true, abs: true, stage: 1, x: 29.83, z: 5.2, rot: 3, at: { 1: { x: 19.83, z: -2.2, rot: 3 } }, build: wallSignBuild(['PACKING'], 1.8, 0.5, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' }) });
+  defProp('signProduction', { stage: 2, label: 'sign: PRODUCTION', cat: 'wall', wall: true, abs: true, x: 5.8, z: -23.83, rot: 0, build: wallSignBuild(['PRODUCTION'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#78bdf5' }) });
+  defProp('signWarehouse', { stage: 2, label: 'sign: WAREHOUSE', cat: 'wall', wall: true, abs: true, x: 5.8, z: -24.17, rot: 2, build: wallSignBuild(['WAREHOUSE'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' }) });
+  defProp('signPpe', { stage: 2, label: 'sign: PPE', cat: 'wall', wall: true, abs: true, x: 2.5, z: -23.83, rot: 0, build: wallSignBuild(['PPE BEYOND THIS POINT', 'ear defenders · safety boots · hi-vis'], 1.2, 0.5, 2.3, { w: 512, h: 200, bg: '#1f4e8c', fg: '#eef1f5' }) });
+  defProp('paintReceiving', { label: 'floor paint: RECEIVING', cat: 'hall', abs: true, keep: true, stage: 1, x: SPOT.stageIn.x, z: SPOT.stageIn.z + 2.2, rot: 0, build: floorSignBuild(['RECEIVING'], 2.6, 0.9, { w: 512, h: 128, bg: '#2a2f36', fg: '#f5b53d' }) });
+  defProp('paintShipping', { label: 'floor paint: SHIPPING', cat: 'hall', abs: true, keep: true, stage: 1, x: SPOT.stageOut.x - 2.3, z: SPOT.stageOut.z, rot: 1, build: floorSignBuild(['SHIPPING'], 2.6, 0.9, { w: 512, h: 128, bg: '#2a2f36', fg: '#5fd38d' }) });
+  defProp('paintFinished', { stage: 2, label: 'floor paint: FINISHED GOODS', cat: 'hall', abs: true, x: -1.0, z: -16.3, rot: 0, build: floorSignBuild(['FINISHED GOODS'], 1.8, 0.3, { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#f5b53d' }) });
+  defProp('paintRaw', { stage: 2, label: 'floor paint: RAW GRANULATE', cat: 'factory', abs: true, x: -9.5, z: -31.6, rot: 0, build: floorSignBuild(['RAW GRANULATE'], 1.6, 0.3, { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#eef1f5' }) });
+  defProp('xWallSign', { extra: true, lvl: UNLOCK.build, label: 'wall sign (DEPOT CO.)', ico: '🪧', cat: 'wall', wall: true, price: 30, desc: 'A spare sign for any wall.', build: wallSignBuild(['DEPOT CO.'], 1.2, 0.4, 2.4, { w: 512, h: 160, bg: '#1b232c', fg: '#f5b53d' }) });
+  defProp('xFloorArrow', { extra: true, lvl: UNLOCK.build, label: 'floor arrow', ico: '➡️', cat: 'hall', price: 10, desc: 'Points the way.', build: floorSignBuild(['➜'], 1.2, 0.6, { w: 256, h: 128, bg: 'rgba(0,0,0,0)', fg: '#f5b53d', size: 110 }) });
+  defProp('posterWing', { stage: 2, label: 'safety poster', cat: 'wall', wall: true, abs: true, x: 9.83, z: -36, rot: 3, build: posterBuild('safety', 0.7, 1.05) });

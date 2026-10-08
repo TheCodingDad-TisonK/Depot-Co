@@ -40,16 +40,18 @@
   sun.shadow.mapSize.set(4096, 4096); sun.shadow.camera.left = -70; sun.shadow.camera.right = 70; sun.shadow.camera.top = 70; sun.shadow.camera.bottom = -70; sun.shadow.camera.near = 1; sun.shadow.camera.far = 230; sun.target.position.set(0, 0, -20); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
-  // nine high bays on a 20 x 15 m grid: the hall is 60 x 48 since 2026-10-02, and six lights on the old 20 x 10 grid left the edges dark
-  [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]].forEach(function (p, i) {   // twelve since the 72 m hall
+  // the high bays by stage (1.21.0): one over the shed, four over the small hall, nine on a 20 x 15 m grid over the 60 m hall, twelve over the 72 m hall
+  var HIGH_BAYS = BOOT_STAGE === 0 ? [[0, 0]] : BOOT_STAGE === 1 ? [[-9, -5], [9, -5], [-9, 5], [9, 5]] : BOOT_STAGE === 2 ? [[-20, -15], [0, -15], [20, -15], [-20, 0], [0, 0], [20, 0], [-20, 15], [0, 15], [20, 15]] : [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]];
+  HIGH_BAYS.forEach(function (p, i) {
     // a shorter reach than the old 38 m: the floor under each bay is a pool and the aisle between two bays is a touch darker, the
     // way a real hall reads. Every third lamp is a slightly cooler tube, as a hall that has had its lamps replaced piecemeal is.
-    var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l);
+    var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, BOOT_STAGE === 0 ? 0.7 : 0.55, BOOT_STAGE === 0 ? 14 : 28, 2); l.position.set(p[0], HALL.h - 0.7, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l);
   });
-  // the three rooms' own lamps, under their troffers (they used to sit where the rooms were before the hall grew: in the open hall)
-  var officeLight = new THREE.PointLight(0xfff8ea, 0.55, 9, 2); officeLight.position.set(32.5, 2.9, 21.2); scene.add(officeLight);
-  var breakLight = new THREE.PointLight(0xffe9c8, 0.45, 8, 2); breakLight.position.set(-32.5, 2.9, -22.1); scene.add(breakLight);
-  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.4, 7, 2); lobbyLight.position.set(-33.7, 2.9, 21.2); scene.add(lobbyLight);
+  // the three rooms' own lamps, under their troffers (they used to sit where the rooms were before the hall grew: in the open hall); the rooms sit in the hall's corners, so the lamps follow the walls
+  var officeLight = new THREE.PointLight(0xfff8ea, 0.55, 9, 2); officeLight.position.set(HALL.x - 3.5, 2.9, HALL.z - 2.8); scene.add(officeLight);
+  var breakLight = new THREE.PointLight(0xffe9c8, 0.45, 8, 2); breakLight.position.set(-HALL.x + 3.5, 2.9, -HALL.z + 1.9); scene.add(breakLight);
+  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.4, 7, 2); lobbyLight.position.set(-HALL.x + 2.3, 2.9, HALL.z - 2.8); scene.add(lobbyLight);
+  if (BOOT_STAGE === 0) { officeLight.intensity = 0; breakLight.intensity = 0; lobbyLight.intensity = 0; officeLight.userData.off = breakLight.userData.off = lobbyLight.userData.off = true; }   // no rooms in the shed
   var yardLights = [];   // filled by the lamp-post props
   // Three.js lights every pixel with every visible point light, whether or not the light can reach it, so thirty lamps mean thirty
   // evaluations per pixel. Every point light in the scene goes in one list and only the nearest few to the camera stay visible; the

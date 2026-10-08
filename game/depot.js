@@ -11,6 +11,12 @@
   // ── Utilities ─────────────────────────────────────────────────────
   var BOOT_SLOT = (function () { try { var sl = +(localStorage.getItem('depotco-slot') || 1); return sl >= 1 && sl <= 3 ? sl : 1; } catch (e) { return 1; } })();
   var SAVE = 'depotco-slot' + BOOT_SLOT;
+  // 1.21.0: the building stage is read off the slot before anything is laid out, because every layout table is built once a page
+  // load for it (02-config). A save from 1.20 or earlier has no site field: it lived in the 72 m hall, so it gets the big hall at
+  // least, the annexes if it owns a hall, the far end if it owns Hall 4 (stageForOwned). No save: the shed.
+  var BOOT_SAVE = (function () { try { var raw = localStorage.getItem(SAVE), s = raw ? JSON.parse(raw) : null; return s && typeof s === 'object' ? s : null; } catch (e) { return null; } })();
+  function stageForOwned(up) { up = up || {}; return up.hall4 ? 5 : (up.hall2 || up.hall3) ? 4 : 3; }
+  var BOOT_STAGE = BOOT_SAVE ? (typeof BOOT_SAVE.site === 'number' ? Math.max(0, Math.min(5, Math.floor(BOOT_SAVE.site))) : stageForOwned(BOOT_SAVE.up)) : 0;
   var SETTINGS_KEY = 'depotco-settings';
   var now = function () { return Date.now(); };
   var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
@@ -31,68 +37,93 @@
   try { var ss = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null'); if (ss) for (var sk in ss) if (sk in SET) SET[sk] = ss[sk]; } catch (e) {}
   function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) {} }
   // ── Goods ─────────────────────────────────────────────────────────
-  // tier: the level at which clients start sending that line. val: what one box is worth to the client.
+  // lvl: the level at which clients start sending that line (1.21.0: the ladder spreads the sixteen lines over 25 levels). val: what one box is worth to the client.
   var SKUS = [
-    { id: 'paint',  name: 'Paint tins',       col: '#d14a3a', val: 38,  tier: 1 },
-    { id: 'bolts',  name: 'Bolt boxes',       col: '#7b8794', val: 22,  tier: 1 },
-    { id: 'cereal', name: 'Cereal cases',     col: '#f0b94d', val: 18,  tier: 1 },
-    { id: 'lamps',  name: 'Desk lamps',       col: '#e8d9a0', val: 26,  tier: 1 },
-    { id: 'coffee', name: 'Coffee beans',     col: '#6b4423', val: 45,  tier: 2 },
-    { id: 'toys',   name: 'Toy robots',       col: '#3fa7d6', val: 30,  tier: 2 },
-    { id: 'soap',   name: 'Detergent',        col: '#5fd38d', val: 14,  tier: 2 },
-    { id: 'books',  name: 'Book cartons',     col: '#8e6bbf', val: 20,  tier: 2 },
-    { id: 'shoes',  name: 'Trainers',         col: '#f2f2f2', val: 55,  tier: 3 },
-    { id: 'drills', name: 'Cordless drills',  col: '#2f9e44', val: 95,  tier: 3 },
-    { id: 'tv',     name: '32" televisions',  col: '#1f2937', val: 180, tier: 4 },
-    { id: 'tyres',  name: 'Tyre sets',        col: '#111111', val: 120, tier: 4 },
-    // own-brand goods come off the moulding line in the production wing; raw granulate feeds it and is never ordered by a client
-    { id: 'dccrate',   name: 'Depot Co. crates',       col: '#2f6b9a', val: 42, tier: 1, own: true },
-    { id: 'dcbin',     name: 'Depot Co. storage bins', col: '#6b8e23', val: 36, tier: 1, own: true },
-    { id: 'dcplanter', name: 'Depot Co. planters',     col: '#b5651d', val: 50, tier: 2, own: true },
-    { id: 'raw',       name: 'Raw granulate',          col: '#9aa0a6', val: 0,  tier: 99, raw: true }
+    { id: 'paint',  name: 'Paint tins',       col: '#d14a3a', val: 38,  tier: 1, lvl: 1 },
+    { id: 'bolts',  name: 'Bolt boxes',       col: '#7b8794', val: 22,  tier: 1, lvl: 1 },
+    { id: 'cereal', name: 'Cereal cases',     col: '#f0b94d', val: 18,  tier: 1, lvl: 1 },
+    { id: 'lamps',  name: 'Desk lamps',       col: '#e8d9a0', val: 26,  tier: 1, lvl: 1 },
+    { id: 'coffee', name: 'Coffee beans',     col: '#6b4423', val: 45,  tier: 2, lvl: 6 },
+    { id: 'toys',   name: 'Toy robots',       col: '#3fa7d6', val: 30,  tier: 2, lvl: 3 },
+    { id: 'soap',   name: 'Detergent',        col: '#5fd38d', val: 14,  tier: 2, lvl: 7 },
+    { id: 'books',  name: 'Book cartons',     col: '#8e6bbf', val: 20,  tier: 2, lvl: 4 },
+    { id: 'shoes',  name: 'Trainers',         col: '#f2f2f2', val: 55,  tier: 3, lvl: 8 },
+    { id: 'drills', name: 'Cordless drills',  col: '#2f9e44', val: 95,  tier: 3, lvl: 9 },
+    { id: 'tv',     name: '32" televisions',  col: '#1f2937', val: 180, tier: 4, lvl: 11 },
+    { id: 'tyres',  name: 'Tyre sets',        col: '#111111', val: 120, tier: 4, lvl: 12 },
+    // own-brand goods come off the moulding line in the production wing (level 10, with the wing); raw granulate feeds it and is never ordered by a client
+    { id: 'dccrate',   name: 'Depot Co. crates',       col: '#2f6b9a', val: 42, tier: 1, lvl: 10, own: true },
+    { id: 'dcbin',     name: 'Depot Co. storage bins', col: '#6b8e23', val: 36, tier: 1, lvl: 10, own: true },
+    { id: 'dcplanter', name: 'Depot Co. planters',     col: '#b5651d', val: 50, tier: 2, lvl: 13, own: true },
+    { id: 'raw',       name: 'Raw granulate',          col: '#9aa0a6', val: 0,  tier: 99, lvl: 10, raw: true }
   ];
   var SKU = {}; SKUS.forEach(function (s) { SKU[s.id] = s; });
   function skuName(id) { return SKU[id] ? SKU[id].name : id; }
+  function skuOpen(s) { return !!s && !s.raw && S.level >= (s.lvl || 1); }   // a line the clients send at this level
 
   var CLIENTS = [
-    // mode: the shipping lane the client's parcels leave by (sea at OUT 1, land at OUT 2, air at OUT 3 once the sortation deck opens it)
-    { id: 'hardware', name: 'Kessler Hardware',  mode: 'sea',  likes: ['paint', 'bolts', 'drills', 'lamps', 'dccrate', 'dcbin'] },
-    { id: 'grocer',   name: 'Northgate Grocers', mode: 'land', likes: ['cereal', 'coffee', 'soap', 'dccrate'] },
-    { id: 'toyshop',  name: 'Little Wonders',    mode: 'sea',  likes: ['toys', 'books', 'dcbin'] },
-    { id: 'sports',   name: 'Fairlane Sports',   mode: 'air',  likes: ['shoes', 'tyres'] },
-    { id: 'electro',  name: 'Volt & Co.',        mode: 'air',  likes: ['tv', 'lamps', 'drills'] },
-    { id: 'office',   name: 'Pinecrest Offices', mode: 'land', likes: ['lamps', 'coffee', 'books', 'paint', 'dcbin', 'dcplanter'] },
+    // mode: the shipping lane the client's parcels leave by (sea at OUT 1, land at OUT 2, air at OUT 3 once the sortation deck opens it). lvl: when the client finds you
+    { id: 'hardware', name: 'Kessler Hardware',  mode: 'sea',  lvl: 1,  likes: ['paint', 'bolts', 'drills', 'lamps', 'dccrate', 'dcbin'] },
+    { id: 'grocer',   name: 'Northgate Grocers', mode: 'land', lvl: 1,  likes: ['cereal', 'coffee', 'soap', 'dccrate'] },
+    { id: 'toyshop',  name: 'Little Wonders',    mode: 'sea',  lvl: 3,  likes: ['toys', 'books', 'dcbin'] },
+    { id: 'sports',   name: 'Fairlane Sports',   mode: 'air',  lvl: 8,  likes: ['shoes', 'tyres'] },
+    { id: 'electro',  name: 'Volt & Co.',        mode: 'air',  lvl: 11, likes: ['tv', 'lamps', 'drills'] },
+    { id: 'office',   name: 'Pinecrest Offices', mode: 'land', lvl: 4,  likes: ['lamps', 'coffee', 'books', 'paint', 'dcbin', 'dcplanter'] },
     // the deck accounts: they only come once the sortation deck stands, order more lines and more of each, and pay a third more
-    { id: 'meridian',    name: 'Meridian Exports',   mode: 'sea',  deck: true, likes: ['tv', 'drills', 'shoes', 'coffee', 'dcplanter'] },
-    { id: 'nordwind',    name: 'Nordwind Parcels',   mode: 'air',  deck: true, likes: ['toys', 'books', 'lamps', 'soap', 'dcbin'] },
-    { id: 'continental', name: 'Continental Retail', mode: 'land', deck: true, likes: ['paint', 'bolts', 'cereal', 'tyres', 'dccrate'] }
+    { id: 'meridian',    name: 'Meridian Exports',   mode: 'sea',  lvl: 15, deck: true, likes: ['tv', 'drills', 'shoes', 'coffee', 'dcplanter'] },
+    { id: 'nordwind',    name: 'Nordwind Parcels',   mode: 'air',  lvl: 15, deck: true, likes: ['toys', 'books', 'lamps', 'soap', 'dcbin'] },
+    { id: 'continental', name: 'Continental Retail', mode: 'land', lvl: 15, deck: true, likes: ['paint', 'bolts', 'cereal', 'tyres', 'dccrate'] }
   ];
   var DECK_RATE = 1.35;   // what a deck account pays over the rate card
-  // the shipping lanes: which outbound door each one leaves by, what the deck's cell does to its parcels, and the pay
+  // the shipping lanes: what the deck's cell does to its parcels, and the pay. Which outbound dock a lane leaves by is the stage's business (modeDock, modeDoor)
   var MODES = {
-    sea:  { name: 'Sea',  door: 2, col: '#3fa7d6', form: 'crate', pack: 'export crating',  verb: 'crating',  haulier: 'OCEANIC LINES · PORT SHUTTLE' },
-    land: { name: 'Land', door: 3, col: '#5fd38d', form: 'strap', pack: 'strap and label', verb: 'strapping', haulier: 'DEPOT CO. FREIGHT' },
-    air:  { name: 'Air',  door: 4, col: '#ff6b5e', form: 'pouch', pack: 'air bagging',     verb: 'bagging',   haulier: 'SKYBRIDGE AIR CARGO' }
+    sea:  { name: 'Sea',  col: '#3fa7d6', form: 'crate', pack: 'export crating',  verb: 'crating',  haulier: 'OCEANIC LINES · PORT SHUTTLE' },
+    land: { name: 'Land', col: '#5fd38d', form: 'strap', pack: 'strap and label', verb: 'strapping', haulier: 'DEPOT CO. FREIGHT' },
+    air:  { name: 'Air',  col: '#ff6b5e', form: 'pouch', pack: 'air bagging',     verb: 'bagging',   haulier: 'SKYBRIDGE AIR CARGO' }
   };
   var MODE_FEE = 0.75, AIR_RATE = 1.5;   // a parcel out of the wrong door pays this share; an air order pays this much more
   var STAFF_NAMES = ['Jo', 'Mika', 'Sam', 'Ravi', 'Lena', 'Ada', 'Theo', 'Nour'];
   var DRIVER_NAMES = ['Big Pete', 'Marta', 'Dusty', 'Kofi', 'Hal', 'Yusra'];
+
+  // ── The ladder ────────────────────────────────────────────────────
+  // 1.21.0: 25 levels. What each opens is data: the level of every piece of kit, role, client, line and system is here, the
+  // building stages are below, and the level-up card reads the lot (levelOpens, 14-events). Add a row to grow the game.
+  var LEVEL_CAP = 25;
+  // what a level costs to leave, by level. Set against the plan's 32-hour target and the XP a day the suite measures per stage;
+  // the shed is quick, the annexes are the long haul.
+  var XP_TABLE = [0, 60, 90, 130, 180, 260, 340, 440, 560, 700, 900, 1100, 1350, 1650, 2000, 2400, 2900, 3400, 4000, 4700, 5500, 6400, 7400, 8500, 9800, 9800];
+  var XP_FOR = function (lvl) { return XP_TABLE[clamp(lvl, 1, LEVEL_CAP)]; };
+  var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
+  var LEVEL_BONUS = 100;   // the cash a level-up pays, times the level reached
+  var UNLOCK = {
+    // the shop
+    cart: 3, lights: 5, sign: 5, row3: 6, fork: 6, jackPower: 7, row4: 8, jackLift: 9, shipbelt: 9, raw: 10, row5: 12, agv: 12, plantTune: 13, agvFast: 13, gantry: 14, deckNight: 15, agvSweep: 15, plantAuto: 16,
+    beltsA: 17, beltsB: 18, seating: 18, deckTune: 19, yardCat: 19, deckTier2: 22, decor: 23, clock: 2,
+    // the crew and its options
+    picker: 3, receiver: 4, packer: 8, driver: 8, shifts: 7, training: 9, raise: 11, cross: 13,
+    // systems
+    pc: 5, build: 5, contracts: 5, power: 5, rush: 6, loan: 6, prowler: 7, insurance: 7, inspector: 8, returns: 8, comfort: 5,
+    scanPutaway: 2, scanStock: 3, scanCrew: 3, scanDocks: 5, scanMap: 5, scanPlant: 10,
+    contractsBig: 17, twoContracts: 21, longContract: 24
+  };
+  function unlocked(what) { return S.level >= (UNLOCK[what] || 1); }
+  var STAFF_CAPS = [0, 0, 0, 1, 2, 2, 2, 3, 4, 4, 5, 5, 5, 5, 6, 6, 7, 7, 7, 7, 8];   // heads by level; eight from 20
+  function staffCapAt(level) { return STAFF_CAPS[Math.min(level, STAFF_CAPS.length - 1)]; }
+  // the one line a level promises on the HUD and the card ("Next: level N, ..."), and the first-time tips
+  var LADDER_NOTES = {
+    2: 'a second rack bay and the time clock', 3: 'a third bay, the picking cart, a picker to hire, Little Wonders', 4: 'a fourth bay, the coffee flask, a receiver to hire, Pinecrest Offices',
+    5: 'the hall: proper docks, the office and the PC, the break room, the bench and pack line, the yard', 6: 'the forklift and a third rack row in the shop, the bank, coffee beans', 7: 'the powered pallet truck, shift patterns, a third head', 8: 'the fourth row, the packer and the forklift driver, returns, trainers',
+    9: 'the high-lift stacker, the shipping belt, training', 10: 'the 60 by 48 hall: IN 2, OUT 2 and the sea lane, the production wing, the second jack, the car park and the road', 11: 'Volt and Co., televisions, the raise', 12: 'the fifth row and the AGV', 13: 'the plant tune-up, AGV fast drive, a second role', 14: 'the gantry pickers',
+    15: 'the big hall: the mezzanine, the sortation deck, OUT 3 and the air lane, three deck accounts', 16: 'the plant automation suite', 17: 'conveyor pieces: straights and curves', 18: 'inclines and the high run, the comfort seating', 19: 'the deck dial to 300 percent, the yard catalogue',
+    20: 'the returns hall and Hall 3 with IN 3, eight heads', 21: 'two contracts at once', 22: 'the deck runs half as fast again', 23: 'the last of the furniture', 24: 'the long contract', 25: 'Hall 4 and the full yard: the depot is complete'
+  };
+  var LADDER_TIPS = { 2: 'The time clock is on the wall: E clocks you in and keeps your hours.', 5: 'The office PC is on the desk: E sits you down. Orders, the shop, the crew and the bank are on it.', 6: 'The forklift is in the shop. It drives with WASD, lifts with R and F, and reaches the top shelf.', 10: 'Two outbound doors now: the board shows every order’s lane, and a parcel out of the wrong door pays a forwarding fee.', 15: 'Every parcel off the pack line rides up to the deck and down into the truck of its lane by itself.', 20: 'Returns go to the returns hall now: the truck brings them to its own dock and the belt takes them in.' };
 
   // ── Time ──────────────────────────────────────────────────────────
   var HOUR_SEC = 75;              // one game hour in real seconds, so a 16-hour working day is twenty minutes (37.5 until 2026-10-03: too fast for the big hall)
   var DAY_START = 6, DAY_END = 22;
   var NIGHT_SPEED = 4;            // the clock runs faster after closing unless you sleep
   var TRUCK_IN = [7.5, 13.5];     // inbound trucks dock at these hours
-  // outbound trucks: one dock a lane, two windows a day each; an order is due at the next departure of its lane's dock
-  var TRUCK_OUT = [
-    { mode: 'sea',  windows: [{ arrive: 10.5, leave: 12 }, { arrive: 17, leave: 18.5 }] },
-    { mode: 'land', windows: [{ arrive: 9, leave: 10.5 }, { arrive: 16, leave: 18 }] },
-    { mode: 'air',  windows: [{ arrive: 13, leave: 14.5 }, { arrive: 19, leave: 20.25 }] }
-  ];
-  function outWindows(dock) { return TRUCK_OUT[dock] ? TRUCK_OUT[dock].windows : []; }
-  function outNext(dock) { var ws = outWindows(dock); for (var k = 0; k < ws.length; k++) if (S.time < ws[k].leave - 0.3 && !S.flags['out' + S.day + '-' + dock + '-' + k]) return ws[k]; var w0 = ws[0] || { arrive: 0, leave: 0 }; return { arrive: w0.arrive, leave: w0.leave, tomorrow: true }; }   // the next window today whose truck has not been and gone, else tomorrow's first
-  function outNextText(dock) { if (isSunday()) return 'closed Sunday'; var n = outNext(dock); return 'next at ' + fmtTime(n.arrive) + (n.tomorrow ? ' tomorrow' : ''); }
-  function dockOwned(dock) { return dock < 2 || !!(S.up && S.up.sorter); }   // OUT 3 opens with the sortation deck
   var TRUCK_WAIT = 4;             // hours an inbound truck waits before it leaves with what you did not unload
 
   // ── Money ─────────────────────────────────────────────────────────
@@ -100,60 +131,105 @@
     start: 600, rent: 110, rawPrice: 120, receiveFee: 12, handling: 14, margin: 0.22, lateCut: 0.5, shortCut: 0.6,
     wage: { receiver: 85, picker: 85, packer: 75, driver: 95 },
     rowPrice: 950, cartPrice: 240, forkPrice: 2800, lightsPrice: 600, pcPrice: 0,
-    palletCap: 8, slotCap: 12, cartCap: 12, benchCap: 24
+    palletCap: 8, slotCap: 12, cartCap: 12, benchCap: 24, tableCap: 8
   };
+  // free: the stage that brings the piece for nothing (1.21.0): it stays in the list so its name and text are known, and leaves the shop
   var UPGRADES = [
-    { id: 'cart',   name: 'Picking cart',        price: ECON.cartPrice,  lvl: 1, desc: 'A trolley with three shelves that holds twelve boxes or parcels. Grab it, pick straight onto it from the racks, and empty it onto the bench in one go.' },
-    { id: 'row3',   name: 'Third rack row',      price: ECON.rowPrice,   lvl: 2, desc: 'Thirty more hand-reachable slots and a top level for the forklift.' },
-    { id: 'fork',   name: 'Forklift',            price: ECON.forkPrice,  lvl: 2, desc: 'Drive it, lift whole pallets, and reach the top level of every rack. Parks at the south wall.' },
-    { id: 'row4',   name: 'Fourth rack row',     price: ECON.rowPrice,   lvl: 3, desc: 'Another fifteen bays across three levels.' },
-    { id: 'row5',   name: 'Fifth rack row',      price: ECON.rowPrice,   lvl: 4, desc: 'The last row in the main hall. The annex halls come at level 7.' },
-    { id: 'lights', name: 'LED high bays',       price: ECON.lightsPrice, lvl: 2, desc: 'Brighter hall, and the inspector likes a well-lit floor: fines are halved.' },
-    { id: 'dock2',  name: 'Second inbound bay',  price: 1400,            lvl: 3, desc: 'Two inbound trucks a day can dock at once, and clients send bigger loads.' },
-    { id: 'sign',   name: 'Roadside sign',       price: 500,             lvl: 2, desc: 'New clients find you sooner. Reputation grows a little faster.' },
-    { id: 'shipbelt', name: 'Shipping belt and dock loader', price: 1800, lvl: 3, desc: 'Parcels roll off the pack line shelf onto a belt down the east wall into the OUT 2 shipping bay, a flow rack that holds nine, and the dock loader beside it pushes them into any docked truck with its door up. OUT 1 stays manual.' },
-    { id: 'agv',    name: 'AGV pallet mover',    price: 3200,            lvl: 4, desc: 'A driverless truck. Set a pallet on its pickup square (or let the palletiser drop one) and it puts it away on the racks by itself.' },
-    { id: 'gantry', name: 'Gantry pickers over the racks', price: 5000, lvl: 5, desc: 'A crane over every rack row you own (new rows get theirs too). Each watches the orders, picks the boxes the bench still needs out of its row and sends them down the overhead pick belts to the bench.' },
-    // 1.14.0: tiers on what you already own (each needs the one before it)
-    { id: 'jackPower', name: 'Powered pallet truck',   price: 1200, lvl: 3, desc: 'An electric drive on the pallet jacks: you walk at full speed with a loaded pallet behind you.' },
-    { id: 'jackLift',  name: 'High-lift stacker',      price: 2200, lvl: 4, needs: 'jackPower', desc: 'The jacks lift to the second rack level: set pallets into the middle shelf and pull them out by hand. The top shelf stays forklift work.' },
-    { id: 'agvFast',   name: 'AGV: fast drive',        price: 1800, lvl: 5, needs: 'agv', desc: 'The AGV runs at 2.2 m/s instead of 1.3: a put-away in little over half the time.' },
-    { id: 'agvSweep',  name: 'AGV: floor sweep',       price: 2400, lvl: 6, needs: 'agvFast', desc: 'The AGV fetches any pallet left anywhere on the hall floor, not only the ones on its square, keeping clear of you and of pallets the crew already have in hand.' },
-    { id: 'plantTune', name: 'Plant tune-up',          price: 2000, lvl: 4, desc: 'Every machine dial goes to 300% (250 and 300 join the steps), and the pack line jams half as often.' },
-    { id: 'plantAuto', name: 'Plant automation suite', price: 3500, lvl: 6, needs: 'plantTune', desc: 'The pack line never jams, and it starts any order the bench can complete by itself, no terminal tap needed. An AUTO switch on the bench terminal turns that off and on.' },
-    { id: 'upper',     name: 'Mezzanine level',        price: 6000, lvl: 6, needs: 'gantry', desc: 'A steel deck over the receiving strip with a goods lift by the IN docks, one rack row of two levels up there and a crane of its own. Set a pallet in the lift and it goes up, rolls onto the feed belt and is racked by itself; the crane picks for orders onto a belt that drops down a chute into the south pick belt. The stair runs along the north wall. The sortation deck builds on it.' },
-    { id: 'sorter',    name: 'Sortation deck and air dock', price: 7500, lvl: 6, needs: 'upper', desc: 'Every parcel off the pack line rides a spiral up to the deck and along the sorter: a scanner reads its lane, three cells crate it for the sea, strap it for the land or bag it for the air, and spirals drop it into the right dock loader by itself: sea at OUT 1, land at OUT 2, air at the new OUT 3, which opens with this and brings the air-freight clients, who pay half as much again. No more forwarding fees for parcels out of the wrong door. Three deck accounts start ordering: bigger orders at a third more.' },
-    { id: 'deckNight', name: 'Deck night shift',       price: 1800, lvl: 6, needs: 'sorter', desc: 'The deck keeps running while you sleep: every parcel on the shelf and on the deck belts is sorted by morning and staged beside the loader of its lane, and the first truck of each lane loads them from the bays by itself.' },
-    // 1.14.0: the annex halls, bought one after another off the north side
-    { id: 'hall2', name: 'Returns hall (east annex)',      price: 9000, lvl: 7, needs: 'fork',  desc: 'A second hall off the north wall, east of the production wing, given over to returns: a returns dock of its own on the east wall with a truck twice a day, the belt that carries the returns off the trailer to the intake, three inspection desks, the restock cage and a compactor for the damaged ones. The desk by the bench goes. The doorway is already cut, this opens the shutter.' },
-    { id: 'hall3', name: 'Hall 3 (west annex) and IN 3',   price: 9500, lvl: 7, needs: 'hall2', desc: 'A third hall west of the wing with two rows of five bays and a third inbound dock, IN 3, on its west wall: a third truck a day, straight into the new rows. The silo moves out of its way.' },
-    { id: 'hall4', name: 'Hall 4 (behind the wing)',       price: 9500, lvl: 8, needs: 'hall3', desc: 'The back hall, through the north wall of the production wing: 24 by 20 metres and two more rows of seven bays. The far end of the building.' }
+    { id: 'cart',   name: 'Picking cart',        price: ECON.cartPrice,  lvl: UNLOCK.cart, desc: 'A trolley with three shelves that holds twelve boxes or parcels. Grab it, pick straight onto it from the racks, and empty it onto the bench in one go.' },
+    { id: 'row3',   name: 'Third rack row',      price: ECON.rowPrice,   lvl: UNLOCK.row3, desc: 'Another row of hand-reachable slots and a top level for the forklift.' },
+    { id: 'fork',   name: 'Forklift',            price: ECON.forkPrice,  lvl: UNLOCK.fork, desc: 'Drive it, lift whole pallets, and reach the top level of every rack. Parks at the south wall.' },
+    { id: 'row4',   name: 'Fourth rack row',     price: ECON.rowPrice,   lvl: UNLOCK.row4, desc: 'Another row of bays across three levels.' },
+    { id: 'row5',   name: 'Fifth rack row',      price: ECON.rowPrice,   lvl: UNLOCK.row5, desc: 'The last row in the main hall. The annex halls come at level 20.' },
+    { id: 'lights', name: 'LED high bays',       price: ECON.lightsPrice, lvl: UNLOCK.lights, desc: 'Brighter hall, and the inspector likes a well-lit floor: fines are halved.' },
+    { id: 'dock2',  name: 'Second inbound bay',  price: 1400,            lvl: 10, free: 2, desc: 'Two inbound trucks a day can dock at once, and clients send bigger loads. Comes with the hall at level 10.' },
+    { id: 'sign',   name: 'Roadside sign',       price: 500,             lvl: UNLOCK.sign, desc: 'New clients find you sooner. Reputation grows a little faster.' },
+    { id: 'shipbelt', name: 'Shipping belt and dock loader', price: 1800, lvl: UNLOCK.shipbelt, desc: 'Parcels roll off the pack line shelf onto a belt down the east wall into the OUT 2 shipping bay (OUT 1 before the hall grows), a flow rack that holds nine, and the dock loader beside it pushes them into any docked truck with its door up.' },
+    { id: 'agv',    name: 'AGV pallet mover',    price: 3200,            lvl: UNLOCK.agv, desc: 'A driverless truck. Set a pallet on its pickup square (or let the palletiser drop one) and it puts it away on the racks by itself.' },
+    { id: 'gantry', name: 'Gantry pickers over the racks', price: 5000, lvl: UNLOCK.gantry, desc: 'A crane over every rack row you own (new rows get theirs too). Each watches the orders, picks the boxes the bench still needs out of its row and sends them down the overhead pick belts to the bench.' },
+    // tiers on what you already own (each needs the one before it)
+    { id: 'jackPower', name: 'Powered pallet truck',   price: 1200, lvl: UNLOCK.jackPower, desc: 'An electric drive on the pallet jacks: you walk at full speed with a loaded pallet behind you.' },
+    { id: 'jackLift',  name: 'High-lift stacker',      price: 2200, lvl: UNLOCK.jackLift, needs: 'jackPower', desc: 'The jacks lift to the second rack level: set pallets into the middle shelf and pull them out by hand. The top shelf stays forklift work.' },
+    { id: 'agvFast',   name: 'AGV: fast drive',        price: 1800, lvl: UNLOCK.agvFast, needs: 'agv', desc: 'The AGV runs at 2.2 m/s instead of 1.3: a put-away in little over half the time.' },
+    { id: 'agvSweep',  name: 'AGV: floor sweep',       price: 2400, lvl: UNLOCK.agvSweep, needs: 'agvFast', desc: 'The AGV fetches any pallet left anywhere on the hall floor, not only the ones on its square, keeping clear of you and of pallets the crew already have in hand.' },
+    { id: 'plantTune', name: 'Plant tune-up',          price: 2000, lvl: UNLOCK.plantTune, desc: 'Every machine dial goes to 300% (250 and 300 join the steps), and the pack line jams half as often.' },
+    { id: 'plantAuto', name: 'Plant automation suite', price: 3500, lvl: UNLOCK.plantAuto, needs: 'plantTune', desc: 'The pack line never jams, and it starts any order the bench can complete by itself, no terminal tap needed. An AUTO switch on the bench terminal turns that off and on.' },
+    { id: 'upper',     name: 'Mezzanine level',        price: 6000, lvl: 15, free: 3, desc: 'A steel deck over the receiving strip with a goods lift by the IN docks, one rack row of two levels up there and a crane of its own. Comes with the big hall at level 15.' },
+    { id: 'sorter',    name: 'Sortation deck and air dock', price: 7500, lvl: 15, free: 3, desc: 'Every parcel off the pack line rides a spiral up to the deck and along the sorter: a scanner reads its lane, three cells crate it for the sea, strap it for the land or bag it for the air, and spirals drop it into the right dock loader by itself. OUT 3 and the air clients come with it. Comes with the big hall at level 15.' },
+    { id: 'deckNight', name: 'Deck night shift',       price: 1800, lvl: UNLOCK.deckNight, needs: 'sorter', desc: 'The deck keeps running while you sleep: every parcel on the shelf and on the deck belts is sorted by morning and staged beside the loader of its lane, and the first truck of each lane loads them from the bays by itself.' },
+    // the annex halls, free with the stages
+    { id: 'hall2', name: 'Returns hall (east annex)',      price: 9000, lvl: 20, free: 4, needs: 'fork',  desc: 'A second hall off the north wall, east of the production wing, given over to returns: a returns dock of its own with a truck twice a day, the belt to the intake, three inspection desks, the restock cage and a compactor. Comes at level 20.' },
+    { id: 'hall3', name: 'Hall 3 (west annex) and IN 3',   price: 9500, lvl: 20, free: 4, needs: 'hall2', desc: 'A third hall west of the wing with two rows of five bays and a third inbound dock, IN 3, on its west wall. Comes at level 20.' },
+    { id: 'hall4', name: 'Hall 4 (behind the wing)',       price: 9500, lvl: 25, free: 5, needs: 'hall3', desc: 'The back hall, through the north wall of the production wing: 24 by 20 metres and two more rows of seven bays. Comes at level 25.' }
   ];
   function upgradeName(id) { var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; return u ? u.name : id; }
+  function upgradeDef(id) { return UPGRADES.filter(function (x) { return x.id === id; })[0] || null; }
   var STAFF_ROLES = {
-    receiver: { name: 'Receiver', wage: ECON.wage.receiver, lvl: 3, desc: 'Walks pallets out of a docked inbound truck and puts them on the racks.' },
-    picker:   { name: 'Picker',   wage: ECON.wage.picker,   lvl: 3, desc: 'Takes boxes off the racks for open orders and brings them to the bench.' },
-    packer:   { name: 'Packer',   wage: ECON.wage.packer,   lvl: 4, desc: 'Packs complete orders at the bench and loads the parcels into a docked outbound truck.' },
-    driver:   { name: 'Forklift driver', wage: ECON.wage.driver, lvl: 5, needs: 'fork', desc: 'Drives the forklift: puts the pallets left on the hall floor away on any level, the top shelf included, and parks it back in its bay. Needs the forklift.' }
+    receiver: { name: 'Receiver', wage: ECON.wage.receiver, lvl: UNLOCK.receiver, desc: 'Walks pallets out of a docked inbound truck and puts them on the racks.' },
+    picker:   { name: 'Picker',   wage: ECON.wage.picker,   lvl: UNLOCK.picker, desc: 'Takes boxes off the racks for open orders and brings them to the bench.' },
+    packer:   { name: 'Packer',   wage: ECON.wage.packer,   lvl: UNLOCK.packer, desc: 'Packs complete orders at the bench and loads the parcels into a docked outbound truck.' },
+    driver:   { name: 'Forklift driver', wage: ECON.wage.driver, lvl: UNLOCK.driver, needs: 'fork', desc: 'Drives the forklift: puts the pallets left on the hall floor away on any level, the top shelf included, and parks it back in its bay. Needs the forklift.' }
   };
-  var XP_FOR = function (lvl) { return Math.round(80 * Math.pow(1.45, lvl - 1)); };
-  var XP = { box: 2, pallet: 8, pack: 10, ship: 15, truck: 6 };
+
+  // ── The stages ────────────────────────────────────────────────────
+  // Six building stages, each a rectangle inside the next, all in one world frame centred on the origin. The stage is read from
+  // the save before anything is laid out (BOOT_STAGE, 01-head), so every table below is built once a page load for that stage;
+  // a stage change is a reload at the day roll (stageRebuild, 14-events). The 40x28 and 60x48 numbers are the game's own, from
+  // 1.7.4 and 1.12.12. inZ, outZ, retZ: the dock doors' z on the west, east and returns walls. fence: the yard's fence line.
+  var STAGES = [
+    { id: 'shed',  name: 'The shed',       level: 1,  hall: { x: 7, z: 5, h: 5 },    rows: [-3.8], bays: 4, x0: -6,   inZ: [0],        outZ: [],              retZ: [],    rent: 0,   maxOpen: 2,  pallets: [1, 3], skylights: [0],                   fence: { x: 24, z0: -16, z1: 16 } },
+    { id: 'small', name: 'The small hall', level: 5,  hall: { x: 20, z: 14, h: 7 },  rows: [-6, -2, 2, 6], bays: 8, x0: -12, inZ: [-8], outZ: [-8],            retZ: [],    rent: 60,  maxOpen: 4,  pallets: [2, 4], skylights: [-7, 0, 7],           fence: { x: 50, z0: -40, z1: 40 } },
+    { id: 'hall',  name: 'The hall',       level: 10, hall: { x: 30, z: 24, h: 8 },  rows: [-10.9, -4.3, 2.3, 8.9, 15.5], bays: 15, x0: -24, inZ: [-14, -6], outZ: [-14, -6], retZ: [], rent: 110, maxOpen: 6,  pallets: [3, 6], skylights: [-14, -7, 0, 7, 14], fence: { x: 84, z0: -68, z1: 60 } },
+    { id: 'big',   name: 'The big hall',   level: 15, hall: { x: 36, z: 24, h: 8 },  rows: [-10.9, -4.3, 2.3, 8.9, 15.5], bays: 15, x0: -24, inZ: [-14, -6], outZ: [-14, -6, -21.6], retZ: [], rent: 110, maxOpen: 8, pallets: [4, 8], skylights: [-14, -7, 0, 7, 14], fence: { x: 84, z0: -68, z1: 60 } },
+    { id: 'annex', name: 'The annexes',    level: 20, hall: { x: 36, z: 24, h: 8 },  rows: [-10.9, -4.3, 2.3, 8.9, 15.5], bays: 15, x0: -24, inZ: [-14, -6, -34], outZ: [-14, -6, -21.6], retZ: [-34], rent: 160, maxOpen: 10, pallets: [4, 8], skylights: [-14, -7, 0, 7, 14], fence: { x: 84, z0: -68, z1: 60 } },
+    { id: 'far',   name: 'The far end',    level: 25, hall: { x: 36, z: 24, h: 8 },  rows: [-10.9, -4.3, 2.3, 8.9, 15.5], bays: 15, x0: -24, inZ: [-14, -6, -34], outZ: [-14, -6, -21.6], retZ: [-34], rent: 160, maxOpen: 10, pallets: [4, 8], skylights: [-14, -7, 0, 7, 14], fence: { x: 84, z0: -68, z1: 60 } }
+  ];
+  var STAGE_LAST = STAGES.length - 1, STAGE = STAGES[BOOT_STAGE];   // STAGE_LAST, not STAGE_CAP: that name is the shipping bays' capacity in the sorter
+  function stageForLevel(l) { var s = 0; for (var i = 0; i < STAGES.length; i++) if (l >= STAGES[i].level) s = i; return s; }
+  // which stage a part of the site belongs to; stageHas asks about the stage this page was built for
+  var STAGE_OF = { rooms: 1, docks: 1, bench: 1, yard: 1, gates: 1, wing: 2, jack2: 2, carpark: 2, road: 2, lanes: 2, deck: 3, neighbours: 3, hallDoors: 3, annex: 4, hall4: 5 };
+  function stageHas(what) { return BOOT_STAGE >= (STAGE_OF[what] === undefined ? 0 : STAGE_OF[what]); }
+  function stageName(i) { return STAGES[clamp(i, 0, STAGE_LAST)].name; }
+  // the free structure a stage brings: the owned flags it turns on, so every "when" the game already has keeps working
+  function stageFlags(up, stage) { if (stage >= 1 && (up.rows || 0) < 2) up.rows = 2; if (stage >= 2) up.dock2 = true; if (stage >= 3) { up.upper = true; up.sorter = true; } if (stage >= 4) { up.hall2 = true; up.hall3 = true; } if (stage >= 5) up.hall4 = true; return up; }   // the small hall opens with two rows
+  var VAN = { cap: 8, len: 4, z: 8.2, x: -2, w: 2.0 };   // the shed's outbound: a van on the south side of the shed, parked along x with its rear at x -2 facing east; it comes and goes by the west lane at z 8.2 and nobody walks into it
+  var FIRE_X = BOOT_STAGE >= 3 ? 23.5 : STAGES[BOOT_STAGE].hall.x - 6.5;   // the fire exit in the north wall: 23.5 in the hall since 1.12 and in the big halls; 6.5 m in from the east wall before that
+  // outbound trucks: one dock a lane, two windows a day each; an order is due at the next departure of its lane's dock.
+  // The shed has the van on the land lane; the small hall ships everything by OUT 1 on the land windows; the lanes come with OUT 2 at the hall
+  var TRUCK_OUT = BOOT_STAGE === 0 ? [{ mode: 'land', van: true, windows: [{ arrive: 10.5, leave: 12 }, { arrive: 16, leave: 17.5 }] }]
+    : BOOT_STAGE === 1 ? [{ mode: 'land', windows: [{ arrive: 9, leave: 10.5 }, { arrive: 16, leave: 18 }] }]
+    : [
+      { mode: 'sea',  windows: [{ arrive: 10.5, leave: 12 }, { arrive: 17, leave: 18.5 }] },
+      { mode: 'land', windows: [{ arrive: 9, leave: 10.5 }, { arrive: 16, leave: 18 }] },
+      { mode: 'air',  windows: [{ arrive: 13, leave: 14.5 }, { arrive: 19, leave: 20.25 }] }
+    ];
+  function modeDock(m) { for (var k = 0; k < TRUCK_OUT.length; k++) if (TRUCK_OUT[k].mode === m) return k; return TRUCK_OUT.length ? 0 : -1; }   // the outbound dock a lane leaves by at this stage; one dock takes every lane before the lanes exist
+  function modeDoor(m) { var k = modeDock(m); return k < 0 ? -1 : doorIndex('out', k); }
+  function lanesOn() { return TRUCK_OUT.length > 1; }   // more than one outbound dock: the board shows lanes and the wrong door costs a fee
+  function outWindows(dock) { return TRUCK_OUT[dock] ? TRUCK_OUT[dock].windows : []; }
+  function outNext(dock) { var ws = outWindows(dock); for (var k = 0; k < ws.length; k++) if (S.time < ws[k].leave - 0.3 && !S.flags['out' + S.day + '-' + dock + '-' + k]) return ws[k]; var w0 = ws[0] || { arrive: 0, leave: 0 }; return { arrive: w0.arrive, leave: w0.leave, tomorrow: true }; }   // the next window today whose truck has not been and gone, else tomorrow's first
+  function outNextText(dock) { if (isSunday()) return 'closed Sunday'; var n = outNext(dock); return 'next at ' + fmtTime(n.arrive) + (n.tomorrow ? ' tomorrow' : ''); }
+  function dockOwned(dock) { return dock < TRUCK_OUT.length && (dock < 2 || !!(S.up && S.up.sorter)); }   // OUT 3 opens with the sortation deck
 
   // ── Layout (metres; the hall floor is y = 0, the yard is y = -1.2) ─
   var STAFF_JACK = { push: 2.15, tow: 2.07, park: 1.45 };   // a receiver's pallet jack: metres from the figure to the jack's origin when pushed loaded ahead, towed empty behind, parked behind while they stand
-  var HALL = { x: 36, z: 24, h: 8 };   // 40 x 28 until 2026-10-02, 60 x 48 until 2026-10-03, now 72 x 48: the east and west corridors needed 6 m more each for the forklift
+  var HALL = { x: STAGE.hall.x, z: STAGE.hall.z, h: STAGE.hall.h };   // 40 x 28 until 2026-10-02, 60 x 48 until 2026-10-03, 72 x 48 since; 1.21.0: the stage's
   // the side walls moved from x 30 to x 36 on 2026-10-03. Anything authored against them follows: a hall position with |x| in the old wall zone
-  // (22.1 up to the old wall) moves out by the growth; a yard position beside a side wall (|z| inside the hall) moves with it too.
-  var WALL_SHIFT = HALL.x - 30;
-  function wallX(x, z, yard) { var ax = Math.abs(x); var move = yard ? (ax >= 22.1 && Math.abs(z) < HALL.z + 2) : (ax >= 22.1 && ax < 30.5); return move ? x + (x < 0 ? -WALL_SHIFT : WALL_SHIFT) : x; }
-  var RACK = { rows: [-10.9, -4.3, 2.3, 8.9, 15.5], bays: 15, bayW: 3, x0: -24, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // rows 6.6 m apart, biased south so row E and its crane clear the office front at z 18.5; a sixth row at z -17.5 stood here until 1.13.3 (Tyson wanted the receiving side open); levels: the y of the pallet base; top is forklift-only
-  var DOCKS = { in: [{ z: -14 }, { z: -6 }, { z: -34 }], out: [{ z: -14 }, { z: -6 }, { z: -21.6 }], ret: [{ z: -34 }], w: 3.6, h: 4.2 };   // the returns dock (z -34) is in the returns hall's east wall and exists once that hall does   // IN 3 (z -34) is in Hall 3's west wall and exists once Hall 3 does
-  // the dock doors by index, in the order the save keeps them: IN 1, IN 2, OUT 1, OUT 2, OUT 3 (1.14.0), IN 3 (1.14.0, Hall 3). Never i % 2 again.
+  // (22.1 up to the old wall) moves out by the growth; a yard position beside a side wall (|z| inside the hall) moves with it too. Nothing moves below the big hall.
+  var WALL_SHIFT = Math.max(0, HALL.x - 30);
+  function wallX(x, z, yard) { if (!WALL_SHIFT) return x; var ax = Math.abs(x); var move = yard ? (ax >= 22.1 && Math.abs(z) < HALL.z + 2) : (ax >= 22.1 && ax < 30.5); return move ? x + (x < 0 ? -WALL_SHIFT : WALL_SHIFT) : x; }
+  // the two inverse rules the smaller stages use on things authored for the big halls: unwallX takes a 72-frame position back to the 60 frame, ungrown a 60-frame one back to the 40 frame
+  function unwallX(v) { var a = Math.abs(v); return a >= 28.1 && a <= 36.5 ? v - (v < 0 ? -6 : 6) : v; }
+  function ungrown(v) { return Math.abs(v) >= 18 ? v - (v < 0 ? -10 : 10) : v; }
+  var RACK = { rows: STAGE.rows, bays: STAGE.bays, bayW: 3, x0: STAGE.x0, depth: 1.2, levels: [0, 1.55, 3.3], top: 2 };   // rows 6.6 m apart in the big halls, biased south so row E and its crane clear the office front; levels: the y of the pallet base; top is forklift-only
+  var DOCKS = { in: STAGE.inZ.map(function (z) { return { z: z }; }), out: STAGE.outZ.map(function (z) { return { z: z }; }), ret: STAGE.retZ.map(function (z) { return { z: z }; }), w: 3.6, h: 4.2 };   // the returns dock (z -34) is in the returns hall's east wall; IN 3 (z -34) is in Hall 3's west wall
+  // the dock doors by index, in the order the save keeps them: IN 1, IN 2, OUT 1, OUT 2, OUT 3 (1.14.0), IN 3 (1.14.0, Hall 3), RETURNS. Never i % 2 again.
   var DOOR_MAP = [{ dir: 'in', dock: 0 }, { dir: 'in', dock: 1 }, { dir: 'out', dock: 0 }, { dir: 'out', dock: 1 }, { dir: 'out', dock: 2 }, { dir: 'in', dock: 2 }, { dir: 'ret', dock: 0 }];   // 6: the returns dock, east wall of the returns hall
   function doorIndex(dir, dock) { for (var i = 0; i < DOOR_MAP.length; i++) if (DOOR_MAP[i].dir === dir && DOOR_MAP[i].dock === dock) return i; return -1; }   // OUT 3 (air) at the north end of the east wall, under the deck, since 1.14.0
+  function doorBuilt(i) { var d = DOOR_MAP[i]; return !!(d && (d.dir === 'in' ? DOCKS.in[d.dock] : d.dir === 'out' ? DOCKS.out[d.dock] : DOCKS.ret[d.dock])); }   // the stage has a wall for this door
   var YARD_Y = -1.2;
-  var SKYLIGHT_Z = [-14, -7, 0, 7, 14];   // the roof lights and the shafts under them
+  var SKYLIGHT_Z = STAGE.skylights;   // the roof lights and the shafts under them
   var TRAILER = { len: 12, w: 2.5, h: 2.7 };
+  // the spots, authored for the 60 x 48 hall: the big hall moves the wall-side ones out (wallX), the small hall pulls them in (ungrown), the shed has its own
   var SPOT = {
     bench: { x: 26.6, z: 5.2 }, benchOut: { x: 26.6, z: 7.2 },
     stageIn: { x: -26, z: -10 }, stageOut: { x: 23, z: 0 },   // stageOut lands at x 29 after the wall shift: by OUT 2, between the land spiral and the bench (it sat under the sea spiral from 1.14 to 1.16)
@@ -162,13 +238,35 @@
     jack: { x: -27.8, z: -18.0 }, jack2: { x: 27.8, z: -18.0 }, cart: { x: -28.6, z: 9.2 }, fork: { x: 0, z: 21.2 },   // one jack by the IN docks, one by the OUT docks, the cart on the west wall
     spawn: { x: -28.6, z: 21.2 }, staffDoor: { x: -30, z: 22 }
   };
-  for (var spk in SPOT) SPOT[spk].x = wallX(SPOT[spk].x, SPOT[spk].z, false);   // authored against the 30 m walls
+  var SPOT_SMALL = { jack: { x: -15, z: 4 }, jack2: { x: 15, z: 4 }, cart: { x: -15, z: 6.5 }, stageIn: { x: -15.5, z: -4 }, stageOut: { x: 15.5, z: -4 } };   // 1.7.4's bays, where ungrown would put a jack in front of IN 1
+  var SPOT_SHED = { bench: { x: 4.6, z: 2.6 }, benchOut: { x: 4.6, z: 4.4 }, stageIn: { x: -3.0, z: 0.2 }, stageOut: { x: 3.5, z: -0.5 }, pc: { x: 5.5, z: -3.0 }, breaker: { x: 6.7, z: 2.0 }, cot: { x: -5.5, z: 4.45 }, coffee: { x: 4.6, z: 2.6 }, jack: { x: -2.4, z: 4.0 }, jack2: { x: 5.5, z: -1.0 }, cart: { x: 2.0, z: 4.3 }, fork: { x: 0, z: 3.9 }, spawn: { x: -5.8, z: 3.2 }, staffDoor: { x: -7, z: 3.5 } };   // the shed, 14 by 10: the rack along the north wall, the door and the receiving square on the west, the table and the cart along the south wall, the cot in the south-west corner
+  for (var spk in SPOT) { if (BOOT_STAGE === 0) { if (SPOT_SHED[spk]) SPOT[spk] = SPOT_SHED[spk]; } else if (BOOT_STAGE === 1) { if (SPOT_SMALL[spk]) SPOT[spk] = SPOT_SMALL[spk]; else { SPOT[spk].x = ungrown(SPOT[spk].x); SPOT[spk].z = ungrown(SPOT[spk].z); } } else SPOT[spk].x = wallX(SPOT[spk].x, SPOT[spk].z, false); }
+  function stageRent() { return STAGE.rent; }
+  function benchCapNow() { return BOOT_STAGE === 0 ? ECON.tableCap : ECON.benchCap; }   // the shed's table holds eight, the bench 24
+  // what a level brings, in words, for the card and the log: the shop, the roles, the lines, the clients, the systems, the heads, the building
+  var UNLOCK_WORDS = { cart: 'the picking cart in the shop', lights: 'the LED high bays in the shop', sign: 'the roadside sign in the shop', row3: 'a third rack row in the shop', fork: 'the forklift in the shop', jackPower: 'the powered pallet truck in the shop', row4: 'a fourth rack row in the shop', jackLift: 'the high-lift stacker in the shop', shipbelt: 'the shipping belt and dock loader in the shop', raw: 'raw granulate on the Production app', row5: 'a fifth rack row in the shop', agv: 'the AGV in the shop', plantTune: 'the plant tune-up in the shop', agvFast: 'AGV fast drive in the shop', gantry: 'the gantry pickers in the shop', deckNight: 'the deck night shift in the shop', agvSweep: 'the AGV floor sweep in the shop', plantAuto: 'the plant automation suite in the shop',
+    beltsA: 'conveyor straights and curves in the catalogue', beltsB: 'conveyor inclines and the high run in the catalogue', seating: 'the comfort seating in the catalogue', deckTune: 'the deck dial to 300 percent', yardCat: 'the yard catalogue', deckTier2: 'the deck belts half as fast again', decor: 'the last of the furniture in the catalogue',
+    picker: 'a picker to hire', receiver: 'a receiver to hire', packer: 'a packer to hire', driver: 'a forklift driver to hire', shifts: 'shift patterns for the crew', training: 'training courses for the crew', raise: 'raises for the crew', cross: 'second roles for the crew',
+    clock: 'the time clock', pc: 'the office PC', build: 'build mode and the catalogue', contracts: 'contracts from the clients', power: 'power cuts, and the breaker in the office', rush: 'rush orders', loan: 'the bank loan', prowler: 'the night prowler: lock up', insurance: 'theft insurance', inspector: 'the safety inspector', returns: 'returns on the outbound trucks, and the returns desk', comfort: 'break room comfort',
+    scanPutaway: 'the Putaway page on the scanner', scanStock: 'the Stock page on the scanner', scanCrew: 'the Crew page on the scanner', scanDocks: 'the Docks page on the scanner', scanMap: 'the Map page on the scanner', scanPlant: 'the Plant page on the scanner',
+    contractsBig: 'bigger contracts', twoContracts: 'two contracts at once', longContract: 'the long contract' };
+  function levelOpens(level) {
+    var out = [];
+    if (level === 2) out.push('a second rack bay'); if (level === 3) out.push('a third rack bay'); if (level === 4) out.push('a fourth rack bay, the coffee flask');
+    for (var k in UNLOCK) if (UNLOCK[k] === level && UNLOCK_WORDS[k]) out.push(UNLOCK_WORDS[k]);
+    SKUS.forEach(function (s) { if (s.lvl === level && !s.raw && level > 1) out.push(s.name.toLowerCase() + (s.own ? ' off the moulding line' : ' from the clients')); });
+    CLIENTS.forEach(function (c) { if (c.lvl === level && level > 1) out.push(c.name + (c.deck ? ', a deck account' : '') + ' finds you'); });
+    if (staffCapAt(level) > staffCapAt(level - 1)) out.push('the crew grows to ' + staffCapAt(level));
+    var st = stageForLevel(level); if (st > stageForLevel(level - 1)) out.unshift(STAGES[st].name.toLowerCase() + ': the builders come in the morning');
+    return out;
+  }
   // ── State ─────────────────────────────────────────────────────────
   function freshState() {
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
       hall: 5,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
-      up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false, upper: false, sorter: false, hall2: false, hall3: false, hall4: false },
+      site: 0, siteDue: 0,       // 1.21.0: the building stage this save is built at, and the one its level has earned (the builders come in at the day roll). Not "stage": that word is the deck's shipping bays below
+      up: { rows: 1, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false, upper: false, sorter: false, hall2: false, hall3: false, hall4: false },
       gantries: {}, speed: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
       slots: {},                 // "row,bay,level" -> { sku, n, pal (a pallet under the boxes), wrapped }
@@ -217,6 +315,10 @@
       if (oldHall) { s.hall = 3; s.layout = {}; s.custom = []; s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); (s.staff || []).forEach(function (st) { if (st.x !== undefined) { st.x = clamp(st.x, -HALL.x + 2, HALL.x - 2); st.z = clamp(st.z, -HALL.z + 2, HALL.z - 2); } }); s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; s.fork.x = SPOT.fork.x; s.fork.z = SPOT.fork.z; s.fork.plugged = false; (s.pallets || []).forEach(function (p) { if (p.place === 'floor') { p.x = clamp(p.x, -HALL.x + 2, HALL.x - 2); p.z = clamp(p.z, -HALL.z + 2, HALL.z - 2); } }); }
       for (var k3 in f.up) if (!(k3 in s.up)) s.up[k3] = f.up[k3];
       for (var k4 in f.events) if (!(k4 in s.events)) s.events[k4] = f.events[k4];
+      // 1.21.0: a save from before the stages lived in the 72 m hall and keeps it (and whatever it owns); its stage is what it owns, never less than the big hall
+      if (typeof s.site !== 'number') { s.site = stageForOwned(s.up); s.siteDue = s.site; } if (typeof s.siteDue !== 'number' || s.siteDue < s.site) s.siteDue = s.site;
+      s.site = clamp(Math.floor(s.site), 0, STAGE_LAST); s.siteDue = clamp(Math.floor(s.siteDue), s.site, STAGE_LAST); stageFlags(s.up, s.site);
+      if (s.level > LEVEL_CAP) s.level = LEVEL_CAP; if (s.up.rows < 1) s.up.rows = 1; if (s.up.rows > RACK.rows.length) { s.bank += ECON.rowPrice * (s.up.rows - RACK.rows.length); s.up.rows = RACK.rows.length; }
       // 1.12.8 moved the jack and cart bays off the row D end (a crane column stood in the old jack bay): tools still parked there follow
       if (!s.flags.toolBays2) { s.flags.toolBays2 = 1; var near = function (o, x, z) { return o && Math.abs(o.x - x) < 1.2 && Math.abs(o.z - z) < 1.6; }; if (near(s.jack, -25, 4)) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; } if (near(s.cart, -25, 6.5)) { s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; } }
       // 1.12.9 put the first jack by the IN docks and added a second by OUT: a jack still parked in the 1.12.8 bay follows
@@ -261,8 +363,10 @@
   // the ledger and the lifetime stats
   function pay(n, why) { S.bank += n; if (n >= 0) S.stats.earned += n; else S.stats.spent += -n; S.ledger.unshift({ day: S.day, t: fmtTime(S.time), n: n, why: why }); if (S.ledger.length > 80) S.ledger.pop(); hudDirty = true; }
   function addXp(n) {
+    if (S.level >= LEVEL_CAP) { hudDirty = true; return; }   // the top of the ladder: the bar stays where it is (1.21.0)
     S.xp += n; hudDirty = true;
-    while (S.xp >= XP_FOR(S.level)) { S.xp -= XP_FOR(S.level); S.level++; onLevelUp(); }
+    while (S.level < LEVEL_CAP && S.xp >= XP_FOR(S.level)) { S.xp -= XP_FOR(S.level); S.level++; onLevelUp(); }
+    if (S.level >= LEVEL_CAP) S.xp = Math.min(S.xp, XP_FOR(LEVEL_CAP));
   }
   function addRep(n) { S.rep = clamp(S.rep + n * (S.up.sign && n > 0 ? 1.25 : 1), 0, 100); hudDirty = true; }
   var hudDirty = true;
@@ -407,16 +511,18 @@
   sun.shadow.mapSize.set(4096, 4096); sun.shadow.camera.left = -70; sun.shadow.camera.right = 70; sun.shadow.camera.top = 70; sun.shadow.camera.bottom = -70; sun.shadow.camera.near = 1; sun.shadow.camera.far = 230; sun.target.position.set(0, 0, -20); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
   scene.add(sun); scene.add(sun.target);
   var hallLights = [];
-  // nine high bays on a 20 x 15 m grid: the hall is 60 x 48 since 2026-10-02, and six lights on the old 20 x 10 grid left the edges dark
-  [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]].forEach(function (p, i) {   // twelve since the 72 m hall
+  // the high bays by stage (1.21.0): one over the shed, four over the small hall, nine on a 20 x 15 m grid over the 60 m hall, twelve over the 72 m hall
+  var HIGH_BAYS = BOOT_STAGE === 0 ? [[0, 0]] : BOOT_STAGE === 1 ? [[-9, -5], [9, -5], [-9, 5], [9, 5]] : BOOT_STAGE === 2 ? [[-20, -15], [0, -15], [20, -15], [-20, 0], [0, 0], [20, 0], [-20, 15], [0, 15], [20, 15]] : [[-26, -15], [-9, -15], [9, -15], [26, -15], [-26, 0], [-9, 0], [9, 0], [26, 0], [-26, 15], [-9, 15], [9, 15], [26, 15]];
+  HIGH_BAYS.forEach(function (p, i) {
     // a shorter reach than the old 38 m: the floor under each bay is a pool and the aisle between two bays is a touch darker, the
     // way a real hall reads. Every third lamp is a slightly cooler tube, as a hall that has had its lamps replaced piecemeal is.
-    var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, 0.55, 28, 2); l.position.set(p[0], 7.3, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l);
+    var l = new THREE.PointLight(i % 3 === 2 ? 0xf3f0ff : 0xffeacc, BOOT_STAGE === 0 ? 0.7 : 0.55, BOOT_STAGE === 0 ? 14 : 28, 2); l.position.set(p[0], HALL.h - 0.7, p[1]); l.userData.warm = i % 3 !== 2; scene.add(l); hallLights.push(l);
   });
-  // the three rooms' own lamps, under their troffers (they used to sit where the rooms were before the hall grew: in the open hall)
-  var officeLight = new THREE.PointLight(0xfff8ea, 0.55, 9, 2); officeLight.position.set(32.5, 2.9, 21.2); scene.add(officeLight);
-  var breakLight = new THREE.PointLight(0xffe9c8, 0.45, 8, 2); breakLight.position.set(-32.5, 2.9, -22.1); scene.add(breakLight);
-  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.4, 7, 2); lobbyLight.position.set(-33.7, 2.9, 21.2); scene.add(lobbyLight);
+  // the three rooms' own lamps, under their troffers (they used to sit where the rooms were before the hall grew: in the open hall); the rooms sit in the hall's corners, so the lamps follow the walls
+  var officeLight = new THREE.PointLight(0xfff8ea, 0.55, 9, 2); officeLight.position.set(HALL.x - 3.5, 2.9, HALL.z - 2.8); scene.add(officeLight);
+  var breakLight = new THREE.PointLight(0xffe9c8, 0.45, 8, 2); breakLight.position.set(-HALL.x + 3.5, 2.9, -HALL.z + 1.9); scene.add(breakLight);
+  var lobbyLight = new THREE.PointLight(0xffe9c8, 0.4, 7, 2); lobbyLight.position.set(-HALL.x + 2.3, 2.9, HALL.z - 2.8); scene.add(lobbyLight);
+  if (BOOT_STAGE === 0) { officeLight.intensity = 0; breakLight.intensity = 0; lobbyLight.intensity = 0; officeLight.userData.off = breakLight.userData.off = lobbyLight.userData.off = true; }   // no rooms in the shed
   var yardLights = [];   // filled by the lamp-post props
   // Three.js lights every pixel with every visible point light, whether or not the light can reach it, so thirty lamps mean thirty
   // evaluations per pixel. Every point light in the scene goes in one list and only the nearest few to the camera stay visible; the
@@ -758,13 +864,17 @@
   function slotName(key) { var p = slotParse(key); return rowName(p.r) + ', bay ' + (p.b + 1) + (p.l === 0 ? ', floor' : p.l === 1 ? ', shelf' : ', top'); }
   function rowName(r) { return r === UPPER.row ? 'Upper row' : isAnnexRow(r) ? HALLS[hallOfRow(r)].name + ' row ' + rowLetter(r) : 'Row ' + 'ABCDEF'[r]; }
 
+  // 1.21.0: the building is built for the stage the page booted at (BOOT_STAGE). The shed is the same code with the hall numbers of
+  // a 14 x 10 m box: one roller door, a person door, no rooms, no wing, no fire exit. The rooms were authored for the 48 m deep hall:
+  // zs slides the south rooms (office, lobby) with the south wall, zn slides the break room with the north wall; X-relative numbers
+  // take care of the rest.
   function buildWorld() {
-    var X = HALL.x, Z = HALL.z, H = HALL.h;
+    var X = HALL.x, Z = HALL.z, H = HALL.h, zs = Z - 24, zn = 24 - Z, rooms = stageHas('rooms');
     // the hall floor (the ground outside is the yard's job)
     var fl = plane(2 * X, 2 * Z, MAT.floor, 0, 0.001, 0, -Math.PI / 2); fl.receiveShadow = true;
     // walls: four, with the dock doors cut out of the west and east ones and a staff door on the west
     function wallX(x, side) {                                   // a wall along z at x, openings at the docks
-      var openings = (side < 0 ? DOCKS.in : DOCKS.out).filter(function (d) { return Math.abs(d.z) < HALL.z - 1; }).map(function (d) { return { z0: d.z - DOCKS.w / 2, z1: d.z + DOCKS.w / 2, h: DOCKS.h }; });   // IN 3 is in Hall 3's wall, not this one
+      var openings = (side < 0 ? DOCKS.in : DOCKS.out).filter(function (d) { return Math.abs(d.z) < HALL.z - 1; }).map(function (d) { return { z0: d.z - DOCKS.w / 2, z1: d.z + DOCKS.w / 2, h: Math.min(DOCKS.h, H - 0.6) }; });   // IN 3 is in Hall 3's wall, not this one
       if (side < 0) openings.push({ z0: SPOT.staffDoor.z - 0.6, z1: SPOT.staffDoor.z + 0.6, h: 2.3 });
       openings.sort(function (a, b) { return a.z0 - b.z0; });
       var z = -Z;
@@ -776,9 +886,13 @@
       if (z < Z) { box(0.3, H, Z - z, MAT.wall, x, H / 2, (z + Z) / 2); solid(x - 0.15, x + 0.15, z, Z); }
     }
     wallX(-X, -1); wallX(X, 1);
-    // the north wall has the fire exit cut out of it at x 23.4 to 24.6
-    // the north wall: the belt opening and the doorway into the production wing, and the fire exit, cut out of it
-    var nOpen = [{ x0: WING.belt.x0, x1: WING.belt.x1, h: WING.belt.h }, { x0: WING.door.x0, x1: WING.door.x1, h: WING.door.h }, { x0: 23.4, x1: 24.6, h: 2.3 }, { x0: HALLS.hall2.door.x0, x1: HALLS.hall2.door.x1, h: HALLS.hall2.door.h }, { x0: HALLS.hall3.door.x0, x1: HALLS.hall3.door.x1, h: HALLS.hall3.door.h }].sort(function (a, b) { return a.x0 - b.x0; }), nx = -X - 0.15;   // the doorways into Halls 2 and 3 are cut from the first day and shuttered until bought
+    // the north wall: the belt opening and the doorway into the production wing (the hall stage), the fire exit (any hall), and the
+    // doorways into Halls 2 and 3 (the big hall, cut from the first day and shuttered until bought), cut out of it
+    var nOpen = [];
+    if (stageHas('wing')) nOpen.push({ x0: WING.belt.x0, x1: WING.belt.x1, h: WING.belt.h }, { x0: WING.door.x0, x1: WING.door.x1, h: WING.door.h });
+    if (rooms) nOpen.push({ x0: FIRE_X - 0.6, x1: FIRE_X + 0.6, h: 2.3 });
+    if (stageHas('hallDoors')) nOpen.push({ x0: HALLS.hall2.door.x0, x1: HALLS.hall2.door.x1, h: HALLS.hall2.door.h }, { x0: HALLS.hall3.door.x0, x1: HALLS.hall3.door.x1, h: HALLS.hall3.door.h });
+    nOpen.sort(function (a, b) { return a.x0 - b.x0; }); var nx = -X - 0.15;
     nOpen.forEach(function (o) { if (o.x0 > nx) { box(o.x0 - nx, H, 0.3, MAT.wall, (nx + o.x0) / 2, H / 2, -Z); solid(nx, o.x0, -Z - 0.15, -Z + 0.15); } box(o.x1 - o.x0, H - o.h, 0.3, MAT.wall, (o.x0 + o.x1) / 2, o.h + (H - o.h) / 2, -Z); solid(o.x0, o.x1, -Z - 0.15, -Z + 0.15, o.h, 9); nx = o.x1; });
     box(X + 0.15 - nx, H, 0.3, MAT.wall, (nx + X + 0.15) / 2, H / 2, -Z); solid(nx, X + 0.15, -Z - 0.15, -Z + 0.15);
     box(2 * X + 0.3, H, 0.3, MAT.wall, 0, H / 2, Z); solid(-X - 0.15, X + 0.15, Z - 0.15, Z + 0.15);
@@ -786,37 +900,40 @@
     box(2 * X + 0.6, 0.3, 2 * Z + 0.6, MAT.roof, 0, H + 0.15, 0);
     plane(2 * X, 2 * Z, MAT.roofIn, 0, H - 0.01, 0, Math.PI / 2);
     SKYLIGHT_Z.forEach(function (z) { var sk = plane(2 * X - 4, 1.6, MAT.skylight, 0, H - 0.02, z, Math.PI / 2); world.lampMeshes.push(sk); });
-    for (var tx = -32; tx <= 32; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }   // nine trusses across the 72 m: five covered the middle 32 m until 1.18.0
+    for (var tx = -X + 4; tx <= X - 4; tx += 8) { box(0.25, 0.6, 2 * Z - 0.4, MAT.steelDark, tx, H - 0.35, 0); }   // trusses every eight metres the whole width (nine across the 72 m)
     // high-bay lamps under the trusses: a conduit drop off the truss, the ballast box, a spun reflector and the lens in its mouth
     hallLights.forEach(function (l) { highBay(l.position.x, l.position.y + 0.3, l.position.z); });
-    buildHallLining();
+    if (rooms) buildHallLining(); else buildShedLining();
     // floor markings: aisles, the walkway, the staging squares
     function lineX(x0, x1, z, w) { plane(x1 - x0, w || 0.1, MAT.yellowLine, (x0 + x1) / 2, 0.006, z, -Math.PI / 2); }
     function lineZ(z0, z1, x, w) { plane(w || 0.1, z1 - z0, MAT.yellowLine, x, 0.006, (z0 + z1) / 2, -Math.PI / 2); }
     function square(cx, cz, s) { lineX(cx - s / 2, cx + s / 2, cz - s / 2); lineX(cx - s / 2, cx + s / 2, cz + s / 2); lineZ(cz - s / 2, cz + s / 2, cx - s / 2); lineZ(cz - s / 2, cz + s / 2, cx + s / 2); }
-    square(SPOT.stageIn.x, SPOT.stageIn.z, 3.4); square(SPOT.stageOut.x, SPOT.stageOut.z, 3.0);   // SHIPPING stood under the sea spiral and the OUT 1 bay since 1.14: it is by OUT 2 now, between the land spiral and the bench
-    lineX(-X + 0.3, X - 7.8, 18.2); lineX(-X + 0.3, X - 7.8, 19.4);                      // the pedestrian walkway along the south strip, lobby to office
-    lineZ(-Z + 1.6, 18.2, 24.4); lineZ(-Z + 1.6, 19.4, 25.6);                              // up the east side to the fire exit; the strip under the deck is the machines' since 1.14 (cells, wrapper, jack 2), so no walkway is painted along the north wall any more
-    plane(1.6, 1.4, MAT.hazard, 23.5, 0.0065, -Z + 1.0, -Math.PI / 2);                     // keep clear in front of the fire exit
+    square(SPOT.stageIn.x, SPOT.stageIn.z, rooms ? 3.4 : 2.6); if (rooms) square(SPOT.stageOut.x, SPOT.stageOut.z, 3.0);   // SHIPPING stood under the sea spiral and the OUT 1 bay since 1.14: it is by OUT 2 now, between the land spiral and the bench
+    if (rooms) {
+      lineX(-X + 0.3, X - 7.8, 18.2 + zs); lineX(-X + 0.3, X - 7.8, 19.4 + zs);              // the pedestrian walkway along the south strip, lobby to office
+      lineZ(-Z + 1.6, 18.2 + zs, FIRE_X + 0.9); lineZ(-Z + 1.6, 19.4 + zs, FIRE_X + 2.1);      // up the east side to the fire exit; the strip under the deck is the machines' since 1.14 (cells, wrapper, jack 2), so no walkway is painted along the north wall any more
+      plane(1.6, 1.4, MAT.hazard, FIRE_X, 0.0065, -Z + 1.0, -Math.PI / 2);                   // keep clear in front of the fire exit
+    }
     var rz0 = RACK.rows[0] - 1.0, rz1 = RACK.rows[RACK.rows.length - 1] + 1.0, rx1 = RACK.x0 + RACK.bays * RACK.bayW;
-    lineZ(rz0, rz1, RACK.x0 - 0.4); lineZ(rz0, rz1, rx1 + 0.4); lineZ(rz0, rz1, RACK.x0 - 1.6);   // the rack block edges along the block only (the east one stood 3.4 m past the last bay, on the walkway line), and the outer line of the west walkway
+    lineZ(rz0, rz1, RACK.x0 - 0.4); lineZ(rz0, rz1, rx1 + 0.4); if (rooms) lineZ(rz0, rz1, RACK.x0 - 1.6);   // the rack block edges along the block only (the east one stood 3.4 m past the last bay, on the walkway line), and the outer line of the west walkway
     // dock doors
     DOCKS.in.forEach(function (d, i) { if (i === 2 && !S.up.hall3) return; buildDoor(doorIndex('in', i), -1, d.z); });   // IN 3 comes with Hall 3
     DOCKS.out.forEach(function (d, i) { buildDoor(doorIndex('out', i), 1, d.z); });
-    if (S.up.hall2) buildDoor(6, 1, DOCKS.ret[0].z);   // the returns dock comes with the returns hall
+    if (S.up.hall2 && DOCKS.ret[0]) buildDoor(6, 1, DOCKS.ret[0].z);   // the returns dock comes with the returns hall
     // the staff door: a frame, and a ramp down to the yard outside it
     box(0.1, 2.3, 0.08, MAT.steelDark, -X, 1.15, SPOT.staffDoor.z - 0.62); box(0.1, 2.3, 0.08, MAT.steelDark, -X, 1.15, SPOT.staffDoor.z + 0.62); box(0.1, 0.08, 1.3, MAT.steelDark, -X, 2.32, SPOT.staffDoor.z);
     var ramp = box(7.2, 0.2, 2, MAT.grey, -X - 3.6, -0.7, SPOT.staffDoor.z); ramp.rotation.z = Math.atan2(1.2, 7); ramp.position.y = -0.6 - 0.1;
     box(7.2, 0.9, 0.08, MAT.steelDark, -X - 3.6, -0.25, SPOT.staffDoor.z - 1).rotation.z = Math.atan2(1.2, 7); box(7.2, 0.9, 0.08, MAT.steelDark, -X - 3.6, -0.25, SPOT.staffDoor.z + 1).rotation.z = Math.atan2(1.2, 7);
-    // the sign on the road side, and the dock faces
-    // the yard lamp posts (the lights themselves live in 05-three)
-    // the pallet racks the player owns
-    buildOffice(); buildBench(); buildBreakRoom(); buildWing();
-    hingedDoor('office', X - 7.5, 19.45, false, 'the office door', { window: true, swing: 1 });
-    hingedDoor('lobby', -X + 4.5, 19.45, false, 'the lobby door', { window: true, swing: -1 });
-    hingedDoor('break', -X + 7, -22.95, false, 'the break room door', { window: true, swing: -1 });
+    // the rooms, the wing and their doors, by stage
+    if (rooms) {
+      buildOffice(); buildBench(); buildBreakRoom();
+      hingedDoor('office', X - 7.5, 19.45 + zs, false, 'the office door', { window: true, swing: 1 });
+      hingedDoor('lobby', -X + 4.5, 19.45 + zs, false, 'the lobby door', { window: true, swing: -1 });
+      hingedDoor('break', -X + 7, -22.95 + zn, false, 'the break room door', { window: true, swing: -1 });
+    }
+    if (stageHas('wing')) buildWing();
     hingedDoor('staff', -X, SPOT.staffDoor.z - 0.5, false, 'the staff door', { mat: MAT.steelDark, swing: 1 });
-    hingedDoor('exit', 23.5, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
+    if (rooms) hingedDoor('exit', FIRE_X, -Z, true, 'the fire exit', { mat: MAT.steelDark, pushbar: true, swing: 1 });
     buildYard(); buildDressing(); buildControlCabinet(); buildProps();
   }
 
@@ -829,13 +946,26 @@
   }
   // a recessed troffer in a room's ceiling: a white frame and a prismatic lens that dims when the power is off
   function troffer(x, y, z, w, d) { box(w || 1.2, 0.05, d || 0.6, MAT.trim, x, y - 0.025, z).castShadow = false; var lens = box((w || 1.2) - 0.1, 0.02, (d || 0.6) - 0.1, MAT.lamp, x, y - 0.045, z); lens.castShadow = false; world.lampMeshes.push(lens); return lens; }
+  // the shed inside: bare cladding on steel posts, a girt at head height, a skirting board, a bulb on a flex over the table and a tin sign
+  function buildShedLining() {
+    var X = HALL.x, Z = HALL.z, H = HALL.h;
+    [[-X, -Z], [X, -Z], [-X, Z], [X, Z], [0, -Z], [0, Z], [-X, 0]].forEach(function (p) { var ox = p[0] === 0 ? 0 : (p[0] < 0 ? 0.2 : -0.2), oz = p[1] === 0 ? 0 : (p[1] < 0 ? 0.2 : -0.2); box(0.12, H - 0.2, 0.12, MAT.steelDark, p[0] + ox, (H - 0.2) / 2, p[1] + oz); });
+    box(2 * X - 0.4, 0.08, 0.06, MAT.steelDark, 0, 2.6, -Z + 0.2); box(2 * X - 0.4, 0.08, 0.06, MAT.steelDark, 0, 2.6, Z - 0.2); box(0.06, 0.08, 2 * Z - 0.4, MAT.steelDark, X - 0.2, 2.6, 0);
+    box(2 * X - 0.4, 0.12, 0.03, MAT.trim, 0, 0.06, -Z + 0.17).castShadow = false; box(2 * X - 0.4, 0.12, 0.03, MAT.trim, 0, 0.06, Z - 0.17).castShadow = false; box(0.03, 0.12, 2 * Z - 0.4, MAT.trim, X - 0.17, 0.06, 0).castShadow = false;
+    sign(['DEPOT CO.', 'est. day one'], 1.6, 0.6, 0, 3.6, -Z + 0.18, 0, { w: 448, h: 160, bg: '#1b232c', fg: '#f5b53d', size: 56 });   // the first sign, hand painted on the far wall
+    world.liningCuts = { cutZ: { '-1': [[SPOT.staffDoor.z - 0.65, SPOT.staffDoor.z + 0.65]].concat(DOCKS.in.map(function (d) { return [d.z - 1.8, d.z + 1.8]; })), '1': [] }, cutX: { '-1': [], '1': [] } };   // the grime strips skip the doors
+  }
   // what a cladded hall looks like from inside: a painted blockwork dado to 2.4 m under a steel capping, I-section columns every
   // 8 m carrying the girts the cladding hangs on, two girts above every opening, and a cable tray round every wall. The rooms
   // have their own plaster lining, so the dado and the columns stop at their walls.
   function buildHallLining() {
-    var X = HALL.x, Z = HALL.z, H = HALL.h, DH = 2.4, sd = SPOT.staffDoor.z;
-    var cutZ = { '-1': [[-15.8, -12.2], [-7.8, -4.2], [sd - 0.65, sd + 0.65], [18.4, Z], [-Z, -20.1]], '1': [[-15.8, -12.2], [-7.8, -4.2], [DOCKS.out[2].z - DOCKS.w / 2, DOCKS.out[2].z + DOCKS.w / 2], [18.4, Z]] };   // the docks (OUT 3 since 1.14.2: the dado and a column stood in its doorway), the staff door, the lobby, the break room; the office
-    var cutX = { '-1': [[WING.belt.x0 - 0.1, WING.belt.x1 + 0.1], [WING.door.x0 - 0.1, WING.door.x1 + 0.1], [23.3, 24.7], [-X, -28.9], [HALLS.hall2.door.x0 - 0.1, HALLS.hall2.door.x1 + 0.1], [HALLS.hall3.door.x0 - 0.1, HALLS.hall3.door.x1 + 0.1]], '1': [[X - 7.6, X], [-X, -31.4]] }; world.liningCuts = { cutZ: cutZ, cutX: cutX };   // the hall doorways too, since 1.14.1   // the belt opening, the wing door, the fire exit, the break room; the office, the lobby
+    var X = HALL.x, Z = HALL.z, H = HALL.h, DH = 2.4, sd = SPOT.staffDoor.z, zs = Z - 24, zn = 24 - Z;
+    var dockCut = function (d) { return [d.z - DOCKS.w / 2 - 0.3, d.z + DOCKS.w / 2 + 0.3]; };
+    var cutZ = { '-1': DOCKS.in.filter(function (d) { return Math.abs(d.z) < Z - 1; }).map(dockCut).concat([[sd - 0.65, sd + 0.65], [18.4 + zs, Z], [-Z, -20.1 + zn]]), '1': DOCKS.out.filter(function (d) { return Math.abs(d.z) < Z - 1; }).map(dockCut).concat([[18.4 + zs, Z]]) };   // the docks (OUT 3 since 1.14.2: the dado and a column stood in its doorway), the staff door, the lobby, the break room; the office
+    var cutX = { '-1': [[-X, -X + 7.1], [FIRE_X - 0.7, FIRE_X + 0.7]], '1': [[X - 7.6, X], [-X, -X + 4.6]] };   // the break room, the fire exit; the office, the lobby
+    if (stageHas('wing')) cutX['-1'].push([WING.belt.x0 - 0.1, WING.belt.x1 + 0.1], [WING.door.x0 - 0.1, WING.door.x1 + 0.1]);
+    if (stageHas('hallDoors')) cutX['-1'].push([HALLS.hall2.door.x0 - 0.1, HALLS.hall2.door.x1 + 0.1], [HALLS.hall3.door.x0 - 0.1, HALLS.hall3.door.x1 + 0.1]);   // the hall doorways too, since 1.14.1
+    world.liningCuts = { cutZ: cutZ, cutX: cutX };
     function segs(a0, a1, cuts) { var out = [[a0, a1]]; cuts.forEach(function (c) { var nx = []; out.forEach(function (s) { if (c[1] <= s[0] || c[0] >= s[1]) { nx.push(s); return; } if (c[0] > s[0]) nx.push([s[0], c[0]]); if (c[1] < s[1]) nx.push([c[1], s[1]]); }); out = nx; }); return out.filter(function (s) { return s[1] - s[0] > 0.3; }); }
     function dadoMat(len) { var m = MAT.block.clone(); m.map = MAT.block.map.clone(); m.map.needsUpdate = true; m.map.repeat.set(len / 1.6, DH / 0.8); m.normalMap = MAT.block.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set(len / 1.6, DH / 0.8); return m; }
     function wall(axis, side) {
@@ -847,17 +977,17 @@
         else { plane(len, DH, dadoMat(len), mid, DH / 2, off, 0, ry); box(len, 0.05, 0.06, MAT.steelDark, mid, DH + 0.025, off + inward * 0.02); }
       });
       // clerestory windows: a glazed strip between the two girts, a window every four metres, framed with a cross mullion (Tyson, 2026-10-06)
-      var wy = 6.0, ww = 2.4, wh = 1.3, woff = at + inward * 0.2;
+      var wy = H - 2.0, ww = 2.4, wh = 1.3, woff = at + inward * 0.2;
       for (var wp = -lim + (axis === 'x' ? 4 : 6); wp < lim - 2; wp += 4) {
-        if (axis === 'z' && side < 0) continue;   // the production wing and the annex halls stand behind the north wall: no sky to see
+        if (axis === 'z' && side < 0 && stageHas('wing')) continue;   // the production wing and the annex halls stand behind the north wall: no sky to see
         if (axis === 'x') { box(0.04, wh + 0.12, ww + 0.12, MAT.steelDark, woff - inward * 0.035, wy, wp); plane(ww, wh, MAT.skylight, woff, wy, wp, 0, ry); box(0.05, wh, 0.05, MAT.steelDark, woff + inward * 0.01, wy, wp); box(0.05, 0.05, ww, MAT.steelDark, woff + inward * 0.01, wy, wp); }
         else { box(ww + 0.12, wh + 0.12, 0.04, MAT.steelDark, wp, wy, woff - inward * 0.035); plane(ww, wh, MAT.skylight, wp, wy, woff, 0, ry); box(0.05, wh, 0.05, MAT.steelDark, wp, wy, woff + inward * 0.01); box(ww, 0.05, 0.05, MAT.steelDark, wp, wy, woff + inward * 0.01); }
       }
       // the girts and the cable tray run the whole wall; a column every 8 m, set where no door, console or sign stands
       var full = 2 * lim - 0.6, c0 = 0, g = at + inward * 0.25;
-      [5.2, 6.8].forEach(function (gy) { if (axis === 'x') box(0.06, 0.12, full, MAT.steelDark, g, gy, c0); else box(full, 0.12, 0.06, MAT.steelDark, c0, gy, g); });
-      if (axis === 'x' || side > 0) { if (axis === 'x') { box(0.3, 0.08, full, MAT.steelDark, at + inward * 0.35, 5.6, c0); for (var ct = -lim + 1; ct < lim; ct += 2) box(0.3, 0.08, 0.04, MAT.steelDark, at + inward * 0.35, 5.6, ct); } else { box(full, 0.08, 0.3, MAT.steelDark, c0, 5.6, at + inward * 0.35); for (var ct2 = -lim + 1; ct2 < lim; ct2 += 2) box(0.04, 0.08, 0.3, MAT.steelDark, ct2, 5.6, at + inward * 0.35); } }
-      var cols = axis === 'x' ? [-18, -10, -2, 6, 14] : side > 0 ? [-28, -20, -12, -4, 4, 12, 20] : [-24, -16, -8, 0, 10, 22, 30];
+      [H - 2.8, H - 1.2].forEach(function (gy) { if (axis === 'x') box(0.06, 0.12, full, MAT.steelDark, g, gy, c0); else box(full, 0.12, 0.06, MAT.steelDark, c0, gy, g); });
+      if (axis === 'x' || side > 0) { if (axis === 'x') { box(0.3, 0.08, full, MAT.steelDark, at + inward * 0.35, H - 2.4, c0); for (var ct = -lim + 1; ct < lim; ct += 2) box(0.3, 0.08, 0.04, MAT.steelDark, at + inward * 0.35, H - 2.4, ct); } else { box(full, 0.08, 0.3, MAT.steelDark, c0, H - 2.4, at + inward * 0.35); for (var ct2 = -lim + 1; ct2 < lim; ct2 += 2) box(0.04, 0.08, 0.3, MAT.steelDark, ct2, H - 2.4, at + inward * 0.35); } }
+      var cols = (axis === 'x' ? [-18, -10, -2, 6, 14] : side > 0 ? [-28, -20, -12, -4, 4, 12, 20] : [-24, -16, -8, 0, 10, 22, 30]).filter(function (p) { return Math.abs(p) < lim - 1.5; });
       cols.forEach(function (p) { if (cuts.some(function (c) { return p > c[0] - 0.3 && p < c[1] + 0.3; })) return; var cx = axis === 'x' ? at + inward * 0.42 : p, cz = axis === 'x' ? p : at + inward * 0.42; column(cx, cz, axis === 'x'); });
     }
     function column(x, z, alongZ) {
@@ -870,29 +1000,31 @@
     wall('x', -1); wall('x', 1); wall('z', -1); wall('z', 1);
   }
   function buildDoor(i, side, z) {
-    var x = side * HALL.x, ud = i < 6 && z < UPPER.z1 + 0.3;   // a main-hall door under the deck strip: its fittings keep under the deck plate at 4.6 m
-    var panel = new THREE.Mesh(boxGeo(0.12, DOCKS.h, DOCKS.w), MAT.door); panel.castShadow = true; panel.receiveShadow = true;
-    panel.position.set(x - side * 0.22, DOCKS.h / 2, z); scene.add(panel);
+    var x = side * HALL.x, ud = i < 6 && upperOwned() && z < UPPER.z1 + 0.3, dh = Math.min(DOCKS.h, HALL.h - 0.6);   // a main-hall door under the deck strip: its fittings keep under the deck plate at 4.6 m; dh: the shed's roof is lower than a dock door
+    var panel = new THREE.Mesh(boxGeo(0.12, dh, DOCKS.w), MAT.door); panel.castShadow = true; panel.receiveShadow = true;
+    panel.position.set(x - side * 0.22, dh / 2, z); scene.add(panel);
     // the dock leveller: a plate from the hall edge out over the slot to the trailer bed, with a hinged lip and a hazard edge
     var lev = box(0.72, 0.05, 2.3, MAT.chequer, side * (HALL.x + 0.1), 0.0, z); lev.receiveShadow = true; box(0.2, 0.03, 2.3, MAT.hazard, side * (HALL.x + 0.5), 0.02, z).rotation.z = side * 0.12; box(0.06, 0.08, 2.3, MAT.steelDark, side * (HALL.x - 0.22), -0.02, z);
-    var d = { i: i, side: side, z: z, panel: panel, anim: S.doors[i] ? 1 : 0 };
-    addInter(panel, { prompt: function () { return S.doors[i] ? null : DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock) ? 'OUT 3 · air freight dock · opens with the sortation deck · E opens the shop' : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + (dockLane(i) ? ' (' + dockLane(i).name.toLowerCase() + ' lane)' : '') + ' · the cabinet and the consoles close it'); }, use: function () { if (DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock)) { if (!driving && !pc.on) openPanel('pc', 'shop'); return; } if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });   // E on the shut OUT 3 goes to the shop, where the deck that opens it is sold
+    var d = { i: i, side: side, z: z, panel: panel, anim: S.doors[i] ? 1 : 0, h: dh };
+    addInter(panel, { prompt: function () { return S.doors[i] ? null : DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock) ? 'OUT 3 · air freight dock · opens with the sortation deck · E opens the shop' : (S.events.power ? 'No power: the door motor is dead' : 'Open dock door ' + dockLabel(i) + (dockLane(i) && lanesOn() ? ' (' + dockLane(i).name.toLowerCase() + ' lane)' : '') + (BOOT_STAGE === 0 ? '' : ' · the cabinet and the consoles close it')); }, use: function () { if (DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock)) { if (!driving && !pc.on) openPanel('pc', 'shop'); return; } if (!S.events.power) setDoor(i, true); else toast('No power. Flip the breaker in the office.', 'bad'); } });   // E on the shut OUT 3 goes to the shop, where the deck that opens it is sold
     // a pull cord inside, to bring a door down without walking to the cabinet
-    var cord = cyl(0.01, 1.2, MAT.red, x - side * 0.35, DOCKS.h - 0.6, z - DOCKS.w / 2 - 0.3, null, 4); var knob = box(0.08, 0.12, 0.08, MAT.red, x - side * 0.35, DOCKS.h - 1.25, z - DOCKS.w / 2 - 0.3);
+    var cord = cyl(0.01, 1.2, MAT.red, x - side * 0.35, dh - 0.6, z - DOCKS.w / 2 - 0.3, null, 4); var knob = box(0.08, 0.12, 0.08, MAT.red, x - side * 0.35, dh - 1.25, z - DOCKS.w / 2 - 0.3);
     addInter(knob, { prompt: function () { return S.doors[i] ? 'Pull the cord: close dock door ' + dockLabel(i) : null; }, use: function () { if (S.doors[i]) setDoor(i, false); } });
     // bumpers, the number outside, the leveller plate, the sign inside
     box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z - DOCKS.w / 2 + 0.3); box(0.3, 0.5, 0.3, MAT.rubber, x + side * 0.3, -0.35, z + DOCKS.w / 2 - 0.3);
-    sign([DOOR_MAP[i].dir === 'ret' ? 'R' : String(DOOR_MAP[i].dock + 1)], 1.2, 1.2, x + side * 0.17, DOCKS.h + 1.3, z, side < 0 ? -Math.PI / 2 : Math.PI / 2, { w: 128, h: 128, bg: '#f5b53d', fg: '#1a1205' });
+    var numY = Math.min(dh + 1.3, HALL.h - 0.7), numS = Math.min(1.2, HALL.h - dh - 0.2);
+    sign([DOOR_MAP[i].dir === 'ret' ? 'R' : String(DOOR_MAP[i].dock + 1)], numS, numS, x + side * 0.17, numY, z, side < 0 ? -Math.PI / 2 : Math.PI / 2, { w: 128, h: 128, bg: '#f5b53d', fg: '#1a1205' });
     plane(1.6, DOCKS.w - 0.4, MAT.hazard, x - side * 0.8, 0.008, z, -Math.PI / 2);
-    sign([dockLabel(i) + (dockLane(i) ? ' · ' + dockLane(i).name.toUpperCase() : '')], ud ? 1.6 : 2.4, ud ? 0.3 : 0.7, x - side * 0.17, ud ? DOCKS.h + 0.17 : DOCKS.h + 0.6, z, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: DOOR_MAP[i].dir !== 'out' ? '#f5b53d' : (dockLane(i) ? dockLane(i).col : '#5fd38d') });
+    var inY = ud ? dh + 0.17 : Math.min(dh + 0.6, HALL.h - 0.45);
+    sign([dockLabel(i) + (dockLane(i) && lanesOn() ? ' · ' + dockLane(i).name.toUpperCase() : '')], ud ? 1.6 : 2.4, ud ? 0.3 : Math.min(0.7, HALL.h - dh - 0.1), x - side * 0.17, inY, z, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 512, h: 128, bg: '#1b232c', fg: DOOR_MAP[i].dir !== 'out' ? '#f5b53d' : (dockLane(i) ? dockLane(i).col : '#5fd38d') });
     doors[i] = d;
   }
-  function dockLabel(i) { var d = DOOR_MAP[i]; return d ? (d.dir === 'ret' ? 'RETURNS' : (d.dir === 'in' ? 'IN ' : 'OUT ') + (d.dock + 1)) : '?'; }
+  function dockLabel(i) { var d = DOOR_MAP[i]; if (!d) return '?'; if (BOOT_STAGE === 0 && d.dir === 'out') return 'the van'; return d.dir === 'ret' ? 'RETURNS' : (d.dir === 'in' ? 'IN ' : 'OUT ') + (d.dock + 1); }
   function dockLane(i) { var d = DOOR_MAP[i]; return d && d.dir === 'out' && TRUCK_OUT[d.dock] ? MODES[TRUCK_OUT[d.dock].mode] : null; }
-  function setDoor(i, open) { if (S.doors[i] === open) return; if (open && DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock)) { toast('OUT 3 opens with the sortation deck (shop).', 'bad'); return; } S.doors[i] = open; sfx('roller'); logEvent('Dock door ' + dockLabel(i) + (open ? ' opened' : ' closed')); if (open && i < 2) introStep('door'); rebuildDyn(); }
+  function setDoor(i, open) { if (S.doors[i] === open) return; if (!doors[i]) return false; if (open && DOOR_MAP[i].dir === 'out' && !dockOwned(DOOR_MAP[i].dock)) { toast('OUT 3 opens with the sortation deck.', 'bad'); return false; } S.doors[i] = open; sfx('roller'); logEvent('Dock door ' + dockLabel(i) + (open ? ' opened' : ' closed')); if (open && i < 2) introStep('door'); rebuildDyn(); return true; }
   function doorAnim(dt) {
     // the pose is applied every frame, so a door loaded open looks open without waiting for a toggle
-    doors.forEach(function (d) { var t = S.doors[d.i] ? 1 : 0; if (d.anim !== t) d.anim = clamp(d.anim + (t ? dt : -dt) / 1.6, 0, 1); var sc = 1 - d.anim * 0.93; d.panel.scale.y = sc; d.panel.position.y = DOCKS.h - DOCKS.h * sc / 2; });
+    doors.forEach(function (d) { var t = S.doors[d.i] ? 1 : 0; if (d.anim !== t) d.anim = clamp(d.anim + (t ? dt : -dt) / 1.6, 0, 1); var sc = 1 - d.anim * 0.93, dh = d.h || DOCKS.h; d.panel.scale.y = sc; d.panel.position.y = dh - dh * sc / 2; });
   }
   function doorPassable(i) { return !!doors[i] && doors[i].anim > 0.6; }
 
@@ -900,11 +1032,11 @@
   // a rack row as a prop: uprights with bracing and base plates, beams with end plates, mesh decks, bay labels, slot hit volumes, the end guards
   function rackBuild(r) {
     return function (c) {
-      var x0 = RACK.x0, bw = RACK.bayW, dz = RACK.depth / 2 - 0.05, nb = rowBays(r);   // nb: the annex rows are shorter
+      var x0 = RACK.x0, bw = RACK.bayW, dz = RACK.depth / 2 - 0.05, nb = rowBays(r), RH = Math.min(5, HALL.h - 0.3);   // nb: the annex rows are shorter, the shed's row grows a bay a level; RH: the uprights stop under the shed roof
       for (var b = 0; b <= nb; b++) {
         var ux = x0 + b * bw;
-        [-dz, dz].forEach(function (oz) { c.box(0.1, 5, 0.1, MAT.rack, ux, 2.5, oz); c.box(0.18, 0.02, 0.18, MAT.steelDark, ux, 0.01, oz); for (var hh = 0.3; hh < 4.9; hh += 0.35) c.box(0.02, 0.05, 0.06, MAT.steelDark, ux + 0.05, hh, oz); });
-        for (var br = 0; br < 5; br++) { var yb = 0.4 + br * 1.0; c.box(0.04, 0.04, RACK.depth - 0.1, MAT.rack, ux, yb, 0); var dg = c.box(0.04, 0.04, Math.sqrt((RACK.depth - 0.1) * (RACK.depth - 0.1) + 1.0), MAT.rack, ux, yb + 0.5, 0); dg.rotation.x = (br % 2 ? 1 : -1) * Math.atan2(1.0, RACK.depth - 0.1); }
+        [-dz, dz].forEach(function (oz) { c.box(0.1, RH, 0.1, MAT.rack, ux, RH / 2, oz); c.box(0.18, 0.02, 0.18, MAT.steelDark, ux, 0.01, oz); for (var hh = 0.3; hh < RH - 0.1; hh += 0.35) c.box(0.02, 0.05, 0.06, MAT.steelDark, ux + 0.05, hh, oz); });
+        for (var br = 0; br < Math.floor(RH - 0.3); br++) { var yb = 0.4 + br * 1.0; c.box(0.04, 0.04, RACK.depth - 0.1, MAT.rack, ux, yb, 0); var dg = c.box(0.04, 0.04, Math.sqrt((RACK.depth - 0.1) * (RACK.depth - 0.1) + 1.0), MAT.rack, ux, yb + 0.5, 0); dg.rotation.x = (br % 2 ? 1 : -1) * Math.atan2(1.0, RACK.depth - 0.1); }
       }
       for (var l = 1; l < RACK.levels.length; l++) {
         var y = RACK.levels[l];
@@ -915,13 +1047,13 @@
       for (var bb = 0; bb < nb; bb++) {
         var cx = x0 + (bb + 0.5) * bw, lbl = rowLetter(r) + (bb + 1); if (!bayLabelTex[lbl]) bayLabelTex[lbl] = textTex([lbl], { w: 128, h: 64, bg: '#1b232c', fg: '#f5b53d' });
         var lm = new THREE.MeshBasicMaterial({ map: bayLabelTex[lbl] });
-        [-1, 1].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lm); p.position.set(cx, 4.75, s * (dz + 0.06)); p.rotation.y = s > 0 ? 0 : Math.PI; c.add(p); });
+        [-1, 1].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.4), lm); p.position.set(cx, RH - 0.25, s * (dz + 0.06)); p.rotation.y = s > 0 ? 0 : Math.PI; c.add(p); });
         for (var ll = 0; ll < RACK.levels.length; ll++) (function (rr, b2, l2) {
           var key = slotKey(rr, b2, l2), hh2 = l2 === 2 ? 1.6 : 1.45;
           slotHits[key] = c.hit(bw - 0.2, hh2, RACK.depth, cx, RACK.levels[l2] + hh2 / 2, 0, { slot: key, prompt: function () { return slotPrompt(key); }, use: function () { slotUse(key); } });
         })(r, bb, ll);
       }
-      c.solid(x0 - 0.1, x0 + nb * bw + 0.1, -RACK.depth / 2, RACK.depth / 2, 0, 5);
+      c.solid(x0 - 0.1, x0 + nb * bw + 0.1, -RACK.depth / 2, RACK.depth / 2, 0, RH);
       [-1, 1].forEach(function (s) { var x = s > 0 ? x0 + nb * bw + 0.3 : x0 - 0.3; c.box(0.12, 0.4, RACK.depth + 0.3, MAT.yellow, x, 0.2, 0); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, -RACK.depth / 2 - 0.1); c.box(0.12, 0.4, 0.12, MAT.yellow, x, 0.2, RACK.depth / 2 + 0.1); c.sign(['MAX LOAD', '1000 kg / level', 'ROW ' + rowLetter(r)], 0.5, 0.5, x + s * 0.06, 1.6, 0, s > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 34 }); });
     };
   }
@@ -935,10 +1067,10 @@
   }
   var LINING = { lobby: std({ map: TEX.plaster, color: 0xd9e3ea, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), brk: std({ map: TEX.plaster, color: 0xf0e6cf, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }), office: std({ map: TEX.plaster, color: 0xe6e8e4, roughness: 0.85, normalMap: NRM.plaster, normalScale: new THREE.Vector2(0.3, 0.3) }) };
   function buildOffice() {
-    var X = HALL.x, Z = HALL.z, x0 = X - 7.5, z0 = 18.5, h = 3.2;
+    var X = HALL.x, Z = HALL.z, zs = Z - 24, x0 = X - 7.5, z0 = 18.5 + zs, h = 3.2;
     // the wall along x = x0 with a doorway, the wall along z = z0 with a window, and a ceiling
-    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h, Z - 20.6, MAT.plaster, x0, h / 2, 20.6 + (Z - 20.6) / 2); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95);
-    solid(x0 - 0.08, x0 + 0.08, z0, 19.3); solid(x0 - 0.08, x0 + 0.08, 20.6, Z);
+    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h, Z - (20.6 + zs), MAT.plaster, x0, h / 2, 20.6 + zs + (Z - (20.6 + zs)) / 2); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95 + zs);
+    solid(x0 - 0.08, x0 + 0.08, z0, 19.3 + zs); solid(x0 - 0.08, x0 + 0.08, 20.6 + zs, Z);
     box(1.5, h, 0.15, MAT.plaster, x0 + 0.75, h / 2, z0); box(2, h, 0.15, MAT.plaster, X - 1, h / 2, z0);
     box(X - 3.5 - x0, 1.1, 0.15, MAT.plaster, (x0 + 1.5 + X - 2) / 2, 0.55, z0); box(X - 3.5 - x0, h - 2.3, 0.15, MAT.plaster, (x0 + 1.5 + X - 2) / 2, 2.3 + (h - 2.3) / 2, z0);
     box(X - 3.5 - x0, 1.2, 0.04, MAT.glass, (x0 + 1.5 + X - 2) / 2, 1.7, z0);
@@ -946,11 +1078,11 @@
     box(X - x0, 0.12, Z - z0, MAT.plaster, (x0 + X) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', X, z0 + 0.1, Z - 0.1, h, LINING.office, [], -1); lineWall('z', Z, x0 + 0.1, X - 0.1, h, LINING.office, [], -1);
     plane(X - x0 - 0.2, Z - z0 - 0.2, MAT.tile, (x0 + X) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    world.officeLamp = troffer(X - 3.5, h, 21); troffer(x0 + 1.9, h, 22.5, 0.6, 0.6);
+    world.officeLamp = troffer(X - 3.5, h, 21 + zs); troffer(x0 + 1.9, h, 22.5 + zs, 0.6, 0.6);
     // carpet tiles over the slab, skirting on the two plaster walls (the hall walls get theirs from lineWall), a bin by the desk
     roomFloor(MAT.carpet, x0 + 0.08, X - 0.16, z0 + 0.08, Z - 0.16, 1.0);
-    [[z0, 19.3], [20.6, Z]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, x0 + 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X - x0, 0.12, 0.03, MAT.trim, (x0 + X) / 2, 0.06, z0 + 0.09).castShadow = false;
-    cyl(0.14, 0.3, std({ color: 0x2a2d33, roughness: 0.6 }), X - 1.2, 0.15, 19.4, null, 12, 0.12); box(0.16, 0.02, 0.16, MAT.paper, X - 1.2, 0.3, 19.4).rotation.y = 0.4;
+    [[z0, 19.3 + zs], [20.6 + zs, Z]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, x0 + 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X - x0, 0.12, 0.03, MAT.trim, (x0 + X) / 2, 0.06, z0 + 0.09).castShadow = false;
+    cyl(0.14, 0.3, std({ color: 0x2a2d33, roughness: 0.6 }), X - 1.2, 0.15, 19.4 + zs, null, 12, 0.12); box(0.16, 0.02, 0.16, MAT.paper, X - 1.2, 0.3, 19.4 + zs).rotation.y = 0.4;
   }
   // a room's own floor laid over the slab: the texture repeats in metres so a carpet tile is half a metre wherever it is
   function roomFloor(mat, x0, x1, z0, z1, per) {
@@ -966,31 +1098,31 @@
 
   // the entrance lobby (south-west corner) and the break room (north-west corner, above IN 1), both walled like the office
   function buildBreakRoom() {
-    var X = HALL.x, Z = HALL.z, h = 3.2;
-    // the lobby: x -30..-25.5, z 18.5..24; its door onto the hall at z 19.45..20.45 in the east wall, a window south of it
-    var x0 = -X + 4.5, z0 = 18.5;
-    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95);
-    box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 20.9); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 22.5); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 22.5); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 22.5); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
-    solid(x0 - 0.08, x0 + 0.08, z0, 19.3); solid(x0 - 0.08, x0 + 0.08, 20.6, Z);
+    var X = HALL.x, Z = HALL.z, zs = Z - 24, zn = 24 - Z, h = 3.2;
+    // the lobby: x -30..-25.5, z 18.5..24 in the big hall; its door onto the hall at z 19.45..20.45 in the east wall, a window south of it
+    var x0 = -X + 4.5, z0 = 18.5 + zs;
+    box(0.15, h, 0.8, MAT.plaster, x0, h / 2, z0 + 0.4); box(0.15, h - 2.2, 1.3, MAT.plaster, x0, 2.2 + (h - 2.2) / 2, 19.95 + zs);
+    box(0.15, h, 0.6, MAT.plaster, x0, h / 2, 20.9 + zs); box(0.15, 1.1, 2.6, MAT.plaster, x0, 0.55, 22.5 + zs); box(0.15, h - 2.3, 2.6, MAT.plaster, x0, 2.3 + (h - 2.3) / 2, 22.5 + zs); box(0.04, 1.2, 2.6, MAT.glass, x0, 1.7, 22.5 + zs); box(0.15, h, 0.2, MAT.plaster, x0, h / 2, Z - 0.1);
+    solid(x0 - 0.08, x0 + 0.08, z0, 19.3 + zs); solid(x0 - 0.08, x0 + 0.08, 20.6 + zs, Z);
     box(X + x0, h, 0.15, MAT.plaster, (-X + x0) / 2, h / 2, z0); solid(-X, x0, z0 - 0.08, z0 + 0.08);
     box(X + x0, 0.12, Z - z0, MAT.plaster, (-X + x0) / 2, h + 0.06, (z0 + Z) / 2);
     lineWall('x', -X, z0 + 0.1, Z - 0.1, h, LINING.lobby, [[SPOT.staffDoor.z - 0.65, SPOT.staffDoor.z + 0.65, 2.25]], 1); lineWall('z', Z, -X + 0.1, x0 - 0.1, h, LINING.lobby, [], -1); plane(X + x0 - 0.2, Z - z0 - 0.2, MAT.tile, (-X + x0) / 2, h - 0.01, (z0 + Z) / 2, Math.PI / 2);
-    troffer(-X + 2.3, h, 21.2);
+    troffer(-X + 2.3, h, 21.2 + zs);
     roomFloor(MAT.vinyl, -X + 0.16, x0 - 0.08, z0 + 0.08, Z - 0.16, 1.5);
-    [[z0, 19.3], [20.6, Z]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, x0 - 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X + x0, 0.12, 0.03, MAT.trim, (-X + x0) / 2, 0.06, z0 + 0.09).castShadow = false;
-    for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 - 0.09, 2.26 - bl * 0.08, 22.5);   // inside the lobby
-    // the break room: x -30..-23, z -24..-20.2; its door in the east wall at z -22.95..-21.95, a window in the south wall onto the hall
-    var bx = -X + 7, bz = -20.2;
-    box(0.15, h, 1.05, MAT.plaster, bx, h / 2, -Z + 0.525); box(0.15, h - 2.2, 1.3, MAT.plaster, bx, 2.2 + (h - 2.2) / 2, -22.45); box(0.15, h, 1.75, MAT.plaster, bx, h / 2, bz - 0.875);
-    solid(bx - 0.08, bx + 0.08, -Z, -22.95); solid(bx - 0.08, bx + 0.08, -21.95, bz);
+    [[z0, 19.3 + zs], [20.6 + zs, Z]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, x0 - 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X + x0, 0.12, 0.03, MAT.trim, (-X + x0) / 2, 0.06, z0 + 0.09).castShadow = false;
+    for (var bl = 0; bl < 14; bl++) box(0.02, 0.05, 2.5, MAT.trim, x0 - 0.09, 2.26 - bl * 0.08, 22.5 + zs);   // inside the lobby
+    // the break room: x -30..-23, z -24..-20.2 in the big hall; its door in the east wall at z -22.95..-21.95, a window in the south wall onto the hall
+    var bx = -X + 7, bz = -20.2 + zn;
+    box(0.15, h, 1.05, MAT.plaster, bx, h / 2, -Z + 0.525); box(0.15, h - 2.2, 1.3, MAT.plaster, bx, 2.2 + (h - 2.2) / 2, -22.45 + zn); box(0.15, h, 1.75, MAT.plaster, bx, h / 2, bz - 0.875);
+    solid(bx - 0.08, bx + 0.08, -Z, -22.95 + zn); solid(bx - 0.08, bx + 0.08, -21.95 + zn, bz);
     box(1.0, h, 0.15, MAT.plaster, -X + 0.5, h / 2, bz); box(1.2, h, 0.15, MAT.plaster, bx - 0.6, h / 2, bz);
     box(X + bx - 2.2, 1.1, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 0.55, bz); box(X + bx - 2.2, h - 2.3, 0.15, MAT.plaster, (-X + 1 + bx - 1.2) / 2, 2.3 + (h - 2.3) / 2, bz); box(X + bx - 2.2, 1.2, 0.04, MAT.glass, (-X + 1 + bx - 1.2) / 2, 1.7, bz);
     solid(-X, bx, bz - 0.08, bz + 0.08);
     box(X + bx, 0.12, Z + bz, MAT.plaster, (-X + bx) / 2, h + 0.06, (-Z + bz) / 2);
     lineWall('x', -X, -Z + 0.1, bz - 0.1, h, LINING.brk, [], 1); lineWall('z', -Z, -X + 0.1, bx - 0.1, h, LINING.brk, [], 1); plane(X + bx - 0.2, Z + bz - 0.2, MAT.tile, (-X + bx) / 2, h - 0.01, (-Z + bz) / 2, Math.PI / 2);
-    troffer(-X + 3.5, h, -22.1);
+    troffer(-X + 3.5, h, -22.1 + zn);
     roomFloor(MAT.vinyl, -X + 0.16, bx - 0.08, -Z + 0.16, bz - 0.08, 1.5);
-    [[-Z, -22.95], [-21.95, bz]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, bx - 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X + bx, 0.12, 0.03, MAT.trim, (-X + bx) / 2, 0.06, bz - 0.09).castShadow = false;
+    [[-Z, -22.95 + zn], [-21.95 + zn, bz]].forEach(function (s) { box(0.03, 0.12, s[1] - s[0], MAT.trim, bx - 0.09, 0.06, (s[0] + s[1]) / 2).castShadow = false; }); box(X + bx, 0.12, 0.03, MAT.trim, (-X + bx) / 2, 0.06, bz - 0.09).castShadow = false;
     for (var bl2 = 0; bl2 < 14; bl2++) box(4.6, 0.05, 0.02, MAT.trim, -X + 3.6, 2.26 - bl2 * 0.08, bz - 0.09);
   }
   // the order board on the office wall: redrawn when orders change
@@ -1000,17 +1132,17 @@
     c.fillStyle = '#f5b53d'; c.font = 'bold 30px Bahnschrift, Arial, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
     c.fillText('OPEN ORDERS', 24, 44); c.font = '22px Bahnschrift, Arial, sans-serif'; c.fillStyle = '#a0acb8'; c.textAlign = 'right'; c.fillText('Day ' + S.day + '  ' + fmtTime(S.time), w - 24, 44);
     c.textAlign = 'left';
-    var all = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }), per = 7, pages = Math.max(1, Math.ceil(all.length / per));
+    var all = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }), per = 7, pages = Math.max(1, Math.ceil(all.length / per)), lanes = lanesOn();
     // the page: the one you wheeled to, for a while after the wheel turn; otherwise the board turns its own pages every six seconds
     var page = sc && sc.userScrollAt && worldTime - sc.userScrollAt < 12 ? clamp(sc.scroll || 0, 0, pages - 1) : (pages > 1 ? Math.floor(worldTime / 6) % pages : 0);
     if (sc) { sc.scrollMax = pages - 1; sc.scroll = page; }
     var open = all.slice(page * per, page * per + per);
     if (!all.length) { c.fillStyle = '#5fd38d'; c.font = '26px Bahnschrift, Arial, sans-serif'; c.fillText('Nothing waiting. Nice.', 24, 110); }
     open.forEach(function (o, i) {
-      var y = 90 + i * 40, lane = MODES[orderMode(o)];   // the lane chip: which door the parcel leaves by
-      c.fillStyle = lane.col; c.beginPath(); if (c.roundRect) c.roundRect(24, y - 21, 62, 27, 6); else c.rect(24, y - 21, 62, 27); c.fill(); c.fillStyle = '#0d1b2a'; c.font = 'bold 17px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.fillText(lane.name.toUpperCase(), 55, y - 1); c.textAlign = 'left';
+      var y = 90 + i * 40, lane = MODES[orderMode(o)];   // the lane chip: which door the parcel leaves by (once there is more than one)
+      if (lanes) { c.fillStyle = lane.col; c.beginPath(); if (c.roundRect) c.roundRect(24, y - 21, 62, 27, 6); else c.rect(24, y - 21, 62, 27); c.fill(); c.fillStyle = '#0d1b2a'; c.font = 'bold 17px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.fillText(lane.name.toUpperCase(), 55, y - 1); c.textAlign = 'left'; }
       c.fillStyle = o.state === 'packed' ? '#5fd38d' : (o.rush ? '#ff6b5e' : '#eef1f5'); c.font = 'bold 22px Bahnschrift, Arial, sans-serif';
-      c.fillText('#' + o.num + '  ' + clientName(o.client), 98, y);
+      c.fillText('#' + o.num + '  ' + clientName(o.client), lanes ? 98 : 24, y);
       c.font = '20px Bahnschrift, Arial, sans-serif'; c.fillStyle = '#a0acb8';
       c.fillText(o.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ').slice(0, 46), 330, y);
       c.textAlign = 'right'; c.fillStyle = o.state === 'packed' ? '#5fd38d' : '#f5b53d'; c.fillText(o.state === 'packed' ? 'PACKED' : 'due ' + fmtTime(o.due), w - 24, y); c.textAlign = 'left';
@@ -1023,7 +1155,7 @@
   function floorY(x, z, y) {   // y: how high the asker already is; the mezzanine deck counts only for someone up there
     var uy = upperFloorY(x, z, y); if (uy !== null) return uy;
     if ((Math.abs(x) < HALL.x && Math.abs(z) < HALL.z) || inWing(x, z) || inAnnex(x, z)) return 0;
-    for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state !== 'docked') continue; var b = trailerBounds(t); if (x > b.x0 - 0.7 && x < b.x1 + 0.7 && z > b.z0 && z < b.z1) return 0; }
+    for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state !== 'docked' || t.van) continue; var b = trailerBounds(t); if (x > b.x0 - 0.7 && x < b.x1 + 0.7 && z > b.z0 && z < b.z1) return 0; }   // the van's bed is not a floor you walk onto: you load it from the yard
     if (x <= -HALL.x && x > -HALL.x - 7.2 && Math.abs(z - SPOT.staffDoor.z) < 1) return lerp(0, YARD_Y, (-HALL.x - x) / 7);
     return YARD_Y;
   }
@@ -1158,14 +1290,14 @@
   }
   function repaintJack2Bay() { (dress.jack2Bay || []).forEach(function (m) { scene.remove(m); }); dress.jack2Bay = paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); }
   function buildDressing() {
-    var X = HALL.x, Z = HALL.z, H = HALL.h;
+    var X = HALL.x, Z = HALL.z, H = HALL.h, rooms = stageHas('rooms'), zs = Z - 24, zn = 24 - Z;   // 1.21.0: the rooms' z's slide with the walls; the shed has no rooms
     // bollards guarding every dock door (the columns along the walls are the hall lining's, in 06-building)
     // the bollards of every door are in dressDoor, below, with the rest of the door kit
     // the north wall: cable tray, sprinkler main, extractor fans, the exit sign, the painted name
-    [[-X + 0.5, -15.8], [-14.2, 15.2], [16.8, X - 0.5]].forEach(function (s) { box(s[1] - s[0], 0.08, 0.3, MAT.steelDark, (s[0] + s[1]) / 2, 5.6, -Z + 0.35); for (var cx = Math.ceil((s[0] + 0.5) / 2) * 2; cx <= s[1] - 0.5; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, 5.6, -Z + 0.35); });   // rungs the length of every tray run (they covered the middle 36 m of the old hall)
-    [-9.5, 9.5].forEach(function (z) { var p = cyl(0.07, 2 * X - 2, MAT.red, 0, 6.45, z, null, 10); p.rotation.z = Math.PI / 2; for (var sx = -X + 3; sx <= X - 3; sx += 4) { cyl(0.025, 0.18, MAT.steelDark, sx, 6.3, z, null, 6); sphere(0.03, MAT.chrome, sx, 6.2, z); } });   // heads along the whole 70 m main, not the middle 32
-    [-15, 16].forEach(function (x) {
-      var g = new THREE.Group(); g.userData.dynamic = true; g.position.set(x, 6.0, -Z + 0.4); scene.add(g);   // above the girt and the tray, between the windows
+    (rooms ? [[-X + 0.5, -15.8], [-14.2, 15.2], [16.8, X - 0.5]].filter(function (s) { return s[1] - s[0] > 1; }) : [[-X + 0.5, X - 0.5]]).forEach(function (s) { box(s[1] - s[0], 0.08, 0.3, MAT.steelDark, (s[0] + s[1]) / 2, H - 2.4, -Z + 0.35); for (var cx = Math.ceil((s[0] + 0.5) / 2) * 2; cx <= s[1] - 0.5; cx += 2) box(0.04, 0.08, 0.3, MAT.steelDark, cx, H - 2.4, -Z + 0.35); });   // rungs the length of every tray run (they covered the middle 36 m of the old hall)
+    (Z > 12 ? [-9.5, 9.5] : [0]).forEach(function (z) { var p = cyl(0.07, 2 * X - 2, MAT.red, 0, H - 1.55, z, null, 10); p.rotation.z = Math.PI / 2; for (var sx = -X + 3; sx <= X - 3; sx += 4) { cyl(0.025, 0.18, MAT.steelDark, sx, H - 1.7, z, null, 6); sphere(0.03, MAT.chrome, sx, H - 1.8, z); } });   // heads along the whole 70 m main, not the middle 32
+    (X > 18 ? [-15, 16] : []).forEach(function (x) {
+      var g = new THREE.Group(); g.userData.dynamic = true; g.position.set(x, H - 2.0, -Z + 0.4); scene.add(g);   // above the girt and the tray, between the windows
       var housing = cyl(0.62, 0.3, MAT.steelDark, 0, 0, 0, g, 24); housing.rotation.x = Math.PI / 2;
       var hub = new THREE.Group(); hub.position.z = 0.17; g.add(hub); cyl(0.08, 0.12, MAT.plastic, 0, 0, 0, hub, 10).rotation.x = Math.PI / 2;
       for (var b = 0; b < 4; b++) { var bl = box(0.16, 0.5, 0.02, MAT.plastic, 0, 0.28, 0, hub); bl.rotation.z = b * Math.PI / 2; bl.position.set(Math.sin(b * Math.PI / 2) * -0.28, Math.cos(b * Math.PI / 2) * 0.28, 0); bl.rotation.y = 0.5; }
@@ -1179,12 +1311,15 @@
     // the forklift bay, the tool bays and the charger on the south wall
     sorterSpots();   // jack 2 lives by the north wall once the sorter is in: paint its bay where the jack is, not where it was (the old bay sat under the OUT 3 shipping bay and the air spiral)
     paintBay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK 1'); dress.jack2Bay = paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); paintBay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
-    plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2); plane(1.0, 1.0, MAT.rubberMat, -X + 5.1, 0.004, 19.95, -Math.PI / 2);
-    plane(1.0, 1.0, MAT.rubberMat, -X + 7.6, 0.004, -22.45, -Math.PI / 2); plane(1.4, 0.08, MAT.yellowLine, -X + 7.0, 0.0062, -22.45, -Math.PI / 2);   // the break room door gets the mat and the crossing the lobby and office doors have
-    // the office blinds and the crossing into it
-    for (var bl2 = 0; bl2 < 14; bl2++) box(3.9, 0.05, 0.02, MAT.trim, X - 4, 2.26 - bl2 * 0.08, 18.58);
-    plane(1.4, 0.08, MAT.yellowLine, -X + 4.5, 0.0062, 19.95, -Math.PI / 2);
-    plane(0.08, 1.4, MAT.yellowLine, X - 8.1, 0.0062, 19.95, -Math.PI / 2);   // the crossing into the office door
+    plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2);
+    if (rooms) {
+      plane(1.0, 1.0, MAT.rubberMat, -X + 5.1, 0.004, 19.95 + zs, -Math.PI / 2);
+      plane(1.0, 1.0, MAT.rubberMat, -X + 7.6, 0.004, -22.45 + zn, -Math.PI / 2); plane(1.4, 0.08, MAT.yellowLine, -X + 7.0, 0.0062, -22.45 + zn, -Math.PI / 2);   // the break room door gets the mat and the crossing the lobby and office doors have
+      // the office blinds and the crossing into it
+      for (var bl2 = 0; bl2 < 14; bl2++) box(3.9, 0.05, 0.02, MAT.trim, X - 4, 2.26 - bl2 * 0.08, 18.58 + zs);
+      plane(1.4, 0.08, MAT.yellowLine, -X + 4.5, 0.0062, 19.95 + zs, -Math.PI / 2);
+      plane(0.08, 1.4, MAT.yellowLine, X - 8.1, 0.0062, 19.95 + zs, -Math.PI / 2);   // the crossing into the office door
+    }
     // grime: a dark gradient along the foot of every wall, tyre scuffs at the dock aprons and in the aisles, oil where machines stand
     var grimeTex = tex(64, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(20,18,16,0.5)'); g.addColorStop(0.5, 'rgba(20,18,16,0.18)'); g.addColorStop(1, 'rgba(20,18,16,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); for (var i = 0; i < 60; i++) { c.fillStyle = 'rgba(10,10,10,' + randf(0.05, 0.2) + ')'; c.fillRect(Math.random() * w, h - Math.random() * 20, randf(1, 4), randf(1, 3)); } });
     var grimeMat = new THREE.MeshBasicMaterial({ map: grimeTex, transparent: true, depthWrite: false }); grimeMat.userData.noBake = true;
@@ -1197,10 +1332,10 @@
     var markTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.35)'); g.addColorStop(0.7, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
     var markMat = new THREE.MeshBasicMaterial({ map: markTex, transparent: true, depthWrite: false, opacity: 0.8 }); markMat.userData.noBake = true;
     dress.apron = function (dk) { var m = plane(6, 1.3, markMat, dk.side * (X - 4.5), 0.0045, dk.z + randf(-0.3, 0.3), -Math.PI / 2, 0); m.rotation.z = randf(-0.08, 0.08); m.renderOrder = 1; m.userData.noBake = true; }; doors.forEach(dress.apron);   // kept on dress so a dock built mid-game (IN 3, the returns dock) gets its scuffs from dressDoor at once, not at the next reload
-    [-12, -6, 0, 6, 12].forEach(function (z) { for (var mx = -20; mx <= 20; mx += 7) { var m = plane(5, 1.1, markMat, mx + randf(-1, 1), 0.0045, z + randf(-0.4, 0.4), -Math.PI / 2, 0); m.rotation.z = randf(-0.1, 0.1); m.renderOrder = 1; m.userData.noBake = true; } });
+    [-12, -6, 0, 6, 12].forEach(function (z) { if (Math.abs(z) > Z - 1.5) return; for (var mx = -20; mx <= 20; mx += 7) { if (Math.abs(mx) > X - 3) continue; var m = plane(5, 1.1, markMat, mx + randf(-1, 1), 0.0045, z + randf(-0.4, 0.4), -Math.PI / 2, 0); m.rotation.z = randf(-0.1, 0.1); m.renderOrder = 1; m.userData.noBake = true; } });
     var oilTex = tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 5; i++) { var r = randf(14, 40), x = randf(r, w - r), y = randf(r, h - r), g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(10,10,14,0.55)'); g.addColorStop(0.7, 'rgba(10,10,14,0.25)'); g.addColorStop(1, 'rgba(10,10,14,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); } });
     var oilMat = new THREE.MeshBasicMaterial({ map: oilTex, transparent: true, depthWrite: false }); oilMat.userData.noBake = true;
-    [[SPOT.fork.x, SPOT.fork.z], [SPOT.jack.x, SPOT.jack.z], [SPOT.jack2.x, SPOT.jack2.z], [-16, -4], [16, -4]].forEach(function (p) { var m = plane(2.2, 2.2, oilMat, p[0] + randf(-0.4, 0.4), 0.0046, p[1] + randf(-0.4, 0.4), -Math.PI / 2, randf(0, 3)); m.renderOrder = 1; m.userData.noBake = true; });
+    [[SPOT.fork.x, SPOT.fork.z], [SPOT.jack.x, SPOT.jack.z], [SPOT.jack2.x, SPOT.jack2.z], [-16, -4], [16, -4]].filter(function (p) { return Math.abs(p[0]) < X - 1.5 && Math.abs(p[1]) < Z - 1.5; }).forEach(function (p) { var m = plane(2.2, 2.2, oilMat, p[0] + randf(-0.4, 0.4), 0.0046, p[1] + randf(-0.4, 0.4), -Math.PI / 2, randf(0, 3)); m.renderOrder = 1; m.userData.noBake = true; });
     // light shafts under the skylights, with dust drifting in them
     var shaftMat = new THREE.MeshBasicMaterial({ color: 0xfff1d0, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); shaftMat.userData.noBake = true; dress.shaftMat = shaftMat;
     var shaftTex = tex(32, 256, function (c, w, h) { var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); var g2 = c.createLinearGradient(0, 0, w, 0); g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(0.3, 'rgba(0,0,0,0)'); g2.addColorStop(0.7, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,1)'); c.globalCompositeOperation = 'destination-out'; c.fillStyle = g2; c.fillRect(0, 0, w, h); }); shaftMat.alphaMap = shaftTex; shaftMat.map = shaftTex;
@@ -1216,25 +1351,25 @@
     if (dress.vending) { var wp = new THREE.Vector3(); dress.vending.getWorldPosition(wp); burst(wp.x, 0.5, wp.z, 0xf5b53d, 8, 'down'); }
   }
   // pigeons: three on a truss, off in a flap when you walk under them, back on another truss a while later
-  var pigeons = [];
+  var pigeons = [], PIG = { y: HALL.h - 1.4, z: Math.min(9.5, HALL.z - 1.5), x: Math.min(16, HALL.x - 3) };   // the trusses they sit on, by stage
   function buildPigeons() {
     for (var i = 0; i < 3; i++) {
       var g = new THREE.Group(); g.userData.dynamic = true; scene.add(g);
       var body = sphere(0.09, MAT.grey, 0, 0, 0, g); body.scale.set(1, 0.8, 1.4); sphere(0.055, std({ color: 0x4a5560, roughness: 0.9 }), 0, 0.07, 0.1, g); box(0.02, 0.02, 0.05, MAT.yellow, 0, 0.06, 0.16, g);
       var wl = box(0.16, 0.01, 0.12, MAT.grey, -0.12, 0.03, 0, g), wr2 = box(0.16, 0.01, 0.12, MAT.grey, 0.12, 0.03, 0, g);
-      var perch = { x: -16 + i * 8 + randf(-2, 2), z: pick([-9.5, 9.5]) };
-      pigeons.push({ g: g, wl: wl, wr: wr2, x: perch.x, z: perch.z, y: 6.6, state: 'perch', t: 0, from: null, to: null, flap: Math.random() * 6 });
-      g.position.set(perch.x, 6.6, perch.z); g.rotation.y = Math.random() * 6.28;
+      var perch = { x: clamp(-16 + i * 8 + randf(-2, 2), -PIG.x, PIG.x), z: pick([-PIG.z, PIG.z]) };
+      pigeons.push({ g: g, wl: wl, wr: wr2, x: perch.x, z: perch.z, y: PIG.y, state: 'perch', t: 0, from: null, to: null, flap: Math.random() * 6 });
+      g.position.set(perch.x, PIG.y, perch.z); g.rotation.y = Math.random() * 6.28;
     }
   }
   function tickPigeons(dt) {
     pigeons.forEach(function (p) {
       if (p.state === 'perch') {
         p.t += dt; p.g.rotation.y += Math.sin(p.t * 0.7) * 0.004; p.wl.rotation.z = 0; p.wr.rotation.z = 0;
-        if (dist2(player.x, player.z, p.x, p.z) < 30 && insideHall(player.x, player.z) && Math.random() < dt * 2) { p.state = 'fly'; p.t = 0; p.from = { x: p.x, z: p.z }; p.to = { x: clamp(p.x + randf(-14, 14), -HALL.x + 3, HALL.x - 3), z: p.z > 0 ? -9.5 : 9.5 }; sfx('flap'); p.g.rotation.y = Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z); }
+        if (dist2(player.x, player.z, p.x, p.z) < 30 && insideHall(player.x, player.z) && Math.random() < dt * 2) { p.state = 'fly'; p.t = 0; p.from = { x: p.x, z: p.z }; p.to = { x: clamp(p.x + randf(-14, 14), -PIG.x, PIG.x), z: p.z > 0 ? -PIG.z : PIG.z }; sfx('flap'); p.g.rotation.y = Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z); }
       } else {
         p.t += dt / 3.5; var k = Math.min(1, p.t);
-        p.x = lerp(p.from.x, p.to.x, k); p.z = lerp(p.from.z, p.to.z, k); p.y = 6.6 - Math.sin(k * Math.PI) * 1.6;
+        p.x = lerp(p.from.x, p.to.x, k); p.z = lerp(p.from.z, p.to.z, k); p.y = PIG.y - Math.sin(k * Math.PI) * 1.6;
         p.flap += dt * 24; p.wl.rotation.z = Math.sin(p.flap) * 0.9; p.wr.rotation.z = -Math.sin(p.flap) * 0.9;
         if (k >= 1) { p.state = 'perch'; p.t = 0; }
       }
@@ -1260,12 +1395,24 @@
   // turns. Each prop builds into its own group, so moving it is: remove the instance, build it again at the new spot.
   var PROPS = {}, PROP_ORDER = [], propInst = {};
   // defaults were authored for the 40 x 28 hall; the hall grew by 10 m on every side, so anything near a wall follows its wall
-  function grown(v) { return Math.abs(v) >= 8 ? v + (v < 0 ? -HALL_GROW : HALL_GROW) : v; }
-  var HALL_GROW = 10;   // the first growth (40 to 60 m wide); the second is wallX in the config
+  function grown(v) { return BOOT_STAGE >= 2 && Math.abs(v) >= 8 ? v + (v < 0 ? -HALL_GROW : HALL_GROW) : v; }
+  var HALL_GROW = 10;   // the first growth (40 to 60 m wide); the second is wallX in the config. Nothing grows below the hall stage (1.21.0)
+  // 1.21.0: a default is laid out for the stage the page booted at. at[stage] names a spot outright for one stage; otherwise the
+  // rules: a 40-frame default (not abs) is used raw in the small hall, grown in the hall, grown and wall-shifted in the big halls;
+  // a 60-frame default (abs) is pulled in by ungrown for the small hall; a 72-frame default (abs, keep) first by unwallX. stage: the
+  // first stage the prop stands at; lvl: the level it appears at; shed: it stands in the shed too (otherwise only at[0] puts a prop there)
   function defProp(id, def) {
-    if (!def.abs && typeof def.x === 'number') { def.x = grown(def.x); def.z = grown(def.z); }
-    if (typeof def.x === 'number' && !def.keep && !/^gantry/.test(id)) def.x = wallX(def.x, def.z, !!def.yard);   // the side walls moved out: wall-side props follow
+    var at = def.at && def.at[BOOT_STAGE];
+    if (at) { for (var k in at) def[k] = at[k]; }
+    else if (typeof def.x === 'number') {
+      if (BOOT_STAGE >= 2) { if (!def.abs) { def.x = grown(def.x); def.z = grown(def.z); } if (!def.keep && !/^gantry/.test(id)) def.x = wallX(def.x, def.z, !!def.yard); else if (BOOT_STAGE === 2 && def.keep && !def.yard) def.x = unwallX(def.x); }   // the side walls moved out: wall-side props follow
+      else if (BOOT_STAGE === 1 && def.abs) { if (def.keep) def.x = unwallX(def.x); def.x = ungrown(def.x); def.z = ungrown(def.z); }
+    }
     def.id = id; PROPS[id] = def; PROP_ORDER.push(id); }
+  // does this prop stand at the stage the page booted at, and at the level the save is at
+  function propStageOk(id) { var d = PROPS[id]; if (!d) return true; if (d.extra) return true; if (typeof d.stage === 'number' && BOOT_STAGE < d.stage) return false; if (BOOT_STAGE === 0 && !d.shed && !(d.at && d.at[0])) return false; if (typeof d.lvl === 'number' && S.level < d.lvl) return false; return true; }
+  // a level reached: the props that appear at it stand up at once (the time clock at 2, the flask at 4, the returns desk at 8)
+  function applyLevelUnlocks(level) { PROP_ORDER.forEach(function (id) { var d = PROPS[id]; if (!d.extra && d.lvl === level && propStageOk(id) && (!d.when || d.when()) && !propInst[id]) buildProp(id); }); if (BOOT_STAGE === 0 && level <= RACK.bays) { buildRack(0); NAV.dirty = true; } if (!edit.on) { unbakeStatic(); bakeStatic(); } }
   function propDef(id) { if (PROPS[id]) return PROPS[id]; var c = customById(id); return c ? PROPS[c.type] : null; }
   function customById(id) { return (S.custom || []).filter(function (c) { return c.id === id; })[0] || null; }
   function propPlacement(id) {
@@ -1316,7 +1463,7 @@
   }
   function buildProp(id) {
     removePropInst(id);
-    var def = propDef(id); if (!def) return null;
+    var def = propDef(id); if (!def) return null; if (!propStageOk(id)) return null;   // a prop of a later stage or level: not here, whoever asks
     var P = propPlacement(id), g = new THREE.Group(); g.userData.propId = id; g.position.set(P.x, typeof def.y === 'number' ? def.y : propGroundY(P.x, P.z), P.z); g.rotation.y = P.rot * Math.PI / 2;   // a def may fix its height: an annex rack's origin falls outside its hall
     var ctx = propCtx(g, id), inst = { id: id, g: g, P: P, ctx: ctx };
     if (!P.hidden) propInst[id] = inst;   // a removed prop is not on the list: nothing then counts a hidden machine as standing
@@ -1331,13 +1478,14 @@
     scene.add(g); NAV.dirty = true; shadowDirty = true; beltsChanged();
     return inst;
   }
-  function buildProps() { PROP_ORDER.forEach(function (id) { if (!PROPS[id].extra && (!PROPS[id].when || PROPS[id].when())) buildProp(id); }); (S.custom || []).forEach(function (c) { if (PROPS[c.type]) buildProp(c.id); }); }
-  function propGroundY(x, z) { if (insideHall(x, z)) return 0; for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state === 'docked') { var b = trailerBounds(t); if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return 0; } } return YARD_Y; }
+  function buildProps() { PROP_ORDER.forEach(function (id) { if (!PROPS[id].extra && propStageOk(id) && (!PROPS[id].when || PROPS[id].when())) buildProp(id); }); (S.custom || []).forEach(function (c) { if (PROPS[c.type]) buildProp(c.id); }); }
+  function propGroundY(x, z) { if (insideHall(x, z)) return 0; for (var i = 0; i < S.trucks.length; i++) { var t = S.trucks[i]; if (t.state === 'docked' && !t.van) { var b = trailerBounds(t); if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return 0; } } return YARD_Y; }
   function propIdOf(obj) { for (var o = obj; o; o = o.parent) if (o.userData && o.userData.propId) return o.userData.propId; return null; }
 
   // ── Build mode ────────────────────────────────────────────────────
   var edit = { on: false, grabbed: null, helper: null, snap: true, wallAim: null, snapCycle: 0, grabRot: 0 };   // snapCycle: which snap (or free heading) R has walked to for the carried belt piece
   function editToggle() {
+    if (!edit.on && !unlocked('build')) { toast('Build mode comes with the hall at level ' + UNLOCK.build + '.', 'bad'); sfx('bad'); return; }   // the ladder (1.21.0)
     if (edit.grabbed) editDrop(true);
     edit.on = !edit.on;
     var eb = $('h-edit'); if (eb) { eb.hidden = !edit.on; }
@@ -1373,7 +1521,7 @@
     var P = propPlacement(id), x = P.x, z = P.z;
     if (inWing(x, z)) return 'production wing';
     var h = inAnyAnnexFootprint(x, z); if (h) return HALLS[h].name.toLowerCase();
-    if (Math.abs(x) < HALL.x + 0.5 && Math.abs(z) < HALL.z + 0.5) { if (z > 18.3 && x > HALL.x - 7.7) return 'office'; if (z > 18.3 && x < -HALL.x + 4.7) return 'lobby'; if (z < -20 && x < -HALL.x + 7.2) return 'break room'; return 'main hall' + (x < -12 ? ', west side' : x > 12 ? ', east side' : z < -12 ? ', north' : z > 12 ? ', south' : ''); }
+    if (Math.abs(x) < HALL.x + 0.5 && Math.abs(z) < HALL.z + 0.5) { var zs = HALL.z - 24, zn = 24 - HALL.z; if (!stageHas('rooms')) return 'the shed'; if (z > 18.3 + zs && x > HALL.x - 7.7) return 'office'; if (z > 18.3 + zs && x < -HALL.x + 4.7) return 'lobby'; if (z < -20 + zn && x < -HALL.x + 7.2) return 'break room'; return 'main hall' + (x < -12 ? ', west side' : x > 12 ? ', east side' : z < -12 ? ', north' : z > 12 ? ', south' : ''); }   // the rooms slide with the walls (1.21.0)
     return 'yard' + (z > HALL.z + 2 ? ', south' : z < -HALL.z - 2 ? ', north' : x < 0 ? ', west' : ', east');
   }
   // a prop's own dice: the same throw every time it is built, so a bought picture keeps its print and a tree its size through every move, turn and reload
@@ -1469,7 +1617,7 @@
   }
   function editRestore(id) { if (S.layout && S.layout[id]) { delete S.layout[id].hidden; } buildProp(id); sfx('ok'); toast('The ' + propLabel(id) + ' is back', 'good'); save(); }
   function editBuy(type) {
-    var def = PROPS[type]; if (!def || !def.extra) return;
+    var def = PROPS[type]; if (!def || !def.extra) return; if (typeof def.lvl === 'number' && S.level < def.lvl) { toast('That comes at level ' + def.lvl + '.', 'bad'); return; }
     if (def.price && S.bank < def.price) { toast('That costs ' + money(def.price) + ' and you have ' + money(S.bank), 'bad'); return; }
     if (def.price) pay(-def.price, 'Bought: ' + def.label);
     if (!S.custom) S.custom = [];
@@ -1483,7 +1631,7 @@
     var hidden = PROP_ORDER.filter(function (id) { return !PROPS[id].extra && propPlacement(id).hidden; });
     if (hidden.length) h += '<h3>Removed</h3><div class="dc-grid">' + hidden.map(function (id) { return '<div class="dc-card"><div class="body"><b>' + esc(PROPS[id].label) + '</b><small>' + esc(propWhere(id)) + '</small></div>' + btn('restore', id, 'Bring back', 'primary') + '</div>'; }).join('') + '</div>';
     CAT_GROUPS.forEach(function (gr) {
-      var items = PROP_ORDER.filter(function (id) { return PROPS[id].extra && PROPS[id].cat === gr[0]; }); if (!items.length) return;
+      var items = PROP_ORDER.filter(function (id) { return PROPS[id].extra && PROPS[id].cat === gr[0] && (typeof PROPS[id].lvl !== 'number' || S.level >= PROPS[id].lvl); }); if (!items.length) { var lk = PROP_ORDER.filter(function (id) { return PROPS[id].extra && PROPS[id].cat === gr[0]; }).map(function (id) { return PROPS[id].lvl || 1; }); if (lk.length) h += '<h3>' + gr[1] + ' <small style="color:var(--muted);font-weight:normal">from level ' + Math.min.apply(null, lk) + '</small></h3>'; return; }
       h += '<h3>' + gr[1] + (gr[0] === 'room' ? ' <small style="color:var(--muted);font-weight:normal">' + esc(comfortText()) + '</small>' : '') + '</h3><div class="dc-grid">' + items.map(function (id) { var d = PROPS[id]; return '<div class="dc-card"><div class="body"><b>' + (d.ico || '') + ' ' + esc(d.label) + '</b><small>' + esc(d.desc || '') + '</small></div><div style="text-align:right"><div class="price">' + (d.price ? money(d.price) : 'free') + '</div>' + btn('buy', id, 'Add', 'primary', d.price > S.bank) + '</div></div>'; }).join('') + '</div>';
     });
     return h;
@@ -1572,7 +1720,7 @@
     c.box(0.08, 0.24, 0.08, CW, 0.23, 0.9, 0); c.cyl(0.03, 0.08, MAT.white, 0.23, 1.06, 0, 10); c.solid(-0.22, 0.22, -0.22, 0.22, 0, 1.6);
   }
   function hooksBuild(c) { c.box(1.9, 0.04, 0.12, MAT.wood, 0, 1.82, 0); for (var hk = 0; hk < 4; hk++) { var hx = -0.68 + hk * 0.45; c.cyl(0.015, 0.1, MAT.chrome, hx, 1.75, 0.05, 6).rotation.x = Math.PI / 2; if (hk !== 2) { c.box(0.36, 0.5, 0.06, hk === 1 ? MAT.hivisOrange : MAT.hivis, hx, 1.45, 0.06); c.box(0.1, 0.06, 0.07, MAT.hivis, hx, 1.72, 0.06); } } }
-  function noticeBuild(c) { c.box(1.6, 1.0, 0.04, MAT.wood, 0, 1.9, 0); c.plane(1.5, 0.9, MAT.cork, 0, 1.9, 0.025, 0, 0); var tt = ['TRUCKS', 'IN ' + TRUCK_IN.map(fmtTime).join(' · '), 'SEA ' + TRUCK_OUT[0].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · '), 'LAND ' + TRUCK_OUT[1].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · '), 'AIR ' + TRUCK_OUT[2].windows.map(function (w) { return fmtTime(w.arrive); }).join(' · ')]; if (returnsHall()) tt.push('RET ' + TRUCK_RET.map(fmtTime).join(' · ')); c.sign(tt, 0.9, 0.5, -0.25, 2.05, 0.03, 0, { w: 512, h: 320, bg: '#f5f1e6', fg: '#1b232c', size: tt.length > 5 ? 34 : 40 }); /* the returns truck joins the timetable once its hall is open (buildHall rebuilds the board) */ [[0.45, 1.75, -0.1], [-0.1, 1.6, 0.15], [0.55, 1.65, 0.05]].forEach(function (n) { var nb = c.box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], 0.03); nb.rotation.z = n[2]; c.cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, 0.035, 8).rotation.x = Math.PI / 2; }); }
+  function noticeBuild(c) { c.box(1.6, 1.0, 0.04, MAT.wood, 0, 1.9, 0); c.plane(1.5, 0.9, MAT.cork, 0, 1.9, 0.025, 0, 0); var tt = ['TRUCKS', 'IN ' + TRUCK_IN.map(fmtTime).join(' · ')]; TRUCK_OUT.forEach(function (dk) { tt.push((dk.van ? 'VAN' : lanesOn() ? MODES[dk.mode].name.toUpperCase() : 'OUT') + ' ' + dk.windows.map(function (w) { return fmtTime(w.arrive); }).join(' · ')); }); if (returnsHall()) tt.push('RET ' + TRUCK_RET.map(fmtTime).join(' · ')); c.sign(tt, 0.9, 0.5, -0.25, 2.05, 0.03, 0, { w: 512, h: 320, bg: '#f5f1e6', fg: '#1b232c', size: tt.length > 5 ? 34 : 40 }); /* the returns truck joins the timetable once its hall is open (buildHall rebuilds the board) */ [[0.45, 1.75, -0.1], [-0.1, 1.6, 0.15], [0.55, 1.65, 0.05]].forEach(function (n) { var nb = c.box(0.22, 0.28, 0.004, MAT.paper, n[0], n[1], 0.03); nb.rotation.z = n[2]; c.cyl(0.01, 0.01, MAT.red, n[0], n[1] + 0.12, 0.035, 8).rotation.x = Math.PI / 2; }); }
   function calendarBuild(c) { c.box(0.4, 0.5, 0.02, MAT.paper, 0, 1.7, 0); c.sign(['OCTOBER', '', '1  2  3  4  5  6  7', '8  9 10 11 12 13 14'], 0.36, 0.44, 0, 1.7, 0.012, 0, { w: 256, h: 320, bg: '#f3efe4', fg: '#1b232c', size: 28 }); }
   function clockBuild(r) { return function (c) { var g = new THREE.Group(); g.position.set(0, 2.7, 0.02); c.add(g); var face = cyl(r, 0.03, MAT.white, 0, 0, 0, g, 32); face.rotation.x = Math.PI / 2; var rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 32), MAT.steelDark); g.add(rim); for (var i = 0; i < 12; i++) { var t = box(i % 3 ? 0.015 : 0.03, i % 3 ? 0.04 : 0.07, 0.01, MAT.black, Math.sin(i / 12 * 6.283) * (r - 0.07), Math.cos(i / 12 * 6.283) * (r - 0.07), 0.02, g); t.rotation.z = -i / 12 * 6.283; } var dg = new THREE.Group(); dg.userData.dynamic = true; g.add(dg); var hh = new THREE.Group(), mh = new THREE.Group(); hh.position.z = 0.025; mh.position.z = 0.03; dg.add(hh); dg.add(mh); box(0.035, r * 0.55, 0.01, MAT.black, 0, r * 0.22, 0, hh); box(0.025, r * 0.85, 0.01, MAT.black, 0, r * 0.37, 0, mh); cyl(0.03, 0.02, MAT.red, 0, 0, 0.035, g, 10).rotation.x = Math.PI / 2; dress.clocks.push({ h: hh, m: mh, group: c.group }); }; }   // only the hands are dynamic: the face, the rim and the twelve ticks join the bake
   // a framed poster: the print on a white mount, a sheet of glass over it that catches the lamps at an angle, a black frame round the lot
@@ -1674,7 +1822,29 @@
   }
   function kpiBuild(c) { var kb = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), kpiBoard()); kb.position.set(0, 2.0, 0.03); c.add(kb); c.box(1.68, 1.08, 0.04, MAT.chrome, 0, 2.0, 0.0); }
   function certificateBuild(c) { c.box(0.3, 0.4, 0.02, MAT.wood, 0, 2.4, 0); c.sign(['CERTIFICATE', 'of registration', 'Depot Co. · 3PL'], 0.26, 0.36, 0, 2.4, 0.012, 0, { w: 192, h: 256, bg: '#f3efe4', fg: '#1b232c', size: 22 }); }
+  // the shed's packing table (1.21.0): a trestle table with the tape gun, the scale and the parcels you pack by hand on it, the
+  // paperwork clipboard that is the shed's office (E opens Depot OS), and from level 4 the coffee flask. The same prop as the bench:
+  // SPOT.bench, benchPrompt, benchUse and the box drawing all work on it, so the hall's bench code needs no second copy.
+  function shedTableBuild(c, P) {
+    SPOT.bench = { x: P.x, z: P.z }; SPOT.benchOut = { x: P.x, z: P.z };
+    var TAN = std({ color: 0xc9a46a, roughness: 0.8 }), TOP = std({ color: 0xd7cbb0, roughness: 0.5, map: TEX.wood, normalMap: NRM.wood });
+    c.box(1.7, 0.05, 0.8, TOP, 0, 0.9, 0); c.box(1.6, 0.04, 0.05, MAT.steelDark, 0, 0.86, -0.36); c.box(1.6, 0.04, 0.05, MAT.steelDark, 0, 0.86, 0.36);
+    [[-0.75, -0.3], [0.75, -0.3], [-0.75, 0.3], [0.75, 0.3]].forEach(function (o) { var leg = c.box(0.05, 0.86, 0.05, MAT.steelDark, o[0], 0.43, o[1]); leg.rotation.x = o[1] < 0 ? 0.12 : -0.12; });
+    c.box(1.5, 0.04, 0.04, MAT.steelDark, 0, 0.3, 0); c.solid(-0.85, 0.85, -0.42, 0.42, 0, 0.95);
+    var tgn = new THREE.Group(); tgn.position.set(0.55, 0.92, 0.2); tgn.rotation.y = 0.6; c.add(tgn); box(0.03, 0.11, 0.035, MAT.red, 0, 0.06, -0.05, tgn).rotation.x = 0.35; box(0.02, 0.09, 0.13, MAT.steelDark, 0.03, 0.1, 0.03, tgn); cyl(0.055, 0.05, TAN, 0.03, 0.1, 0.055, tgn, 16).rotation.z = Math.PI / 2;
+    c.cyl(0.055, 0.048, TAN, 0.7, 0.944, -0.25, 16); c.box(0.26, 0.02, 0.26, MAT.steelDark, -0.62, 0.935, -0.2); c.box(0.22, 0.012, 0.22, std({ color: 0xcfd4d9, roughness: 0.4, metalness: 0.5 }), -0.62, 0.95, -0.2);
+    c.box(0.14, 0.02, 0.03, MAT.yellow, -0.3, 0.935, -0.3).rotation.y = 0.3; c.cyl(0.008, 0.14, MAT.black, -0.15, 0.93, -0.28, 8).rotation.z = Math.PI / 2;
+    c.box(0.6, 0.09, 0.6, std({ color: 0xb08a5a, roughness: 1 }), 0, 0.36, 0).rotation.y = 0.05;   /* flat cardboard on the stretcher */
+    c.hit(1.9, 1.1, 1.0, 0, 0.6, 0, { prompt: function () { return benchPrompt(); }, use: function () { benchUse(); } });
+    // the clipboard: the office until there is one. E opens Depot OS, with what the level allows on it
+    var cb = new THREE.Group(); cb.position.set(-0.1, 0.925, 0.22); cb.rotation.y = -0.25; c.add(cb); box(0.24, 0.012, 0.32, MAT.black, 0, 0, 0, cb); box(0.21, 0.006, 0.28, MAT.paper, 0, 0.01, 0.01, cb); box(0.09, 0.025, 0.03, MAT.steelDark, 0, 0.02, -0.14, cb); cyl(0.004, 0.14, MAT.blue, 0.06, 0.02, 0.02, cb, 6).rotation.x = Math.PI / 2;
+    hitBox(0.36, 0.2, 0.42, 0, 0.05, 0, { prompt: function () { return 'The paperwork · orders, the shop, the crew' + (unlocked('loan') ? ', the bank' : '') + ' · E opens Depot OS'; }, use: function () { if (!driving && !pc.on) { openPanel('pc', 'orders'); introStep('pc'); } } }, cb);
+    c.sign(['PACKING'], 0.6, 0.16, 0, 1.25, -0.44, 0, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); c.cyl(0.012, 0.3, MAT.steelDark, 0, 1.08, -0.44, 6);
+  }
+  // the coffee flask on the shed table (level 4): the shed's coffee machine
+  function flaskBuild(c) { c.cyl(0.07, 0.3, std({ color: 0xc8342a, roughness: 0.35, metalness: 0.3 }), 0, 1.07, 0, 14); c.cyl(0.045, 0.05, MAT.black, 0, 1.245, 0, 12); c.cyl(0.03, 0.06, MAT.chrome, 0.09, 1.15, 0, 8).rotation.z = 0.5; c.cyl(0.035, 0.08, MAT.white, 0.16, 0.96, 0.05, 10); c.hit(0.3, 0.4, 0.3, 0.04, 1.1, 0, { prompt: function () { return buff.coffeeUntil > S.time && buff.coffeeDay === S.day ? 'Coffee is still working until ' + fmtTime(buff.coffeeUntil) : 'Pour a coffee from the flask (walk faster for an hour)'; }, use: function () { drinkCoffee(); } }); }
   function benchBuild(c, P) {
+    if (BOOT_STAGE === 0) { shedTableBuild(c, P); return; }
     SPOT.bench = { x: P.x, z: P.z }; SPOT.benchOut = { x: P.x + Math.sin(P.rot * Math.PI / 2) * 2.0, z: P.z + Math.cos(P.rot * Math.PI / 2) * 2.0 };
     c.box(1.0, 0.08, 3.2, MAT.wood, 0, 0.9, 0); [[-0.45, -1.5], [0.45, -1.5], [-0.45, 1.5], [0.45, 1.5]].forEach(function (o) { c.box(0.06, 0.9, 0.06, MAT.steelDark, o[0], 0.45, o[1]); }); c.box(0.9, 0.04, 3.0, MAT.steelDark, 0, 0.3, 0); c.solid(-0.5, 0.5, -1.6, 1.6, 0, 1);
     // the kit lives at the two ends: the box stacks take local z -0.95 to 1.3, and anything under them was never seen
@@ -1710,7 +1880,7 @@
   }
   function benchScreenDraw(c, sc) {
     var allO = openOrders().sort(function (a, b2) { return (b2.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b2.due; }); sc.scrollMax = Math.max(0, allO.length - 4); sc.scroll = clamp(sc.scroll || 0, 0, sc.scrollMax);
-    scBg(c, sc.w, sc.h); scHead(c, sc.w, 'PACKING', benchCount() + ' / ' + ECON.benchCap + ' on the bench · ' + allO.length + ' open');
+    scBg(c, sc.w, sc.h); scHead(c, sc.w, 'PACKING', benchCount() + ' / ' + benchCapNow() + ' on the bench · ' + allO.length + ' open');
     var os = allO.slice(sc.scroll, sc.scroll + 4), y = 56;
     if (!os.length) scText(c, 16, 76, 'No open orders.', '#a0acb8', 14);
     os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
@@ -1823,38 +1993,38 @@
   function aisleSignBuild(text) { return function (c) { c.sign([text], 2.2, 0.5, 0, 5.4, 0, 0, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.sign([text], 2.2, 0.5, 0, 5.4, 0, Math.PI, { w: 512, h: 128, bg: '#2c5f9e', fg: '#fff' }); c.cyl(0.006, 1.3, MAT.steelDark, -0.9, 6.3, 0, 4); c.cyl(0.006, 1.3, MAT.steelDark, 0.9, 6.3, 0, 4); }; }
 
   // ── Default layout ────────────────────────────────────────────────
-  for (var rr = 0; rr < RACK.rows.length; rr++) (function (r) { defProp('rack' + r, { label: 'rack row ' + 'ABCDEF'[r], cat: 'hall', abs: true, x: 0, z: RACK.rows[r], rot: 0, build: rackBuild(r), when: function () { return r < S.up.rows; } }); })(rr);
-  defProp('timeclock', { label: 'time clock', cat: 'wall', wall: true, x: -19.74, z: 10.6, rot: 1, build: timeclockBuild });   // its card rack clear of the rota poster
+  for (var rr = 0; rr < RACK.rows.length; rr++) (function (r) { defProp('rack' + r, { label: 'rack row ' + 'ABCDEF'[r], cat: 'hall', abs: true, keep: true, shed: true, x: 0, z: RACK.rows[r], rot: 0, build: rackBuild(r), when: function () { return r < S.up.rows; } }); })(rr);   // keep: a row's z is the stage's own already
+  defProp('timeclock', { label: 'time clock', cat: 'wall', wall: true, lvl: UNLOCK.clock, x: -19.74, z: 10.6, rot: 1, at: { 0: { x: -6.74, z: 4.55, rot: 1 } }, build: timeclockBuild });   // its card rack clear of the rota poster; in the shed by the person door, from level 2
   defProp('cabinet', { label: 'control cabinet', cat: 'wall', wall: true, x: 12.42, z: 12.6, rot: 3, build: cabinetBuild });
-  defProp('consoleIn0', { label: 'dock console IN 1', cat: 'wall', wall: true, abs: true, x: -29.7, z: -11.5, rot: 1, build: consoleBuild(0) });
-  defProp('consoleIn1', { label: 'dock console IN 2', cat: 'wall', wall: true, abs: true, x: -29.7, z: -3.5, rot: 1, build: consoleBuild(1) });
-  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, abs: true, x: 29.7, z: -9.6, rot: 3, build: consoleBuild(2) });   // south of the OUT 1 shipping bay
-  defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, abs: true, x: 29.7, z: -8.5, rot: 3, build: consoleBuild(3) });
-  defProp('console2', { label: 'dock console OUT 3', cat: 'wall', wall: true, abs: true, x: 34.6, z: -23.83, rot: 0, build: consoleBuild(4) });   // on the north wall by the OUT 3 door: the east wall there is behind the spirals and the loaders
-  defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });
-  defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, build: boardBuild });
-  defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, x: 0, z: 13.83, rot: 2, build: chargerBuild });
-  defProp('painted', { label: 'painted name', cat: 'wall', wall: true, abs: true, keep: true, x: 28.5, z: -23.83, rot: 0, build: paintedBuild });   // east of the Hall 2 doorway, which cut through it at x 17
-  [['aisleAB', -7.6, 'AISLE  A · B'], ['aisleBC', -1.0, 'AISLE  B · C'], ['aisleCD', 5.6, 'AISLE  C · D'], ['aisleDE', 12.2, 'AISLE  D · E']].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', abs: true, x: 0, z: a[1], rot: 0, build: aisleSignBuild(a[2]) }); });
-  [[-30, -12], [-30, 10], [30, -15.5], [30, 10]].forEach(function (p, i) { defProp('lamp' + i, { label: 'lamp post', cat: 'yard', yard: true, x: p[0], z: p[1], rot: 0, build: lampPostBuild }); });
-  [0, 1, 3, 4].forEach(function (k, i) { defProp('car' + i, { label: 'parked car', cat: 'yard', yard: true, abs: true, x: -27.65 + k * 2.7, z: 31.5, rot: 1, build: carBuild(k) }); });
-  var treeN = 0; for (var tx = -56; tx <= 56; tx += 14) { defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: tx, z: -64, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: tx + 7, z: 56, rot: 0, build: treeBuild }); }
-  defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: -30, z: 24, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: 30, z: 26, rot: 0, build: treeBuild });
-  defProp('xLampPost', { extra: true, label: 'lamp post', ico: '💡', cat: 'yard', yard: true, price: 350, desc: 'Lights the yard at night.', build: lampPostBuild });
-  defProp('xCar', { extra: true, label: 'parked car', ico: '🚗', cat: 'yard', yard: true, price: 0, desc: 'Somebody is in.', build: function (c, P, inst) { carBuild(CAR_COLS[Math.floor(propSeed(inst ? inst.id : 'car', 1) * CAR_COLS.length)])(c); } });   // the colour is the car's own, not a new one every time it is moved
-  defProp('xAisleSign', { extra: true, label: 'aisle sign', ico: '🪧', cat: 'hall', price: 40, desc: 'Hangs from the roof.', build: aisleSignBuild('AISLE') });
+  defProp('consoleIn0', { label: 'dock console IN 1', cat: 'wall', wall: true, abs: true, x: -29.7, z: -11.5, rot: 1, at: { 0: { x: -6.7, z: 2.4, rot: 1 }, 1: { x: -19.7, z: -5.5, rot: 1 } }, build: consoleBuild(0) });
+  defProp('consoleIn1', { label: 'dock console IN 2', cat: 'wall', wall: true, abs: true, stage: 2, x: -29.7, z: -3.5, rot: 1, build: consoleBuild(1) });
+  defProp('console0', { label: 'dock console OUT 1', cat: 'wall', wall: true, abs: true, stage: 1, x: 29.7, z: -9.6, rot: 3, at: { 1: { x: 19.7, z: -5.5, rot: 3 } }, build: consoleBuild(2) });   // south of the OUT 1 shipping bay
+  defProp('console1', { label: 'dock console OUT 2', cat: 'wall', wall: true, abs: true, stage: 2, x: 29.7, z: -8.5, rot: 3, build: consoleBuild(3) });
+  defProp('console2', { label: 'dock console OUT 3', cat: 'wall', wall: true, abs: true, stage: 3, x: 34.6, z: -23.83, rot: 0, build: consoleBuild(4) });   // on the north wall by the OUT 3 door: the east wall there is behind the spirals and the loaders
+  defProp('breaker', { label: 'breaker panel', cat: 'wall', wall: true, stage: 1, x: 19.79, z: 9.6, rot: 3, build: breakerBuild });   // the power cuts come with the hall (level 5)
+  defProp('board', { label: 'order board', cat: 'hall', x: 16.2, z: 7.4, rot: 2, at: { 0: { x: 6.75, z: -0.6, rot: 3 } }, build: boardBuild });   // on the shed's east wall
+  defProp('charger', { label: 'forklift charging point', cat: 'wall', wall: true, stage: 1, x: 0, z: 13.83, rot: 2, build: chargerBuild });
+  defProp('painted', { label: 'painted name', cat: 'wall', wall: true, abs: true, keep: true, stage: 1, x: 28.5, z: -23.83, rot: 0, build: paintedBuild });   // east of the Hall 2 doorway, which cut through it at x 17
+  [['aisleAB', -7.6, 'AISLE  A · B', -4], ['aisleBC', -1.0, 'AISLE  B · C', 0], ['aisleCD', 5.6, 'AISLE  C · D', 4], ['aisleDE', 12.2, 'AISLE  D · E', null]].forEach(function (a) { defProp(a[0], { label: 'aisle sign', cat: 'hall', abs: true, keep: true, stage: a[3] === null ? 2 : 1, x: 0, z: a[1], rot: 0, at: a[3] === null ? null : { 1: { x: 0, z: a[3], rot: 0 } }, build: aisleSignBuild(a[2]) }); });   // the small hall's rows are 4 m apart
+  [[-30, -12], [-30, 10], [30, -15.5], [30, 10]].forEach(function (p, i) { defProp('lamp' + i, { label: 'lamp post', cat: 'yard', yard: true, x: p[0], z: p[1], rot: 0, at: i === 0 ? { 0: { x: -12, z: 10, rot: 0 } } : i === 2 ? { 0: { x: 12, z: -8, rot: 0 } } : null, build: lampPostBuild }); });   // the shed has two
+  [0, 1, 3, 4].forEach(function (k, i) { defProp('car' + i, { label: 'parked car', cat: 'yard', yard: true, abs: true, keep: true, stage: 2, x: -27.65 + k * 2.7, z: 31.5, rot: 1, build: carBuild(k) }); });   // the car park comes with the hall
+  var treeN = 0; for (var tx = -56; tx <= 56; tx += 14) { defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, keep: true, stage: 2, x: tx, z: -64, rot: 0, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, keep: true, stage: 2, x: tx + 7, z: 56, rot: 0, build: treeBuild }); }   // along the big yard's fence lines
+  defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: -30, z: 24, rot: 0, at: { 0: { x: -14, z: 12, rot: 0 } }, build: treeBuild }); defProp('tree' + (treeN++), { label: 'tree', cat: 'yard', yard: true, x: 30, z: 26, rot: 0, at: { 0: { x: 15, z: -10, rot: 0 } }, build: treeBuild });
+  defProp('xLampPost', { extra: true, label: 'lamp post', ico: '💡', cat: 'yard', yard: true, lvl: UNLOCK.yardCat, price: 350, desc: 'Lights the yard at night.', build: lampPostBuild });
+  defProp('xCar', { extra: true, label: 'parked car', ico: '🚗', cat: 'yard', yard: true, lvl: UNLOCK.yardCat, price: 0, desc: 'Somebody is in.', build: function (c, P, inst) { carBuild(CAR_COLS[Math.floor(propSeed(inst ? inst.id : 'car', 1) * CAR_COLS.length)])(c); } });   // the colour is the car's own, not a new one every time it is moved
+  defProp('xAisleSign', { extra: true, lvl: UNLOCK.build, label: 'aisle sign', ico: '🪧', cat: 'hall', price: 40, desc: 'Hangs from the roof.', build: aisleSignBuild('AISLE') });
 
   // The entrance lobby (x -30 to -25.5, z 18.5 to 24): the staff door on the west wall at z 22, the lobby door east at z 20.
   // The time clock, lockers and hooks live here. The break room is the north-west corner (x -30 to -23, z -24 to -20.2), above IN 1.
   defProp('lockers', { label: 'lockers', cat: 'room', x: -18.4, z: 13.55, rot: 2, build: lockerBuild });
   defProp('hooks', { label: 'coat hooks', cat: 'room', wall: true, x: -16.6, z: 13.83, rot: 2, build: hooksBuild });
   defProp('notice', { label: 'notice board', cat: 'wall', wall: true, x: -17.5, z: 8.59, rot: 0, build: noticeBuild });
-  defProp('firstAid', { label: 'first-aid box', cat: 'wall', wall: true, abs: true, x: -25.6, z: 22.9, rot: 3, build: firstAidBuild });
+  defProp('firstAid', { label: 'first-aid box', cat: 'wall', wall: true, abs: true, x: -25.6, z: 22.9, rot: 3, at: { 0: { x: 6.75, z: 1.6, rot: 3 } }, build: firstAidBuild });
   defProp('extBreak', { label: 'fire extinguisher', cat: 'wall', wall: true, x: -19.83, z: 13.2, rot: 1, build: extinguisherBuild });
   defProp('posterRota', { label: 'rota poster', cat: 'wall', wall: true, x: -19.83, z: 9.2, rot: 1, build: posterBuild('rota', 0.6, 0.9) });
   defProp('posterSmoke', { label: 'no-smoking poster', cat: 'wall', wall: true, x: -15.6, z: 11.0, rot: 3, build: posterBuild('nosmoking', 0.6, 0.9) });
   defProp('lobbySeat', { label: 'bench seat', cat: 'room', x: -17.8, z: 9.1, rot: 2, build: benchSeatBuild });
-  defProp('cot', { label: 'cot', cat: 'room', x: -15.0, z: -13.3, rot: 0, build: cotBuild });
+  defProp('cot', { label: 'cot', cat: 'room', x: -15.0, z: -13.3, rot: 0, at: { 0: { x: -5.5, z: 4.45, rot: 0 } }, build: cotBuild });   // in the shed's south-west corner, by the person door
   defProp('vending', { label: 'vending machine', cat: 'room', x: -13.6, z: -11.4, rot: 3, build: vendingBuild });
   defProp('coffee', { label: 'coffee counter', cat: 'room', x: -19.5, z: -12.2, rot: 1, build: coffeeBuild });
   defProp('fridge', { label: 'fridge', cat: 'room', x: -19.5, z: -13.5, rot: 1, build: fridgeBuild });
@@ -1877,56 +2047,57 @@
   defProp('certificate', { label: 'certificate', cat: 'wall', wall: true, x: 19.83, z: 13.3, rot: 3, build: certificateBuild });
   defProp('posterSafety', { label: 'safety poster', cat: 'wall', wall: true, x: 16.5, z: 13.83, rot: 2, build: posterBuild('safety', 0.6, 0.9) });
   // the hall
-  defProp('bench', { label: 'packing bench', cat: 'hall', x: 16.6, z: 5.2, rot: 0, build: benchBuild });
-  defProp('binDamaged', { label: 'damaged-goods bin', cat: 'hall', x: 13.3, z: 2.4, rot: 0, build: binBuild });
+  defProp('bench', { label: 'packing bench', cat: 'hall', x: 16.6, z: 5.2, rot: 0, at: { 0: { x: 4.6, z: 2.6, rot: 0 }, 1: { x: 16.6, z: -2.2, rot: 0 } }, build: benchBuild });   // the shed: a table along the south wall; the small hall: the east strip north of the office, so the pack line clears it
+  defProp('flask', { label: 'coffee flask', cat: 'hall', abs: true, keep: true, lvl: 4, x: 5.3, z: 2.55, rot: 0, at: { 0: { x: 5.3, z: 2.55, rot: 0 } }, build: flaskBuild, when: function () { return BOOT_STAGE === 0; } });   // the shed's coffee: on the table from level 4
+  defProp('binDamaged', { label: 'damaged-goods bin', cat: 'hall', x: 13.3, z: 2.4, rot: 0, at: { 0: { x: 6.3, z: 4.3, rot: 0 } }, build: binBuild });
   defProp('broom', { label: 'broom', cat: 'hall', x: 13.0, z: 3.0, rot: 0, build: broomBuild });
   defProp('wetFloor', { label: 'wet-floor sign', cat: 'hall', x: 13.4, z: 7.6, rot: 1, build: wetFloorBuild });
-  defProp('empties', { label: 'stack of empty pallets', cat: 'hall', abs: true, keep: true, x: -12.5, z: -21.0, rot: 0, build: emptiesBuild });   // east of the mezzanine stair, which stood over the old spot
-  defProp('baler', { label: 'baler', cat: 'hall', x: -7.5, z: -13.2, rot: 0, build: balerBuild });
-  defProp('wrapper', { label: 'stretch wrapper', cat: 'hall', abs: true, x: 14, z: -22.3, rot: 0, build: wrapperBuild });
+  defProp('empties', { label: 'stack of empty pallets', cat: 'hall', abs: true, keep: true, x: -12.5, z: -21.0, rot: 0, at: { 0: { x: -0.5, z: 4.3, rot: 0 } }, build: emptiesBuild });   // east of the mezzanine stair, which stood over the old spot
+  defProp('baler', { label: 'baler', cat: 'hall', stage: 1, x: -7.5, z: -13.2, rot: 0, build: balerBuild });
+  defProp('wrapper', { label: 'stretch wrapper', cat: 'hall', abs: true, stage: 1, x: 14, z: -22.3, rot: 0, at: { 1: { x: 9.5, z: -12.3, rot: 0 } }, build: wrapperBuild });   // the small hall: west of the fire exit, which stood in its apron
   defProp('hose', { label: 'hose reel', cat: 'wall', wall: true, abs: true, x: -10.5, z: -23.83, rot: 0, build: hoseBuild });
   defProp('extNW', { label: 'fire extinguisher', cat: 'wall', wall: true, x: -19.83, z: -11.2, rot: 1, build: extinguisherBuild });
   defProp('extNE', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 35.83, z: -16.4, rot: 3, build: extinguisherBuild });
   defProp('extBench', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 29.83, z: 16.5, rot: 3, build: extinguisherBuild });   // z 6.5 until 1.13.1: the shipping belt now runs along that stretch of wall
-  defProp('clockHall', { label: 'hall clock', cat: 'wall', wall: true, abs: true, x: 12, z: -23.7, rot: 0, build: function (c) { var f = clockBuild(0.5); f(c); c.group.children[c.group.children.length - 1].position.y = 5.8 - 2.7 + 2.7; } });
+  defProp('clockHall', { label: 'hall clock', cat: 'wall', wall: true, abs: true, x: 12, z: -23.7, rot: 0, at: { 0: { x: 6.75, z: -3.4, rot: 3 } }, build: function (c) { var f = clockBuild(0.5); f(c); c.group.children[c.group.children.length - 1].position.y = BOOT_STAGE === 0 ? 3.4 : 5.8 - 2.7 + 2.7; } });
   defProp('posterLift', { label: 'lifting poster', cat: 'wall', wall: true, abs: true, x: -29.83, z: 2, rot: 1, build: posterBuild('lifting', 0.7, 1.05) });
   defProp('posterFork', { label: 'forklift poster', cat: 'wall', wall: true, x: 2.2, z: 13.83, rot: 2, build: posterBuild('forklift', 0.7, 1.05) });
   defProp('posterStack', { label: 'pallet-rules poster', cat: 'wall', wall: true, x: -6, z: 13.83, rot: 2, build: posterBuild('stacking', 0.7, 1.05) });
   defProp('posterOffice', { label: 'safety poster', cat: 'wall', wall: true, x: 12.42, z: 11.5, rot: 3, build: posterBuild('safety', 0.7, 1.05) });
   defProp('posterExit', { label: 'fire-exit poster', cat: 'wall', wall: true, x: 15.2, z: -13.83, rot: 0, build: posterBuild('exit', 0.6, 0.9) });
   // the yard
-  defProp('shelter', { label: 'smoking shelter', cat: 'yard', yard: true, x: -22.5, z: 19, rot: 0, build: shelterBuild });
-  defProp('dumpster', { label: 'dumpster', cat: 'yard', yard: true, x: 24, z: 18, rot: 0, build: dumpsterBuild });
-  defProp('flag', { label: 'flag pole', cat: 'yard', yard: true, x: 10, z: 19, rot: 0, build: flagBuild });
-  defProp('parkingSign', { label: 'parking sign', cat: 'yard', yard: true, x: -2, z: 18.5, rot: 0, build: parkingSignBuild });
+  defProp('shelter', { label: 'smoking shelter', cat: 'yard', yard: true, stage: 1, x: -22.5, z: 19, rot: 0, build: shelterBuild });
+  defProp('dumpster', { label: 'dumpster', cat: 'yard', yard: true, x: 24, z: 18, rot: 0, at: { 0: { x: 9.6, z: 6.4, rot: 0 } }, build: dumpsterBuild });
+  defProp('flag', { label: 'flag pole', cat: 'yard', yard: true, stage: 1, x: 10, z: 19, rot: 0, build: flagBuild });
+  defProp('parkingSign', { label: 'parking sign', cat: 'yard', yard: true, stage: 2, x: -2, z: 18.5, rot: 0, build: parkingSignBuild });
   // extras to buy from the catalogue
-  defProp('xChair', { extra: true, label: 'chair', ico: '🪑', cat: 'room', price: 25, desc: 'A canteen chair.', build: chairBuild });
-  defProp('xTable', { extra: true, label: 'table', ico: '🪵', cat: 'room', price: 60, desc: 'A square canteen table.', build: tableBuild });
-  defProp('xLockers', { extra: true, label: 'lockers', ico: '🗄️', cat: 'room', price: 120, desc: 'Two more lockers.', build: lockerBuild });
-  defProp('xPlant', { extra: true, label: 'potted plant', ico: '🌿', cat: 'room', price: 40, desc: 'Something green.', build: plantBuild });
-  defProp('xCooler', { extra: true, label: 'water cooler', ico: '🥤', cat: 'room', price: 90, desc: 'Another cooler.', build: coolerBuild });
-  defProp('xCot', { extra: true, label: 'cot', ico: '🛏️', cat: 'room', price: 150, desc: 'A second place to sleep.', build: cotBuild });
-  defProp('xOfficeChair', { extra: true, label: 'office chair', ico: '💺', cat: 'room', price: 80, desc: 'Swivels.', build: officeChairBuild });
-  defProp('xCabinets', { extra: true, label: 'filing cabinets', ico: '🗂️', cat: 'room', price: 110, desc: 'Paperwork storage.', build: cabinetsBuild });
-  defProp('xBin', { extra: true, label: 'wheelie bin', ico: '🗑️', cat: 'hall', price: 20, desc: 'Takes damaged boxes too.', build: binBuild });
-  defProp('xWetFloor', { extra: true, label: 'wet-floor sign', ico: '⚠️', cat: 'hall', price: 10, desc: 'For appearances.', build: wetFloorBuild });
-  defProp('xEmpties', { extra: true, label: 'stack of empty pallets', ico: '🪵', cat: 'hall', price: 0, desc: 'Dressing.', build: emptiesBuild });
-  defProp('xBollard', { extra: true, label: 'bollard', ico: '🟡', cat: 'hall', price: 30, desc: 'Guards a corner.', build: bollardBuild });
-  defProp('xExt', { extra: true, label: 'fire extinguisher', ico: '🧯', cat: 'wall', wall: true, price: 60, desc: 'On the wall.', build: extinguisherBuild });
-  defProp('xClock', { extra: true, label: 'wall clock', ico: '🕒', cat: 'wall', wall: true, price: 25, desc: 'Keeps game time.', build: clockBuild(0.32) });
-  defProp('xNotice', { extra: true, label: 'notice board', ico: '📌', cat: 'wall', wall: true, price: 30, desc: 'Cork and pins.', build: noticeBuild });
-  POSTER_KINDS.forEach(function (k) { defProp('xPoster_' + k, { extra: true, label: k + ' poster', ico: '🖼️', cat: 'wall', wall: true, price: 15, desc: 'Framed.', build: posterBuild(k, 0.6, 0.9) }); });
-  defProp('xFirstAid', { extra: true, label: 'first-aid box', ico: '🩹', cat: 'wall', wall: true, price: 35, desc: 'The inspector likes one.', build: firstAidBuild });
-  defProp('xTree', { extra: true, label: 'tree', ico: '🌳', cat: 'yard', yard: true, price: 80, desc: 'For the yard.', build: treeBuild });
-  defProp('xBenchSeat', { extra: true, label: 'bench seat', ico: '🪑', cat: 'yard', yard: true, price: 70, desc: 'Slatted.', build: benchSeatBuild });
-  defProp('xYardBollard', { extra: true, label: 'bollard', ico: '🟡', cat: 'yard', yard: true, price: 30, desc: 'Yellow steel.', build: bollardBuild });
-  defProp('xShelter', { extra: true, label: 'smoking shelter', ico: '🚬', cat: 'yard', yard: true, price: 400, desc: 'Roof and a bench.', build: shelterBuild });
-  defProp('xDumpster', { extra: true, label: 'dumpster', ico: '♻️', cat: 'yard', yard: true, price: 150, desc: 'Cardboard only.', build: dumpsterBuild });
+  defProp('xChair', { extra: true, lvl: UNLOCK.build, label: 'chair', ico: '🪑', cat: 'room', price: 25, desc: 'A canteen chair.', build: chairBuild });
+  defProp('xTable', { extra: true, lvl: UNLOCK.build, label: 'table', ico: '🪵', cat: 'room', price: 60, desc: 'A square canteen table.', build: tableBuild });
+  defProp('xLockers', { extra: true, lvl: UNLOCK.build, label: 'lockers', ico: '🗄️', cat: 'room', price: 120, desc: 'Two more lockers.', build: lockerBuild });
+  defProp('xPlant', { extra: true, lvl: UNLOCK.build, label: 'potted plant', ico: '🌿', cat: 'room', price: 40, desc: 'Something green.', build: plantBuild });
+  defProp('xCooler', { extra: true, lvl: UNLOCK.build, label: 'water cooler', ico: '🥤', cat: 'room', price: 90, desc: 'Another cooler.', build: coolerBuild });
+  defProp('xCot', { extra: true, lvl: UNLOCK.build, label: 'cot', ico: '🛏️', cat: 'room', price: 150, desc: 'A second place to sleep.', build: cotBuild });
+  defProp('xOfficeChair', { extra: true, lvl: UNLOCK.build, label: 'office chair', ico: '💺', cat: 'room', price: 80, desc: 'Swivels.', build: officeChairBuild });
+  defProp('xCabinets', { extra: true, lvl: UNLOCK.build, label: 'filing cabinets', ico: '🗂️', cat: 'room', price: 110, desc: 'Paperwork storage.', build: cabinetsBuild });
+  defProp('xBin', { extra: true, lvl: UNLOCK.build, label: 'wheelie bin', ico: '🗑️', cat: 'hall', price: 20, desc: 'Takes damaged boxes too.', build: binBuild });
+  defProp('xWetFloor', { extra: true, lvl: UNLOCK.build, label: 'wet-floor sign', ico: '⚠️', cat: 'hall', price: 10, desc: 'For appearances.', build: wetFloorBuild });
+  defProp('xEmpties', { extra: true, lvl: UNLOCK.build, label: 'stack of empty pallets', ico: '🪵', cat: 'hall', price: 0, desc: 'Dressing.', build: emptiesBuild });
+  defProp('xBollard', { extra: true, lvl: UNLOCK.build, label: 'bollard', ico: '🟡', cat: 'hall', price: 30, desc: 'Guards a corner.', build: bollardBuild });
+  defProp('xExt', { extra: true, lvl: UNLOCK.build, label: 'fire extinguisher', ico: '🧯', cat: 'wall', wall: true, price: 60, desc: 'On the wall.', build: extinguisherBuild });
+  defProp('xClock', { extra: true, lvl: UNLOCK.build, label: 'wall clock', ico: '🕒', cat: 'wall', wall: true, price: 25, desc: 'Keeps game time.', build: clockBuild(0.32) });
+  defProp('xNotice', { extra: true, lvl: UNLOCK.build, label: 'notice board', ico: '📌', cat: 'wall', wall: true, price: 30, desc: 'Cork and pins.', build: noticeBuild });
+  POSTER_KINDS.forEach(function (k) { defProp('xPoster_' + k, { extra: true, lvl: UNLOCK.build, label: k + ' poster', ico: '🖼️', cat: 'wall', wall: true, price: 15, desc: 'Framed.', build: posterBuild(k, 0.6, 0.9) }); });
+  defProp('xFirstAid', { extra: true, lvl: UNLOCK.build, label: 'first-aid box', ico: '🩹', cat: 'wall', wall: true, price: 35, desc: 'The inspector likes one.', build: firstAidBuild });
+  defProp('xTree', { extra: true, label: 'tree', ico: '🌳', cat: 'yard', yard: true, lvl: UNLOCK.yardCat, price: 80, desc: 'For the yard.', build: treeBuild });
+  defProp('xBenchSeat', { extra: true, label: 'bench seat', ico: '🪑', cat: 'yard', yard: true, lvl: UNLOCK.yardCat, price: 70, desc: 'Slatted.', build: benchSeatBuild });
+  defProp('xYardBollard', { extra: true, label: 'bollard', ico: '🟡', cat: 'yard', yard: true, lvl: UNLOCK.yardCat, price: 30, desc: 'Yellow steel.', build: bollardBuild });
+  defProp('xShelter', { extra: true, label: 'smoking shelter', ico: '🚬', cat: 'yard', yard: true, lvl: UNLOCK.yardCat, price: 400, desc: 'Roof and a bench.', build: shelterBuild });
+  defProp('xDumpster', { extra: true, label: 'dumpster', ico: '♻️', cat: 'yard', yard: true, lvl: UNLOCK.yardCat, price: 150, desc: 'Cardboard only.', build: dumpsterBuild });
   // ── The wing ──────────────────────────────────────────────────────
   // x -14..10, z -44..-24, under a 6 m roof. It shares the hall's north wall, which has a doorway with a strip curtain for people
   // and the forklift, and a low opening the main belt runs through.
   var WING = { x0: -14, x1: 10, z0: -HALL.z - 20, z1: -HALL.z, h: 6, door: { x0: 4, x1: 7.6, h: 4.2 }, belt: { x0: -5, x1: -3, h: 2.0 } };
-  function inWing(x, z) { return x > WING.x0 && x < WING.x1 && z > WING.z0 && z < WING.z1; }
+  function inWing(x, z) { return stageHas('wing') && x > WING.x0 && x < WING.x1 && z > WING.z0 && z < WING.z1; }   // the wing stands from the hall stage (1.21.0)
   function buildWing() {
     var W = WING, h = W.h, cx = (W.x0 + W.x1) / 2, cz = (W.z0 + W.z1) / 2, wx = W.x1 - W.x0, wz = W.z1 - W.z0;
     box(wx + 0.6, 1.2, wz + 0.3, MAT.grey, cx, YARD_Y + 0.6, cz - 0.15);                                   // the plinth it stands on
@@ -2022,7 +2193,8 @@
       var lo = Math.min(ay, by), onDeck = Math.abs(lo - UPPER.y) < 0.25 && Math.abs(ay - by) < 0.25;
       if (!spiral) { var nch = Math.abs(ay - by) > 0.3 ? Math.max(1, Math.ceil(run / 1.0)) : 1; for (var ch = 0; ch < nch; ch++) { var t0 = ch / nch, t1 = (ch + 1) / nch, cy = Math.min(ay + (by - ay) * t0, ay + (by - ay) * t1), cx0 = ax + (bx - ax) * t0, cx1 = ax + (bx - ax) * t1, cz0 = az + (bz - az) * t0, cz1 = az + (bz - az) * t1, chigh = cy > 1.2, clow = BELT_Y + cy - 0.15; c.solid(Math.min(cx0, cx1) - 0.4, Math.max(cx0, cx1) + 0.4, Math.min(cz0, cz1) - 0.4, Math.max(cz0, cz1) + 0.4, onDeck ? cy : chigh ? clow : 0, onDeck ? cy + 0.9 : chigh ? clow + 1.2 : 0.82); } }
     }
-  }  function shipBeltBuild(c) { conveyorPath(c, [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -15.3], [0.4, -15.3], [0.4, -17.1]]); c.sign(['TO THE OUT 2 BAY'], 0.8, 0.14, 2.17, 1.05, -4, -Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
+  }  var SHIP_PATH = BOOT_STAGE === 1 ? [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -9.8], [0.4, -9.8], [0.4, -11.6]] : [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -15.3], [0.4, -15.3], [0.4, -17.1]];   // from the shelf down the east wall into the shipping bay: OUT 1's in the small hall, OUT 2's from the hall on
+  function shipBeltBuild(c) { conveyorPath(c, SHIP_PATH); c.sign(['TO THE ' + (BOOT_STAGE === 1 ? 'OUT 1' : 'OUT 2') + ' BAY'], 0.8, 0.14, 2.17, 1.05, BOOT_STAGE === 1 ? -2 : -4, -Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }
   // the dock loader: a fixed belt section that takes parcels off a belt end, and a boom that pushes them into the trailer when a truck
   // is docked with the door up. mirror: the inlet faces north instead of south (OUT 1's stands under the deck edge, fed from the north)
   function dockLoaderBuildFor(id, label, mirror) { return function (c) {
@@ -2118,7 +2290,7 @@
     [-0.38, 0.38].forEach(function (x) { var rail = c.box(0.04, 0.1, 1.2, DG, x, 0.64, 6.45); rail.rotation.x = 0.06; c.box(0.05, 0.55, 0.05, DG, x, 0.28, 5.95); c.box(0.05, 0.5, 0.05, DG, x, 0.25, 6.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 5.95); c.box(0.12, 0.02, 0.12, DG, x, 0.01, 6.95); }); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 5.95); c.box(0.8, 0.04, 0.04, DG, 0, 0.3, 6.95);
     c.box(0.8, 0.12, 0.03, MAT_MACH.guard, 0, 0.68, 7.02); c.sign(['PARCELS · TAKE FROM HERE'], 0.8, 0.12, 0, 0.5, 7.03, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#5fd38d' });
     c.solid(-0.45, 0.45, 5.8, 7.05, 0, 0.75);
-  }  function shelfSlot(i) { var k = i % 8, up = i >= 8 ? 0.27 : 0; return { lx: k % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(k / 2) * 0.26, y: 0.66 - Math.floor(k / 2) * 0.016 + 0.2 + up }; }   // twelve: eight on the rails, four more stacked on the back two rows
+  }  function shelfSlot(i) { if (BOOT_STAGE === 0) return { lx: -0.55 + (i % 3) * 0.55, lz: -0.1, y: 0.93 + 0.23 + Math.floor(i / 3) * 0.47 }; var k = i % 8, up = i >= 8 ? 0.27 : 0; return { lx: k % 2 ? 0.2 : -0.2, lz: 6.05 + Math.floor(k / 2) * 0.26, y: 0.66 - Math.floor(k / 2) * 0.016 + 0.2 + up }; }   // the shed: three across the back of the table, two high   // twelve: eight on the rails, four more stacked on the back two rows
   // ── The moulding line prop: hopper throat, heated barrel, clamp with a moving platen between tie bars, cooling fan, control cabinet, outfeed belt
   function moulderBuild(c) {
     var LG = MAT_MACH.panel, DG = std({ color: 0x3a4149, roughness: 0.5, metalness: 0.6 }), BL = MAT_MACH.blue, CH = MAT.chrome;
@@ -2316,57 +2488,57 @@
     beltHigh: { label: 'belt, high run', ico: '⤒', price: 240, desc: 'A 4 m run hung from the roof two metres up, for crossing a lane. Two inclines reach it.', path: [[0, 0, 2.0], [0, 4, 2.0, 'hang']] }
   };
   function beltPieceBuild(kind) { return function (c, P) { var h = P.h || 0, pts = BELT_PIECES[kind].path.map(function (p) { return [p[0], p[1], (p[2] || 0) + h, p[3]]; }); conveyorPath(c, pts); }; }
-  Object.keys(BELT_PIECES).forEach(function (k) { var bp = BELT_PIECES[k]; defProp('x' + k.charAt(0).toUpperCase() + k.slice(1), { extra: true, label: bp.label, ico: bp.ico, cat: 'belt', price: bp.price, desc: bp.desc, beltPath: bp.path, build: beltPieceBuild(k) }); });
+  Object.keys(BELT_PIECES).forEach(function (k) { var bp = BELT_PIECES[k]; defProp('x' + k.charAt(0).toUpperCase() + k.slice(1), { extra: true, label: bp.label, ico: bp.ico, cat: 'belt', lvl: /^beltS|^beltC/.test(k) ? UNLOCK.beltsA : UNLOCK.beltsB, price: bp.price, desc: bp.desc, beltPath: bp.path, build: beltPieceBuild(k) }); });
   // signs as props, so build mode can move them: a wall sign faces +z in its own frame, a floor painting lies flat
   function wallSignBuild(lines, w, h, y, opt) { return function (c) { var o = {}; for (var k in opt) o[k] = opt[k]; if (o.plate === undefined) o.plate = true; c.sign(lines, w, h, 0, y, 0.012, 0, o); }; }
   function floorSignBuild(lines, w, h, opt) { return function (c) { var m = c.sign(lines, w, h, 0, 0.008, 0, 0, opt); m.rotation.x = -Math.PI / 2; }; }
   // ── Defaults
-  defProp('packline', { label: 'pack line', cat: 'hall', abs: true, x: 26.6, z: 7.2, rot: 0, build: packLineBuild });
-  defProp('moulder', { label: 'moulding line', cat: 'factory', abs: true, x: -4, z: -37, rot: 0, build: moulderBuild });
-  defProp('beltMain', { label: 'main belt', cat: 'factory', abs: true, x: -4, z: -32.5, rot: 0, build: beltMainBuild });
-  defProp('palletiser', { label: 'palletiser', cat: 'hall', abs: true, x: -4, z: -20.6, rot: 0, build: palletiserBuild });
-  defProp('hopper', { label: 'raw hopper', cat: 'factory', abs: true, x: -9.5, z: -37, rot: 0, build: hopperBuild });
-  defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, x: 26.6, z: 14.3, rot: 0, build: shipBeltBuild, when: function () { return !!S.up.shipbelt && !S.up.sorter; } });   // the sortation deck takes the shelf over
-  defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, x: 28.6, z: -5.9, rot: 0, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
-  defProp('dockLoader1', { label: 'dock loader OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, x: 34.6, z: -13.9, rot: 0, build: dockLoaderBuildFor('dockLoader1', 'OUT 1', false), when: function () { return !!S.up.sorter; } });   // under the deck edge; its bay stands south of it in the apron, fed by the sea spiral
-  defProp('dockLoader3', { label: 'dock loader OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, x: 34.6, z: -21.4, rot: 0, build: dockLoaderBuildFor('dockLoader3', 'OUT 3', false), when: function () { return !!S.up.sorter; } });
-  defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
-  for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDE'[r], cat: 'hall', abs: true, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
-  defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[0], rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
-  defProp('pickMerge', { keep: true, label: 'pick belt merge', cat: 'hall', abs: true, x: 26.6, z: 5.2, rot: 0, build: pickMergeBuild, when: function () { return !!S.up.gantry; } });
-  defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, x: 22.0, z: RACK.rows[RACK.rows.length - 1], rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 3; } });
-  defProp('silo', { label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
-  defProp('extWing', { label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
-  defProp('qcBench', { label: 'quality bench', cat: 'factory', abs: true, x: 6.5, z: -29, rot: 2, build: qcBenchBuild });
-  defProp('workbench', { label: 'maintenance bench', cat: 'factory', abs: true, x: -12.8, z: -27.5, rot: 1, build: workbenchBuild });
-  defProp('toolCab', { label: 'tool cabinet', cat: 'factory', abs: true, x: -13.2, z: -25.4, rot: 1, build: toolCabBuild });
-  defProp('mouldRack', { label: 'mould store', cat: 'factory', abs: true, x: 2.5, z: -43.2, rot: 0, build: mouldRackBuild });
-  defProp('partsShelf', { label: 'spares shelf', cat: 'factory', abs: true, x: -1.0, z: -43.3, rot: 0, build: partsShelfBuild });
-  defProp('chiller', { label: 'chiller', cat: 'factory', abs: true, x: -11.5, z: -42.5, rot: 0, build: chillerBuild });
-  defProp('dryer', { label: 'granulate dryer', cat: 'factory', abs: true, x: -6.0, z: -42.8, rot: 0, build: dryerBuild });
-  defProp('switchboard', { label: 'switchboard', cat: 'wall', wall: true, abs: true, x: 9.8, z: -41, rot: 3, build: switchboardBuild });
-  defProp('shiftBoard', { label: 'shift board', cat: 'wall', wall: true, abs: true, x: 9.83, z: -33, rot: 3, build: shiftBoardBuild });
-  defProp('clockWing', { label: 'wing clock', cat: 'wall', wall: true, abs: true, x: 9.83, z: -27, rot: 3, build: function (c) { var f = clockBuild(0.4); f(c); c.group.children[c.group.children.length - 1].position.y = 3.6; } });
-  defProp('firstAidWing', { label: 'first-aid box', cat: 'wall', wall: true, abs: true, x: 9.83, z: -25.5, rot: 3, build: firstAidBuild });
+  defProp('packline', { label: 'pack line', cat: 'hall', abs: true, stage: 1, x: 26.6, z: 7.2, rot: 0, at: { 1: { x: 16.6, z: -0.2, rot: 0 } }, build: packLineBuild });   // two metres down the bench in every hall (the small hall's bench is at z -2.2)
+  defProp('moulder', { stage: 2, label: 'moulding line', cat: 'factory', abs: true, x: -4, z: -37, rot: 0, build: moulderBuild });
+  defProp('beltMain', { stage: 2, label: 'main belt', cat: 'factory', abs: true, x: -4, z: -32.5, rot: 0, build: beltMainBuild });
+  defProp('palletiser', { stage: 2, label: 'palletiser', cat: 'hall', abs: true, x: -4, z: -20.6, rot: 0, build: palletiserBuild });
+  defProp('hopper', { stage: 2, label: 'raw hopper', cat: 'factory', abs: true, x: -9.5, z: -37, rot: 0, build: hopperBuild });
+  defProp('shipBelt', { label: 'shipping belt', cat: 'hall', abs: true, stage: 1, x: 26.6, z: 14.3, rot: 0, at: { 1: { x: 16.6, z: 6.8, rot: 0 } }, build: shipBeltBuild, when: function () { return !!S.up.shipbelt && !S.up.sorter; } });   // the sortation deck takes the shelf over
+  defProp('dockLoader2', { label: 'dock loader OUT 2', cat: 'hall', abs: true, stage: 1, x: 28.6, z: -5.9, rot: 0, at: { 1: { x: 18.6, z: -7.9, rot: 0 } }, build: dockLoaderBuild, when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
+  defProp('dockLoader1', { label: 'dock loader OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: 34.6, z: -13.9, rot: 0, build: dockLoaderBuildFor('dockLoader1', 'OUT 1', false), when: function () { return !!S.up.sorter; } });   // under the deck edge; its bay stands south of it in the apron, fed by the sea spiral
+  defProp('dockLoader3', { label: 'dock loader OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: 34.6, z: -21.4, rot: 0, build: dockLoaderBuildFor('dockLoader3', 'OUT 3', false), when: function () { return !!S.up.sorter; } });
+  defProp('agvDock', { label: 'AGV dock', cat: 'hall', abs: true, stage: 2, x: -26.5, z: -5.5, rot: 0, build: agvDockBuild, when: function () { return !!S.up.agv; } });
+  for (var gr2 = 0; gr2 < RACK.rows.length; gr2++) (function (r) { defProp('gantry' + r, { label: 'gantry picker ' + 'ABCDE'[r], cat: 'hall', abs: true, stage: 2, x: -24, z: RACK.rows[r], rot: 0, build: gantryBuild(r), when: function () { return !!S.up.gantry && r < S.up.rows; } }); })(gr2);
+  defProp('pickBelt', { label: 'south pick belt', cat: 'hall', abs: true, stage: 2, x: 22.0, z: RACK.rows[0], rot: 0, build: pickBeltBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickMerge', { keep: true, stage: 2, label: 'pick belt merge', cat: 'hall', abs: true, x: 26.6, z: 5.2, rot: 0, at: { 2: { x: 22.6, z: 5.2, rot: 0 } }, build: pickMergeBuild, when: function () { return !!S.up.gantry; } });
+  defProp('pickBelt2', { label: 'north pick belt', cat: 'hall', abs: true, stage: 2, x: 22.0, z: RACK.rows[RACK.rows.length - 1], rot: 0, build: pickBelt2Build, when: function () { return !!S.up.gantry && S.up.rows > 3; } });
+  defProp('silo', { stage: 2, label: 'silo', cat: 'yard', yard: true, abs: true, x: -17.5, z: -34, rot: 0, build: siloBuild });
+  defProp('extWing', { stage: 2, label: 'fire extinguisher', cat: 'wall', wall: true, abs: true, x: 9.83, z: -30, rot: 3, build: extinguisherBuild });
+  defProp('qcBench', { stage: 2, label: 'quality bench', cat: 'factory', abs: true, x: 6.5, z: -29, rot: 2, build: qcBenchBuild });
+  defProp('workbench', { stage: 2, label: 'maintenance bench', cat: 'factory', abs: true, x: -12.8, z: -27.5, rot: 1, build: workbenchBuild });
+  defProp('toolCab', { stage: 2, label: 'tool cabinet', cat: 'factory', abs: true, x: -13.2, z: -25.4, rot: 1, build: toolCabBuild });
+  defProp('mouldRack', { stage: 2, label: 'mould store', cat: 'factory', abs: true, x: 2.5, z: -43.2, rot: 0, build: mouldRackBuild });
+  defProp('partsShelf', { stage: 2, label: 'spares shelf', cat: 'factory', abs: true, x: -1.0, z: -43.3, rot: 0, build: partsShelfBuild });
+  defProp('chiller', { stage: 2, label: 'chiller', cat: 'factory', abs: true, x: -11.5, z: -42.5, rot: 0, build: chillerBuild });
+  defProp('dryer', { stage: 2, label: 'granulate dryer', cat: 'factory', abs: true, x: -6.0, z: -42.8, rot: 0, build: dryerBuild });
+  defProp('switchboard', { stage: 2, label: 'switchboard', cat: 'wall', wall: true, abs: true, x: 9.8, z: -41, rot: 3, build: switchboardBuild });
+  defProp('shiftBoard', { stage: 2, label: 'shift board', cat: 'wall', wall: true, abs: true, x: 9.83, z: -33, rot: 3, build: shiftBoardBuild });
+  defProp('clockWing', { stage: 2, label: 'wing clock', cat: 'wall', wall: true, abs: true, x: 9.83, z: -27, rot: 3, build: function (c) { var f = clockBuild(0.4); f(c); c.group.children[c.group.children.length - 1].position.y = 3.6; } });
+  defProp('firstAidWing', { stage: 2, label: 'first-aid box', cat: 'wall', wall: true, abs: true, x: 9.83, z: -25.5, rot: 3, build: firstAidBuild });
   function exitSignBuild(c) { var m = c.sign(['EXIT'], 0.5, 0.2, 0, 2.6, 0.03, 0, { w: 256, h: 96, bg: '#1f7a3a', fg: '#dfffe8' }); m.renderOrder = 1; c.box(0.54, 0.24, 0.04, MAT.exit, 0, 2.6, 0); }
-  defProp('signStaff', { label: 'sign: STAFF', cat: 'wall', wall: true, abs: true, x: -30.17, z: 22, rot: 3, build: wallSignBuild(['STAFF'], 1.2, 0.4, 3.75, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('signFront', { label: 'sign: DEPOT CO. (front)', cat: 'wall', wall: true, abs: true, x: 0, z: 24.17, rot: 0, build: function (c) { c.sign(['DEPOT CO.'], 12, 2.6, 0, 5, 0.01, 0, { w: 1024, h: 224, bg: '#1b232c', fg: '#f5b53d', border: '#f5b53d' }); c.sign(['3PL · STORAGE · FULFILMENT'], 10, 0.8, 0, 3.2, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); } });
-  defProp('signOffice', { label: 'sign: OFFICE', cat: 'wall', wall: true, abs: true, x: 22.41, z: 19.95, rot: 3, build: wallSignBuild(['OFFICE'], 1.4, 0.45, 2.6, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('signLobby', { label: 'sign: LOBBY', cat: 'wall', wall: true, abs: true, x: -25.41, z: 19.95, rot: 1, build: wallSignBuild(['LOBBY'], 1.2, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('signBreak', { label: 'sign: BREAK ROOM', cat: 'wall', wall: true, abs: true, x: -22.91, z: -22.45, rot: 1, build: wallSignBuild(['BREAK ROOM'], 1.6, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
-  defProp('exitNorth', { keep: true, label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
-  defProp('exitStaff', { label: 'exit sign (staff door)', cat: 'wall', wall: true, abs: true, x: -29.8, z: 22, rot: 1, build: exitSignBuild });
-  defProp('signPacking', { label: 'sign: PACKING', cat: 'wall', wall: true, abs: true, x: 29.83, z: 5.2, rot: 3, build: wallSignBuild(['PACKING'], 1.8, 0.5, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' }) });
-  defProp('signProduction', { label: 'sign: PRODUCTION', cat: 'wall', wall: true, abs: true, x: 5.8, z: -23.83, rot: 0, build: wallSignBuild(['PRODUCTION'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#78bdf5' }) });
-  defProp('signWarehouse', { label: 'sign: WAREHOUSE', cat: 'wall', wall: true, abs: true, x: 5.8, z: -24.17, rot: 2, build: wallSignBuild(['WAREHOUSE'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' }) });
-  defProp('signPpe', { label: 'sign: PPE', cat: 'wall', wall: true, abs: true, x: 2.5, z: -23.83, rot: 0, build: wallSignBuild(['PPE BEYOND THIS POINT', 'ear defenders · safety boots · hi-vis'], 1.2, 0.5, 2.3, { w: 512, h: 200, bg: '#1f4e8c', fg: '#eef1f5' }) });
-  defProp('paintReceiving', { label: 'floor paint: RECEIVING', cat: 'hall', abs: true, x: SPOT.stageIn.x, z: SPOT.stageIn.z + 2.2, rot: 0, build: floorSignBuild(['RECEIVING'], 2.6, 0.9, { w: 512, h: 128, bg: '#2a2f36', fg: '#f5b53d' }) });
-  defProp('paintShipping', { label: 'floor paint: SHIPPING', cat: 'hall', abs: true, x: SPOT.stageOut.x - 2.3, z: SPOT.stageOut.z, rot: 1, build: floorSignBuild(['SHIPPING'], 2.6, 0.9, { w: 512, h: 128, bg: '#2a2f36', fg: '#5fd38d' }) });
-  defProp('paintFinished', { label: 'floor paint: FINISHED GOODS', cat: 'hall', abs: true, x: -1.0, z: -16.3, rot: 0, build: floorSignBuild(['FINISHED GOODS'], 1.8, 0.3, { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#f5b53d' }) });
-  defProp('paintRaw', { label: 'floor paint: RAW GRANULATE', cat: 'factory', abs: true, x: -9.5, z: -31.6, rot: 0, build: floorSignBuild(['RAW GRANULATE'], 1.6, 0.3, { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#eef1f5' }) });
-  defProp('xWallSign', { extra: true, label: 'wall sign (DEPOT CO.)', ico: '🪧', cat: 'wall', wall: true, price: 30, desc: 'A spare sign for any wall.', build: wallSignBuild(['DEPOT CO.'], 1.2, 0.4, 2.4, { w: 512, h: 160, bg: '#1b232c', fg: '#f5b53d' }) });
-  defProp('xFloorArrow', { extra: true, label: 'floor arrow', ico: '➡️', cat: 'hall', price: 10, desc: 'Points the way.', build: floorSignBuild(['➜'], 1.2, 0.6, { w: 256, h: 128, bg: 'rgba(0,0,0,0)', fg: '#f5b53d', size: 110 }) });
-  defProp('posterWing', { label: 'safety poster', cat: 'wall', wall: true, abs: true, x: 9.83, z: -36, rot: 3, build: posterBuild('safety', 0.7, 1.05) });
+  defProp('signStaff', { label: 'sign: STAFF', cat: 'wall', wall: true, abs: true, stage: 1, x: -30.17, z: 22, rot: 3, build: wallSignBuild(['STAFF'], 1.2, 0.4, 3.75, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signFront', { label: 'sign: DEPOT CO. (front)', cat: 'wall', wall: true, abs: true, stage: 1, x: 0, z: 24.17, rot: 0, build: function (c) { c.sign(['DEPOT CO.'], 12, 2.6, 0, 5, 0.01, 0, { w: 1024, h: 224, bg: '#1b232c', fg: '#f5b53d', border: '#f5b53d' }); c.sign(['3PL · STORAGE · FULFILMENT'], 10, 0.8, 0, 3.2, 0.01, 0, { w: 1024, h: 96, bg: '#1b232c', fg: '#a0acb8' }); } });
+  defProp('signOffice', { label: 'sign: OFFICE', cat: 'wall', wall: true, abs: true, stage: 1, x: 22.41, z: 19.95, rot: 3, build: wallSignBuild(['OFFICE'], 1.4, 0.45, 2.6, { w: 256, h: 96, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signLobby', { label: 'sign: LOBBY', cat: 'wall', wall: true, abs: true, stage: 1, x: -25.41, z: 19.95, rot: 1, build: wallSignBuild(['LOBBY'], 1.2, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('signBreak', { label: 'sign: BREAK ROOM', cat: 'wall', wall: true, abs: true, stage: 1, x: -22.91, z: -22.45, rot: 1, build: wallSignBuild(['BREAK ROOM'], 1.6, 0.45, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#eef1f5' }) });
+  defProp('exitNorth', { keep: true, stage: 1, label: 'exit sign (fire exit)', cat: 'wall', wall: true, abs: true, x: 24, z: -23.8, rot: 0, build: exitSignBuild });
+  defProp('exitStaff', { label: 'exit sign (staff door)', cat: 'wall', wall: true, abs: true, stage: 1, x: -29.8, z: 22, rot: 1, build: exitSignBuild });
+  defProp('signPacking', { label: 'sign: PACKING', cat: 'wall', wall: true, abs: true, stage: 1, x: 29.83, z: 5.2, rot: 3, at: { 1: { x: 19.83, z: -2.2, rot: 3 } }, build: wallSignBuild(['PACKING'], 1.8, 0.5, 2.6, { w: 512, h: 128, bg: '#1b232c', fg: '#5fd38d' }) });
+  defProp('signProduction', { stage: 2, label: 'sign: PRODUCTION', cat: 'wall', wall: true, abs: true, x: 5.8, z: -23.83, rot: 0, build: wallSignBuild(['PRODUCTION'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#78bdf5' }) });
+  defProp('signWarehouse', { stage: 2, label: 'sign: WAREHOUSE', cat: 'wall', wall: true, abs: true, x: 5.8, z: -24.17, rot: 2, build: wallSignBuild(['WAREHOUSE'], 2.6, 0.6, 4.9, { w: 512, h: 128, bg: '#1b232c', fg: '#f5b53d' }) });
+  defProp('signPpe', { stage: 2, label: 'sign: PPE', cat: 'wall', wall: true, abs: true, x: 2.5, z: -23.83, rot: 0, build: wallSignBuild(['PPE BEYOND THIS POINT', 'ear defenders · safety boots · hi-vis'], 1.2, 0.5, 2.3, { w: 512, h: 200, bg: '#1f4e8c', fg: '#eef1f5' }) });
+  defProp('paintReceiving', { label: 'floor paint: RECEIVING', cat: 'hall', abs: true, keep: true, stage: 1, x: SPOT.stageIn.x, z: SPOT.stageIn.z + 2.2, rot: 0, build: floorSignBuild(['RECEIVING'], 2.6, 0.9, { w: 512, h: 128, bg: '#2a2f36', fg: '#f5b53d' }) });
+  defProp('paintShipping', { label: 'floor paint: SHIPPING', cat: 'hall', abs: true, keep: true, stage: 1, x: SPOT.stageOut.x - 2.3, z: SPOT.stageOut.z, rot: 1, build: floorSignBuild(['SHIPPING'], 2.6, 0.9, { w: 512, h: 128, bg: '#2a2f36', fg: '#5fd38d' }) });
+  defProp('paintFinished', { stage: 2, label: 'floor paint: FINISHED GOODS', cat: 'hall', abs: true, x: -1.0, z: -16.3, rot: 0, build: floorSignBuild(['FINISHED GOODS'], 1.8, 0.3, { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#f5b53d' }) });
+  defProp('paintRaw', { stage: 2, label: 'floor paint: RAW GRANULATE', cat: 'factory', abs: true, x: -9.5, z: -31.6, rot: 0, build: floorSignBuild(['RAW GRANULATE'], 1.6, 0.3, { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#eef1f5' }) });
+  defProp('xWallSign', { extra: true, lvl: UNLOCK.build, label: 'wall sign (DEPOT CO.)', ico: '🪧', cat: 'wall', wall: true, price: 30, desc: 'A spare sign for any wall.', build: wallSignBuild(['DEPOT CO.'], 1.2, 0.4, 2.4, { w: 512, h: 160, bg: '#1b232c', fg: '#f5b53d' }) });
+  defProp('xFloorArrow', { extra: true, lvl: UNLOCK.build, label: 'floor arrow', ico: '➡️', cat: 'hall', price: 10, desc: 'Points the way.', build: floorSignBuild(['➜'], 1.2, 0.6, { w: 256, h: 128, bg: 'rgba(0,0,0,0)', fg: '#f5b53d', size: 110 }) });
+  defProp('posterWing', { stage: 2, label: 'safety poster', cat: 'wall', wall: true, abs: true, x: 9.83, z: -36, rot: 3, build: posterBuild('safety', 0.7, 1.05) });
   // ── The annex halls ───────────────────────────────────────────────
   // Tyson's third expansion ask, 2026-10-06: "3 new halls and everything that comes with it". They hang off the north side like the
   // production wing, so the docks on the east and west walls and the truck lanes stay where they are. Hall 2 stands east of the wing,
@@ -2385,7 +2557,7 @@
   function hallOfRow(r) { return HALL_OF_ROW[r] || null; }
   function isAnnexRow(r) { return r >= 20; }
   function annexRowOwned(r) { var h = hallOfRow(r); return !!h && hallOwned(h); }
-  function rowBays(r) { var h = hallOfRow(r); return h ? HALLS[h].bays : RACK.bays; }
+  function rowBays(r) { var h = hallOfRow(r); if (h) return HALLS[h].bays; return BOOT_STAGE === 0 ? Math.min(RACK.bays, Math.max(1, S.level)) : RACK.bays; }   // the shed's one row grows a bay a level (1.21.0)
   function rowLetter(r) { if (r === UPPER.row) return 'U'; if (isAnnexRow(r)) return 'HIJKLM'[r - 20]; return 'ABCDEF'[r]; }
   // the rows a walker, the forklift or the AGV can reach: the main rows you own and the rows of the halls you own
   function groundRows() { var out = []; for (var r = 0; r < S.up.rows; r++) out.push(r); for (var h in HALLS) if (hallOwned(h)) HALLS[h].rows.forEach(function (r) { out.push(r); }); return out; }
@@ -2479,20 +2651,20 @@
   }; }
   for (var hid in HALLS) (function (id) {
     var H = HALLS[id];
-    defProp(id, { label: H.name, cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: hallBuild(id), when: function () { return hallOwned(id); } });
-    defProp('shut' + id, { label: H.name + ' shutter', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: shutterBuild(id) });
-    H.rows.forEach(function (r, k) { defProp('rack' + r, { label: H.name + ' rack row ' + 'HIJKLM'[r - 20], cat: 'hall', abs: true, keep: true, fixed: true, x: H.rowX0 - RACK.x0, y: 0, z: H.rowZ[k], rot: 0, build: rackBuild(r), when: function () { return hallOwned(id); } }); });
+    defProp(id, { label: H.name, cat: 'hall', abs: true, keep: true, fixed: true, stage: id === 'hall4' ? 5 : 4, x: 0, z: 0, rot: 0, build: hallBuild(id), when: function () { return hallOwned(id); } });
+    defProp('shut' + id, { label: H.name + ' shutter', cat: 'hall', abs: true, keep: true, fixed: true, stage: id === 'hall4' ? 2 : 3, x: 0, z: 0, rot: 0, build: shutterBuild(id) });   // a shutter where the doorway is cut: the wing's north wall from the hall stage, the main hall's from the big hall
+    H.rows.forEach(function (r, k) { defProp('rack' + r, { label: H.name + ' rack row ' + 'HIJKLM'[r - 20], cat: 'hall', abs: true, keep: true, fixed: true, stage: id === 'hall4' ? 5 : 4, x: H.rowX0 - RACK.x0, y: 0, z: H.rowZ[k], rot: 0, build: rackBuild(r), when: function () { return hallOwned(id); } }); });
   })(hid);
   for (var hfid in HALLS) (function (id) {
-    var H = HALLS[id], when = function () { return hallOwned(id); }, cx = (H.x0 + H.x1) / 2, D = H.door;
-    defProp('ext' + id, { label: H.name + ' extinguisher', cat: 'wall', wall: true, abs: true, keep: true, x: H.x1 - 2.5, z: H.z0 + 0.17, rot: 0, build: extinguisherBuild, when: when });
-    defProp('posterExit' + id, { label: H.name + ' fire-exit poster', cat: 'wall', wall: true, abs: true, keep: true, x: D.x0 - 1.6, z: D.z - 0.17, rot: 2, build: posterBuild('exit', 0.6, 0.9), when: when });
-    defProp('posterSmoke' + id, { label: H.name + ' no-smoking poster', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 2.5, z: H.z0 + 0.17, rot: 0, build: posterBuild('nosmoking', 0.6, 0.8), when: when });
-    defProp('firstAid' + id, { label: H.name + ' first-aid box', cat: 'wall', wall: true, abs: true, keep: true, x: H.x0 + 4.0, z: H.z0 + 0.17, rot: 0, build: firstAidBuild, when: when });   // the lobby and the wing have one; the halls did not
-    defProp('clock' + id, { label: H.name + ' clock', cat: 'wall', wall: true, abs: true, keep: true, x: cx + 3.2, z: H.z0 + 0.3, rot: 0, build: function (c) { var f = clockBuild(0.4); f(c); }, when: when });
-    if (H.rows.length) defProp('aisle' + id, { label: H.name + ' aisle sign', cat: 'hall', abs: true, keep: true, fixed: true, x: cx, z: (H.rowZ[0] + H.rowZ[1]) / 2, rot: 0, build: aisleSignBuild(H.name.toUpperCase() + ' · ' + 'HIJKLM'[H.rows[0] - 20] + ' / ' + 'HIJKLM'[H.rows[1] - 20]), when: when });
+    var H = HALLS[id], when = function () { return hallOwned(id); }, cx = (H.x0 + H.x1) / 2, D = H.door, hs = id === 'hall4' ? 5 : 4;
+    defProp('ext' + id, { label: H.name + ' extinguisher', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: H.x1 - 2.5, z: H.z0 + 0.17, rot: 0, build: extinguisherBuild, when: when });
+    defProp('posterExit' + id, { label: H.name + ' fire-exit poster', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: D.x0 - 1.6, z: D.z - 0.17, rot: 2, build: posterBuild('exit', 0.6, 0.9), when: when });
+    defProp('posterSmoke' + id, { label: H.name + ' no-smoking poster', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: H.x0 + 2.5, z: H.z0 + 0.17, rot: 0, build: posterBuild('nosmoking', 0.6, 0.8), when: when });
+    defProp('firstAid' + id, { label: H.name + ' first-aid box', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: H.x0 + 4.0, z: H.z0 + 0.17, rot: 0, build: firstAidBuild, when: when });   // the lobby and the wing have one; the halls did not
+    defProp('clock' + id, { label: H.name + ' clock', cat: 'wall', wall: true, abs: true, keep: true, stage: hs, x: cx + 3.2, z: H.z0 + 0.3, rot: 0, build: function (c) { var f = clockBuild(0.4); f(c); }, when: when });
+    if (H.rows.length) defProp('aisle' + id, { label: H.name + ' aisle sign', cat: 'hall', abs: true, keep: true, fixed: true, stage: hs, x: cx, z: (H.rowZ[0] + H.rowZ[1]) / 2, rot: 0, build: aisleSignBuild(H.name.toUpperCase() + ' · ' + 'HIJKLM'[H.rows[0] - 20] + ' / ' + 'HIJKLM'[H.rows[1] - 20]), when: when });
   })(hfid);
-  defProp('consoleIn2', { label: 'dock console IN 3', cat: 'wall', wall: true, abs: true, x: -29.7, z: -31.5, rot: 1, build: consoleBuild(5), when: function () { return hallOwned('hall3'); } });
+  defProp('consoleIn2', { label: 'dock console IN 3', cat: 'wall', wall: true, abs: true, stage: 4, x: -29.7, z: -31.5, rot: 1, build: consoleBuild(5), when: function () { return hallOwned('hall3'); } });
   // buying a hall: it stands, its rows stand, its shutter goes, Hall 3 gets its dock door and lane, the silo moves out of Hall 3's way
   function buildHall(id) {
     var H = HALLS[id];
@@ -2640,18 +2812,18 @@
   defProp('pictureOffice', { label: 'picture', cat: 'wall', wall: true, abs: true, keep: true, x: 29.6, z: 23.83, rot: 2, build: pictureBuild('depot') });
   defProp('pictureLobby', { label: 'picture', cat: 'wall', wall: true, abs: true, keep: true, x: -35.0, z: 18.67, rot: 0, build: pictureBuild('mountains') });
   // ── The shop ──
-  defProp('xSofa', { extra: true, label: 'sofa', ico: '🛋️', cat: 'room', price: 220, desc: 'Two seats and a cushion. Comfort +2.', build: seatBuild(1.7, FABRIC) });
-  defProp('xArmchair', { extra: true, label: 'armchair', ico: '🪑', cat: 'room', price: 140, desc: 'One seat, deep. Comfort +1.', build: seatBuild(0.95, FABRIC2) });
-  defProp('xPaddedChair', { extra: true, label: 'padded chair', ico: '🪑', cat: 'room', price: 45, desc: 'The canteen chair with a cushion. Comfort +0.5.', build: paddedChairBuild });
-  defProp('xRoundTable', { extra: true, label: 'round table', ico: '🪵', cat: 'room', price: 90, desc: 'Seats six. Comfort +1.', build: roundTableBuild });
-  defProp('xTv', { extra: true, label: 'TV', ico: '📺', cat: 'wall', wall: true, price: 300, desc: 'Depot news on a wall of your choosing. Comfort +1.', build: tvBuild });
-  defProp('xDartboard', { extra: true, label: 'dartboard', ico: '🎯', cat: 'wall', wall: true, price: 35, desc: 'Comfort +1.', build: dartboardBuild });
-  defProp('xMicrowave', { extra: true, label: 'microwave', ico: '🍱', cat: 'room', price: 110, desc: 'Sits on anything flat. Comfort +1.', build: microwaveBuild });
-  defProp('xFan', { extra: true, label: 'standing fan', ico: '🌀', cat: 'room', price: 60, desc: 'Turns while the power is on. Comfort +1.', build: fanStandBuild });
-  defProp('xRug', { extra: true, label: 'rug', ico: '🟫', cat: 'room', price: 70, desc: 'Two by two and a half. Comfort +0.5.', build: rugBuild(2.0, 2.5, '#5f3f2f', '#d9a12c') });
-  defProp('xBookshelf', { extra: true, label: 'bookshelf', ico: '📚', cat: 'room', price: 130, desc: 'Oak, four shelves. Comfort +0.5.', build: bookshelfBuild });
-  defProp('xPrinter', { extra: true, label: 'printer', ico: '🖨️', cat: 'room', price: 160, desc: 'Prints the day report. Comfort +0.', build: printerBuild });
-  defProp('xPicture', { extra: true, label: 'picture', ico: '🖼️', cat: 'wall', wall: true, price: 50, desc: 'One of three. Comfort +0.5.', build: function (c, P, inst) { pictureBuild(['depot', 'mountains', 'ship'][Math.floor(propSeed(inst ? inst.id : 'pic', 1) * 3)])(c); } });   // the print is the picture's own: it used to change at every move and reload
+  defProp('xSofa', { extra: true, lvl: UNLOCK.seating, label: 'sofa', ico: '🛋️', cat: 'room', price: 220, desc: 'Two seats and a cushion. Comfort +2.', build: seatBuild(1.7, FABRIC) });
+  defProp('xArmchair', { extra: true, lvl: UNLOCK.seating, label: 'armchair', ico: '🪑', cat: 'room', price: 140, desc: 'One seat, deep. Comfort +1.', build: seatBuild(0.95, FABRIC2) });
+  defProp('xPaddedChair', { extra: true, lvl: UNLOCK.seating, label: 'padded chair', ico: '🪑', cat: 'room', price: 45, desc: 'The canteen chair with a cushion. Comfort +0.5.', build: paddedChairBuild });
+  defProp('xRoundTable', { extra: true, lvl: UNLOCK.seating, label: 'round table', ico: '🪵', cat: 'room', price: 90, desc: 'Seats six. Comfort +1.', build: roundTableBuild });
+  defProp('xTv', { extra: true, lvl: UNLOCK.decor, label: 'TV', ico: '📺', cat: 'wall', wall: true, price: 300, desc: 'Depot news on a wall of your choosing. Comfort +1.', build: tvBuild });
+  defProp('xDartboard', { extra: true, lvl: UNLOCK.decor, label: 'dartboard', ico: '🎯', cat: 'wall', wall: true, price: 35, desc: 'Comfort +1.', build: dartboardBuild });
+  defProp('xMicrowave', { extra: true, lvl: UNLOCK.decor, label: 'microwave', ico: '🍱', cat: 'room', price: 110, desc: 'Sits on anything flat. Comfort +1.', build: microwaveBuild });
+  defProp('xFan', { extra: true, lvl: UNLOCK.decor, label: 'standing fan', ico: '🌀', cat: 'room', price: 60, desc: 'Turns while the power is on. Comfort +1.', build: fanStandBuild });
+  defProp('xRug', { extra: true, lvl: UNLOCK.decor, label: 'rug', ico: '🟫', cat: 'room', price: 70, desc: 'Two by two and a half. Comfort +0.5.', build: rugBuild(2.0, 2.5, '#5f3f2f', '#d9a12c') });
+  defProp('xBookshelf', { extra: true, lvl: UNLOCK.decor, label: 'bookshelf', ico: '📚', cat: 'room', price: 130, desc: 'Oak, four shelves. Comfort +0.5.', build: bookshelfBuild });
+  defProp('xPrinter', { extra: true, lvl: UNLOCK.decor, label: 'printer', ico: '🖨️', cat: 'room', price: 160, desc: 'Prints the day report. Comfort +0.', build: printerBuild });
+  defProp('xPicture', { extra: true, lvl: UNLOCK.decor, label: 'picture', ico: '🖼️', cat: 'wall', wall: true, price: 50, desc: 'One of three. Comfort +0.5.', build: function (c, P, inst) { pictureBuild(['depot', 'mountains', 'ship'][Math.floor(propSeed(inst ? inst.id : 'pic', 1) * 3)])(c); } });   // the print is the picture's own: it used to change at every move and reload
   // ── The yard ──────────────────────────────────────────────────────
   var yard = { gates: [], guards: [], traffic: [], clouds: [], sunDisc: null, moon: null, puddles: [], rain: null, snow: null, flag: null, lampLenses: [], windT: 0 };
   var CAR_COLS = [0xb8322a, 0x2c5f9e, 0xd8dbdf, 0x2a2d33, 0x7a8691, 0xe0a02a, 0x4f6a3a];
@@ -2677,17 +2849,17 @@
   function discTex(col) { return tex(128, 128, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, col); g.addColorStop(0.45, col); g.addColorStop(0.6, 'rgba(255,240,200,0.35)'); g.addColorStop(1, 'rgba(255,240,200,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); }); }
 
   function buildYard() {
-    var X = HALL.x, Z = HALL.z;
+    var X = HALL.x, Z = HALL.z, F = STAGE.fence, big = BOOT_STAGE >= 2;   // 1.21.0: the yard is the stage's: its slab, its fence, its lanes; the car park, the road and the neighbours come with the stages that have them
     // the ground: grass to the horizon, the asphalt yard, the plinth the hall stands on, a lighter apron round it
     plane(600, 600, MAT.grass, 0, YARD_Y - 0.03, 0, -Math.PI / 2);
-    plane(170, 140, MAT.yard, 0, YARD_Y, -8, -Math.PI / 2);
+    plane(big ? 170 : 2 * F.x + 2, big ? 140 : F.z1 - F.z0 + 2, MAT.yard, 0, YARD_Y, big ? -8 : (F.z0 + F.z1) / 2, -Math.PI / 2);
     box(2 * X + 0.6, 1.2, 2 * Z + 0.6, MAT.grey, 0, YARD_Y + 0.6, 0);
     // street furniture in the slab: manhole covers, gully grates against the plinth, a kerb round the car park, wheel stops in the bays, weeds along the fence
     var IRON = std({ color: 0x2c2e31, roughness: 0.6, metalness: 0.5 });
-    [[-30, -22], [8, 30], [34, 10], [-40, 26], [22, -30], [-10, 36]].forEach(function (p) { cyl(0.42, 0.02, IRON, p[0], YARD_Y + 0.012, p[1], null, 20); var ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.02, 6, 24), MAT.grey); ring.rotation.x = Math.PI / 2; ring.position.set(p[0], YARD_Y + 0.012, p[1]); scene.add(ring); for (var mb = 0; mb < 2; mb++) box(0.06, 0.012, 0.3, MAT.black, p[0] + (mb ? 0.18 : -0.18), YARD_Y + 0.03, p[1]); });
+    [[-30, -22], [8, 30], [34, 10], [-40, 26], [22, -30], [-10, 36]].filter(function (p) { return Math.abs(p[0]) < F.x - 2 && p[1] > F.z0 + 2 && p[1] < F.z1 - 2 && !(Math.abs(p[0]) < X + 1 && Math.abs(p[1]) < Z + 1); }).forEach(function (p) { cyl(0.42, 0.02, IRON, p[0], YARD_Y + 0.012, p[1], null, 20); var ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.02, 6, 24), MAT.grey); ring.rotation.x = Math.PI / 2; ring.position.set(p[0], YARD_Y + 0.012, p[1]); scene.add(ring); for (var mb = 0; mb < 2; mb++) box(0.06, 0.012, 0.3, MAT.black, p[0] + (mb ? 0.18 : -0.18), YARD_Y + 0.03, p[1]); });
     [[-X - 1.0, -11], [-X - 1.0, 11], [X + 1.0, -11], [X + 1.0, 11], [0, Z + 1.0], [-10, Z + 1.0], [10, -Z - 1.0]].forEach(function (p) { box(0.5, 0.02, 0.35, IRON, p[0], YARD_Y + 0.012, p[1]); for (var gb = 0; gb < 6; gb++) box(0.5, 0.012, 0.025, MAT.black, p[0], YARD_Y + 0.03, p[1] - 0.14 + gb * 0.056); plane(1.2, 0.8, std({ color: 0x1e2024, roughness: 0.9, transparent: true, opacity: 0.35 }), p[0], YARD_Y + 0.011, p[1], -Math.PI / 2); });
-    box(13.6, 0.12, 0.25, MAT.grey, -23.6, YARD_Y + 0.06, 34.6); box(0.25, 0.12, 6.2, MAT.grey, -30.5, YARD_Y + 0.06, 31.5); [0, 1, 2, 3, 4].forEach(function (k) { box(1.6, 0.1, 0.18, MAT.yellow, -27.65 + k * 2.7, YARD_Y + 0.05, 33.4); });
-    var WEED = std({ color: 0x5d7a3a, roughness: 1, flatShading: true }); for (var wd = -70; wd <= 70; wd += randf(2.5, 5)) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(wd, YARD_Y + 0.08, 56.6 + randf(-0.3, 0.3)); wg.scale.y = 0.6; scene.add(wg); }
+    if (stageHas('carpark')) { box(13.6, 0.12, 0.25, MAT.grey, -23.6, YARD_Y + 0.06, 34.6); box(0.25, 0.12, 6.2, MAT.grey, -30.5, YARD_Y + 0.06, 31.5); [0, 1, 2, 3, 4].forEach(function (k) { box(1.6, 0.1, 0.18, MAT.yellow, -27.65 + k * 2.7, YARD_Y + 0.05, 33.4); }); }
+    var WEED = std({ color: 0x5d7a3a, roughness: 1, flatShading: true }); for (var wd = -F.x + 14; wd <= F.x - 14; wd += randf(2.5, 5)) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(wd, YARD_Y + 0.08, F.z1 - 3.4 + randf(-0.3, 0.3)); wg.scale.y = 0.6; scene.add(wg); }
     // the sky: a dome with a zenith-to-horizon gradient and a haze band at the horizon, driven by the time of day
     var skyMat = new THREE.ShaderMaterial({ uniforms: { top: { value: new THREE.Color(0x4f7fb8) }, mid: { value: new THREE.Color(0x8fb0d4) }, bot: { value: new THREE.Color(0xd6e2ec) } }, side: THREE.BackSide, depthWrite: false, fog: false,
       vertexShader: 'varying vec3 vW; void main() { vW = normalize((modelMatrix * vec4(position, 1.0)).xyz); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -2704,9 +2876,9 @@
       box(1.1, 1.2, 1.6, ST, sx * (X + 0.85), YARD_Y + 0.6, d.z + fz * 3.6);
       [-0.5, 0.5].forEach(function (hx) { var px = sx * (X + 0.85 + hx); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 3.0, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 1.7, d.z + fz * 4.3, null, 8); cyl(0.025, 1.0, HR, px, YARD_Y + 0.5, d.z + fz * 6.1, null, 8); var rail = cyl(0.025, 1.5, HR, px, YARD_Y + 2.2, d.z + fz * 3.65, null, 8); rail.rotation.x = Math.PI / 2; var rail2 = cyl(0.025, 2.2, HR, px, YARD_Y + 1.6, d.z + fz * 5.2, null, 8); rail2.rotation.x = Math.PI / 2 + 0.58 * fz; });
       solid(sx * (X + 0.3), sx * (X + 1.4), d.z + fz * 2.8, d.z + fz * 6.3, YARD_Y, YARD_Y + 1.3); }
-      var side = d.side, x0 = side * (X + 1), x1 = side * 76, cx = (x0 + x1) / 2, len = Math.abs(x1 - x0);
+      var side = d.side, x0 = side * (X + 1), x1 = side * (F.x - 8), cx = (x0 + x1) / 2, len = Math.abs(x1 - x0);
       plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z - 2.2, -Math.PI / 2); plane(len, 0.15, MAT.whiteLine, cx, YARD_Y + 0.012, d.z + 2.2, -Math.PI / 2);
-      for (var x = side * (X + 8); Math.abs(x) < 74; x += side * 4) plane(2, 0.12, MAT.whiteLine, x, YARD_Y + 0.012, d.z, -Math.PI / 2);
+      for (var x = side * (X + 8); Math.abs(x) < F.x - 10; x += side * 4) plane(2, 0.12, MAT.whiteLine, x, YARD_Y + 0.012, d.z, -Math.PI / 2);
       for (var k = 0; k < 6; k++) { var hp = plane(5, 0.14, MAT.yellowLine, side * (X + 3.5), YARD_Y + 0.013, d.z - 2 + k * 0.8, -Math.PI / 2); hp.rotation.z = side * 0.6; }
       sign([DOOR_MAP[d.i].dir === 'ret' ? 'R' : String(DOOR_MAP[d.i].dock + 1)], 2.4, 2.4, side * (X + 4), YARD_Y + 0.014, d.z - 1, 0, { w: 128, h: 128, bg: '#3b3d40', fg: '#d8dbdf' }).rotation.set(-Math.PI / 2, 0, side > 0 ? -Math.PI / 2 : Math.PI / 2);
       // the dock shelter and its lamp
@@ -2735,22 +2907,33 @@
       solid(Math.min(x0, x1) - 0.06, Math.max(x0, x1) + 0.06, Math.min(z0, z1) - 0.06, Math.max(z0, z1) + 0.06, YARD_Y, YARD_Y + 2.6);   // the fence is a fence: nobody walks through it
       [0, 1, 2].forEach(function (k) { var wy = YARD_Y + 2.62 + k * 0.17, wo = 0.22 + k * 0.14; var wire = cyl(0.006, len, FWIRE, (x0 + x1) / 2 + nx * wo, wy, (z0 + z1) / 2 + nz * wo, null, 4); wire.rotation.x = Math.PI / 2; wire.rotation.z = 0; wire.rotation.order = 'YXZ'; wire.rotation.y = ang; });
     }
-    fenceRun(-84, -68, 84, -68); fenceRun(-84, 60, 84, 60);
+    // the fence, the stage's: a run on each side with a gap where every truck lane goes through (the van's lane too, in the shed's yard),
+    // and from the small hall on a barrier lane per dock with its gatehouse and guard. The lane gaps come from the dock lists, so a
+    // dock the stage has not built yet has no hole in the fence waiting for it.
+    fenceRun(-F.x, F.z0, F.x, F.z0); fenceRun(-F.x, F.z1, F.x, F.z1);
+    function laneGaps(side) {
+      var zs = (side < 0 ? DOCKS.in : DOCKS.out.concat(DOCKS.ret)).map(function (d) { return d.z; }); if (side < 0 && TRUCK_OUT[0] && TRUCK_OUT[0].van) zs.push(VAN.z);
+      var gaps = zs.sort(function (a, b) { return a - b; }).map(function (z) { return [z - 3.6, z + 3.6]; }), out = [];
+      gaps.forEach(function (g) { var last = out[out.length - 1]; if (last && g[0] <= last[1] + 0.1) last[1] = Math.max(last[1], g[1]); else out.push(g.slice()); });   /* lanes 8 m apart share one gap, as the two IN docks always did */
+      return out;
+    }
     [-1, 1].forEach(function (side) {
-      var gx = side * 84; if (side < 0) { fenceRun(gx, -68, gx, -37.6); fenceRun(gx, -30.4, gx, -17.6); solid(gx - 0.5, gx + 0.5, -37.6, -30.4, YARD_Y, YARD_Y + 1.1); solid(gx - 0.5, gx + 0.5, -17.6, -2.4, YARD_Y, YARD_Y + 1.1); } else { fenceRun(gx, -68, gx, -37.6); fenceRun(gx, -30.4, gx, -25.2); solid(gx - 0.5, gx + 0.5, -37.6, -30.4, YARD_Y, YARD_Y + 1.1); solid(gx - 0.5, gx + 0.5, -25.2, -2.4, YARD_Y, YARD_Y + 1.1); } fenceRun(gx, -2.4, gx, 60);   // gaps where the lanes run: IN 3 at z -34, the docks at -14 and -6, OUT 3 at -21.6; a waist-high bar keeps you in
-      // two barrier lanes on the dock lines, an island between them, and the gatehouse with the guard
-      [[-14, 'DOCK 1'], [-6, 'DOCK 2']].forEach(function (lane) {
-        var lz = lane[0], post = cyl(0.1, 1.2, MAT.steelDark, gx, YARD_Y + 0.6, lz + 3.2, null, 10); box(0.5, 0.9, 0.4, MAT.hazard, gx, YARD_Y + 0.45, lz + 3.2); box(0.3, 0.35, 0.3, MAT.steelDark, gx, YARD_Y + 1.1, lz + 3.2);
+      var gx = side * F.x, z = F.z0; laneGaps(side).forEach(function (g) { if (g[0] > z) fenceRun(gx, z, gx, g[0]); solid(gx - 0.5, gx + 0.5, g[0], g[1], YARD_Y, YARD_Y + 1.1); z = g[1]; }); if (z < F.z1) fenceRun(gx, z, gx, F.z1);   // a waist-high bar keeps you in where the fence is open
+      if (!stageHas('gates')) return;
+      // a barrier lane on every dock line (the first two at most), an island between two, and the gatehouse with the guard
+      var lanes = (side < 0 ? DOCKS.in : DOCKS.out).filter(function (d) { return Math.abs(d.z) < Z - 1; }).slice(0, 2);
+      lanes.forEach(function (d, li) {
+        var lz = d.z, post = cyl(0.1, 1.2, MAT.steelDark, gx, YARD_Y + 0.6, lz + 3.2, null, 10); box(0.5, 0.9, 0.4, MAT.hazard, gx, YARD_Y + 0.45, lz + 3.2); box(0.3, 0.35, 0.3, MAT.steelDark, gx, YARD_Y + 1.1, lz + 3.2);
         var arm = new THREE.Group(); arm.userData.dynamic = true; arm.position.set(gx, YARD_Y + 1.05, lz + 3.0); scene.add(arm);
         var bar = box(0.1, 0.1, 6.2, MAT.white, 0, 0, -3.1, arm); for (var s = 0; s < 6; s += 2) box(0.102, 0.102, 0.95, MAT.red, 0, 0, -0.5 - s, arm); box(0.16, 0.6, 0.16, MAT.black, 0, -0.1, 0.1, arm); cyl(0.04, 0.5, MAT.steelDark, 0, -0.4, -5.9, arm, 8);
         yard.gates.push({ g: arm, side: side, z: lz, open: 0 });
         cyl(0.1, 1.2, MAT.steelDark, gx, YARD_Y + 0.6, lz - 3.2, null, 10); box(0.5, 0.9, 0.4, MAT.hazard, gx, YARD_Y + 0.45, lz - 3.2);
         for (var sb = 0; sb < 3; sb++) plane(1.6, 0.5, MAT.hazard, gx + side * (6 + sb * 2.5), YARD_Y + 0.013, lz, -Math.PI / 2);   // the speed bumps
-        sign([lane[1]], 0.9, 0.5, gx + side * 2.5, YARD_Y + 2.6, lz, side > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 128, bg: '#1b232c', fg: '#f5b53d' }); cyl(0.04, 2.6, MAT.steelDark, gx + side * 2.5, YARD_Y + 1.3, lz - 0.5, null, 6);
+        sign([(side < 0 ? 'DOCK ' : 'OUT ') + (li + 1)], 0.9, 0.5, gx + side * 2.5, YARD_Y + 2.6, lz, side > 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 128, bg: '#1b232c', fg: '#f5b53d' }); cyl(0.04, 2.6, MAT.steelDark, gx + side * 2.5, YARD_Y + 1.3, lz - 0.5, null, 6);
       });
-      box(0.6, 0.3, 2.0, MAT.grey, gx, YARD_Y + 0.15, -10); cyl(0.1, 1.0, MAT.yellow, gx, YARD_Y + 0.5, -9.2, null, 10); cyl(0.1, 1.0, MAT.yellow, gx, YARD_Y + 0.5, -10.8, null, 10);
+      if (lanes.length > 1) { var iz = (lanes[0].z + lanes[1].z) / 2; box(0.6, 0.3, 2.0, MAT.grey, gx, YARD_Y + 0.15, iz); cyl(0.1, 1.0, MAT.yellow, gx, YARD_Y + 0.5, iz + 0.8, null, 10); cyl(0.1, 1.0, MAT.yellow, gx, YARD_Y + 0.5, iz - 0.8, null, 10); }
       // the gatehouse: glazed on three sides, a counter, a door at the back, a roof with an overhang, the guard inside; inside the fence line, clear of its posts
-      var hx = gx - side * 1.6, hz = 6.3; solid(hx - 1.45, hx + 1.45, hz - 1.45, hz + 1.45, YARD_Y, YARD_Y + 3);
+      var hx = gx - side * 1.6, hz = Math.min(6.3, F.z1 - 6); solid(hx - 1.45, hx + 1.45, hz - 1.45, hz + 1.45, YARD_Y, YARD_Y + 3);
       box(2.8, 0.2, 2.8, MAT.grey, hx, YARD_Y + 0.1, hz); box(2.8, 1.0, 0.12, MAT.plaster, hx, YARD_Y + 0.7, hz - 1.34); box(0.12, 1.0, 2.8, MAT.plaster, hx - side * 1.34, YARD_Y + 0.7, hz); box(0.12, 1.0, 2.8, MAT.plaster, hx + side * 1.34, YARD_Y + 0.7, hz); box(2.8, 2.6, 0.12, MAT.plaster, hx, YARD_Y + 1.5, hz + 1.34);
       [[0, -1.34, 0], [-1.34, 0, 1], [1.34, 0, 1]].forEach(function (wl) { var gl = box(wl[2] ? 0.04 : 2.6, 1.3, wl[2] ? 2.6 : 0.04, MAT.glass, hx + (wl[2] ? wl[0] * side : 0), YARD_Y + 1.85, hz + wl[1], null); gl.userData.noBake = true; });
       [[0, -1.34, 0], [-1.34, 0, 1], [1.34, 0, 1]].forEach(function (wl) { for (var c = -0.9; c <= 0.9; c += 0.9) cyl(0.025, 1.3, MAT.steelDark, hx + (wl[2] ? wl[0] * side : c), YARD_Y + 1.85, hz + (wl[2] ? c : wl[1]), null, 6); });
@@ -2764,8 +2947,8 @@
       var guard = makeHuman({ vest: MAT.hivis, cap: true, capMat: MAT.black, shirt: MAT.jeans }); guard.position.set(hx, YARD_Y + 0.2, hz - 0.2); guard.userData.baseY = YARD_Y + 0.2; guard.userData.dynamic = true; guard.rotation.y = Math.PI; scene.add(guard); yard.guards.push({ g: guard, side: side });
     });
     // the staff car park, the smoking shelter, the dumpster, the flag
-    for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -29 + b * 2.7, YARD_Y + 0.012, 31, -Math.PI / 2);
-    plane(16.2, 0.12, MAT.whiteLine, -20.9, YARD_Y + 0.012, 28.25, -Math.PI / 2);
+    if (stageHas('carpark')) { for (var b = 0; b < 7; b++) plane(0.12, 5.5, MAT.whiteLine, -29 + b * 2.7, YARD_Y + 0.012, 31, -Math.PI / 2); plane(16.2, 0.12, MAT.whiteLine, -20.9, YARD_Y + 0.012, 28.25, -Math.PI / 2); }
+    if (stageHas('neighbours')) {
     // the neighbours across the fence, each with its own dock doors and a name
     [[-130, -30, 40, 9, 32, 'NORTHGATE LOGISTICS', 1], [128, -24, 44, 8, 30, 'VOLT & CO. DISTRIBUTION', 1], [-118, 106, 34, 7, 26, 'FAIRLANE FREIGHT', 0], [0, 150, 90, 12, 40, 'KESSLER WHOLESALE', 0], [136, 116, 40, 10, 30, 'PINECREST STORAGE', 0], [-44, -124, 50, 9, 28, 'LITTLE WONDERS DC', 1]].forEach(function (b) {
       var NB = std({ map: TEX.corrugated, color: pick([0xd8dcdf, 0xc9d3dc, 0xe2e0d8, 0xcfd6c9]), roughness: 0.5, metalness: 0.3, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }); box(b[2], b[3], b[4], NB, b[0], YARD_Y + b[3] / 2, b[1]); box(b[2] + 0.1, 1.4, b[4] + 0.1, MAT.brick, b[0], YARD_Y + 0.7, b[1]); box(b[2] + 0.12, 0.8, b[4] + 0.12, std({ color: pick([0x1f4e8c, 0xb3261e, 0x2f6b3a, 0xe0862a]), roughness: 0.5 }), b[0], YARD_Y + b[3] - 2.6, b[1]);
@@ -2779,12 +2962,15 @@
       var dr2 = plane(1.0, 2.1, MAT.door, b[0] + b[2] * 0.3, YARD_Y + 1.05, fz - face * 0.12, 0, fry); dr2.receiveShadow = false; box(0.3, 0.1, 0.3, MAT.steelDark, b[0] + b[2] * 0.3, YARD_Y + 2.5, fz - face * 0.3); var nl = box(0.3, 0.08, 0.2, glowMat(0xfff2c0, 0.2), b[0] + b[2] * 0.3, YARD_Y + 2.42, fz - face * 0.4); yard.lampLenses.push(nl);
       for (var bo = -b[2] / 2 + 3; bo < b[2] / 2; bo += 6) cyl(0.12, 1.0, MAT.yellow, b[0] + bo, YARD_Y + 0.5, fz - face * 1.2, null, 8);
     });
+    }
+    if (stageHas('road')) {
     // the road: two lanes, dashes, kerbs, lamp posts, and the traffic that uses it
     var roadMat = MAT.yard.clone(); roadMat.map = TEX.asphalt.clone(); roadMat.map.needsUpdate = true; roadMat.map.wrapS = roadMat.map.wrapT = THREE.RepeatWrapping; roadMat.map.repeat.set(260 / 7, 11 / 7); if (roadMat.normalMap) { roadMat.normalMap = roadMat.normalMap.clone(); roadMat.normalMap.needsUpdate = true; roadMat.normalMap.wrapS = roadMat.normalMap.wrapT = THREE.RepeatWrapping; roadMat.normalMap.repeat.set(260 / 7, 11 / 7); }   // the yard's repeat squashed the texture across the 11 m road
     yard.roadMat = roadMat; plane(260, 11, roadMat, 0, YARD_Y + 0.01, 75, -Math.PI / 2); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 69.4); box(260, 0.15, 0.3, MAT.grey, 0, YARD_Y + 0.07, 80.6);
     for (var i = -120; i < 120; i += 6) plane(3, 0.2, MAT.whiteLine, i, YARD_Y + 0.02, 75, -Math.PI / 2);
     for (var lp = -110; lp <= 110; lp += 28) { cyl(0.06, 7, MAT.steelDark, lp, YARD_Y + 3.5, 81.5, null, 8, 0.09); box(0.08, 0.08, 1.4, MAT.steelDark, lp, YARD_Y + 6.9, 80.8); var ll = box(0.5, 0.14, 0.32, glowMat(0xfff2c0, 0.2), lp, YARD_Y + 6.85, 80.2); yard.lampLenses.push(ll); }
     for (var c = 0; c < 8; c++) { var cm = carMesh(pick(CAR_COLS)); cm.userData.dynamic = true; var dir = c % 2 ? -1 : 1; cm.position.set(-130 + (c >> 1) * 65 + randf(0, 20), YARD_Y, dir > 0 ? 72.5 : 77.5); cm.rotation.y = dir > 0 ? 0 : Math.PI; scene.add(cm); yard.traffic.push({ g: cm, dir: dir, v: dir > 0 ? 12 : 10.5 }); }   // one speed a lane: they used to drive through each other
+    }
     // the yard, worked: tyre marks on the aprons where the trucks swing in and oil where they stand, pallets stacked by the inbound
     // docks, a skip by the dumpster, an empty trailer dropped on the far side, weeds along every fence line
     var yMarkTex = tex(256, 64, function (c, w, h) { c.clearRect(0, 0, w, h); for (var i = 0; i < 2; i++) { var g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.4)'); g.addColorStop(0.7, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 10 + i * 30, w, 12); } for (var k = 0; k < 400; k++) { c.fillStyle = 'rgba(0,0,0,' + randf(0.05, 0.25) + ')'; c.fillRect(Math.random() * w, Math.random() * h, randf(1, 3), randf(1, 2)); } });
@@ -2796,19 +2982,21 @@
       var o = plane(2.6, 2.6, yOilMat, d.side * (X + 9), YARD_Y + 0.015, d.z + randf(-0.8, 0.8), -Math.PI / 2, 0); o.rotation.z = randf(0, 3); o.renderOrder = 1; o.userData.noBake = true;
     }; doors.forEach(yard.apron);
     var sceneCtx = { add: function (m) { scene.add(m); return m; } };
-    [[-X - 2.6, 1.2, 5], [-X - 2.6, 2.6, 7], [X + 2.6, 1.3, 4]].forEach(function (p) { for (var i = 0; i < p[2]; i++) palletModel(sceneCtx, p[0] + randf(-0.02, 0.02), YARD_Y + i * 0.128, p[1] + randf(-0.02, 0.02), randf(-0.03, 0.03)); solid(p[0] - 0.65, p[0] + 0.65, p[1] - 0.55, p[1] + 0.55, YARD_Y, YARD_Y + 1.2); });
+    if (big) [[-X - 2.6, 1.2, 5], [-X - 2.6, 2.6, 7], [X + 2.6, 1.3, 4]].forEach(function (p) { for (var i = 0; i < p[2]; i++) palletModel(sceneCtx, p[0] + randf(-0.02, 0.02), YARD_Y + i * 0.128, p[1] + randf(-0.02, 0.02), randf(-0.03, 0.03)); solid(p[0] - 0.65, p[0] + 0.65, p[1] - 0.55, p[1] + 0.55, YARD_Y, YARD_Y + 1.2); });
+    if (stageHas('neighbours')) {
     // the skip: a steel box with sloped ends, lifting lugs, hazard stripes, the hire firm's name, cardboard showing over the lip
     (function () { var sx = X + 7, sz = 21, SK = std({ color: 0x9a8a2a, roughness: 0.6, metalness: 0.4 }); box(3.4, 1.5, 1.7, SK, sx, YARD_Y + 0.75, sz); [-1, 1].forEach(function (e) { var end = box(1.1, 1.5, 1.7, SK, sx + e * 1.95, YARD_Y + 0.75, sz); end.rotation.z = e * 0.35; [-0.6, 0.6].forEach(function (lz) { box(0.12, 0.3, 0.12, MAT.steelDark, sx + e * 1.6, YARD_Y + 1.6, sz + lz); }); }); plane(3.4, 0.25, MAT.hazard, sx, YARD_Y + 1.42, sz + 0.86, 0, 0); plane(3.4, 0.25, MAT.hazard, sx, YARD_Y + 1.42, sz - 0.86, 0, Math.PI); sign(['HILLSIDE SKIPS · 0800 300 300'], 2.2, 0.3, sx, YARD_Y + 0.95, sz + 0.86, 0, { w: 512, h: 72, bg: '#2a2d33', fg: '#eef1f5' }); for (var cb = 0; cb < 6; cb++) { var card = box(randf(0.5, 0.9), 0.1, randf(0.4, 0.7), MAT.parcel, sx + randf(-1.2, 1.2), YARD_Y + 1.45 + cb * 0.04, sz + randf(-0.5, 0.5)); card.rotation.y = randf(0, 3); card.rotation.z = randf(-0.3, 0.3); } solid(sx - 2.4, sx + 2.4, sz - 0.9, sz + 0.9, YARD_Y, YARD_Y + 1.6); })();
     // an empty trailer dropped on its landing legs at the far side of the yard, nose to the road
     (function () { var tx = 54, tz = 46, TR = std({ map: TEX.corrugated, color: 0xdfe3e6, roughness: 0.55, metalness: 0.25, normalMap: NRM.corrugated, normalScale: new THREE.Vector2(0.8, 0.8) }); box(2.5, 2.7, 12, TR, tx, YARD_Y + 2.1, tz); box(2.5, 0.4, 12, MAT.steelDark, tx, YARD_Y + 0.6, tz); [-0.9, 0.9].forEach(function (wx) { for (var tw = 0; tw < 2; tw++) { var ty = cyl(0.5, 0.3, MAT.rubber, tx + wx, YARD_Y + 0.5, tz - 3.6 - tw * 1.3, null, 16); ty.rotation.z = Math.PI / 2; } }); cyl(0.06, 1.0, MAT.steelDark, tx - 0.9, YARD_Y + 0.5, tz + 3.8, null, 6); cyl(0.06, 1.0, MAT.steelDark, tx + 0.9, YARD_Y + 0.5, tz + 3.8, null, 6); box(2.5, 2.7, 0.08, MAT.steelDark, tx, YARD_Y + 2.1, tz + 6.0); sign(['DEPOT CO. · DROP TRAILER'], 2.0, 0.3, tx - 1.26, YARD_Y + 1.6, tz, -Math.PI / 2, { w: 512, h: 72, bg: '#1b232c', fg: '#a0acb8' }); box(0.3, 0.1, 0.3, MAT.yellow, tx - 1.0, YARD_Y + 0.05, tz - 4.9); solid(tx - 1.3, tx + 1.3, tz - 6, tz + 6.1, YARD_Y, YARD_Y + 3); })();
-    for (var wd2 = -58; wd2 <= 58; wd2 += randf(2.5, 5)) { [[-83.4, wd2], [83.4, wd2]].forEach(function (p) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(p[0] + randf(-0.3, 0.3), YARD_Y + 0.08, p[1]); wg.scale.y = 0.6; scene.add(wg); }); }
-    for (var wd3 = -82; wd3 <= 82; wd3 += randf(2.5, 5)) { var wg2 = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg2.position.set(wd3, YARD_Y + 0.08, -67.4 + randf(-0.3, 0.3)); wg2.scale.y = 0.6; scene.add(wg2); }
+    }
+    for (var wd2 = F.z0 + 10; wd2 <= F.z1 - 2; wd2 += randf(2.5, 5)) { [[-F.x + 0.6, wd2], [F.x - 0.6, wd2]].forEach(function (p) { var wg = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg.position.set(p[0] + randf(-0.3, 0.3), YARD_Y + 0.08, p[1]); wg.scale.y = 0.6; scene.add(wg); }); }
+    for (var wd3 = -F.x + 2; wd3 <= F.x - 2; wd3 += randf(2.5, 5)) { var wg2 = new THREE.Mesh(new THREE.IcosahedronGeometry(randf(0.15, 0.35), 0), WEED); wg2.position.set(wd3, YARD_Y + 0.08, F.z0 + 0.6 + randf(-0.3, 0.3)); wg2.scale.y = 0.6; scene.add(wg2); }
     // the sky: a sun, a moon, clouds; the weather: puddles, rain, snow
     var sunSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(255,244,214,1)'), transparent: true, depthWrite: false, fog: false })); sunSp.scale.set(26, 26, 1); scene.add(sunSp); yard.sunDisc = sunSp;
     var moonSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: discTex('rgba(225,230,240,0.9)'), transparent: true, depthWrite: false, fog: false })); moonSp.scale.set(12, 12, 1); scene.add(moonSp); yard.moon = moonSp;
     var ct = cloudTex();
     for (var k = 0; k < 10; k++) { var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ct, transparent: true, depthWrite: false, opacity: 0.85, fog: false })); var s = randf(50, 90); sp.scale.set(s, s * 0.5, 1); sp.position.set(randf(-150, 150), randf(70, 100), randf(-150, 150)); scene.add(sp); yard.clouds.push({ sp: sp, v: randf(0.6, 1.4) }); }
-    for (var p = 0; p < 12; p++) { var pm = new THREE.Mesh(new THREE.CircleGeometry(randf(1.2, 3.2), 18), std({ color: 0x151a22, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0 })); pm.rotation.x = -Math.PI / 2; var px = 0, pz = 0, tries = 0; do { px = randf(-70, 70); pz = randf(-50, 50); tries++; } while (tries < 20 && Math.abs(px) < HALL.x + 3 && pz > -67 && pz < HALL.z + 3); pm.position.set(px, YARD_Y + 0.02, pz); pm.scale.x = randf(1, 2.2); scene.add(pm); yard.puddles.push(pm); }
+    for (var p = 0; p < 12; p++) { var pm = new THREE.Mesh(new THREE.CircleGeometry(randf(1.2, 3.2), 18), std({ color: 0x151a22, roughness: 0.05, metalness: 0.4, transparent: true, opacity: 0 })); pm.rotation.x = -Math.PI / 2; var px = 0, pz = 0, tries = 0; do { px = randf(-F.x + 4, F.x - 4); pz = randf(F.z0 + 4, Math.min(F.z1 - 4, 50)); tries++; } while (tries < 20 && Math.abs(px) < HALL.x + 3 && pz > F.z0 + 1 && pz < HALL.z + 3); pm.position.set(px, YARD_Y + 0.02, pz); pm.scale.x = randf(1, 2.2); scene.add(pm); yard.puddles.push(pm); }
     var streak = tex(16, 64, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(210,225,240,0)'); g.addColorStop(0.5, 'rgba(210,225,240,0.9)'); g.addColorStop(1, 'rgba(210,225,240,0)'); c.fillStyle = g; c.fillRect(6, 0, 4, h); });
     var flake = tex(32, 32, function (c, w, h) { c.clearRect(0, 0, w, h); var g = c.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
     var mkPoints = function (n, size, map, range) { var geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3); for (var i = 0; i < n; i++) { pos[i * 3] = randf(-range, range); pos[i * 3 + 1] = randf(0, 16); pos[i * 3 + 2] = randf(-range, range); } geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); var pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: map, size: size, transparent: true, opacity: 0.85, depthWrite: false, alphaTest: 0.05 })); pts.visible = false; pts.frustumCulled = false; scene.add(pts); return pts; };
@@ -2880,7 +3068,7 @@
     var BP = PROPS.bench ? propPlacement('bench') : { x: SPOT.bench.x, z: SPOT.bench.z, rot: 0 }, ba = BP.rot * Math.PI / 2, bc = Math.cos(ba), bs = Math.sin(ba);
     var benchW = function (lx, lz) { return { x: BP.x + lx * bc + lz * bs, z: BP.z - lx * bs + lz * bc }; };
     var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) { var w = benchW(bi % 2 ? 0.23 : -0.23, -0.72 + (Math.floor(bi / 2) % 4) * 0.6); putBox(s.id, w.x, 0.94 + BOX.h / 2 + Math.floor(bi / 8) * BOX.h, w.z, ba, { kind: 'bench', sku: s.id }); } });
-    var LP = PROPS.packline ? propPlacement('packline') : BP, la = LP.rot * Math.PI / 2, lc = Math.cos(la), ls = Math.sin(la);
+    var LP = propInst.packline ? propPlacement('packline') : BP, la = LP.rot * Math.PI / 2, lc = Math.cos(la), ls = Math.sin(la);   // no pack line (the shed): the parcels stand on the table
     S.bench.parcels.forEach(function (oid, i) { var s = shelfSlot(i); putParcel(LP.x + s.lx * lc + s.lz * ls, s.y, LP.z - s.lx * ls + s.lz * lc, la, { kind: 'shelf', order: oid }, parcelForm(oid)); });
     drawBeltItems(); drawSorterItems(); drawReturnsDesk();
     S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) putBoxDamaged(f.sku, f.x, f.y, f.z, f.rot, { kind: 'floor', idx: i }); else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else if (f.kind === 'return') putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }, 'ret'); else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }, parcelForm(f.order)); });
@@ -3022,16 +3210,40 @@
   var truckMeshes = {};
   var clientSignTex = {};
   function truckById(id) { for (var i = 0; i < S.trucks.length; i++) if (S.trucks[i].id === id) return S.trucks[i]; return null; }
-  function truckDockX(side) { return side * (HALL.x + 0.4); }
+  function truckDockX(t) { return t.van ? VAN.x : t.side * (HALL.x + 0.4); }   // where a truck stops: its rear at the dock, or the van at its spot by the shed
   function truckAtDoor(i) { var dm = DOOR_MAP[i]; if (!dm) return null; var dir = dm.dir, dock = dm.dock; for (var k = 0; k < S.trucks.length; k++) { var t = S.trucks[k]; if (t.dir === dir && t.dock === dock && t.state === 'docked') return t; } return null; }
   function truckPalletPos(t, i) { var r = Math.floor(i / 2), c = i % 2; return { x: t.x + t.side * (1.1 + r * 1.35), y: 0, z: t.z + (c ? 0.62 : -0.62), ry: 0 }; }
-  function truckParcelPos(t, i) { var r = Math.floor(i / 6), c = i % 6, col = c % 3, layer = Math.floor(c / 3); return { x: t.x + t.side * (0.9 + r * 0.7), y: layer * 0.47, z: t.z + (col - 1) * 0.8 }; }
-  function trailerBounds(t) { var a = t.x, b = t.x + t.side * TRAILER.len; return { x0: Math.min(a, b), x1: Math.max(a, b), z0: t.z - TRAILER.w / 2, z1: t.z + TRAILER.w / 2 }; }
-  function tierFor(level) { return level >= 7 ? 4 : level >= 4 ? 3 : level >= 2 ? 2 : 1; }
+  function truckParcelPos(t, i) { if (t.van) { var vr = Math.floor(i / 4), vc = i % 4; return { x: t.x + t.side * (0.6 + vr * 0.7), y: YARD_Y + 0.6 + Math.floor(vc / 2) * 0.47, z: t.z + ((vc % 2) - 0.5) * 0.7 }; } var r = Math.floor(i / 6), c = i % 6, col = c % 3, layer = Math.floor(c / 3); return { x: t.x + t.side * (0.9 + r * 0.7), y: layer * 0.47, z: t.z + (col - 1) * 0.8 }; }   // the van: two across, two high, on a bed 0.6 m over the yard
+  function trailerBounds(t) { var len = t.len || TRAILER.len, w = t.van ? VAN.w : TRAILER.w, a = t.x, b = t.x + t.side * len; return { x0: Math.min(a, b), x1: Math.max(a, b), z0: t.z - w / 2, z1: t.z + w / 2 }; }
   function nowAbs() { return S.day * 24 + S.time; }
 
   function truckWheel(g, x, y, z, r, w) { var ty = cyl(r, w, MAT.rubber, x, y, z, g, 20); ty.rotation.x = Math.PI / 2; for (var k = 0; k < 3; k++) { var ring = new THREE.Mesh(new THREE.TorusGeometry(r - 0.04, 0.012, 6, 24), MAT.black); ring.position.set(x, y, z + (k - 1) * w * 0.3); g.add(ring); } cyl(r * 0.58, w + 0.02, MAT.chrome, x, y, z, g, 14).rotation.x = Math.PI / 2; cyl(r * 0.2, w + 0.06, MAT.steelDark, x, y, z, g, 10).rotation.x = Math.PI / 2; }
+  // the shed's van (1.21.0): a box van parked along x on the shed's south side, its rear doors open to the east. No driver walks in
+  // and nobody walks into it: the parcels are loaded through the rear hit box from the yard. It reverses in from the west lane and
+  // drives out the same way.
+  function buildVanMesh(t) {
+    var g = new THREE.Group(), side = t.side, L = function (x) { return x * side; }, len = VAN.len, w = VAN.w, y0 = YARD_Y, bedY = y0 + 0.6, h = 1.9; g.userData.dynamic = true;
+    var paint = t.color === 'red' ? MAT.truckRed : t.color === 'blue' ? MAT.truckBlue : MAT.green;
+    box(len, 0.1, w, MAT.steelDark, L(len / 2), bedY - 0.05, 0, g); plane(len - 0.2, w - 0.2, MAT.wood, L(len / 2), bedY + 0.005, 0, -Math.PI / 2, 0, g);
+    [-1, 1].forEach(function (s) { box(len, h, 0.06, paint, L(len / 2), bedY + h / 2, s * (w / 2 + 0.03), g); var lin = plane(len - 0.1, h - 0.1, MAT.lining, L(len / 2), bedY + h / 2, s * (w / 2 - 0.005), 0, s > 0 ? Math.PI : 0, g); lin.receiveShadow = false; });
+    box(0.06, h, w + 0.12, paint, L(len + 0.03), bedY + h / 2, 0, g); box(len, 0.06, w + 0.12, paint, L(len / 2), bedY + h + 0.03, 0, g); plane(len - 0.1, w - 0.1, MAT.lining, L(len / 2), bedY + h - 0.005, 0, Math.PI / 2, 0, g);
+    [-1, 1].forEach(function (s) { var dr = box(0.05, h - 0.05, w / 2 - 0.02, paint, L(0.03) - L(0.05), bedY + h / 2, s * (w * 0.75), g); dr.rotation.y = s * 1.45; box(0.08, 0.08, 0.08, MAT.steelDark, L(0.05), bedY + h / 2, s * (w / 2 + 0.04), g); });   // the rear doors swung back against the sides
+    box(0.06, 0.1, 0.2, glowMat(0xff2a1a, 0.6), L(0.02), bedY + 0.3, -0.85, g); box(0.06, 0.1, 0.2, glowMat(0xff2a1a, 0.6), L(0.02), bedY + 0.3, 0.85, g); box(0.3, 0.1, w + 0.1, MAT.steelDark, L(0.1), bedY - 0.2, 0, g);
+    // the cab: body, screen, grille, lights, mirrors, the wheels under both
+    box(1.7, 1.5, w, paint, L(len + 0.85), bedY + 0.55, 0, g); box(1.2, 0.5, w - 0.2, paint, L(len + 0.6), bedY + 1.55, 0, g); var ws = box(0.06, 0.7, w - 0.3, MAT.glass, L(len + 1.25), bedY + 1.45, 0, g); ws.rotation.z = side * 0.45;
+    box(0.05, 0.6, 1.5, MAT.black, L(len + 1.72), bedY + 0.5, 0, g); for (var gr = 0; gr < 3; gr++) box(0.06, 0.05, 1.4, MAT.chrome, L(len + 1.74), bedY + 0.3 + gr * 0.18, 0, g); box(0.1, 0.25, w + 0.1, MAT.steelDark, L(len + 1.72), bedY - 0.1, 0, g);
+    [-1, 1].forEach(function (s) { box(0.08, 0.14, 0.26, MAT.lamp, L(len + 1.74), bedY + 0.75, s * 0.78, g); box(0.04, 0.3, 0.18, MAT.black, L(len + 1.1), bedY + 1.4, s * (w / 2 + 0.12), g); });
+    [[0.9], [len + 0.9]].forEach(function (ax) { [-1, 1].forEach(function (s) { truckWheel(g, L(ax[0]), y0 + 0.36, s * (w / 2 - 0.1), 0.36, 0.26); }); });
+    sign(['DEPOT CO. · VAN'], 2.4, 0.4, L(len / 2), bedY + 1.1, w / 2 + 0.07, 0, { w: 512, h: 96, bg: '#e6e8ea', fg: '#1b232c' }, g); sign(['DEPOT CO. · VAN'], 2.4, 0.4, L(len / 2), bedY + 1.1, -w / 2 - 0.07, Math.PI, { w: 512, h: 96, bg: '#e6e8ea', fg: '#1b232c' }, g);
+    sign(['DC 20 ' + t.num], 0.5, 0.12, L(0.0), bedY - 0.15, 0, side < 0 ? Math.PI / 2 : -Math.PI / 2, { w: 256, h: 64, bg: '#f5f1e6', fg: '#1b232c' }, g);
+    groundBlob(len + 2.4, 2.8, L(len / 2 + 0.8), 0, g, y0);
+    hitBox(1.4, 2.2, 2.4, L(-0.5), bedY + 1.0, 0, { truck: t.id, prompt: function () { return loadPrompt(t.id); }, use: function () { loadUse(t.id); } }, g);   // the rear, from the yard
+    g.position.set(t.x, 0, t.z); scene.add(g);
+    truckMeshes[t.id] = { g: g, driver: null, drvD: 0, route: [], doors: [], doorA: 1 };
+    shadowDirty = true;
+  }
   function buildTruckMesh(t) {
+    if (t.van) { buildVanMesh(t); return; }
     var g = new THREE.Group(), side = t.side, L = function (x) { return x * side; }, len = TRAILER.len, w = TRAILER.w, h = TRAILER.h;
     g.userData.dynamic = true;
     var paint = t.color === 'red' ? MAT.truckRed : t.color === 'blue' ? MAT.truckBlue : MAT.green, TRM = t.mode === 'sea' ? MAT.container : MAT.trailer, fz = dockStepSide(doorIndex(t.dir, t.dock));   // a sea truck carries a container; OUT 3 sits in the corner, so its landing and driver route mirror to the north side
@@ -3093,10 +3305,10 @@
 
   // what an inbound truck brings: lines the clients send, weighted toward what the open orders need and what is low
   function inboundLoad(t) {
-    var tier = tierFor(S.level), cands = SKUS.filter(function (s) { return s.tier <= tier && !s.own; });
+    var cands = SKUS.filter(function (s) { return skuOpen(s) && !s.own; });   // the lines the level has opened (1.21.0: the ladder, not the tiers)
     var need = {}; S.orders.forEach(function (o) { if (o.state !== 'open') return; o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); });
-    var count = clamp(2 + Math.floor(S.level / 2) + (S.up.dock2 ? 1 : 0) + randi(-1, 1), 2, 8 - Math.min(2, (S.factory && S.factory.rawOrdered) || 0));   // room is kept for the granulate you paid for
-    var client = activeClients().filter(function (c) { return c.likes.some(function (s) { return SKU[s].tier <= tier; }); });
+    var count = clamp(randi(STAGE.pallets[0], STAGE.pallets[1]), 1, 8 - Math.min(2, (S.factory && S.factory.rawOrdered) || 0));   // the load grows with the building; room is kept for the granulate you paid for
+    var client = activeClients().filter(function (c) { return c.likes.some(function (s) { return skuOpen(SKU[s]); }); }); if (!client.length) client = activeClients();
     t.client = pick(client).id;
     for (var i = 0; i < count; i++) {
       var weights = cands.map(function (s) { var st = stockCount(s.id), n = need[s.id] || 0; var w = 1 + Math.max(0, n - st) * 0.8 + (st < 6 ? 1.6 : st > 30 ? -0.8 : 0) + (CLIENTS.filter(function (c) { return c.id === t.client; })[0].likes.indexOf(s.id) >= 0 ? 1.2 : 0); return Math.max(0.15, w); });
@@ -3109,11 +3321,12 @@
     while (S.factory && S.factory.rawOrdered > 0 && t.pallets.length < 8) { var rp = newPallet('raw', 8, { place: 'truck', truck: t.id, idx: t.pallets.length, x: 0, z: 0 }); t.pallets.push(rp.id); S.factory.rawOrdered--; }
   }
   function spawnTruck(dir, dock, leaveH) {
-    var side = dir === 'in' ? -1 : 1, z = (dir === 'in' ? DOCKS.in : dir === 'ret' ? DOCKS.ret : DOCKS.out)[dock].z;   // the returns truck docks on the east side, in the returns hall's wall
+    var van = dir === 'out' && !!(TRUCK_OUT[dock] && TRUCK_OUT[dock].van), side = dir === 'in' || van ? -1 : 1, z = van ? VAN.z : (dir === 'in' ? DOCKS.in : dir === 'ret' ? DOCKS.ret : DOCKS.out)[dock].z;   // the returns truck docks on the east side, in the returns hall's wall; the van parks by the shed
     var t = { id: uid('tr'), num: S.truckSeq++, dir: dir, dock: dock, side: side, z: z, x: side * 100, state: 'coming', mode: dir === 'out' ? TRUCK_OUT[dock].mode : null, returns: [], arrived: 0, leave: leaveH, day: S.day, pallets: [], parcels: [], driver: pick(DRIVER_NAMES), color: pick(['red', 'blue', 'green']), unloaded: 0, doneAt: 0 };
+    if (van) { t.van = true; t.len = VAN.len; }
     if (dir === 'in') inboundLoad(t); else if (dir === 'ret') retTruckLoad(t); else truckReturns(t);
     S.trucks.push(t); buildTruckMesh(t); sfx('truck');
-    logEvent((dir === 'in' ? 'Inbound truck coming to ' : dir === 'ret' ? 'The returns truck is coming to ' : 'Outbound truck coming to ') + dockLabel(doorIndex(dir, dock)));
+    logEvent(van ? 'The van is on its way: it loads at the shed front and leaves at ' + fmtTime(leaveH) : (dir === 'in' ? 'Inbound truck coming to ' : dir === 'ret' ? 'The returns truck is coming to ' : 'Outbound truck coming to ') + dockLabel(doorIndex(dir, dock)));
     return t;
   }
   function tickTrucks(dt) {
@@ -3126,8 +3339,8 @@
     for (var i = S.trucks.length - 1; i >= 0; i--) {
       var t = S.trucks[i], m = truckMeshes[t.id]; if (!m) { buildTruckMesh(t); m = truckMeshes[t.id]; }
       if (t.state === 'coming') {
-        var dx = truckDockX(t.side), dirn = dx > t.x ? 1 : -1; t.x += dirn * 7 * dt;
-        if ((dirn > 0 && t.x >= dx) || (dirn < 0 && t.x <= dx)) { t.x = dx; t.state = 'docked'; t.arrived = S.time; sfx('airbrake'); if (t.dir === 'in') { toast('Truck at ' + dockLabel(doorIndex('in', t.dock)) + ': ' + t.pallets.length + ' pallets from ' + clientName(t.client), 'rare'); logEvent(t.driver + ' docked at ' + dockLabel(doorIndex('in', t.dock)) + ' with ' + t.pallets.length + ' pallets'); introStep('truck'); } else if (t.dir === 'ret') { toast('Returns truck at the returns dock: ' + t.returns.length + ' return' + (t.returns.length === 1 ? '' : 's') + ' to inspect · leaves ' + fmtTime(t.leave), 'rare'); logEvent('The returns truck docked with ' + t.returns.length + ' returns, leaves at ' + fmtTime(t.leave)); } else { toast('Outbound ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck at ' + dockLabel(doorIndex(t.dir, t.dock)) + ' · leaves ' + fmtTime(t.leave) + (t.returns && t.returns.length ? ' · ' + t.returns.length + ' return' + (t.returns.length > 1 ? 's' : '') + ' aboard' : ''), 'rare'); logEvent('Outbound ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck at ' + dockLabel(doorIndex(t.dir, t.dock)) + ', leaves at ' + fmtTime(t.leave)); } rebuildBoardSoon(); }
+        var dx = truckDockX(t), dirn = dx > t.x ? 1 : -1; t.x += dirn * 7 * dt;
+        if ((dirn > 0 && t.x >= dx) || (dirn < 0 && t.x <= dx)) { t.x = dx; t.state = 'docked'; t.arrived = S.time; sfx('airbrake'); if (t.dir === 'in') { toast('Truck at ' + dockLabel(doorIndex('in', t.dock)) + ': ' + t.pallets.length + ' pallets from ' + clientName(t.client), 'rare'); logEvent(t.driver + ' docked at ' + dockLabel(doorIndex('in', t.dock)) + ' with ' + t.pallets.length + ' pallets'); introStep('truck'); } else if (t.dir === 'ret') { toast('Returns truck at the returns dock: ' + t.returns.length + ' return' + (t.returns.length === 1 ? '' : 's') + ' to inspect · leaves ' + fmtTime(t.leave), 'rare'); logEvent('The returns truck docked with ' + t.returns.length + ' returns, leaves at ' + fmtTime(t.leave)); } else if (t.van) { toast('The van is at the shed front · load it at the back · leaves ' + fmtTime(t.leave), 'rare'); logEvent('The van parked at the shed front, leaves at ' + fmtTime(t.leave)); } else { toast('Outbound ' + (lanesOn() ? (MODES[t.mode] || MODES.land).name.toLowerCase() + ' ' : '') + 'truck at ' + dockLabel(doorIndex(t.dir, t.dock)) + ' · leaves ' + fmtTime(t.leave) + (t.returns && t.returns.length ? ' · ' + t.returns.length + ' return' + (t.returns.length > 1 ? 's' : '') + ' aboard' : ''), 'rare'); logEvent('Outbound ' + (lanesOn() ? (MODES[t.mode] || MODES.land).name.toLowerCase() + ' ' : '') + 'truck at ' + dockLabel(doorIndex(t.dir, t.dock)) + ', leaves at ' + fmtTime(t.leave)); } rebuildBoardSoon(); }
       } else if (t.state === 'docked') {
         if (!t.warned && S.time >= t.leave - 0.5 && S.time < t.leave) { t.warned = true; truckWarn(t); }   // half an hour's notice
         if (t.dir === 'in') {
@@ -3143,7 +3356,7 @@
         if (Math.abs(t.x) > 105) { removeTruckMesh(t.id); S.trucks.splice(i, 1); continue; }
       }
       m.g.position.x = t.x;
-      var wantOpen = t.state === 'docked' ? 1 : 0; m.doorA = lerp(m.doorA === undefined ? wantOpen : m.doorA, wantOpen, Math.min(1, dt * 1.5)); m.doors.forEach(function (pv) { pv.rotation.y = pv.userData.openRot * m.doorA; });
+      var wantOpen = t.state === 'docked' ? 1 : 0; m.doorA = lerp(m.doorA === undefined ? wantOpen : m.doorA, wantOpen, Math.min(1, dt * 1.5)); (m.doors || []).forEach(function (pv) { pv.rotation.y = pv.userData.openRot * m.doorA; });
       if (m.driver) {
         var docked = t.state === 'docked', want = docked ? 1 : 0;
         m.driver.visible = docked; if (!docked) m.drvD = 0;
@@ -3168,8 +3381,8 @@
     var lbl = dockLabel(doorIndex(t.dir, t.dock));
     if (t.dir === 'in') { var left = S.pallets.filter(function (p) { return p.place === 'truck' && p.truck === t.id && p.n > 0; }).length; if (left) toast('The truck at ' + lbl + ' leaves in half an hour with ' + left + ' pallet' + (left > 1 ? 's' : '') + ' still aboard', 'bad'); return; }
     if (t.dir === 'ret') { var rl = (t.returns || []).length; if (rl) toast('The returns truck leaves in half an hour with ' + rl + ' return' + (rl > 1 ? 's' : '') + ' still aboard: the driver will set them down inside the door', ''); return; }
-    var waiting = S.orders.filter(function (o) { return o.state === 'packed' && orderMode(o) === t.mode; }).length;
-    if (waiting) toast('The ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck at ' + lbl + ' leaves in half an hour · ' + waiting + ' ' + t.mode + ' parcel' + (waiting > 1 ? 's' : '') + ' not aboard yet', 'bad');
+    var waiting = S.orders.filter(function (o) { return o.state === 'packed' && (!lanesOn() || orderMode(o) === t.mode); }).length;
+    if (waiting) toast((t.van ? 'The van' : 'The ' + (lanesOn() ? (MODES[t.mode] || MODES.land).name.toLowerCase() + ' ' : '') + 'truck at ' + lbl) + ' leaves in half an hour · ' + waiting + (lanesOn() ? ' ' + t.mode : '') + ' parcel' + (waiting > 1 ? 's' : '') + ' not aboard yet', 'bad');
   }
   var DRIVER_LINES = {
     sign: ['Sign here, chief.', 'Just the one signature and it is all yours.', 'Name and a squiggle, ta.', 'Delivery note. Sign the bottom.'],
@@ -3218,26 +3431,27 @@
   function onPalletLeftTruck(p) { receivePallet(p); p.place = 'floor'; p.truck = null; }
   function loadPrompt(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return null;
-    if (S.hand && S.hand.kind === 'parcel') { if (t.dir === 'ret') return 'The returns truck takes nothing out'; var o = orderById(S.hand.order), om = o ? orderMode(o) : null, wrongLane = om && MODES[om].door !== doorIndex(t.dir, t.dock) && !sorterOwned(); return 'Load ' + (om ? om.toUpperCase() + ' ' : '') + 'parcel #' + (o ? o.num : '?') + ' into the ' + (MODES[t.mode] || MODES.land).name.toLowerCase() + ' truck' + (wrongLane ? ' · wrong lane: forwarding fee' : ''); }
+    if (S.hand && S.hand.kind === 'parcel') { if (t.dir === 'ret') return 'The returns truck takes nothing out'; var o = orderById(S.hand.order), om = o ? orderMode(o) : null, wrongLane = lanesOn() && om && modeDoor(om) !== doorIndex(t.dir, t.dock) && !sorterOwned(); if (t.van && t.parcels.length >= VAN.cap) return 'The van is full (' + VAN.cap + ' parcels)'; return 'Load ' + (om && lanesOn() ? om.toUpperCase() + ' ' : '') + 'parcel #' + (o ? o.num : '?') + ' into the ' + (t.van ? 'van' : (lanesOn() ? (MODES[t.mode] || MODES.land).name.toLowerCase() + ' ' : '') + 'truck') + (wrongLane ? ' · wrong lane: forwarding fee' : ''); }
     if (!S.hand && !player.tool && t.returns && t.returns.length) { var r0 = returnById(t.returns[0]); return 'Take return #' + (r0 ? r0.num : '?') + ' off the truck' + (t.returns.length > 1 ? ' (' + t.returns.length + ' aboard)' : '') + (t.dir === 'ret' ? ' · the belt takes them in by itself while the door is up' : ' · it goes to the returns ' + (returnsHall() ? 'hall' : 'desk')); }
     if (player.tool === 'cart' && cartParcels().length && t.dir !== 'ret') return 'Unload ' + cartParcels().length + ' parcel' + (cartParcels().length === 1 ? '' : 's') + ' from the cart into the truck';
     if (t.dir === 'ret') return 'Returns trailer · ' + (t.returns || []).length + ' return' + ((t.returns || []).length === 1 ? '' : 's') + ' aboard · the belt takes them in while the door is up and the power is on · leaves ' + fmtTime(t.leave);
-    return 'Outbound trailer · ' + t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded · leaves ' + fmtTime(t.leave);
+    return (t.van ? 'The van · ' : 'Outbound trailer · ') + t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded' + (t.van ? ' of ' + VAN.cap : '') + ' · leaves ' + fmtTime(t.leave);
   }
   function loadUse(tid) {
     var t = truckById(tid); if (!t || t.state !== 'docked') return;
     if (player.tool === 'cart' && cartParcels().length && t.dir !== 'ret') { var n = 0; cartParcels().slice().forEach(function (oid) { var oc = orderById(oid); if (oc) { t.parcels.push(oc.id); oc.state = 'loaded'; n++; addXp(XP.ship); laneWarn(oc, t); } }); cartParcels().length = 0; sfx('crate'); introStep('load'); rebuildBoardSoon(); feedPush(n + ' parcel' + (n === 1 ? '' : 's') + ' loaded from the cart', 'good'); hudDirty = true; return; }
     if (!S.hand && !player.tool && t.returns && t.returns.length) { var rid = t.returns.shift(), rr = returnById(rid); handSet({ kind: 'return', id: rid }); sfx('pickup'); feedPush('Return #' + (rr ? rr.num : '?') + ' off the truck: it goes to the ' + (returnsHall() ? 'intake in the returns hall' : 'returns desk'), ''); hudDirty = true; return; }
     if (!(S.hand && S.hand.kind === 'parcel') || t.dir === 'ret') return;
+    if (t.van && t.parcels.length >= VAN.cap) { toast('The van is full.', 'bad'); return; }
     var o = orderById(S.hand.order); if (!o) { handSet(null); return; }
     t.parcels.push(o.id); o.state = 'loaded'; handSet(null); sfx('crate'); addXp(XP.ship); introStep('load'); rebuildBoardSoon();
     feedPush('Parcel #' + o.num + ' loaded for ' + clientName(o.client), 'good'); laneWarn(o, t);
   }
   // a parcel loaded out of the wrong door still ships, for a forwarding fee at departure; say so when it goes aboard
-  function laneWarn(o, t) { var m = orderMode(o); if (MODES[m].door === doorIndex(t.dir, t.dock) || sorterOwned()) return; feedPush('#' + o.num + ' is a ' + m.toUpperCase() + ' parcel: out of ' + dockLabel(doorIndex(t.dir, t.dock)) + ' it pays a forwarding fee (' + Math.round((1 - MODE_FEE) * 100) + '%)', 'bad'); }
+  function laneWarn(o, t) { var m = orderMode(o); if (!lanesOn() || modeDoor(m) === doorIndex(t.dir, t.dock) || sorterOwned()) return; feedPush('#' + o.num + ' is a ' + m.toUpperCase() + ' parcel: out of ' + dockLabel(doorIndex(t.dir, t.dock)) + ' it pays a forwarding fee (' + Math.round((1 - MODE_FEE) * 100) + '%)', 'bad'); }
   function consolePrompt(i) {
     var t = truckAtDoor(i);
-    if (!t) { var k = i - 2; if (!dockOwned(k)) return 'Dock ' + dockLabel(i) + ' · opens with the sortation deck'; return 'Dock ' + dockLabel(i) + ' · ' + MODES[TRUCK_OUT[k].mode].name.toLowerCase() + ' lane · no truck · ' + outNextText(k); }
+    if (!t) { var k = i - 2; if (!dockOwned(k)) return 'Dock ' + dockLabel(i) + ' · opens with the sortation deck'; return 'Dock ' + dockLabel(i) + (lanesOn() ? ' · ' + MODES[TRUCK_OUT[k].mode].name.toLowerCase() + ' lane' : '') + ' · no truck · ' + outNextText(k); }
     return t.parcels.length ? 'Dispatch the truck now (' + t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ')' : 'Dock ' + dockLabel(i) + ' · truck waiting, nothing loaded yet';
   }
   function consoleUse(i) {
@@ -3249,9 +3463,9 @@
   // ── Orders ────────────────────────────────────────────────────────
   function clientName(id) { for (var i = 0; i < CLIENTS.length; i++) if (CLIENTS[i].id === id) return CLIENTS[i].name; return id || 'Walk-in'; }
   function orderById(id) { for (var i = 0; i < S.orders.length; i++) if (S.orders[i].id === id) return S.orders[i]; return null; }
-  function unlockedSkus() { var tier = tierFor(S.level); return SKUS.filter(function (s) { return s.tier <= tier; }).map(function (s) { return s.id; }); }
+  function unlockedSkus() { return SKUS.filter(skuOpen).map(function (s) { return s.id; }); }   // the lines the level has opened (1.21.0)
   function openOrders() { return S.orders.filter(function (o) { return o.state === 'open'; }); }
-  function activeClients() { return CLIENTS.filter(function (c) { return !c.deck || sorterOwned(); }); }   // the deck accounts wait for the sortation deck
+  function activeClients() { var out = CLIENTS.filter(function (c) { return S.level >= (c.lvl || 1) && (!c.deck || sorterOwned()); }); return out.length ? out : CLIENTS.slice(0, 2); }   // the clients the level has found you, and the deck accounts wait for the sortation deck
   function dueText(abs) { var day = Math.floor(abs / 24), t = abs % 24; return fmtTime(t) + (day > S.day + 1 ? ' in ' + (day - S.day) + ' days' : day > S.day ? ' tomorrow' : abs < nowAbs() ? ' (overdue)' : ''); }
   function orderLate(o) { return nowAbs() > o.due + 0.05; }   // three minutes' grace: a truck leaves on the tick that crosses its hour, and the order due at that hour is on time
   function nextOutLeave(minAbs, dock) {   // the next departure from one dock (the order's lane), or from any dock you own
@@ -3276,8 +3490,8 @@
   function benchSurplus() { var want = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); var sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
   function genOrder(rush) {
     var free = freeStock(), avail = unlockedSkus().filter(function (s) { return (free[s] || 0) > 0; }); if (!avail.length) return null;
-    var client = S.contract && S.contract.accepted && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === S.contract.client; })[0] : pick(activeClients()), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
-    var nLines = client.deck ? randi(2, 4) : randi(1, Math.min(3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));   // a deck account orders two to four lines
+    var live = contractsLive(), cc = live.length && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === pick(live).client; })[0] : null, client = cc || pick(activeClients()), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
+    var nLines = client.deck ? randi(2, 4) : randi(1, Math.min(BOOT_STAGE === 0 ? 2 : 3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));   // a deck account orders two to four lines; the shed's orders are one or two
     var lines = [], used = {};
     for (var i = 0; i < nLines; i++) {
       // what the client likes and you have free, else anything you have free; never more of a line than is free
@@ -3290,43 +3504,56 @@
     }
     if (!lines.length) return null;
     var value = 0; lines.forEach(function (l) { value += l.qty * SKU[l.sku].val; });
-    var mode = clientMode(client.id), due = nextOutLeave(nowAbs() + (rush ? 0.5 : 1.5), MODES[mode].door - 2);   // due at the next truck of its own lane; a rush order must make the very next one
+    var mode = clientMode(client.id), due = nextOutLeave(nowAbs() + (rush ? 0.5 : 1.5), modeDock(mode));   // due at the next truck of its own lane (the one dock, before the lanes); a rush order must make the very next one
     var o = { id: uid('or'), num: S.orderSeq++, client: client.id, mode: mode, lines: lines, created: nowAbs(), due: due, state: 'open', pay: Math.round((value * ECON.margin + ECON.handling) * (mode === 'air' ? AIR_RATE : 1) * (client.deck ? DECK_RATE : 1)) * (rush ? 2 : 1), rush: !!rush, late: false, short: false };
     S.orders.push(o);
-    logEvent('Order #' + o.num + ' from ' + client.name + ' (' + MODES[mode].name.toUpperCase() + ' lane, ' + dockLabel(MODES[mode].door) + '): ' + lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + (rush ? ' · RUSH, due ' + fmtTime(due) : ''), 'rare');
+    logEvent('Order #' + o.num + ' from ' + client.name + (lanesOn() ? ' (' + MODES[mode].name.toUpperCase() + ' lane, ' + dockLabel(modeDoor(mode)) + ')' : '') + ': ' + lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + (rush ? ' · RUSH, due ' + fmtTime(due) : ''), 'rare');
     sfx('chime'); rebuildBoardSoon(); introStep('order'); hudDirty = true;
     return o;
   }
-  // contracts: every few days a client offers a run; every order of theirs shipped on time in the window counts
-  function offerContract() {
-    var client = pick(activeClients()), need = 3 + Math.floor(S.level / 2), days = 3;
-    S.contract = { client: client.id, need: need, done: 0, until: (S.day + days) * 24 + 18, bonus: need * 60 + S.level * 40, penalty: 150, accepted: false, offeredDay: S.day };
-    logEvent(client.name + ' offers a contract: ' + need + ' orders on time in ' + days + ' days for a ' + money(S.contract.bonus) + ' bonus. Accept it on the office PC.', 'rare'); toast('Contract offer from ' + client.name + ' on the PC', 'rare'); sfx('chime');
+  // contracts: every few days a client offers a run; every order of theirs shipped on time in the window counts. 1.21.0: from the
+  // ladder's level (5); bigger from 17 (two more orders, a bigger bonus); two at once from 21 (a second slot, S.contract2); the long
+  // contract from 24 (five days, twice the bonus, now and then). The slots are S.contract and S.contract2; every function takes the slot key.
+  function contractSlots() { return unlocked('twoContracts') ? ['contract', 'contract2'] : ['contract']; }
+  function contractsAll() { return contractSlots().map(function (k) { return S[k]; }).filter(Boolean); }
+  function contractsLive() { return contractsAll().filter(function (c) { return c.accepted; }); }
+  function contractOffer() { return contractsAll().filter(function (c) { return !c.accepted; })[0] || null; }
+  function contractSlotOf(c) { for (var i = 0; i < contractSlots().length; i++) if (S[contractSlots()[i]] === c) return contractSlots()[i]; return null; }
+  function offerContract(k) {
+    k = k || contractSlots().filter(function (q) { return !S[q]; })[0]; if (!k) return null;
+    var big = unlocked('contractsBig'), long = unlocked('longContract') && Math.random() < 0.4, client = pick(activeClients()), need = 3 + Math.floor(S.level / 2) + (big ? 2 : 0), days = long ? 5 : 3, bonus = Math.round((need * 60 + S.level * 40) * (big ? 1.4 : 1) * (long ? 1.6 : 1));
+    S[k] = { client: client.id, need: need, done: 0, until: (S.day + days) * 24 + 18, bonus: bonus, penalty: long ? 300 : 150, accepted: false, offeredDay: S.day, long: long };
+    logEvent(client.name + ' offers a ' + (long ? 'long ' : '') + 'contract: ' + need + ' orders on time in ' + days + ' days for a ' + money(bonus) + ' bonus. Accept it on the office PC.', 'rare'); toast('Contract offer from ' + client.name + (unlocked('pc') ? ' on the PC' : ' on the clipboard'), 'rare'); sfx('chime');
+    return S[k];
   }
   // the offer is taken or turned down from the panel, the office PC or the scanner's Home page: one place for what that does
-  function contractAccept() { var c = S.contract; if (!c || c.accepted) return false; c.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(c.client), 'good'); hudDirty = true; return true; }
-  function contractDecline() { var c = S.contract; if (!c || c.accepted) return false; logEvent('Declined the contract from ' + clientName(c.client)); S.contract = null; S.nextOffer = S.day + 2; hudDirty = true; return true; }
+  function contractAccept(k) { var c = k ? S[k] : contractOffer(); if (!c || c.accepted) return false; c.accepted = true; sfx('chime'); toast('Contract accepted', 'good'); logEvent('Accepted the contract from ' + clientName(c.client), 'good'); hudDirty = true; return true; }
+  function contractDecline(k) { var c = k ? S[k] : contractOffer(); if (!c || c.accepted) return false; logEvent('Declined the contract from ' + clientName(c.client)); S[contractSlotOf(c)] = null; S.nextOffer = S.day + 2; hudDirty = true; return true; }
   function contractTick() {
-    var c = S.contract; if (!c) { if (S.level >= 3 && S.day >= S.nextOffer && S.time >= 9 && S.time < 9.2 && !isSunday()) offerContract(); return; }
-    if (!c.accepted && S.day > c.offeredDay) { S.contract = null; S.nextOffer = S.day + 2; logEvent('The contract offer from ' + clientName(c.client) + ' lapsed'); return; }
-    if (c.accepted && nowAbs() > c.until) contractSettle();
+    var offerDue = unlocked('contracts') && S.day >= S.nextOffer && S.time >= 9 && S.time < 9.2 && !isSunday() && !contractOffer();
+    contractSlots().forEach(function (k) {
+      var c = S[k];
+      if (!c) { if (offerDue) { offerContract(k); offerDue = false; } return; }
+      if (!c.accepted && S.day > c.offeredDay) { S[k] = null; S.nextOffer = S.day + 2; logEvent('The contract offer from ' + clientName(c.client) + ' lapsed'); return; }
+      if (c.accepted && nowAbs() > c.until) contractSettle(k);
+    });
   }
   // the contract pays out the moment the count is met, or charges when the window closes short
-  function contractSettle() {
-    var c = S.contract; if (!c) return;
+  function contractSettle(k) {
+    var c = S[k || 'contract']; if (!c) return;
     if (c.done >= c.need) { pay(c.bonus, 'Contract bonus, ' + clientName(c.client)); addRep(6); toast('Contract complete: ' + money(c.bonus) + ' bonus', 'rare'); logEvent('Contract with ' + clientName(c.client) + ' complete: ' + money(c.bonus) + ' bonus', 'rare'); sfx('fanfare'); addXp(40); }
     else { pay(-c.penalty, 'Contract penalty, ' + clientName(c.client)); addRep(-4); toast('Contract missed: ' + c.done + ' of ' + c.need + '. Penalty ' + money(c.penalty), 'bad'); logEvent('Contract with ' + clientName(c.client) + ' missed (' + c.done + ' of ' + c.need + ')', 'bad'); }
-    S.contract = null; S.nextOffer = S.day + randi(2, 4);
+    S[k || 'contract'] = null; S.nextOffer = S.day + randi(2, 4);
   }
   function tickOrders() {
     var n = nowAbs();
     if (Math.floor(S.time * 5) !== S.flags.ctQ) { S.flags.ctQ = Math.floor(S.time * 5); contractTick(); }
     if (S.time >= 8 && S.time < 17 && !S.events.power && !isSunday()) {
       var openN = S.orders.filter(function (o) { return o.state === 'open' || o.state === 'packed'; }).length;
-      var maxOpen = 3 + S.level, gap = Math.max(0.8, 2.3 - S.level * 0.12);
+      var maxOpen = STAGE.maxOpen, gap = Math.max(0.8, 2.3 - S.level * 0.12);   // the volume is the building's (two open orders in the shed, ten in the annexes), the pace the level's
       // the first order waits for stock: until something is on site and signed for there is nothing a client can order
       if (S.day === 1 && !S.flags.firstOrder) { if (S.time >= 8.5 && n - (S.flags.firstTry || 0) >= 0.1) { S.flags.firstTry = n; if (genOrder(false)) { S.flags.firstOrder = 1; S.lastOrderAt = n; } } }
-      else if (openN < maxOpen && n - S.lastOrderAt >= gap && !S.flags.noOrders) { S.lastOrderAt = n + randf(-0.3, 0.3); genOrder(Math.random() < 0.12 && S.level >= 3); }
+      else if (openN < maxOpen && n - S.lastOrderAt >= gap && !S.flags.noOrders) { S.lastOrderAt = n + randf(-0.3, 0.3); genOrder(Math.random() < 0.12 && unlocked('rush')); }
     }
     for (var i = S.orders.length - 1; i >= 0; i--) {
       var o = S.orders[i];
@@ -3340,38 +3567,39 @@
   function benchAdd(sku, n) { S.bench.boxes[sku] = (S.bench.boxes[sku] || 0) + n; }
   function benchTake(sku, n) { var k = Math.min(n, S.bench.boxes[sku] || 0); if (!k) { delete S.bench.boxes[sku]; return 0; } S.bench.boxes[sku] -= k; if (S.bench.boxes[sku] <= 0) delete S.bench.boxes[sku]; return k; }   /* a SKU the bench never held used to go undefined minus zero, NaN, and the terminal read NaN / 16 */
   // what the cart would do at the bench: the boxes the orders still want come off it, and the bench's surplus goes onto it
-  function cartAtBench() { var need = benchNeed(), off = 0, on = 0, room = ECON.benchCap - benchCount(); S.cart.boxes.forEach(function (sku) { if ((need[sku] || 0) > 0 && off < room) { need[sku]--; off++; } }); var sur = benchSurplus(); for (var k in sur) on += sur[k]; on = Math.min(on, ECON.cartCap - (cartLoad() - off)); return { off: off, on: Math.max(0, on) }; }
+  function cartAtBench() { var need = benchNeed(), off = 0, on = 0, room = benchCapNow() - benchCount(); S.cart.boxes.forEach(function (sku) { if ((need[sku] || 0) > 0 && off < room) { need[sku]--; off++; } }); var sur = benchSurplus(); for (var k in sur) on += sur[k]; on = Math.min(on, ECON.cartCap - (cartLoad() - off)); return { off: off, on: Math.max(0, on) }; }
   function benchPrompt() {
     if (player.tool === 'cart') { var c = cartAtBench(); return (c.off ? 'Unload ' + c.off + ' wanted ' + (c.off === 1 ? 'box' : 'boxes') : '') + (c.off && c.on ? ', ' : '') + (c.on ? 'take ' + c.on + ' surplus back on the cart' : '') || 'Packing bench · nothing on the cart the orders want'; }
     if (isJack(player.tool)) return null;
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) return 'Damaged boxes do not ship: bin it';
-    if (S.hand && S.hand.kind === 'box') return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
+    if (S.hand && S.hand.kind === 'box') return benchCount() < benchCapNow() ? 'Put the box on the ' + (BOOT_STAGE === 0 ? 'table' : 'bench') : 'The ' + (BOOT_STAGE === 0 ? 'table' : 'bench') + ' is full';
     if (S.hand) return null;
     var sur = benchSurplus(), sn = 0; for (var k in sur) sn += sur[k];
-    return 'Packing bench · ' + benchCount() + (benchCount() === 1 ? ' box' : ' boxes') + ' · ' + openOrders().length + (openOrders().length === 1 ? ' open order' : ' open orders') + (sn ? ' · ' + sn + ' surplus (look at a box to take it back)' : '');
+    return (BOOT_STAGE === 0 ? 'Packing table · ' : 'Packing bench · ') + benchCount() + (benchCount() === 1 ? ' box' : ' boxes') + ' · ' + openOrders().length + (openOrders().length === 1 ? ' open order' : ' open orders') + (sn ? ' · ' + sn + ' surplus (look at a box to take it back)' : '');
   }
   function benchUse() {
     if (player.tool === 'cart') {
       // the boxes the open orders still want come off the cart; the surplus on the bench goes onto the cart, to go back on the racks
       var need = benchNeed(), off = 0, on = 0;
-      for (var i = S.cart.boxes.length - 1; i >= 0; i--) { var sku = S.cart.boxes[i]; if ((need[sku] || 0) > 0 && benchCount() < ECON.benchCap) { S.cart.boxes.splice(i, 1); benchAdd(sku, 1); need[sku]--; off++; } }
+      for (var i = S.cart.boxes.length - 1; i >= 0; i--) { var sku = S.cart.boxes[i]; if ((need[sku] || 0) > 0 && benchCount() < benchCapNow()) { S.cart.boxes.splice(i, 1); benchAdd(sku, 1); need[sku]--; off++; } }
       var sur = benchSurplus(); for (var k in sur) while (sur[k] > 0 && cartLoad() < ECON.cartCap) { benchTake(k, 1); S.cart.boxes.push(k); sur[k]--; on++; }
       if (off || on) { sfx('putdown'); introStep('bench'); toast((off ? off + ' onto the bench' : '') + (off && on ? ' · ' : '') + (on ? on + ' surplus onto the cart' : ''), 'good'); hudDirty = true; }
-      else if (S.cart.boxes.length) toast(benchCount() >= ECON.benchCap ? 'The bench is full.' : 'No open order wants what is on the cart. Put it back on the racks.', 'bad');
+      else if (S.cart.boxes.length) toast(benchCount() >= benchCapNow() ? 'The bench is full.' : 'No open order wants what is on the cart. Put it back on the racks.', 'bad');
       else toast('Nothing surplus on the bench.', '');
       return;
     }
     if (isJack(player.tool)) return;
     if (S.hand && S.hand.kind === 'box' && S.hand.damaged) { toast('Damaged. Bin it.', 'bad'); return; }
-    if (S.hand && S.hand.kind === 'box') { if (benchCount() >= ECON.benchCap) { toast('The bench is full.', 'bad'); return; } benchAdd(S.hand.sku, 1); handSet(null); sfx('putdown'); introStep('bench'); return; }
+    if (S.hand && S.hand.kind === 'box') { if (benchCount() >= benchCapNow()) { toast('The ' + (BOOT_STAGE === 0 ? 'table' : 'bench') + ' is full.', 'bad'); return; } benchAdd(S.hand.sku, 1); handSet(null); sfx('putdown'); introStep('bench'); return; }
     if (S.hand) return;
+    if (BOOT_STAGE === 0) { var ready = openOrders().filter(canPack).sort(function (a, b) { return a.due - b.due; })[0]; if (ready) { if (packOrder(ready)) { toast('Packing #' + ready.num + ' by hand: four seconds', 'good'); } } else if (S.pack && S.pack.job) toast('Packing #' + (orderById(S.pack.job.order) || { num: '?' }).num + '...', ''); else toast(openOrders().length ? 'Not every box of an order is on the table yet.' : 'No open orders. Boxes you leave here stay on the table.', ''); return; }   // the shed: E on the table packs the first whole order on it, by hand
     sfx('click'); toast('Look at a box on the bench and press E to take it back. The terminal at the end packs the orders.', '');
   }
   // a box on the bench is a thing you look at: E takes it back into your hand (or onto the cart)
   function benchBoxPrompt(src) {
     var sku = src.sku, sur = benchSurplus()[sku] || 0, tag = sur ? ' · surplus, no order wants it' : ' · an open order wants it';
     if (player.tool === 'cart') return cartLoad() < ECON.cartCap ? 'Put the box of ' + skuName(sku) + ' on the cart' + tag : 'The cart is full';
-    if (S.hand && S.hand.kind === 'box' && !S.hand.damaged) return benchCount() < ECON.benchCap ? 'Put the box on the bench' : 'The bench is full';
+    if (S.hand && S.hand.kind === 'box' && !S.hand.damaged) return benchCount() < benchCapNow() ? 'Put the box on the bench' : 'The bench is full';
     if (S.hand || player.tool) return null;
     return 'Take the box of ' + skuName(sku) + ' off the bench' + tag;
   }
@@ -3395,16 +3623,16 @@
   function surplusCount() { var sur = benchSurplus(), n = 0; for (var k in sur) n += sur[k]; S.floor.forEach(function (f) { if (f.kind === 'box' && !f.damaged && insideHall(f.x, f.z)) n++; }); return n; }
   function orderNeed(o) { var tot = 0, have = 0; o.lines.forEach(function (l) { tot += l.qty; have += Math.min(l.qty, S.bench.boxes[l.sku] || 0); }); return { tot: tot, have: have }; }
   function canPack(o) { return o.state === 'open' && o.lines.every(function (l) { return (S.bench.boxes[l.sku] || 0) >= l.qty; }); }
-  function canPackShort(o) { var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }
+  function canPackShort(o) { if (BOOT_STAGE === 0) return false; var n = orderNeed(o); return o.state === 'open' && n.have >= Math.ceil(n.tot / 2) && n.have < n.tot; }   // no short packs by hand in the shed
   function shelfPrompt(src) { var o = orderById(src.order); if (player.tool === 'cart') return cartLoad() < ECON.cartCap ? 'Load parcel #' + (o ? o.num : '?') + ' onto the cart (' + cartLoadText() + ')' : 'The cart is full'; if (S.hand || player.tool) return null; return 'Pick up parcel #' + (o ? o.num : '?') + (o ? ' for ' + clientName(o.client) : ''); }
   function shelfUse(src) { if (player.tool === 'cart') { if (cartLoad() >= ECON.cartCap) { sfx('bad'); return; } var kc = S.bench.parcels.indexOf(src.order); if (kc < 0) return; S.bench.parcels.splice(kc, 1); cartParcels().push(src.order); sfx('pickup'); hudDirty = true; return; } if (S.hand || player.tool) return; var k = S.bench.parcels.indexOf(src.order); if (k < 0) return; S.bench.parcels.splice(k, 1); handSet({ kind: 'parcel', order: src.order }); sfx('pickup'); }
 
   // ── Shipping ──────────────────────────────────────────────────────
   function shipOrder(o, door) {   // door: the outbound door the parcel left by; the wrong lane's door pays the forwarding fee
-    var late = orderLate(o), m = orderMode(o), wrong = door !== undefined && MODES[m].door !== door && !sorterOwned(), amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1) * (wrong ? MODE_FEE : 1));
+    var late = orderLate(o), m = orderMode(o), wrong = lanesOn() && door !== undefined && modeDoor(m) !== door && !sorterOwned(), amount = Math.round(o.pay * (o.short ? ECON.shortCut : 1) * (late ? ECON.lateCut : 1) * (wrong ? MODE_FEE : 1));
     if (wrong) S.stats.misrouted = (S.stats.misrouted || 0) + 1;
     pay(amount, 'Order #' + o.num + ' shipped to ' + clientName(o.client) + (late ? ' (late)' : '') + (o.short ? ' (short)' : '') + (wrong ? ' (' + m + ' parcel out of ' + dockLabel(door) + ': forwarding fee)' : ''));
-    if (!late && S.contract && S.contract.accepted && S.contract.client === o.client) { S.contract.done++; if (S.contract.done >= S.contract.need) contractSettle(); else feedPush('Contract: ' + S.contract.done + ' of ' + S.contract.need, 'good'); }
+    if (!late) contractSlots().forEach(function (k) { var c = S[k]; if (c && c.accepted && c.client === o.client) { c.done++; if (c.done >= c.need) contractSettle(k); else feedPush('Contract: ' + c.done + ' of ' + c.need, 'good'); } });
     addRep(late ? -1 : o.rush ? 3 : 1.5); S.stats.shipped++; if (late) S.stats.late++; addXp(XP.ship);
     o.state = 'shipped'; o.shippedAt = nowAbs(); o.paid = amount;
     for (var i = 0; i < S.orders.length; i++) if (S.orders[i] === o) { S.orders.splice(i, 1); break; }
@@ -3437,7 +3665,7 @@
   // 1.17.0: the returns hall (12-machines7-returns.js) takes the whole operation over once it is bought: the desk by the bench
   // goes, three inspection desks share one queue fed by the belt from the returns dock, the shelf becomes the restock cage and
   // the bin a compactor. Everything here works on "stations": station 0 is the lone desk until the hall opens.
-  var RETURNS = { level: 3, chance: 0.3, max: 2, fee: 10, perBox: 4, deskCap: 4, shelfCap: 8, inspectSec: 5, lateHours: 24, hallDeskCap: 8, hallShelfCap: 24, truckMin: 3, truckMax: 6 };
+  var RETURNS = { level: UNLOCK.returns, chance: 0.3, max: 2, fee: 10, perBox: 4, deskCap: 4, shelfCap: 8, inspectSec: 5, lateHours: 24, hallDeskCap: 8, hallShelfCap: 24, truckMin: 3, truckMax: 6 };
   var RETURN_REASONS = [['unwanted', 'the customer changed their mind', 0.5], ['wrong', 'the wrong item was sent', 0.25], ['damaged', 'damaged in transit', 0.25]];
   function returnById(id) { var rs = S.returns || []; for (var i = 0; i < rs.length; i++) if (rs[i].id === id) return rs[i]; return null; }
   function returnsHall() { return !!(S.up && S.up.hall2); }
@@ -3594,7 +3822,7 @@
     scText(c, 16, sc.h - 40, pend > 0 ? pend + ' more return' + (pend > 1 ? 's' : '') + ' out there: on a truck, the belt or the floor' : 'Fee: ' + money(RETURNS.fee) + ' a return and ' + money(RETURNS.perBox) + ' a box', pend > 0 ? '#f5b53d' : '#6b7784', 11);
     scText(c, 16, sc.h - 22, 'A return left a day costs reputation', '#6b7784', 10);
   }
-  defProp('returnsDesk', { label: 'returns desk', cat: 'hall', abs: true, keep: true, x: 29.4, z: 10.4, rot: 3, build: returnsDeskBuildFor(0, 'RETURNS'), when: function () { return !returnsHall(); } });   // between the bench and the office front, east lane side, the working side toward the hall; gone once the returns hall opens
+  defProp('returnsDesk', { label: 'returns desk', cat: 'hall', abs: true, keep: true, stage: 1, lvl: UNLOCK.returns, x: 29.4, z: 10.4, rot: 3, at: { 1: { x: 13.8, z: -5.2, rot: 0 } }, build: returnsDeskBuildFor(0, 'RETURNS'), when: function () { return !returnsHall(); } });   // west of the small hall's bench; it appears at the returns level   // between the bench and the office front, east lane side, the working side toward the hall; gone once the returns hall opens
   // ── The crew and the returns ──────────────────────────────────────
   // the packer's returns work (or whoever covers the packer): a return on the floor or aboard a docked truck with its door up
   // goes to the queue; a free desk is started; what comes off the shelf is racked or binned. Claims keep two workers off one return.
@@ -4022,7 +4250,7 @@
     var b = NAV.grid[j * NAV.w + i]; if (b === 0) return true; if (b === 1) return false;
     var x = NAV.x0 + (i + 0.5) * NAV.cell, z = NAV.z0 + (j + 0.5) * NAV.cell;
     if (x <= -HALL.x + 0.6 && x > -HALL.x - 7.6 && Math.abs(z - SPOT.staffDoor.z) < 0.8) return true;
-    for (var k = 0; k < S.trucks.length; k++) { var t = S.trucks[k]; if (t.state !== 'docked') continue; var tb = trailerBounds(t); if (x > tb.x0 - 0.3 && x < tb.x1 - 0.6 && z > tb.z0 + 0.3 && z < tb.z1 - 0.3) return true; if (Math.abs(z - t.z) < 1.0 && ((t.side < 0 && x < -HALL.x + 0.5 && x > tb.x0) || (t.side > 0 && x > HALL.x - 0.5 && x < tb.x1))) return true; }
+    for (var k = 0; k < S.trucks.length; k++) { var t = S.trucks[k]; if (t.state !== 'docked' || t.van) continue; var tb = trailerBounds(t); if (x > tb.x0 - 0.3 && x < tb.x1 - 0.6 && z > tb.z0 + 0.3 && z < tb.z1 - 0.3) return true; if (Math.abs(z - t.z) < 1.0 && ((t.side < 0 && x < -HALL.x + 0.5 && x > tb.x0) || (t.side > 0 && x > HALL.x - 0.5 && x < tb.x1))) return true; }
     return false;
   }
   function navCell(p) { return { i: clamp(Math.floor((p.x - NAV.x0) / NAV.cell), 0, NAV.w - 1), j: clamp(Math.floor((p.z - NAV.z0) / NAV.cell), 0, NAV.h - 1) }; }
@@ -4074,6 +4302,7 @@
   function onBreak(st) { var b = shiftStart(st) + 4; return S.time >= b && S.time < b + breakLen(); }   // four hours into their own shift; half an hour bare, down to a quarter with the rooms furnished (breakLen, 06-props4-furniture)
   function hireStaff(role) {
     var def = STAFF_ROLES[role]; if (!def) return;
+    if (S.level < def.lvl) { toast('A ' + def.name.toLowerCase() + ' can be hired from level ' + def.lvl + '.', 'bad'); return; } if (S.staff.length >= staffCap()) { toast('The crew is ' + staffCap() + ' at this level: it grows as you level.', 'bad'); return; }   // the ladder gates the hire itself, not only the buttons (1.21.0)
     if (def.needs && !S.up[def.needs]) { toast('Buy the forklift first: a driver needs something to drive.', 'bad'); return; }
     var used = S.staff.map(function (s) { return s.name; }), free = STAFF_NAMES.filter(function (n) { return used.indexOf(n) < 0; }), name = free.length ? free[S.nextStaffName++ % free.length] : STAFF_NAMES[S.nextStaffName++ % STAFF_NAMES.length];   // no two Jos
     var st = { id: uid('st'), name: name, role: role, x: SPOT.spawn.x, z: SPOT.spawn.z, yaw: 0, state: 'home', path: [], timer: 0, carry: null, task: null, hiredDay: S.day, look: { skin: pick(SKINS), hair: pick(HAIRS), style: pick(['short', 'long', 'bun', 'bald', 'short']) }, said: 0, punct: randf(0.2, 1), arriveOff: 0, hoursToday: 0, sheet: [] };
@@ -4119,7 +4348,7 @@
       var cy = st.carry, bk = cy.kind === 'box' && !cy.damaged ? findSlotFor(cy.sku, 1, 1) : null;
       if (cy.kind === 'box') { if (bk) slotAdd(bk, cy.sku, 1); else S.floor.push({ kind: 'box', sku: cy.sku, damaged: !!cy.damaged, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); }
       else if (cy.kind === 'return') { if (rdesk().queue.length < rdeskCap()) rdesk().queue.push(cy.id); else S.floor.push({ kind: 'return', id: cy.id, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw }); }
-      else if (orderById(cy.order) && S.bench.parcels.length < 12) S.bench.parcels.push(cy.order);
+      else if (orderById(cy.order) && S.bench.parcels.length < shelfCap()) S.bench.parcels.push(cy.order);
       else if (orderById(cy.order)) S.floor.push({ kind: 'parcel', order: cy.order, x: st.x, y: floorY(st.x, st.z), z: st.z, rot: st.yaw });
       st.carry = null;
     }
@@ -4179,7 +4408,7 @@
       if (st.state === 'clockout') { st.leavingWait = true; staffWait(st, 1.2, function () { staffClockOut(st); st.leavingWait = false; st.state = 'walk'; st.then = 'gone'; st.path = route({ x: st.x, z: st.z }, RAMP_BOTTOM); st.leaving = true; }, true); st.state = 'wait'; st.yaw = clockFaceYaw(); }
       if (st.clocked) st.hoursToday = (st.hoursToday || 0) + dt / HOUR_SEC;
       var working = st.clocked && S.time < end;   // on the clock and inside the shift. Not the old st.leaving flag: set at every shift end since 1.4.0 and never cleared, it kept a worker idle at the clock from their second morning on
-      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait' && st.state !== 'drive') { st.task = null; st.jackParked = true; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, { x: -HALL.x + 3.7 + randf(-1, 1), z: -21.2 + randf(-0.4, 0.4) }, 'break'); }
+      if (working && brk && !carrying && st.state !== 'break' && st.state !== 'walk' && st.state !== 'wait' && st.state !== 'drive') { st.task = null; st.jackParked = true; staffSay(st, voice(st).brk, '#a0acb8'); staffGo(st, breakSpot(), 'break'); }
       if (!brk && st.state === 'break') st.state = 'idle';
       // the driver: at the forklift, climbs on; on it, the forklift does the walking and the figure sits on the seat
       if (st.state === 'mountFork') { if (!S.up.fork || driving || (staffDriving() && staffDriving() !== st) || dist2(player.x, player.z, S.fork.x, S.fork.z) < 6.5) { st.state = 'idle'; st.task = null; } else { if (S.fork.plugged) cableUnplugFork(st.name + ' drove off with the charger plugged in. The plug came out.'); st.jackParked = true; st.state = 'drive'; st.drive = { phase: st.task && st.task.park ? 'park' : st.task && st.task.held ? 'toSlot' : 'toPallet', path: null }; sfx('forklift'); } }   // a pallet already on the forks is the job
@@ -4201,7 +4430,7 @@
   function roleHasWork(role) {
     if (role === 'receiver') return S.trucks.some(function (t) { return t.dir === 'in' && t.state === 'docked' && t.signed && S.doors[doorIndex('in', t.dock)] && S.pallets.some(function (p) { return p.place === 'truck' && p.truck === t.id && p.n > 0; }); });
     if (role === 'picker') { var need = benchNeed(); for (var k in need) if (need[k] > 0 && slotsWith(k).some(function (q) { var sp = slotParse(q); return sp.l < RACK.top && sp.r !== UPPER.row; })) return true; return false; }   // stock a walker can reach, not the top level or the upper row
-    if (role === 'packer') { if (openOrders().some(canPack)) return true; var dk = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[doorIndex('out', x.dock)]; }); if (dk.length && S.bench.parcels.some(function (oid) { var oo = orderById(oid); return oo && dk.some(function (x) { return MODES[orderMode(oo)].door === doorIndex('out', x.dock); }); })) return true; return !!returnsJob(null); }   // a parcel counts only with the truck of its lane in
+    if (role === 'packer') { if (openOrders().some(canPack)) return true; var dk = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[doorIndex('out', x.dock)]; }); if (dk.length && S.bench.parcels.some(function (oid) { var oo = orderById(oid); return oo && dk.some(function (x) { return !lanesOn() || modeDoor(orderMode(oo)) === doorIndex('out', x.dock); }); })) return true; return !!returnsJob(null); }   // a parcel counts only with the truck of its lane in
     if (role === 'driver') return !!S.up.fork && !!driverJob();
     return false;
   }
@@ -4287,7 +4516,8 @@
   // like one figure with three jacks fanned out behind it (the jack parks behind its owner along their own heading)
   // the crew's jacks park in a row along the west wall north of the cart bay, one slot a jack by the owner's place in the line-up.
   // Until 1.18.0 a jack was left wherever its owner stood at clock-out, and three receivers' jacks ended up piled on one idle spot.
-  var JACK_HOME = { x: -HALL.x + 1.3, z0: 11.4, step: 1.5 };
+  var JACK_HOME = BOOT_STAGE === 0 ? { x: -3.9, z0: 4.1, step: 0 } : { x: -HALL.x + 1.3, z0: BOOT_STAGE >= 2 ? 11.4 : -2.0, step: 1.5 };   // the shed: one spot by the player's own jack; the small hall: along the west wall north of IN 1
+  function breakSpot() { return stageHas('rooms') ? { x: -HALL.x + 3.7 + randf(-1, 1), z: 2.8 - HALL.z + randf(-0.4, 0.4) } : { x: 2.6 + randf(-0.6, 0.6), z: 1.2 + randf(-0.3, 0.3) }; }   // the break room (z -21.2 in the big hall is 2.8 m in from the north wall), or by the shed table
   function hasJack(st) { return st.role === 'receiver' || st.cross === 'receiver'; }
   function jackRank(st, list) { var n = 0; list = list || S.staff; for (var i = 0; i < list.length; i++) { var o = list[i]; if (o === st) return n; if (hasJack(o)) n++; } return n; }
   function jackHome(st, list) { var k = jackRank(st, list); return { x: JACK_HOME.x, z: JACK_HOME.z0 + k * JACK_HOME.step, ry: -Math.PI / 2 }; }   // pointing west: the owner's stand is east of it, on open floor
@@ -4331,7 +4561,7 @@
     if (st.carry && st.carry.back) { carryBack(st); return; }
     if (st.carry) {
       staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true;
-      st.after = function () { if (!st.carry) return; if (benchCount() < ECON.benchCap) { benchAdd(st.carry.sku, 1); st.carry = null; sfx('putdown'); addXp(XP.box); } else { staffSay(st, voice(st).full, '#ff6b5e'); staffWait(st, 3); } st.task = null; };
+      st.after = function () { if (!st.carry) return; if (benchCount() < benchCapNow()) { benchAdd(st.carry.sku, 1); st.carry = null; sfx('putdown'); addXp(XP.box); } else { staffSay(st, voice(st).full, '#ff6b5e'); staffWait(st, 3); } st.task = null; };
       return;
     }
     var want = null;
@@ -4342,7 +4572,7 @@
       var sur = benchSurplus(), rsku = null; for (var sk in sur) if (sur[sk] > 0) { rsku = sk; break; }
       var rkey = rsku ? findSlotFor(rsku, 1, 1) : null;
       if (rkey && !S.staff.some(function (o) { return o !== st && o.task && o.task.kind === 'return'; })) { st.task = { kind: 'return', sku: rsku, key: rkey }; staffGo(st, benchSide(0), 'wait'); st.timer = 0.8; st.working = true; st.after = function () { if (benchTake(rsku, 1)) { st.carry = { kind: 'box', sku: rsku, back: rkey }; sfx('pickup'); } else st.task = null; }; return; }
-      idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 2.0, z: 2.6 }, { x: 0, z: -1.2 }, { x: -1.4, z: 0 })); return;
+      idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 2.0, z: SPOT.bench.z - 2.6 }, { x: 0, z: -1.2 }, { x: -1.4, z: 0 })); return;
     }
     st.task = { kind: 'pick', sku: want.sku, key: want.key };
     staffGo(st, slotStand(want.key), 'wait'); st.timer = 1.0; st.working = true;
@@ -4352,8 +4582,8 @@
     if (st.carry && st.carry.kind === 'return') { packerReturns(st, { kind: 'rdesk' }); return; }
     if (st.carry && st.carry.kind === 'box') { if (st.carry.bin) carryToBin(st); else if (st.carry.back) carryBack(st); else pickerThink(st); return; }
     if (st.carry && st.carry.kind === 'parcel') {
-      var co = orderById(st.carry.order), t = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[doorIndex('out', x.dock)] && (!co || MODES[orderMode(co)].door === doorIndex('out', x.dock)); })[0];   // the truck of the parcel's lane, never the wrong door
-      if (!t) { if (S.bench.parcels.length >= 12) { staffWait(st, 2); return; } staffGo(st, benchSide(2.3), 'wait'); st.timer = 0.7; st.working = true; st.after = function () { if (st.carry && st.carry.kind === 'parcel') { S.bench.parcels.push(st.carry.order); st.carry = null; sfx('putdown'); } }; return; }   // the truck has gone: back on the shelf, not held all shift
+      var co = orderById(st.carry.order), t = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && !x.van && S.doors[doorIndex('out', x.dock)] && (!co || !lanesOn() || modeDoor(orderMode(co)) === doorIndex('out', x.dock)); })[0];   // the truck of the parcel's lane, never the wrong door
+      if (!t) { if (S.bench.parcels.length >= shelfCap()) { staffWait(st, 2); return; } staffGo(st, benchSide(2.3), 'wait'); st.timer = 0.7; st.working = true; st.after = function () { if (st.carry && st.carry.kind === 'parcel') { S.bench.parcels.push(st.carry.order); st.carry = null; sfx('putdown'); } }; return; }   // the truck has gone: back on the shelf, not held all shift
       staffGo(st, { x: t.x + t.side * 1.6, z: t.z }, 'wait'); st.timer = 0.9; st.working = true;
       st.after = function () { if (!st.carry) return; var tt = truckById(t.id); var o = orderById(st.carry.order); if (tt && tt.state === 'docked' && o) { tt.parcels.push(o.id); o.state = 'loaded'; sfx('crate'); addXp(XP.ship); rebuildBoardSoon(); st.carry = null; } else { staffWait(st, 2); } };
       return;
@@ -4364,7 +4594,7 @@
       st.after = function () { if (canPack(packable)) { packOrder(packable); } };
       return;
     }
-    var docked = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && S.doors[doorIndex('out', x.dock)]; }), forLane = function (oid) { var oo = orderById(oid); return oo && docked.some(function (x) { return MODES[orderMode(oo)].door === doorIndex('out', x.dock); }); };
+    var docked = S.trucks.filter(function (x) { return x.dir === 'out' && x.state === 'docked' && !x.van && S.doors[doorIndex('out', x.dock)]; }), forLane = function (oid) { var oo = orderById(oid); return oo && docked.some(function (x) { return !lanesOn() || modeDoor(orderMode(oo)) === doorIndex('out', x.dock); }); };
     var truck = docked.length && S.bench.parcels.some(forLane) ? docked[0] : null;
     if (truck && S.bench.parcels.length) {
       staffGo(st, benchSide(2.3), 'wait'); st.timer = 0.7; st.working = true;
@@ -4372,26 +4602,28 @@
       return;
     }
     var rj = returnsJob(st); if (rj) { packerReturns(st, rj); return; }
-    idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 1.8, z: 7.4 }, { x: 0, z: 1.2 }, { x: -1.4, z: 0 }));
+    idleAt(st, spreadSpot(st, { x: SPOT.bench.x - 1.8, z: SPOT.bench.z + 2.2 }, { x: 0, z: 1.2 }, { x: -1.4, z: 0 }));
   }
   // ── The time clock ────────────────────────────────────────────────
   // Nobody is paid a flat wage. The crew clock in at the reader by the staff door when they arrive and clock out when
   // they leave; the day's pay at the day roll is their clocked hours at the hourly rate, with anything past ten hours at
   // time and a half. Punctuality is a trait: some are early, some drift in late, and a word puts them right for a while.
-  var RAMP_BOTTOM = { x: -HALL.x - 7.3, z: 22 }, SHIFT_START = 8;
+  var RAMP_BOTTOM = { x: -HALL.x - 7.3, z: SPOT.staffDoor.z }, SHIFT_START = 8;   // the foot of the ramp outside the staff door, whichever wall that is in
   // the staff options (1.14.0): a shift pattern, a training course, a raise that fixes timekeeping, a second role, a bigger crew at level 7
   var STAFF_SHIFTS = { early: { start: 6, end: 16 }, day: { start: 8, end: 18 }, late: { start: 12, end: 22 } }, TRAIN_PRICE = 400, CROSS_PRICE = 350, RAISE_PRICE = 250;
+  function staffOption(what) { return unlocked(what); }   // shifts, training, raise, cross: each on the ladder
   function shiftOf(st) { return STAFF_SHIFTS[st.shift] || STAFF_SHIFTS.day; }
   function shiftStart(st) { return shiftOf(st).start; }
   function hourly(st) { return STAFF_ROLES[st.role].wage / 10 * (st.raise ? 1.1 : 1); }
   function shiftEnd(st) { var e = shiftOf(st).end; return st.overtime ? Math.min(DAY_END, e + 2) : e; }
   function staffArrival(st) { return shiftStart(st) + (st.arriveOff || 0) / 60; }
-  function staffCap() { return S.level >= 7 ? 8 : 5; }
-  function staffTrain(st) { if (st.trained) return; if (S.bank < TRAIN_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-TRAIN_PRICE, 'Training course, ' + st.name); st.trained = true; sfx('cash'); toast(st.name + ' is trained: quicker on their feet and at every task', 'good'); logEvent(st.name + ' finished the ' + STAFF_ROLES[st.role].name.toLowerCase() + ' course', 'good'); }
-  function staffRaise(st) { if (st.raise) return; if (S.bank < RAISE_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-RAISE_PRICE, 'Raise for ' + st.name); st.raise = true; st.punct = 1; if ((st.arriveOff || 0) > 0) st.arriveOff = 0; sfx('cash'); staffSay(st, pick(['Cheers, boss.', 'I will not let you down.', 'Appreciated.']), '#5fd38d'); logEvent(st.name + ' got a raise: 10% more an hour, and on time from now on', 'good'); }
+  function staffCap() { return staffCapAt(S.level); }   // the ladder's heads by level (1.21.0)
+  function staffTrain(st) { if (st.trained) return; if (!unlocked('training')) { toast('Training courses come at level ' + UNLOCK.training + '.', 'bad'); return; } if (S.bank < TRAIN_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-TRAIN_PRICE, 'Training course, ' + st.name); st.trained = true; sfx('cash'); toast(st.name + ' is trained: quicker on their feet and at every task', 'good'); logEvent(st.name + ' finished the ' + STAFF_ROLES[st.role].name.toLowerCase() + ' course', 'good'); }
+  function staffRaise(st) { if (st.raise) return; if (!unlocked('raise')) { toast('Raises come at level ' + UNLOCK.raise + '.', 'bad'); return; } if (S.bank < RAISE_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-RAISE_PRICE, 'Raise for ' + st.name); st.raise = true; st.punct = 1; if ((st.arriveOff || 0) > 0) st.arriveOff = 0; sfx('cash'); staffSay(st, pick(['Cheers, boss.', 'I will not let you down.', 'Appreciated.']), '#5fd38d'); logEvent(st.name + ' got a raise: 10% more an hour, and on time from now on', 'good'); }
   // a new shift pattern starts tomorrow for anyone who has been in today (a day worker put on early at 16:00 used to clock out on the spot and drop what they held); someone not yet in today takes it now
-  function staffShiftCycle(st) { var order = ['day', 'early', 'late'], cur = st.shiftNext || st.shift || 'day', nx = order[(order.indexOf(cur) + 1) % 3], now = st.state === 'home' && !st.clocked && !st.clockedOutAt; if (now) { st.shift = nx; st.shiftNext = null; } else st.shiftNext = nx; var sh = STAFF_SHIFTS[nx]; sfx('click'); toast(st.name + ' moves to the ' + nx + ' shift' + (now ? '' : ' from tomorrow') + ' (' + fmtTime(sh.start) + ' to ' + fmtTime(sh.end) + ')', 'good'); logEvent(st.name + ' moves to the ' + nx + ' shift' + (now ? '' : ' from tomorrow')); }
+  function staffShiftCycle(st) { if (!unlocked('shifts')) { toast('Shift patterns come at level ' + UNLOCK.shifts + '.', 'bad'); return; } var order = ['day', 'early', 'late'], cur = st.shiftNext || st.shift || 'day', nx = order[(order.indexOf(cur) + 1) % 3], now = st.state === 'home' && !st.clocked && !st.clockedOutAt; if (now) { st.shift = nx; st.shiftNext = null; } else st.shiftNext = nx; var sh = STAFF_SHIFTS[nx]; sfx('click'); toast(st.name + ' moves to the ' + nx + ' shift' + (now ? '' : ' from tomorrow') + ' (' + fmtTime(sh.start) + ' to ' + fmtTime(sh.end) + ')', 'good'); logEvent(st.name + ' moves to the ' + nx + ' shift' + (now ? '' : ' from tomorrow')); }
   function staffCrossCycle(st) {
+    if (!unlocked('cross')) { toast('Second roles come at level ' + UNLOCK.cross + '.', 'bad'); return; }
     var roles = Object.keys(STAFF_ROLES).filter(function (r) { return r !== st.role && !(STAFF_ROLES[r].needs && !S.up[STAFF_ROLES[r].needs]); }); if (!roles.length) return;
     var i = roles.indexOf(st.cross || ''), next = i < 0 ? roles[0] : i + 1 < roles.length ? roles[i + 1] : null;
     if (next && !st.crossPaid) { if (S.bank < CROSS_PRICE) { toast('Not enough money.', 'bad'); return; } pay(-CROSS_PRICE, 'Cross-training, ' + st.name); st.crossPaid = true; }
@@ -4516,10 +4748,11 @@
   // every machine has a speed dial on its screen: 50 to 200 percent, kept per machine in S.speed
   var SPEED_STEPS = [0.5, 0.75, 1, 1.5, 2];
   function speedOf(key) { var v = S.speed && S.speed[key]; return typeof v === 'number' ? v : 1; }
-  function speedSteps() { return S.up.plantTune ? SPEED_STEPS.concat([2.5, 3]) : SPEED_STEPS; }   // the plant tune-up opens 250 and 300%
-  function speedCycle(key) { if (!S.speed) S.speed = {}; var steps = speedSteps(), i = steps.indexOf(speedOf(key)); S.speed[key] = steps[(i + 1) % steps.length]; sfx('click'); screenDirtyAll(); }
+  function speedSteps(key) { return S.up.plantTune || (key === 'sorter' && unlocked('deckTune')) ? SPEED_STEPS.concat([2.5, 3]) : SPEED_STEPS; }   // the plant tune-up opens 250 and 300%; the deck dial gets them at level 19 on its own (1.21.0)
+  function speedCycle(key) { if (!S.speed) S.speed = {}; var steps = speedSteps(key), i = steps.indexOf(speedOf(key)); S.speed[key] = steps[(i + 1) % steps.length]; sfx('click'); screenDirtyAll(); }
   function speedButton(sc, x, y, w, key, label) { var pct = Math.round(speedOf(key) * 100) + '%'; scButton(sc, x, y, w, 30, w < 80 ? pct : (label || 'SPD') + ' ' + pct, true, function () { speedCycle(key); }, '#78bdf5'); }
   function beltSpeedKey(b) { return b.speedKey || b.prop; }
+  function deckTier(b) { return b.speedKey === 'sorter' && unlocked('deckTier2') ? 1.5 : 1; }   // level 22: the deck belts run half as fast again (1.21.0)
   function defMachine(id, m) { m.id = id; m.lamps = null; MACH[id] = m; }
   var PROP_SPEED = {};   // prop id -> the dial and the rate its belt planes scroll with (a curve's segments share the prop's)
   function defBelt(id, b) { b.id = id; BELTS[id] = b; PROP_SPEED[b.prop] = { key: b.speedKey || b.prop, rate: b.rate || 1 }; }
@@ -4605,7 +4838,7 @@
       var ahead = Infinity;
       for (var i = 0; i < items.length; i++) {
         var it = items[i], max = Math.min(ahead - beltGapOf(it), L);
-        if (powered()) it.d = Math.min(it.d + BELT_SPEED * (b.rate || 1) * speedOf(beltSpeedKey(b)) * dt, max);   // rate: the deck belts run three times a floor belt
+        if (powered()) it.d = Math.min(it.d + BELT_SPEED * (b.rate || 1) * speedOf(beltSpeedKey(b)) * deckTier(b) * dt, max);   // rate: the deck belts run three times a floor belt; deckTier: half as fast again from level 22
         if (it.d >= L - 0.001 && sink) {
           var taken = false;
           if (sink.belt) taken = beltPush(sink.belt.id, it); else if (sink.machine && sink.machine.accept) taken = sink.machine.accept(it); else if (sink.slot && it.kind === 'box' && slotSpace(sink.slot, it.sku) > 0) { slotAdd(sink.slot, it.sku, 1); S.stats.putaway++; taken = true; }
@@ -4632,11 +4865,13 @@
   defMachine('taper', { prop: 'packline', inlet: [0, 2.0], outlet: [0, 3.8],
     accept: function (it) { var j = S.pack.job; if (!j || it.kind !== 'box' || !powered() || S.pack.jam) return false; j.inMach++; sfx('click'); return true; } });
   function packStatus() { if (!powered()) return 'off'; if (S.pack.jam) return 'jam'; return S.pack.job ? 'run' : 'idle'; }
+  function shelfCap() { return BOOT_STAGE === 0 ? 6 : 12; }   // parcels the shelf holds: six on the shed table, twelve on the rails
+  function shelfCount() { return S.bench.parcels.length; }
   function packOrder(o) {
     if (o.state !== 'open') return false;
-    var n = orderNeed(o); if (n.have < Math.ceil(n.tot / 2)) return false;
+    var n = orderNeed(o); if (n.have < Math.ceil(n.tot / 2)) return false; if (BOOT_STAGE === 0 && n.have < n.tot) return false;   // the shed packs whole orders only
     var boxes = []; o.lines.forEach(function (l) { l.packed = benchTake(l.sku, l.qty); for (var i = 0; i < l.packed; i++) boxes.push(l.sku); });
-    o.short = n.have < n.tot; o.state = 'packing'; S.pack.queue.push({ order: o.id, boxes: boxes, fed: 0, inMach: 0, t: 0 });
+    o.short = n.have < n.tot; o.state = 'packing'; S.pack.queue.push({ order: o.id, boxes: boxes, fed: 0, inMach: 0, t: 0, hand: BOOT_STAGE === 0 });
     sfx('click'); rebuildBoardSoon(); logEvent('Order #' + o.num + ' released to the pack line' + (o.short ? ' (short)' : ''));
     return true;
   }
@@ -4653,6 +4888,7 @@
     if (!P.job && P.queue.length) P.job = P.queue.shift();
     var j = P.job;
     if (j && !orderById(j.order)) { P.job = null; return; }
+    if (j && j.hand) { j.t += dt; if (j.t >= 4) { P.job = null; if (shelfCount() < shelfCap()) packFinish(j.order); else P.queue.unshift(j); } return; }   // by hand at the shed table: four seconds, no belt, no jam
     if (powered() && !P.jam && j) {
       // feed the next box onto the infeed every 1.3 s
       P.feedT += dt; if (j.fed < j.boxes.length && P.feedT >= 1.3 && beltPush('packIn', { kind: 'box', sku: j.boxes[j.fed] })) { j.fed++; P.feedT = 0; }
@@ -4662,7 +4898,7 @@
     if (P.out && powered() && !P.jam && beltPush('packOut', { kind: 'parcel', order: P.out })) P.out = null;
     // the outfeed end: the parcel drops onto the shelf when there is room
     var outs = beltItems('packOut'), L = beltLen(BELTS.packOut);
-    for (var i = outs.length - 1; i >= 0; i--) { if (outs[i].d >= L - 0.001 && S.bench.parcels.length < 12) { packFinish(outs[i].order); outs.splice(i, 1); } }
+    for (var i = outs.length - 1; i >= 0; i--) { if (outs[i].d >= L - 0.001 && shelfCount() < shelfCap()) { packFinish(outs[i].order); outs.splice(i, 1); } }
     lampSet(MACH.taper, packStatus());
   }
   function packPrompt() { if (S.pack.jam) return 'Clear the jam on the pack line'; if (!powered()) return 'Pack line · no power'; var j = S.pack.job; return 'Pack line · ' + (j ? 'packing order #' + (orderById(j.order) || { num: '?' }).num + ' · ' + j.inMach + '/' + j.boxes.length : S.pack.queue.length ? S.pack.queue.length + ' waiting' : 'idle') + ' · ' + S.pack.made + ' parcels made'; }
@@ -4672,7 +4908,7 @@
     var j = S.pack.job, o = j ? orderById(j.order) : null;
     scText(c, 16, 70, o ? 'Order #' + o.num + ' · ' + clientName(o.client) : 'No job', '#eef1f5', 16);
     scText(c, 16, 94, j ? 'Boxes in: ' + j.inMach + ' / ' + j.boxes.length + (j.inMach >= j.boxes.length ? ' · taping ' + Math.max(0, 3 - j.t).toFixed(1) + ' s' : '') : S.pack.queue.length + ' in the queue', '#a0acb8', 13);
-    scText(c, 16, 118, 'Parcels made: ' + S.pack.made + ' · shelf ' + S.bench.parcels.length + '/12', '#a0acb8', 13);
+    scText(c, 16, 118, 'Parcels made: ' + S.pack.made + ' · shelf ' + S.bench.parcels.length + '/' + shelfCap(), '#a0acb8', 13);
     if (S.pack.jam) scButton(sc, 16, 140, 150, 34, 'CLEAR JAM', true, function () { packUse(); }, '#ff6b5e');
     speedButton(sc, 176, 142, 108, 'packline'); if (speedOf('packline') > 1 && !S.up.plantAuto) scText(c, 176, 188, 'fast: jams more', '#ff6b5e', 10);
   }
@@ -4779,7 +5015,7 @@
   // boom pushes them into the trailer whenever a truck is docked with the door up. Nothing loads otherwise; the parcels queue on the belt.
   // the run past OUT 2 climbs 2.2 m so the dock apron under it stays clear for people and the forklift
   // the shelf feeds the shipping belt, which runs down the east wall to the dock loader at OUT 2; OUT 1 stays a manual dock
-  defBelt('shipBelt', { prop: 'shipBelt', path: [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -15.3], [0.4, -15.3], [0.4, -17.1]] });   // down the east wall, then in to the west face of the OUT 2 shipping bay (the build function carries the same path)
+  defBelt('shipBelt', { prop: 'shipBelt', path: SHIP_PATH });   // down the east wall, then in to the west face of the OUT 2 shipping bay (the build function carries the same path)
   // one loader a lane: OUT 2's comes with the shipping belt, OUT 1's and OUT 3's with the sortation deck (LOADER_DOORS is in the sorter part)
   function loaderAccept(id, door) { return function (it) {
     if (it.kind !== 'parcel' || !powered()) return false;
@@ -4881,14 +5117,14 @@
   // the south one just past row D, ramping south to the bench's west inlet; the north one just past row E, ramping north to a second inlet
   // the two feeders stay high along the row ends, turn in past row D and row E and meet hung over the lane at the merge point (26.6, 5.2);
   // from there one merge belt crosses the rest of the lane on rods and ramps down to bench height at the bench's north-west corner
-  var PICK_MERGE = { x: 26.6, z: 5.2 };
+  var PICK_MERGE = BOOT_STAGE === 2 ? { x: 22.6, z: 5.2 } : { x: 26.6, z: 5.2 };   // the hall (1.21.0): the bench itself stands at 26.6, so the merge point sits 4 m west of it and the merge belt runs east to the bench inlet
   var PB_S = (function () { var z0 = RACK.rows[0], yC = RACK.rows[2] - z0 + 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H, 'hang'], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();   // hung from the roof end to end: no legs in the walk round the rack ends
   var PB_N = (function () { var z0 = RACK.rows[RACK.rows.length - 1], yC = RACK.rows[3] - z0 - 0.8; return [[0, 0, PICK_H], [0, yC, PICK_H, 'hang'], [PICK_MERGE.x - 22, PICK_MERGE.z - z0, PICK_H, 'hang']]; })();
-  var PB_M = [[0, 0, PICK_H], [3.6, 0, PICK_H, 'hang'], [3.6, -1.6, 1.35, 'hang'], [3.6, -3.2, 0.2]];   // the drop is two runs: the upper one hangs high enough to walk under, so only its last 1.6 m stands on the floor beside the bench
+  var PB_M = BOOT_STAGE === 2 ? [[0, 0, PICK_H], [1.6, 0, PICK_H, 'hang'], [1.6, -1.6, 1.35, 'hang'], [1.6, -3.2, 0.2]] : [[0, 0, PICK_H], [3.6, 0, PICK_H, 'hang'], [3.6, -1.6, 1.35, 'hang'], [3.6, -3.2, 0.2]];   // the hall (1.21.0): the merge point is 4 m west of the bench, so the merge runs 1.6 m east and down to the inlet at the bench's north-west corner; the big halls: 3.6 m east across the lane to the bench at 32.6   // the drop is two runs: the upper one hangs high enough to walk under, so only its last 1.6 m stands on the floor beside the bench
   defBelt('pickMerge', { prop: 'pickMerge', path: PB_M, speedKey: 'pickBelt' });
   defBelt('pickBelt', { prop: 'pickBelt', path: PB_S });
   defBelt('pickBelt2', { prop: 'pickBelt2', path: PB_N, speedKey: 'pickBelt' });   // both pick belts share one dial
-  function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= ECON.benchCap) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
+  function benchAccept(it) { if (it.kind !== 'box') return false; if (benchCount() >= benchCapNow()) return false; benchAdd(it.sku, 1); sfx('putdown'); return true; }
   defMachine('benchIn', { prop: 'bench', inlets: [[-2.4, -3.2], [0, 2.3], [-1.1, 0], [1.1, 0.6], [1.1, -0.6]], accept: benchAccept });   // where the merge belt lands, and the bench's own ends and sides, so a run of pieces can feed it from any side
   for (var gr = 0; gr < RACK.rows.length; gr++) defMachine('gantry' + gr, { prop: 'gantry' + gr });
   function gantryBeltFor(r) { return r >= UPPER.row ? 'upperPick' : r >= 3 ? 'pickBelt2' : 'pickBelt'; }
@@ -4933,7 +5169,7 @@
     scText(c, 16, 70, G.sku ? 'Picking ' + skuName(G.sku) : G.paused ? 'Held: finishing nothing' : 'Watching the orders', '#eef1f5', 16);
     scText(c, 16, 94, pos + ' · trolley ' + G.x.toFixed(1) + ' m · hook ' + G.lift.toFixed(1) + ' m', '#a0acb8', 13);
     scText(c, 16, 118, 'Row ' + rowLetter(r) + ': ' + rs.n + ' boxes in ' + rs.slots + ' slots · picked ' + G.picked, '#a0acb8', 13);
-    scText(c, 16, 136, 'Belt ' + beltItems(gantryBeltFor(r)).length + ' · bench ' + benchCount() + '/' + ECON.benchCap, '#a0acb8', 13);
+    scText(c, 16, 136, 'Belt ' + beltItems(gantryBeltFor(r)).length + ' · bench ' + benchCount() + '/' + benchCapNow(), '#a0acb8', 13);
     speedButton(sc, 208, 152, 76, 'gantry' + r); scText(c, 212, 148, 'crane', '#6b7784', 9); speedButton(sc, 208, 116, 76, 'pickBelt'); scText(c, 212, 112, 'pick belt', '#6b7784', 9);
     scButton(sc, 16, 150, 80, 34, G.paused ? 'RESUME' : 'PAUSE', !G.paused, function () { G.paused = !G.paused; toast('Gantry ' + rowLetter(r) + (G.paused ? ' will hold after this pick' : ' running'), G.paused ? 'bad' : 'good'); }, G.paused ? '#5fd38d' : '#f5b53d');
     scButton(sc, 102, 150, 100, 34, 'RESET JOB', G.state !== 'idle', function () { if (G.state === 'idle') return; if (G.sku && /^(up|toDrop|lower|drop)$/.test(G.state)) { var back = G.key && slotSpace(G.key, G.sku) > 0 ? G.key : findSlotFor(G.sku, 1, 2); if (back) slotAdd(back, G.sku, 1); else S.floor.push({ kind: 'box', sku: G.sku, x: RACK.x0 + G.x, y: 0, z: RACK.rows[r] + 1.2, rot: 0 }); } G.sku = null; G.key = null; G.state = 'up'; sfx('hydraulic'); toast('Gantry ' + rowLetter(r) + ' dropped its job and is coming home', 'good'); }, '#ff6b5e');
@@ -5106,13 +5342,13 @@
     if (it.kind !== 'pallet') return false; var key = upperSlotFor(it.sku, it.n); if (!key) return false;
     slotAdd(key, it.sku, it.n); S.slots[key].pal = true; S.slots[key].wrapped = !!it.wrapped; S.stats.putaway += it.n; S.stats.upperIn = (S.stats.upperIn || 0) + 1; sfx('crate'); return true;
   } });
-  defProp('mezz', { label: 'mezzanine', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: mezzBuild, when: upperOwned });
-  defProp('lift', { label: 'goods lift', cat: 'hall', abs: true, keep: true, fixed: true, x: UPPER.lift.x, z: UPPER.lift.z, rot: 0, build: liftBuild, when: upperOwned });
-  defProp('rack5', { label: 'upper rack row', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: UPPER.rowZ, rot: 0, build: upperRackBuild, after: raiseToDeck, when: upperOwned });
-  defProp('gantry5', { label: 'upper gantry picker', cat: 'hall', abs: true, keep: true, fixed: true, x: -24, z: UPPER.rowZ, rot: 0, build: gantryBuild(UPPER.row), after: raiseToDeck, when: upperOwned });
-  defProp('upperFeed', { label: 'lift feed belt', cat: 'hall', abs: true, keep: true, fixed: true, x: UPPER.lift.x + 1.4, z: UPPER.lift.z, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperFeed.path); }, when: upperOwned });
-  defProp('upperPick', { label: 'upper pick belt', cat: 'hall', abs: true, keep: true, fixed: true, x: 22.0, z: UPPER.rowZ, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperPick.path); c.sign(['TO THE CHUTE'], 0.9, 0.14, 0.5, UPPER.y + 1.3, 3.8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }, when: upperOwned });
-  defProp('upperChute', { label: 'upper chute', cat: 'hall', abs: true, keep: true, fixed: true, x: 22.0, z: UPPER.z1 - 0.1, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperChute.path); c.sign(['DOWN TO THE PICK LINE'], 0.9, 0.14, 0.5, UPPER.y + 1.0, 0.6, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }, when: upperOwned });
+  defProp('mezz', { stage: 3, label: 'mezzanine', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, build: mezzBuild, when: upperOwned });
+  defProp('lift', { stage: 3, label: 'goods lift', cat: 'hall', abs: true, keep: true, fixed: true, x: UPPER.lift.x, z: UPPER.lift.z, rot: 0, build: liftBuild, when: upperOwned });
+  defProp('rack5', { stage: 3, label: 'upper rack row', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: UPPER.rowZ, rot: 0, build: upperRackBuild, after: raiseToDeck, when: upperOwned });
+  defProp('gantry5', { stage: 3, label: 'upper gantry picker', cat: 'hall', abs: true, keep: true, fixed: true, x: -24, z: UPPER.rowZ, rot: 0, build: gantryBuild(UPPER.row), after: raiseToDeck, when: upperOwned });
+  defProp('upperFeed', { stage: 3, label: 'lift feed belt', cat: 'hall', abs: true, keep: true, fixed: true, x: UPPER.lift.x + 1.4, z: UPPER.lift.z, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperFeed.path); }, when: upperOwned });
+  defProp('upperPick', { stage: 3, label: 'upper pick belt', cat: 'hall', abs: true, keep: true, fixed: true, x: 22.0, z: UPPER.rowZ, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperPick.path); c.sign(['TO THE CHUTE'], 0.9, 0.14, 0.5, UPPER.y + 1.3, 3.8, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }, when: upperOwned });
+  defProp('upperChute', { stage: 3, label: 'upper chute', cat: 'hall', abs: true, keep: true, fixed: true, x: 22.0, z: UPPER.z1 - 0.1, rot: 0, build: function (c) { conveyorPath(c, BELTS.upperChute.path); c.sign(['DOWN TO THE PICK LINE'], 0.9, 0.14, 0.5, UPPER.y + 1.0, 0.6, Math.PI / 2, { w: 256, h: 64, bg: '#1b232c', fg: '#5fd38d' }); }, when: upperOwned });
 
   function groundStock(sku) { var n = 0; for (var k in S.slots) { var s = S.slots[k]; if (s && s.n > 0 && s.sku === sku && slotParse(k).r !== UPPER.row) n += s.n; } return n; }
   function buildUpper() { ['mezz', 'lift', 'rack5', 'gantry5', 'upperFeed', 'upperPick', 'upperChute'].forEach(function (id) { buildProp(id); }); if (S.up.sorter) buildSorter(); else { beltsChanged(); if (!edit.on) { unbakeStatic(); bakeStatic(); } } }
@@ -5140,7 +5376,7 @@
     jack2: { x: 27.0, z: -23.0 },                           // jack 2's bay moves out from under the spirals to the north wall
     cellTime: { sea: 7, land: 4, air: 5 }
   };
-  var LOADER_DOORS = { dockLoader1: 2, dockLoader2: 3, dockLoader3: 4 };
+  var LOADER_DOORS = { dockLoader1: 2, dockLoader2: BOOT_STAGE < 2 ? 2 : 3, dockLoader3: 4 };   // the OUT 2 loader serves OUT 1 while that is the only outbound door (the small hall, 1.21.0)
   function sorterOwned() { return !!(S.up && S.up.sorter && S.up.upper); }
   function sortState() { if (!S.sort) S.sort = { cells: {}, table: [], scanned: 0, sorted: 0, count: { sea: 0, land: 0, air: 0 }, last: null, tableT: 0 }; var Z = S.sort; SORT.cells.forEach(function (c) { if (!Z.cells[c.mode]) Z.cells[c.mode] = { q: [], t: 0, made: 0 }; }); if (!Z.count) Z.count = { sea: 0, land: 0, air: 0 }; return Z; }
   // the helix: points every 22.5 degrees from angle a0, dir +1 anticlockwise seen from above, y from yTop to yBot; flagged so the belt builder leaves off legs and hangers
@@ -5218,7 +5454,7 @@
   // a three-lane gravity flow rack beside the loader, nine parcels, with a painted bay round it. The spirals and the shipping belt end
   // in the bays, never in the loaders; the loader takes from its bay, one parcel every second and a bit, while a truck of its lane
   // is docked with the door up. A parcel in a bay can be taken by hand. The bays are keyed by their loader in the save (S.stage).
-  var STAGE_CAP = 9, BAY = { x0: 33.4, len: 1.8, lanes: 3, deep: 3, pitch: 0.62, step: 0.6, h: 0.55, at: { dockLoader1: { prop: 'bay1', z0: -12.1 }, dockLoader2: { prop: 'bay2', z0: -4.1 }, dockLoader3: { prop: 'bay3', z0: -19.56 } } }, STAGE_AT = BAY.at, stageT = {};   // every bay on the open side of its loader
+  var STAGE_CAP = 9, BAY = { x0: HALL.x - 2.6, len: 1.8, lanes: 3, deep: 3, pitch: 0.62, step: 0.6, h: 0.55, at: { dockLoader1: { prop: 'bay1', z0: -12.1 }, dockLoader2: { prop: 'bay2', z0: (BOOT_STAGE < 2 && DOCKS.out[0] ? DOCKS.out[0].z : -6) + 1.9 }, dockLoader3: { prop: 'bay3', z0: -19.56 } } }, STAGE_AT = BAY.at, stageT = {};   // every bay on the open side of its loader, 2.6 m in from the east wall; OUT 2's bay stands by OUT 1 in the small hall
   function bayLoader(prop) { for (var id in BAY.at) if (BAY.at[id].prop === prop) return id; return null; }
   function stageOf(id) { if (!S.stage) S.stage = {}; if (!S.stage[id]) S.stage[id] = []; return S.stage[id]; }
   function stageSpot(id, i) { var a = BAY.at[id], lane = i % BAY.lanes, depth = Math.floor(i / BAY.lanes); return { x: BAY.x0 + BAY.len - 0.32 - depth * BAY.step, z: a.z0 + 0.31 + lane * BAY.pitch, y: BAY.h }; }
@@ -5240,9 +5476,9 @@
   }; }
   // the bays on the registry: a belt that ends at a bay's west face drops its parcel into the bay
   [['dockLoader1', 'bay1'], ['dockLoader2', 'bay2'], ['dockLoader3', 'bay3']].forEach(function (pr) { defMachine(pr[1], { prop: pr[1], inlets: [[0, 0.93]], accept: function (it) { if (it.kind !== 'parcel' || !powered()) return false; var o = orderById(it.order); if (!o) return true; if (!stagePush(pr[0], o.id)) return false; if (it.form && !o.form) o.form = it.form; sfx('putdown'); return true; } }); });
-  defProp('bay1', { label: 'shipping bay OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, x: BAY.x0, z: BAY.at.dockLoader1.z0, rot: 0, build: bayBuild('dockLoader1'), when: function () { return !!S.up.sorter; } });
-  defProp('bay2', { label: 'shipping bay OUT 2', cat: 'hall', abs: true, keep: true, fixed: true, x: BAY.x0, z: BAY.at.dockLoader2.z0, rot: 0, build: bayBuild('dockLoader2'), when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
-  defProp('bay3', { label: 'shipping bay OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, x: BAY.x0, z: BAY.at.dockLoader3.z0, rot: 0, build: bayBuild('dockLoader3'), when: function () { return !!S.up.sorter; } });
+  defProp('bay1', { label: 'shipping bay OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: BAY.x0, z: BAY.at.dockLoader1.z0, rot: 0, build: bayBuild('dockLoader1'), when: function () { return !!S.up.sorter; } });
+  defProp('bay2', { label: 'shipping bay OUT 2', cat: 'hall', abs: true, keep: true, fixed: true, stage: 1, x: BAY.x0, z: BAY.at.dockLoader2.z0, rot: 0, at: { 1: { x: BAY.x0, z: BAY.at.dockLoader2.z0, rot: 0 } }, build: bayBuild('dockLoader2'), when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
+  defProp('bay3', { label: 'shipping bay OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: BAY.x0, z: BAY.at.dockLoader3.z0, rot: 0, build: bayBuild('dockLoader3'), when: function () { return !!S.up.sorter; } });
   function tickStaging(dt) {
     for (var id in STAGE_AT) {
       var st = stageOf(id); if (!st.length || !propInst[id] || !powered()) { if (MACH[BAY.at[id].prop]) lampSet(MACH[BAY.at[id].prop], !powered() ? 'off' : 'idle'); continue; } var door = LOADER_DOORS[id], t = truckAtDoor(door); if (MACH[BAY.at[id].prop]) lampSet(MACH[BAY.at[id].prop], t && S.doors[door] ? 'run' : 'idle'); if (!t || !S.doors[door] || !doorPassable(door)) continue;
@@ -5332,11 +5568,11 @@
   function gateBuild(mode) { return function (c) {
     var DG = MAT_MACH.frame; c.box(0.3, 0.9, 0.3, DG, 0, 0.45, 0); c.box(0.5, 0.08, 0.5, DG, 0, 0.04, 0); var arm = c.box(0.9, 0.06, 0.06, MAT.yellow, 0.45, BELT_Y + 0.62, 0); arm.rotation.y = 0;
     c.box(0.06, 0.3, 0.5, std({ color: new THREE.Color(MODES[mode].col), roughness: 0.5 }), 0.9, BELT_Y + 0.62, 0); c.sign([MODES[mode].name.toUpperCase() + ' GATE'], 0.5, 0.14, 0, 1.05, 0.16, 0, { w: 256, h: 64, bg: '#1b232c', fg: MODES[mode].col });
-    c.hit(0.5, 1.2, 0.5, 0, 0.6, 0, { prompt: function () { return MODES[mode].name + ' gate · kicks ' + mode + ' parcels down the spiral to ' + dockLabel(MODES[mode].door); }, use: function () { sfx('click'); } }); c.solid(-0.2, 0.2, -0.2, 0.2, 0, 1.0);
+    c.hit(0.5, 1.2, 0.5, 0, 0.6, 0, { prompt: function () { return MODES[mode].name + ' gate · kicks ' + mode + ' parcels down the spiral to ' + dockLabel(modeDoor(mode)); }, use: function () { sfx('click'); } }); c.solid(-0.2, 0.2, -0.2, 0.2, 0, 1.0);
   }; }
   // ── The props ─────────────────────────────────────────────────────
   var SF = { cat: 'hall', abs: true, keep: true, fixed: true, rot: 0, when: sorterOwned };
-  function sdef(id, extra) { var d = { label: extra.label, cat: SF.cat, abs: SF.abs, keep: SF.keep, fixed: SF.fixed, rot: 0, when: SF.when, x: extra.x || 0, z: extra.z || 0, build: extra.build, after: extra.after }; defProp(id, d); }
+  function sdef(id, extra) { var d = { label: extra.label, cat: SF.cat, abs: SF.abs, keep: SF.keep, fixed: SF.fixed, stage: 3, rot: 0, when: SF.when, x: extra.x || 0, z: extra.z || 0, build: extra.build, after: extra.after }; defProp(id, d); }
   sdef('sortUp', { label: 'parcel spiral and overhead run', build: function (c) { conveyorPath(c, BELTS.sortUp.path); spiralDress(c, SORT.spiral.up.x, SORT.spiral.up.z, R, Y, 0); c.sign(['UP TO THE SORTER'], 0.9, 0.14, 31.4, 1.3, 15.9, 0, { w: 320, h: 64, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['PARCELS · TO THE DECK'], 1.2, 0.18, SORT.inX + 0.5, Y + 1.5, 0, Math.PI / 2, { w: 384, h: 64, bg: '#1b232c', fg: '#f5b53d' }); } });
   sdef('spine', { label: 'sorter spine', build: function (c) { conveyorPath(c, BELTS.spine.path); c.sign(['SORTER SPINE · KEEP CLEAR'], 1.6, 0.2, 10, Y + 1.5, SORT.spineZ + 0.5, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#f5b53d' }); } });
   sdef('collector', { label: 'collector and land spiral', build: function (c) { conveyorPath(c, BELTS.collector.path); spiralDress(c, SORT.spiral.land.x, SORT.spiral.land.z, R, Y, 0); c.sign(['LAND · DOWN TO OUT 2'], 1.0, 0.14, 29.95, Y + 1.2, -9.0, Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: MODES.land.col }); c.sign(['COLLECTOR · TO THE DOCKS'], 1.4, 0.18, 10, Y + 1.5, SORT.collZ + 0.5, 0, { w: 448, h: 64, bg: '#1b232c', fg: '#5fd38d' }); } });
@@ -5347,7 +5583,7 @@
   sdef('scanner', { label: 'scanner arch', x: SORT.inX, z: SORT.scanZ, build: scannerBuild, after: raiseToDeck });
   sdef('gateSea', { label: 'sea gate', x: SORT.collX - 0.7, z: SORT.gates.sea, build: gateBuild('sea'), after: raiseToDeck });
   sdef('gateAir', { label: 'air gate', x: SORT.collX - 0.7, z: SORT.gates.air, build: gateBuild('air'), after: raiseToDeck });
-  SORT.walk.forEach(function (w) { defProp(w.id, { label: 'step-over', cat: 'hall', abs: true, keep: true, fixed: true, x: w.x, z: w.z, rot: w.rot, build: walkoverBuild, after: function (ctx, P, inst) { raiseToDeck(ctx, P, inst); WALKOVERS[inst.id] = P; }, when: sorterOwned }); });
+  SORT.walk.forEach(function (w) { defProp(w.id, { label: 'step-over', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: w.x, z: w.z, rot: w.rot, build: walkoverBuild, after: function (ctx, P, inst) { raiseToDeck(ctx, P, inst); WALKOVERS[inst.id] = P; }, when: sorterOwned }); });
   // the deck's hole for the spirals and the railing gaps the belts pass through, read by the mezzanine build
   function sorterHoles() { return sorterOwned() ? [{ x0: SORT.well.x0, x1: SORT.well.x1, z0: SORT.well.z0, z1: SORT.well.z1 }] : []; }
   function sorterEdgeGaps() { var g = [[22 - 0.7, 22 + 0.7]]; if (sorterOwned()) g.push([SORT.collX - 0.7, 32.3]); return g; }   // the collector and the sea bridge cross the railing; the parcel run clears it by two metres
@@ -5411,13 +5647,13 @@
     if (propInst.retCage) { var ca = propPlacement('retCage').rot * Math.PI / 2, lv = [0.135, 0.755, 1.375]; D.shelf.forEach(function (b, i) { var w = propWorld('retCage', -1.4 + (i % 8) * 0.4, 0), base = lv[Math.min(2, Math.floor(i / 8))]; if (b.damaged) putBoxDamaged(b.sku, w.x, base, w.z, ca, { kind: 'rdesk', idx: i }); else putBox(b.sku, w.x, base + BOX.h / 2, w.z, ca, { kind: 'rdesk', idx: i }); }); }
   }
   // ── The fixtures ──
-  defProp('retBelt', { label: 'returns belt', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.beltX0, z: RET.beltZ, rot: 0, when: retWhen, build: function (c) {
+  defProp('retBelt', { label: 'returns belt', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.beltX0, z: RET.beltZ, rot: 0, when: retWhen, stage: 4, build: function (c) {
     conveyorPath(c, BELTS.retBelt.path);
     var mx = (RET.beltX1 - RET.beltX0) / 2; c.sign(['RETURNS IN'], 1.4, 0.3, mx, 2.4, 0.6, 0, { w: 448, h: 96, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['RETURNS IN'], 1.4, 0.3, mx, 2.4, -0.6, Math.PI, { w: 448, h: 96, bg: '#1b232c', fg: '#f5b53d' });
     c.cyl(0.02, 2.4, MAT.steelDark, mx, 1.2, 0.6, 8).castShadow = false; c.cyl(0.02, 2.4, MAT.steelDark, mx, 1.2, -0.6, 8).castShadow = false; c.box(0.03, 0.03, 1.2, MAT.steelDark, mx, 2.4, 0);
   } });
   // the intake: a roller table at the belt's end with a deep tray the returns queue in, a scanner post, the queue count on a screen
-  defProp('retIntake', { label: 'returns intake', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.intake.x, z: RET.intake.z, rot: 0, when: retWhen, build: function (c, P, inst) {
+  defProp('retIntake', { label: 'returns intake', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.intake.x, z: RET.intake.z, rot: 0, when: retWhen, stage: 4, build: function (c, P, inst) {
     var FR = MAT.steelDark, TOP = std({ color: 0x8f98a3, roughness: 0.45, metalness: 0.35 });
     c.box(1.6, 0.06, 0.9, TOP, 0, 0.83, 0); [[-0.72, -0.38], [0.72, -0.38], [-0.72, 0.38], [0.72, 0.38]].forEach(function (o) { c.box(0.05, 0.83, 0.05, FR, o[0], 0.415, o[1]); });
     for (var rx = -0.6; rx <= 0.6; rx += 0.15) { var rl = c.cyl(0.035, 0.84, MAT.steel, rx, 0.875, 0, 10); rl.rotation.x = Math.PI / 2; }   // rollers across the top
@@ -5427,9 +5663,9 @@
     c.sign(['INTAKE'], 0.7, 0.18, 0, 1.15, 0.47, 0, { w: 256, h: 72, bg: '#1b232c', fg: '#f5b53d' });
     c.solid(-0.85, 0.85, -0.5, 0.5, 0, 1.1); c.hit(1.8, 1.2, 1.1, 0, 0.6, 0, { prompt: function () { return retIntakePrompt(); }, use: function () { retIntakeUse(); } });
   } });
-  RET.desks.forEach(function (d, k) { defProp('retDesk' + k, { label: 'inspection desk ' + (k + 1), cat: 'hall', abs: true, keep: true, fixed: true, x: d.x, z: d.z, rot: 0, when: retWhen, build: returnsDeskBuildFor(k, 'INSPECTION ' + (k + 1)) }); });
+  RET.desks.forEach(function (d, k) { defProp('retDesk' + k, { label: 'inspection desk ' + (k + 1), cat: 'hall', abs: true, keep: true, fixed: true, x: d.x, z: d.z, rot: 0, when: retWhen, stage: 4, build: returnsDeskBuildFor(k, 'INSPECTION ' + (k + 1)) }); });
   // the restock cage: three mesh shelves between steel posts, 3.6 m wide, the boxes a worker takes back to the racks
-  defProp('retCage', { label: 'restock cage', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.cage.x, z: RET.cage.z, rot: 0, when: retWhen, build: function (c) {
+  defProp('retCage', { label: 'restock cage', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.cage.x, z: RET.cage.z, rot: 0, when: retWhen, stage: 4, build: function (c) {
     var FR = MAT.steelDark, MESH = std({ map: TEX.vmesh, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6, color: 0x6a737c }), W = 3.6, Dp = 0.9, H = 2.1;
     [[-W / 2, -Dp / 2], [W / 2, -Dp / 2], [-W / 2, Dp / 2], [W / 2, Dp / 2], [0, -Dp / 2], [0, Dp / 2]].forEach(function (o) { c.box(0.06, H, 0.06, FR, o[0], H / 2, o[1]); });
     [0.1, 0.72, 1.34, 1.96].forEach(function (y) { c.box(W, 0.04, Dp, MAT.steel, 0, y, 0); c.box(W, 0.04, 0.04, FR, 0, y, -Dp / 2); c.box(W, 0.04, 0.04, FR, 0, y, Dp / 2); });
@@ -5439,7 +5675,7 @@
     c.solid(-W / 2 - 0.05, W / 2 + 0.05, -Dp / 2 - 0.05, Dp / 2 + 0.05, 0, H);
   } });
   // the compactor: a steel body with a hopper mouth, a hydraulic ram housing on top, a hazard band and the SCRAP sign; the bin's own handlers
-  defProp('retCompactor', { label: 'cardboard compactor', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.compactor.x, z: RET.compactor.z, rot: 0, when: retWhen, build: function (c) {
+  defProp('retCompactor', { label: 'cardboard compactor', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.compactor.x, z: RET.compactor.z, rot: 0, when: retWhen, stage: 4, build: function (c) {
     var BODY = std({ color: 0x3b7a3e, roughness: 0.55, metalness: 0.45 }), FR = MAT.steelDark;
     c.box(1.8, 1.7, 1.3, BODY, 0, 0.85, 0); c.box(1.9, 0.08, 1.4, FR, 0, 0.04, 0); c.box(1.9, 0.08, 1.4, FR, 0, 1.74, 0);
     c.box(1.2, 0.5, 0.8, FR, 0, 2.03, -0.1); c.cyl(0.14, 0.5, MAT.chrome, 0, 2.53, -0.1, 14); c.cyl(0.1, 0.3, FR, 0, 2.93, -0.1, 12);   // the ram housing and its cylinder
@@ -5450,15 +5686,15 @@
     c.solid(-0.95, 0.95, -0.7, 0.7, 0, 2.6); c.hit(2.0, 1.8, 1.6, 0, 0.9, 0.2, { prompt: function () { return binPrompt(); }, use: function () { binUse(); } });
   } });
   // the dock console on the east wall south of the returns dock, like every other dock's: the door, the truck, the queue
-  defProp('consoleRet', { label: 'dock console RETURNS', cat: 'wall', abs: true, keep: true, fixed: true, x: HALL.x - 0.3, z: RET.dockZ + 3.4, rot: 3, when: retWhen, build: consoleBuild(6) });
+  defProp('consoleRet', { label: 'dock console RETURNS', cat: 'wall', abs: true, keep: true, fixed: true, x: HALL.x - 0.3, z: RET.dockZ + 3.4, rot: 3, when: retWhen, stage: 4, build: consoleBuild(6) });
   // the floor: zone names, the hazard round the compactor and the zebra from the doorway up to the inspection row
-  defProp('retPaint', { label: 'returns hall floor paint', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, build: function (c) {
+  defProp('retPaint', { label: 'returns hall floor paint', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, stage: 4, build: function (c) {
     var lbl = function (t, x, z, w, col, ry) { var m = c.plane(w, 0.42, new THREE.MeshBasicMaterial({ map: textTex([t], { w: 512, h: 96, bg: '#8b8d8e', fg: col || '#d9a12c' }) }), x, 0.0066, z, -Math.PI / 2, 0); if (ry) m.rotation.z = ry; };
     lbl('RECEIVING', 32.2, -31.2, 2.6); lbl('INSPECTION', 23.4, -36.1, 3.0); lbl('RESTOCK', 30.5, -41.3, 2.2, '#5fd38d'); lbl('SCRAP', 15.5, -41.1, 1.8, '#ff6b5e');
     var D = HALLS.hall2.door, dcx = (D.x0 + D.x1) / 2; for (var z = -27.8; z > -31.2; z -= 0.7) c.plane(1.2, 0.35, MAT.whiteLine, dcx, 0.0065, z, -Math.PI / 2, 0);   // the zebra from the doorway walkway up into the hall
     c.plane(0.1, 3.4, MAT.yellowLine, 17.2, 0.006, -37.6, -Math.PI / 2, 0); c.plane(0.1, 3.4, MAT.yellowLine, 29.6, 0.006, -37.6, -Math.PI / 2, 0); c.plane(12.5, 0.1, MAT.yellowLine, 23.4, 0.006, -35.9, -Math.PI / 2, 0); c.plane(12.5, 0.1, MAT.yellowLine, 23.4, 0.006, -39.3, -Math.PI / 2, 0);   // the inspection row's box: from the belt's side to behind the desks
   } });
-  defProp('retSign', { label: 'returns hall sign', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, build: function (c) {
+  defProp('retSign', { label: 'returns hall sign', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, stage: 4, build: function (c) {
     var H = HALLS.hall2;
     c.sign(['RETURNS', 'RECEIVE · INSPECT · RESTOCK · SCRAP'], 5.2, 1.3, (H.x0 + H.x1) / 2 + 4.5, 5.0, H.z0 + 0.19, 0, { w: 768, h: 192, bg: '#1b232c', fg: '#f5b53d', size: 72 });   // on the far wall, east of the hall's own name plate (x 16 to 20) and above the clock
     c.sign(['RETURNS DOCK', 'the belt takes the returns in while the door is up'], 2.6, 0.7, H.x1 - 0.2, 5.4, RET.dockZ, -Math.PI / 2, { w: 640, h: 160, bg: '#1b232c', fg: '#eef1f5' });
@@ -5493,7 +5729,7 @@
   }
   // ── Player ────────────────────────────────────────────────────────
   var player = { x: SPOT.spawn.x, y: 0, z: SPOT.spawn.z, yaw: -Math.PI / 2 - 0.4, pitch: 0, vy: 0, grounded: true, keys: {}, locked: false, tool: null, stepT: 0, bob: 0 };
-  var ui = { started: false, menuOpen: false, panelOpen: false, scanOpen: false, blocked: function () { return ui.menuOpen || ui.panelOpen; } };
+  var ui = { started: false, menuOpen: false, panelOpen: false, scanOpen: false, rebuilding: false, testing: false, rebuildPending: false, blocked: function () { return ui.menuOpen || ui.panelOpen || ui.rebuilding; } };   // rebuilding: the builders' fade is up and the page is about to reload
   var buff = { coffeeUntil: 0, coffeeDay: 0 };
   var focus = null, focusText = '';
 
@@ -5501,7 +5737,7 @@
     dyn.length = 0;
     S.pallets.forEach(function (p) { if (p.place !== 'floor') return; dyn.push({ x0: p.x - 0.65, x1: p.x + 0.65, z0: p.z - 0.65, z1: p.z + 0.65, y0: (p.y || 0) - 0.1, y1: (p.y || 0) + 0.3 + Math.ceil(p.n / 4) * BOX.h }); });
     S.trucks.forEach(function (t) {
-      if (t.state === 'gone') return; var b = trailerBounds(t), cabX0 = Math.min(t.x + t.side * TRAILER.len, t.x + t.side * (TRAILER.len + 3.2)), cabX1 = Math.max(t.x + t.side * TRAILER.len, t.x + t.side * (TRAILER.len + 3.2));
+      if (t.state === 'gone') return; var b = trailerBounds(t); if (t.van) { dyn.push({ x0: b.x0 - 1.8, x1: b.x1 + 0.1, z0: b.z0 - 0.1, z1: b.z1 + 0.1, y0: -2, y1: 3 }); return; }   /* the van is one block: nobody walks into it */ var cabX0 = Math.min(t.x + t.side * TRAILER.len, t.x + t.side * (TRAILER.len + 3.2)), cabX1 = Math.max(t.x + t.side * TRAILER.len, t.x + t.side * (TRAILER.len + 3.2));
       dyn.push({ x0: b.x0, x1: b.x1, z0: b.z0 - 0.12, z1: b.z0, y0: -2, y1: 3 }); dyn.push({ x0: b.x0, x1: b.x1, z0: b.z1, z1: b.z1 + 0.12, y0: -2, y1: 3 });
       var fx = t.x + t.side * TRAILER.len; dyn.push({ x0: fx - 0.08, x1: fx + 0.08, z0: b.z0, z1: b.z1, y0: -2, y1: 3 });
       dyn.push({ x0: cabX0, x1: cabX1, z0: t.z - 1.3, z1: t.z + 1.3, y0: -2, y1: 3 });
@@ -5616,12 +5852,12 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.code === 'F12') { e.preventDefault(); if (ui.started) screenshot(); return; }
-    if (e.code === 'F8') { e.preventDefault(); if (ui.started) { if (ui.panelOpen && panel.kind === 'dev') closePanel(); else openPanel('dev'); } return; }
+    if (e.code === 'KeyD' && e.ctrlKey && e.shiftKey) { e.preventDefault(); devLinkToggle(); return; }   // the dev console link (1.21.0; the F8 panel is gone)
     if (e.code === 'F3') { e.preventDefault(); SET.fps = !SET.fps; $('h-fps').hidden = !SET.fps; saveSettings(); return; }
     var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT');
     if (typing && e.code !== 'Escape') return;
     if (!ui.started) return;
-    if (reportT > 0) hideDayReport();
+    if (reportT > 0) hideDayReport(); if (levelT > 0) hideLevelCard();
     if (e.code === 'F9') { e.preventDefault(); photoToggle(); return; }
     if (e.code === 'Escape') { e.preventDefault(); if (photo.on) { photoToggle(false); return; } if (pc.on) { closePc(); return; } if (edit.on && edit.grabbed) { editDrop(true); return; } if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
     if (ui.blocked()) return;
@@ -5654,6 +5890,8 @@
   // ── The office PC ─────────────────────────────────────────────────
   var pc = { on: false, app: 'home', scroll: 0, saved: null, look: { yaw: 0, pitch: 0 }, screen: null };
   var PC_APPS = [['home', '🏠', 'Desktop'], ['orders', '📦', 'Orders'], ['contracts', '📝', 'Contracts'], ['shop', '🛒', 'Shop'], ['staff', '👷', 'Staff'], ['bank', '🏦', 'Bank'], ['stock', '🗄', 'Stock'], ['factory', '🏭', 'Production'], ['plant', '⚙', 'Plant'], ['stats', '📊', 'Stats']];
+  var APP_LVL = { contracts: 'contracts', bank: 'loan', factory: 'raw', plant: 'scanPlant' };   // the apps the ladder installs later (1.21.0)
+  function pcApps() { return PC_APPS.filter(function (a) { return !APP_LVL[a[0]] || unlocked(APP_LVL[a[0]]); }); }
   // every machine on one page: status, dial, and the one button each has on its own screen (pause, clear a jam, start, eject, bale, hold)
   function plantRows() {
     var rows = [], pct = function (key) { return Math.round(speedOf(key) * 100) + '%'; };
@@ -5707,8 +5945,8 @@
     scBg(c, w, h, 'rgba(120,189,245,0.18)');
     // the taskbar
     c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(0, h - 84, w, 84);   // two rows of five since the Plant app: ten in one row left the last one a sliver
-    var perRow = Math.ceil(PC_APPS.length / 2), bw = Math.floor((w - 16 - 8 * (perRow - 1)) / perRow);
-    PC_APPS.forEach(function (a, i) { var row = Math.floor(i / perRow), col = i % perRow; scButton(sc, 8 + col * (bw + 8), h - 80 + row * 40, bw, 34, a[1] + ' ' + a[2], pc.app === a[0], function () { pc.app = a[0]; pc.scroll = 0; }, '#78bdf5'); });
+    var apps = pcApps(), perRow = Math.ceil(apps.length / 2), bw = Math.floor((w - 16 - 8 * (perRow - 1)) / perRow); if (!apps.some(function (a) { return a[0] === pc.app; })) pc.app = 'home';
+    apps.forEach(function (a, i) { var row = Math.floor(i / perRow), col = i % perRow; scButton(sc, 8 + col * (bw + 8), h - 80 + row * 40, bw, 34, a[1] + ' ' + a[2], pc.app === a[0], function () { pc.app = a[0]; pc.scroll = 0; }, '#78bdf5'); });
     c.fillStyle = '#a0acb8'; c.font = '12px Bahnschrift, Arial'; c.textAlign = 'right'; c.fillText('Day ' + S.day + ' · ' + fmtTime(S.time), w - 10, 14); c.textAlign = 'left';
     var app = pc.app;
     if (app === 'home') {
@@ -5723,15 +5961,16 @@
       S.shipped.slice(0, 6).forEach(function (s) { rows.push({ text: 'shipped #' + s.num + '  ' + clientName(s.client) + (s.late ? '  late' : '') + (s.short ? '  short' : ''), sub: 'day ' + s.day, right: money(s.paid), rcol: '#5fd38d', col: '#a0acb8' }); });
       pcRows(sc, rows, 60, 46);
     } else if (app === 'contracts') {
-      scHead(c, w, 'CONTRACTS'); var ct = S.contract, rows2 = [];
-      if (!ct) rows2.push({ text: 'No offer on the table', sub: S.level < 3 ? 'Reach level 3 and the clients start asking.' : 'Next offer around day ' + S.nextOffer + '.' });
-      else if (!ct.accepted) { rows2.push({ text: clientName(ct.client) + ' offers a contract', sub: ct.need + ' orders on time by ' + dueText(ct.until) + ' · bonus ' + money(ct.bonus) + ' · penalty ' + money(ct.penalty), btn: { label: 'ACCEPT', on: true, act: function () { contractAccept(); }, col: '#5fd38d' }, hi: true }); rows2.push({ text: 'Decline', sub: 'The next offer comes in a couple of days.', btn: { label: 'DECLINE', on: false, act: function () { contractDecline(); } } }); }
-      else rows2.push({ text: clientName(ct.client) + ' · ' + ct.done + ' of ' + ct.need + ' on time', sub: 'until ' + dueText(ct.until) + ' · bonus ' + money(ct.bonus) + ' · penalty ' + money(ct.penalty), right: Math.round(100 * ct.done / ct.need) + '%', hi: true });
+      scHead(c, w, 'CONTRACTS', unlocked('twoContracts') ? 'two at once' : undefined); var rows2 = [];
+      if (!contractsAll().length) rows2.push({ text: 'No offer on the table', sub: !unlocked('contracts') ? 'Reach level ' + UNLOCK.contracts + ' and the clients start asking.' : 'Next offer around day ' + S.nextOffer + '.' });
+      contractSlots().forEach(function (k) { var ct = S[k]; if (!ct) return;
+        if (!ct.accepted) { rows2.push({ text: clientName(ct.client) + ' offers a ' + (ct.long ? 'long ' : '') + 'contract', sub: ct.need + ' orders on time by ' + dueText(ct.until) + ' · bonus ' + money(ct.bonus) + ' · penalty ' + money(ct.penalty), btn: { label: 'ACCEPT', on: true, act: function () { contractAccept(k); }, col: '#5fd38d' }, hi: true }); rows2.push({ text: 'Decline', sub: 'The next offer comes in a couple of days.', btn: { label: 'DECLINE', on: false, act: function () { contractDecline(k); } } }); }
+        else rows2.push({ text: clientName(ct.client) + ' · ' + ct.done + ' of ' + ct.need + ' on time', sub: 'until ' + dueText(ct.until) + ' · bonus ' + money(ct.bonus) + ' · penalty ' + money(ct.penalty), right: Math.round(100 * ct.done / ct.need) + '%', hi: true }); });
       rows2.push({ text: 'How it works', sub: 'Every order of theirs shipped on time in the window counts. Miss the number and the penalty is taken. Contract clients order more while it runs.', col: '#a0acb8' });
       pcRows(sc, rows2, 60, 50);
     } else if (app === 'shop') {
       scHead(c, w, 'SHOP', money(S.bank) + ' · level ' + S.level);
-      var rows3 = UPGRADES.map(function (u) { var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[u.id]; var needs = rowN && S.up.rows < rowN - 1 ? 'needs the previous row' : u.needs && !S.up[u.needs] ? 'needs ' + upgradeName(u.needs).toLowerCase() : S.level < u.lvl ? 'level ' + u.lvl : S.bank < u.price ? 'not enough money' : ''; return { text: u.name + (owned ? '  ·  owned' : ''), sub: (needs ? needs + ' · ' : '') + u.desc, right: money(u.price), btn: owned ? null : { label: !needs ? 'BUY' : needs === 'not enough money' ? 'NO MONEY' : 'LOCKED', on: !needs, act: function () { if (!needs) buyUpgrade(u.id); }, col: '#5fd38d' } }; });
+      var rows3 = UPGRADES.filter(shopShows).map(function (u) { var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[u.id]; var needs = rowN && S.up.rows < rowN - 1 ? 'needs the previous row' : u.needs && !S.up[u.needs] ? 'needs ' + upgradeName(u.needs).toLowerCase() : S.level < u.lvl ? 'level ' + u.lvl : S.bank < u.price ? 'not enough money' : ''; return { text: u.name + (owned ? '  ·  owned' : ''), sub: (needs ? needs + ' · ' : '') + u.desc, right: money(u.price), btn: owned ? null : { label: !needs ? 'BUY' : needs === 'not enough money' ? 'NO MONEY' : 'LOCKED', on: !needs, act: function () { if (!needs) buyUpgrade(u.id); }, col: '#5fd38d' } }; });
       pcRows(sc, rows3, 60, 50);
     } else if (app === 'staff') {
       scHead(c, w, 'STAFF', S.staff.length + ' of ' + staffCap() + ' · ' + comfortText());
@@ -5751,9 +5990,9 @@
     } else if (app === 'bank') {
       scHead(c, w, 'BANK', money(S.bank));
       var rows5 = [
-        { text: 'Loan', sub: S.loan > 0 ? money(S.loan) + ' outstanding · 1.5% a day (' + money(Math.round(S.loan * 0.015)) + ')' : 'Borrow $5,000 at 1.5% a day from level 2. Repay when you can.', right: S.loan > 0 ? money(S.loan) : '', btn: S.loan > 0 ? { label: 'REPAY', on: S.bank > 0, act: function () { var amt = Math.min(S.loan, Math.max(0, S.bank)); if (amt > 0) { S.loan -= amt; pay(-amt, 'Loan repayment'); sfx('cash'); toast('Repaid ' + money(amt), 'good'); } }, col: '#5fd38d' } : { label: 'BORROW', on: S.level >= 2, act: function () { if (S.level >= 2 && S.loan <= 0) { S.loan = 5000; pay(5000, 'Bank loan'); sfx('cash'); toast('$5,000 in the bank. 1.5% a day.', 'good'); } }, col: '#f5b53d' } },
-        { text: 'Theft insurance', sub: '$40 a day. Pays 80% of the value of anything that walks off at night.', right: S.insured ? 'insured' : '', btn: { label: S.insured ? 'CANCEL' : 'INSURE', on: !S.insured, act: function () { S.insured = !S.insured; toast(S.insured ? 'Insured from tonight' : 'Insurance cancelled', ''); }, col: '#78bdf5' } },
-        { text: 'Earned ' + money(S.stats.earned) + '  ·  spent ' + money(S.stats.spent) + '  ·  fines ' + money(S.stats.fines), sub: 'daily costs: rent ' + money(ECON.rent) + ' + the crew by the hour' + (S.insured ? ' + $40 insurance' : '') + (S.loan ? ' + loan interest' : ''), col: '#a0acb8' }
+        { text: 'Loan', sub: S.loan > 0 ? money(S.loan) + ' outstanding · 1.5% a day (' + money(Math.round(S.loan * 0.015)) + ')' : 'Borrow $5,000 at 1.5% a day from level ' + UNLOCK.loan + '. Repay when you can.', right: S.loan > 0 ? money(S.loan) : '', btn: S.loan > 0 ? { label: 'REPAY', on: S.bank > 0, act: function () { var amt = Math.min(S.loan, Math.max(0, S.bank)); if (amt > 0) { S.loan -= amt; pay(-amt, 'Loan repayment'); sfx('cash'); toast('Repaid ' + money(amt), 'good'); } }, col: '#5fd38d' } : { label: 'BORROW', on: unlocked('loan'), act: function () { if (unlocked('loan') && S.loan <= 0) { S.loan = 5000; pay(5000, 'Bank loan'); sfx('cash'); toast('$5,000 in the bank. 1.5% a day.', 'good'); } }, col: '#f5b53d' } },
+        { text: 'Theft insurance', sub: '$40 a day. Pays 80% of the value of anything that walks off at night.' + (unlocked('insurance') ? '' : ' From level ' + UNLOCK.insurance + '.'), right: S.insured ? 'insured' : '', btn: { label: S.insured ? 'CANCEL' : 'INSURE', on: S.insured || unlocked('insurance'), act: function () { if (!S.insured && !unlocked('insurance')) return; S.insured = !S.insured; toast(S.insured ? 'Insured from tonight' : 'Insurance cancelled', ''); }, col: '#78bdf5' } },
+        { text: 'Earned ' + money(S.stats.earned) + '  ·  spent ' + money(S.stats.spent) + '  ·  fines ' + money(S.stats.fines), sub: 'daily costs: rent ' + money(stageRent()) + ' + the crew by the hour' + (S.insured ? ' + $40 insurance' : '') + (S.loan ? ' + loan interest' : ''), col: '#a0acb8' }
       ];
       S.ledger.slice(0, 8).forEach(function (l) { rows5.push({ text: l.why, sub: 'day ' + l.day + ' · ' + l.t, right: money(l.n), rcol: l.n < 0 ? '#ff6b5e' : '#5fd38d', col: '#a0acb8' }); });
       pcRows(sc, rows5, 60, 48);
@@ -5767,7 +6006,7 @@
         { text: 'Hopper: ' + F.raw + ' / ' + HOPPER_CAP + ' units of raw granulate', sub: 'A pallet of 8 sacks is ' + 8 * RAW_PER_SACK + ' units, one unit a box. Tip pallets in at the hopper in the production wing.', right: F.rawOrdered ? F.rawOrdered + ' on order' : '', btn: { label: 'ORDER $' + ECON.rawPrice, on: S.bank >= ECON.rawPrice, act: function () { if (S.bank < ECON.rawPrice) { sfx('bad'); return; } pay(-ECON.rawPrice, 'Raw granulate, one pallet'); F.rawOrdered++; sfx('cash'); toast('A pallet of raw granulate comes with the next inbound truck', 'good'); } } },
         { text: 'Moulding line: ' + (F.on ? 'running' : 'stopped') + ' · ' + skuName(F.product), sub: FACTORY_RATE + ' s a box · made ' + F.made + ' so far · boxes go by belt to the palletiser in the hall', btn: { label: F.on ? 'STOP' : 'START', on: true, act: function () { moulderUse(); }, col: F.on ? '#ff6b5e' : '#5fd38d' } }
       ];
-      ownSkus().forEach(function (s) { rowsF.push({ sw: s.col, text: s.name + ' · ' + money(s.val) + ' a box to the clients', sub: 'in stock ' + stockCount(s.id) + (s.tier > tierFor(S.level) ? ' · clients ask for it from level ' + (s.tier === 2 ? 2 : 4) : ''), btn: { label: F.product === s.id ? 'SELECTED' : 'SELECT', on: F.product !== s.id, act: function () { F.product = s.id; sfx('click'); } } }); });
+      ownSkus().forEach(function (s) { rowsF.push({ sw: s.col, text: s.name + ' · ' + money(s.val) + ' a box to the clients', sub: 'in stock ' + stockCount(s.id) + (!skuOpen(s) ? ' · clients ask for it from level ' + s.lvl : ''), btn: { label: F.product === s.id ? 'SELECTED' : 'SELECT', on: F.product !== s.id, act: function () { F.product = s.id; sfx('click'); } } }); });
       rowsF.push({ text: 'Baler: ' + S.baler.card + ' / ' + BALE_NEED + ' cardboard · ' + S.baler.bales + ' bales waiting · ' + S.baler.made + ' made', sub: 'Binned boxes and packing offcuts fill it. Outbound trucks take bales at ' + money(BALE_PRICE) + ' each. Wrapper film left: ' + S.wrap.film + '.', col: '#a0acb8' });
       rowsF.push({ text: 'Pallets finished by the palletiser: ' + (S.stats.palletised || 0) + ' · parcels off the pack line: ' + S.pack.made, sub: 'Finished pallets drop beside the palletiser; rack them like any delivery. Clients start ordering your own goods once they have seen them.', col: '#a0acb8' });
       pcRows(sc, rowsF, 60, 50);
@@ -5845,8 +6084,9 @@
       // a truck about to go with work still to do: an inbound one in its last hour with pallets aboard, an outbound one at a manual dock with parcels of its lane packed and not loaded (a loader or the deck takes those by itself)
       S.trucks.forEach(function (t) { if (t.state !== 'docked') return; var di = doorIndex(t.dir, t.dock);
         if (t.dir === 'in') { var left = S.pallets.filter(function (p) { return p.place === 'truck' && p.truck === t.id && p.n > 0; }).length; if (left && S.time >= t.leave - 1) al.push([dockLabel(di) + ' truck leaves ' + fmtTime(t.leave) + ' · ' + left + ' pallet' + (left > 1 ? 's' : '') + ' aboard', 'whatever is still on it goes back unpaid', scanDoorNav(di)]); }
-        else if (t.dir === 'out' && !sorterOwned() && !(S.up.shipbelt && di === 3)) { var wait = S.orders.filter(function (o) { return o.state === 'packed' && orderMode(o) === t.mode; }).length; if (wait) al.push([wait + ' ' + t.mode + ' parcel' + (wait > 1 ? 's' : '') + ' not on the ' + dockLabel(di) + ' truck', 'it leaves ' + fmtTime(t.leave) + ' · the parcels are on the shelf, the floor or the cart', scanPropNav('packline', 'Parcel shelf')]); } });
-      if (S.contract && !S.contract.accepted) al.push(['Contract offer from ' + clientName(S.contract.client), S.contract.need + ' orders on time by ' + dueText(S.contract.until) + ' for ' + money(S.contract.bonus) + ' · Enter accepts, the PC declines', scanPropNav('desk', 'Office PC'), { label: 'ACCEPT', run: function () { contractAccept(); } }]);
+        else if (t.dir === 'out' && !sorterOwned() && !(S.up.shipbelt && di === LOADER_DOORS.dockLoader2)) { var wait = S.orders.filter(function (o) { return o.state === 'packed' && (!lanesOn() || orderMode(o) === t.mode); }).length; if (wait) al.push([wait + ' ' + t.mode + ' parcel' + (wait > 1 ? 's' : '') + ' not on the ' + dockLabel(di) + ' truck', 'it leaves ' + fmtTime(t.leave) + ' · the parcels are on the shelf, the floor or the cart', scanPropNav('packline', 'Parcel shelf')]); } });
+      var cof = contractOffer(); if (cof) al.push(['Contract offer from ' + clientName(cof.client), cof.need + ' orders on time by ' + dueText(cof.until) + ' for ' + money(cof.bonus) + ' · Enter accepts, the PC declines', scanPropNav(unlocked('pc') ? 'desk' : 'bench', unlocked('pc') ? 'Office PC' : 'The paperwork'), { label: 'ACCEPT', run: function () { contractAccept(); } }]);
+      if (S.siteDue > S.site) al.push(['The builders are booked: ' + stageName(S.siteDue).toLowerCase(), 'the building grows at the day roll: sleep, or let the clock run past midnight', scanPropNav('cot', 'The cot')]);
       if (propInst.wrapper && S.wrap && S.wrap.film <= 2) al.push(['Wrapper film ' + (S.wrap.film ? 'nearly out: ' + S.wrap.film + ' left' : 'finished'), 'a new roll is ' + money(FILM_PRICE) + ' on the wrapper screen', scanPropNav('wrapper', 'Stretch wrapper')]);
       if (S.pack && S.pack.jam) al.push(['Pack line jammed', 'Enter clears the jam from here', scanPropNav('packline', 'Pack line'), { label: 'CLEAR', run: function () { packUse(); } }]);
       if (S.factory && S.factory.jam) al.push(['Moulding line jammed', 'Enter clears the jam from here', scanPropNav('moulder', 'Moulding line'), { label: 'CLEAR', run: function () { moulderUse(); } }]);
@@ -5865,7 +6105,7 @@
       os.forEach(function (o) {
         var ln = scanLane(o), first = null;
         if (o.state === 'open') o.lines.forEach(function (l) { if (first) return; var have = Math.min(l.qty, S.bench.boxes[l.sku] || 0); if (have < l.qty) { var k = scanPickSlot(l.sku); if (k) first = scanSlotNav(k, skuName(l.sku) + ' for #' + o.num + ' · ' + slotName(k)); } });
-        rows.push({ text: '#' + o.num + ' ' + clientName(o.client).slice(0, 18) + (o.rush ? ' RUSH' : ''), sub: ln.tag + ' · ' + dockLabel(MODES[orderMode(o)].door) + ' · due ' + dueText(o.due) + (o.late ? ' LATE' : '') + ' · ' + money(o.pay) + (o.state !== 'open' ? ' · ' + o.state.toUpperCase() : ''), right: o.state === 'open' ? o.lines.reduce(function (a, l) { return a + Math.min(l.qty, S.bench.boxes[l.sku] || 0); }, 0) + '/' + o.lines.reduce(function (a, l) { return a + l.qty; }, 0) : '', col: o.late || o.rush ? '#ff6b5e' : o.state === 'packed' ? '#5fd38d' : '#eef1f5', sw: ln.col, nav: first, hi: o.state === 'packed', act: o.state === 'open' ? { label: 'PACK', on: canPack(o) && powered(), why: !powered() ? 'No power.' : 'Not every box is on the bench yet.', run: function () { packOrder(o); } } : null });
+        rows.push({ text: '#' + o.num + ' ' + clientName(o.client).slice(0, 18) + (o.rush ? ' RUSH' : ''), sub: (lanesOn() ? ln.tag + ' · ' : '') + dockLabel(modeDoor(orderMode(o))) + ' · due ' + dueText(o.due) + (o.late ? ' LATE' : '') + ' · ' + money(o.pay) + (o.state !== 'open' ? ' · ' + o.state.toUpperCase() : ''), right: o.state === 'open' ? o.lines.reduce(function (a, l) { return a + Math.min(l.qty, S.bench.boxes[l.sku] || 0); }, 0) + '/' + o.lines.reduce(function (a, l) { return a + l.qty; }, 0) : '', col: o.late || o.rush ? '#ff6b5e' : o.state === 'packed' ? '#5fd38d' : '#eef1f5', sw: ln.col, nav: first, hi: o.state === 'packed', act: o.state === 'open' ? { label: 'PACK', on: canPack(o) && powered(), why: !powered() ? 'No power.' : 'Not every box is on the bench yet.', run: function () { packOrder(o); } } : null });
         if (o.state === 'open') o.lines.forEach(function (l) { var have = Math.min(l.qty, S.bench.boxes[l.sku] || 0), k = have < l.qty ? scanPickSlot(l.sku) : null; rows.push({ text: '   ' + skuName(l.sku), sub: '   ' + (have >= l.qty ? 'on the bench' : k ? slotName(k) : stockCount(l.sku) ? 'top level only: forklift' : 'not in stock'), right: have + '/' + l.qty, col: have >= l.qty ? '#5fd38d' : '#a0acb8', sw: SKU[l.sku].col, nav: k ? scanSlotNav(k, skuName(l.sku) + ' · ' + slotName(k)) : null }); });
       });
       var rts = returnsPending(); if (rts.length) { rows.push({ text: 'Returns · ' + rts.length, sub: 'to ' + scanReturnsWhere() + ' · ' + money(RETURNS.fee) + ' a return and ' + money(RETURNS.perBox) + ' a box', col: '#f5b53d', nav: scanReturnsNav() }); rts.forEach(function (r) { var pl = returnPlace(r.id), nav = null; if (pl === 'truck') { var tt = S.trucks.filter(function (x) { return (x.returns || []).indexOf(r.id) >= 0; })[0]; if (tt) nav = scanDoorNav(doorIndex(tt.dir, tt.dock)); } else if (pl === 'floor') { var ff = S.floor.filter(function (f) { return f.kind === 'return' && f.id === r.id; })[0]; if (ff) nav = { x: ff.x, z: ff.z, y: 0, label: 'Return #' + r.num }; } else if (pl === 'desk' || pl === 'inspecting' || pl === 'belt') nav = scanReturnsNav(); rows.push({ text: '   #' + r.num + ' ' + clientName(r.client).slice(0, 16), sub: '   ' + r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r), right: pl === 'inspecting' ? 'INSPECTING' : '', col: r.late ? '#ff6b5e' : '#a0acb8', sw: MODES[r.mode] ? MODES[r.mode].col : null, nav: nav }); }); }
@@ -5891,13 +6131,14 @@
       if (!keys.length) rows.push({ text: 'The racks are empty', sub: 'the first truck is due at ' + fmtTime(TRUCK_IN[0]), col: '#a0acb8' });
       keys.forEach(function (k) { var want = 0; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { if (l.sku === k) want += l.qty; }); }); var sl = slotsWith(k), first = sl.filter(function (q) { return slotParse(q).l < RACK.top; })[0] || sl[0]; rows.push({ text: skuName(k), sub: sl.slice(0, 3).map(slotName).join(' · ') + (sl.length > 3 ? ' +' + (sl.length - 3) : '') + (want ? ' · orders want ' + want : ''), right: String(sum[k]) + (sum[k] < 6 ? ' LOW' : ''), col: sum[k] < 6 ? '#ff6b5e' : '#eef1f5', sw: SKU[k].col, nav: first ? scanSlotNav(first, skuName(k) + ' · ' + slotName(first)) : null }); });
     } else if (page === 5) {   // DOCKS: every door, its lane, its truck, the next window, the shipping bays
+      if (TRUCK_OUT[0] && TRUCK_OUT[0].van) { var vt = truckAtDoor(2); rows.push({ text: 'The van · ' + (vt ? vt.parcels.length + ' of ' + VAN.cap + ' aboard' : 'not here'), sub: vt ? 'at the shed front · leaves ' + fmtTime(vt.leave) : outNextText(0) + ' · it parks at the shed front', right: vt ? 'VAN' : '', sw: '#5fd38d', hi: !!vt, nav: { x: VAN.x + 1.6, z: VAN.z, y: YARD_Y, label: 'The van' }, act: vt && vt.parcels.length ? { label: 'DISPATCH', on: true, run: function () { consoleUse(2); } } : null }); }
       DOOR_MAP.forEach(function (dm, i) { if (!doors[i]) return; var t = truckAtDoor(i), lane = dockLane(i), own = doorOwned(i);
         var sub = !own ? 'opens with the sortation deck' : t ? (t.dir === 'in' ? t.pallets.length + ' pallets · ' + (t.signed ? 'signed' : 'NOT SIGNED') : t.dir === 'ret' ? (t.returns || []).length + ' returns aboard' : t.parcels.length + ' parcels aboard' + (t.returns && t.returns.length ? ' · ' + t.returns.length + ' return' + (t.returns.length > 1 ? 's' : '') : '')) + ' · leaves ' + fmtTime(t.leave) : dm.dir === 'in' ? 'next at ' + TRUCK_IN.map(fmtTime).join(' / ') : dm.dir === 'ret' ? 'returns truck · next at ' + TRUCK_RET.map(fmtTime).join(' / ') : outNextText(dm.dock) + (outNext(dm.dock).tomorrow ? '' : ' to ' + fmtTime(outNext(dm.dock).leave));
         var bayId = null; for (var lid in LOADER_DOORS) if (LOADER_DOORS[lid] === i) bayId = lid; if (bayId && propInst[BAY.at[bayId].prop]) sub += ' · bay ' + stageOf(bayId).length + '/' + STAGE_CAP;
-        rows.push({ text: dockLabel(i) + (lane ? ' · ' + lane.name.toUpperCase() : ' · inbound') + ' · ' + (S.doors[i] ? 'OPEN' : 'shut'), sub: sub, right: t ? 'TRUCK' : '', sw: lane ? lane.col : '#f5b53d', hi: !!t, col: own ? '#eef1f5' : '#6b7784', nav: scanDoorNav(i), act: own ? { label: S.doors[i] ? 'CLOSE' : 'OPEN', on: !S.events.power, why: 'No power: the door motor is dead.', run: function () { setDoor(i, !S.doors[i]); } } : null });
+        rows.push({ text: dockLabel(i) + (lane && lanesOn() ? ' · ' + lane.name.toUpperCase() : dm.dir === 'in' ? ' · inbound' : ' · outbound') + ' · ' + (S.doors[i] ? 'OPEN' : 'shut'), sub: sub, right: t ? 'TRUCK' : '', sw: lane ? lane.col : '#f5b53d', hi: !!t, col: own ? '#eef1f5' : '#6b7784', nav: scanDoorNav(i), act: own ? { label: S.doors[i] ? 'CLOSE' : 'OPEN', on: !S.events.power, why: 'No power: the door motor is dead.', run: function () { setDoor(i, !S.doors[i]); } } : null });
         if (t) rows.push({ text: '   ' + (t.dir === 'in' ? 'Inbound' : t.dir === 'ret' ? 'Returns' : (MODES[t.mode] || MODES.land).name) + ' truck · ' + t.driver, sub: '   ' + (t.dir === 'in' ? (t.signed ? 'signed · ' + t.pallets.length + ' pallets' : 'NOT SIGNED') : t.dir === 'out' ? t.parcels.length + ' parcel' + (t.parcels.length === 1 ? '' : 's') + ' loaded' : (t.returns || []).length + ' returns aboard') + ' · leaves ' + fmtTime(t.leave), col: '#a0acb8', act: t.dir === 'in' ? (t.signed ? null : scanSignAct(t)) : t.dir === 'out' ? { label: 'DISPATCH', on: t.parcels.length > 0, why: 'Nothing loaded yet.', run: function () { consoleUse(i); } } : null }); });
       var packedBy = {}; S.orders.forEach(function (o) { if (o.state === 'packed') { var m = orderMode(o); packedBy[m] = (packedBy[m] || 0) + 1; } });
-      rows.push({ text: 'Waiting to ship: sea ' + (packedBy.sea || 0) + ' · land ' + (packedBy.land || 0) + ' · air ' + (packedBy.air || 0), sub: 'wrong door pays a ' + Math.round((1 - MODE_FEE) * 100) + '% fee · misrouted so far ' + (S.stats.misrouted || 0), col: '#a0acb8' });
+      if (lanesOn()) rows.push({ text: 'Waiting to ship: sea ' + (packedBy.sea || 0) + ' · land ' + (packedBy.land || 0) + ' · air ' + (packedBy.air || 0), sub: 'wrong door pays a ' + Math.round((1 - MODE_FEE) * 100) + '% fee · misrouted so far ' + (S.stats.misrouted || 0), col: '#a0acb8' }); else rows.push({ text: 'Waiting to ship: ' + S.orders.filter(function (o) { return o.state === 'packed'; }).length + ' packed', sub: 'the lanes come with the hall at level ' + STAGES[2].level, col: '#a0acb8' });
     } else if (page === 6) {   // PLANT: every machine, jams first
       var pr = plantRows().filter(function (r) { return !r.dialOnly; });
       pr.sort(function (a, b) { return (/jam|off/.test(b.text) ? 1 : 0) - (/jam|off/.test(a.text) ? 1 : 0); });
@@ -5905,7 +6146,7 @@
         rows.push({ text: name + (st ? ' · ' + st : ''), sub: String(r.sub || '').slice(0, 60), right: r.right || '', col: /jam|off|paused/.test(st) ? '#ff6b5e' : r.hi ? '#5fd38d' : '#eef1f5', hi: /jam/.test(st), nav: prop ? scanPropNav(prop, name) : null, act: r.btn ? { label: String(r.btn.label), on: r.btn.on !== false, why: 'Not now.', run: r.btn.act } : null }); });
       if (!pr.length) rows.push({ text: 'No machines yet', sub: 'the pack line comes with the bench', col: '#a0acb8' });
     } else {   // CREW: who is in, what they are at, and you
-      if (!S.staff.length) rows.push({ text: 'No crew', sub: 'hire on the office PC from level 3', col: '#a0acb8' });
+      if (!S.staff.length) rows.push({ text: 'No crew', sub: 'hire ' + (unlocked('pc') ? 'on the office PC' : 'on the clipboard') + ' from level ' + UNLOCK.picker + ' · ' + staffCapAt(S.level) + ' head' + (staffCapAt(S.level) === 1 ? '' : 's') + ' at this level', col: '#a0acb8' });
       S.staff.forEach(function (st) { var task = st.task ? (st.task.kind === 'pick' ? 'picking ' + skuName(st.task.sku) : st.task.kind === 'fetch' ? 'fetching a pallet' : st.task.kind === 'return' ? 'returning ' + skuName(st.task.sku) : st.task.kind === 'rdesk' ? 'taking a return to the desk' : /^ret/.test(st.task.kind) ? 'on the returns' : st.task.kind) : st.carry ? (st.carry.kind === 'box' ? 'carrying ' + skuName(st.carry.sku) : st.carry.kind === 'return' ? 'carrying a return' : 'carrying a parcel') : st.state === 'drive' ? 'on the forklift' : st.state === 'break' ? 'on break' : staffStatus(st);
         rows.push({ text: st.name + ' · ' + STAFF_ROLES[st.role].name + (st.cross ? ' +' + STAFF_ROLES[st.cross].name.toLowerCase() : ''), sub: task + ' · ' + (Math.round((st.hoursToday || 0) * 10) / 10) + ' h today · ' + (st.shift || 'day') + ' shift' + (st.trained ? ' · trained' : '') + (st.lateToday ? ' · late' : ''), right: st.clocked ? 'IN' : '', hi: !!st.clocked, col: st.clocked ? '#eef1f5' : '#a0acb8', staff: st.id, nav: st.clocked ? { x: st.x, z: st.z, y: 0, label: st.name } : null, act: st.lateToday && !st.wordToday ? { label: 'WORD', run: function () { staffWord(st); } } : { label: 'SHIFT ▸', run: function () { staffShiftCycle(st); } } }); });
       rows.push({ text: S.clockedIn ? 'You · on the clock since ' + fmtTime(S.clockInAt) : 'You · not clocked in', sub: S.clockedIn ? (Math.round(myHours() * 10) / 10) + ' h this shift' : 'the time clock is by the staff door', right: '', col: S.clockedIn ? '#5fd38d' : '#f5b53d', nav: scanPropNav('timeclock', 'Time clock'), act: { label: S.clockedIn ? 'CLOCK OUT' : 'CLOCK IN', run: function () { myClock(!S.clockedIn); } } });
@@ -5923,7 +6164,7 @@
       if (src.kind === 'pallet') { var p = palletById(src.id); if (p) { var k = p.n ? findSlotFor(p.sku, p.n, 1) : null; return { key: 'pal:' + p.id, head: p.n ? p.n + ' × ' + skuName(p.sku) : 'Empty pallet', body: (p.wrapped ? 'wrapped · ' : '') + (p.place === 'truck' ? 'on the truck' : p.place === 'floor' ? 'on the floor' : p.place) + (k ? ' · goes to ' + slotName(k) : '') }; } }
       var oid = src.kind === 'shelf' || src.kind === 'stage' ? src.order : src.kind === 'belt' && src.item && src.item.kind === 'parcel' ? src.item.order : src.kind === 'floor' && S.floor[src.idx] && S.floor[src.idx].kind === 'parcel' ? S.floor[src.idx].order : src.kind === 'cart' && src.idx >= S.cart.boxes.length ? (S.cart.parcels || [])[src.idx - S.cart.boxes.length] : null;
       var o = oid ? orderById(oid) : null;
-      if (o) { var m = MODES[orderMode(o)]; return { key: 'par:' + o.id, head: 'Parcel #' + o.num + ' · ' + clientName(o.client).slice(0, 16), body: m.name.toUpperCase() + ' lane · out by ' + dockLabel(m.door) + ' · due ' + dueText(o.due) + (o.form ? ' · ' + o.form : '') + (o.late ? ' · LATE' : '') }; }
+      if (o) { var m = MODES[orderMode(o)]; return { key: 'par:' + o.id, head: 'Parcel #' + o.num + ' · ' + clientName(o.client).slice(0, 16), body: (lanesOn() ? m.name.toUpperCase() + ' lane · ' : '') + 'out by ' + dockLabel(modeDoor(orderMode(o))) + ' · due ' + dueText(o.due) + (o.form ? ' · ' + o.form : '') + (o.late ? ' · LATE' : '') }; }
       var bsku = src.kind === 'bench' ? src.sku : src.kind === 'belt' && src.item && src.item.kind === 'box' ? src.item.sku : src.kind === 'floor' && S.floor[src.idx] && S.floor[src.idx].kind === 'box' ? S.floor[src.idx].sku : src.kind === 'cart' && src.idx < S.cart.boxes.length ? S.cart.boxes[src.idx] : src.kind === 'rdesk' && rdesk().shelf[src.idx] ? rdesk().shelf[src.idx].sku : null;
       if (bsku) { var w2 = 0; S.orders.forEach(function (o2) { if (o2.state === 'open') o2.lines.forEach(function (l) { if (l.sku === bsku) w2 += l.qty; }); }); return { key: 'box:' + bsku + ':' + src.kind, head: 'Box of ' + skuName(bsku), body: (src.kind === 'bench' ? 'on the bench' : src.kind === 'belt' ? 'riding the ' + beltLabel(BELTS[src.belt]) : src.kind === 'floor' ? 'loose on the floor' : src.kind === 'rdesk' ? (rdesk().shelf[src.idx].damaged ? 'a damaged return: for the bin' : 'a return: back on a rack') : 'on the cart') + (w2 ? ' · orders want ' + w2 : ' · no open order wants it') }; }
     }
@@ -5941,9 +6182,10 @@
     c.fillStyle = '#f5b53d'; c.font = 'bold 15px Bahnschrift, Arial, sans-serif'; c.textAlign = 'left'; c.fillText(SCAN_PAGES[scan.page].toUpperCase(), 12, 20);
     c.fillStyle = '#a0acb8'; c.font = '11px Bahnschrift, Arial, sans-serif'; c.textAlign = 'right'; c.fillText(fmtTime(S.time) + '  ▮▮▮', w - 12, 20); c.textAlign = 'left';
     var tn = SCAN_PAGES.length, tw = Math.floor((w - 24 - (tn - 1) * 3) / tn);
-    for (var p = 0; p < tn; p++) { var tx = 12 + p * (tw + 3); c.fillStyle = p === scan.page ? '#f5b53d' : 'rgba(255,255,255,0.08)'; c.fillRect(tx, 28, tw, 18); c.fillStyle = p === scan.page ? '#1a1205' : '#a0acb8'; c.font = 'bold 10px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.fillText((p + 1) + ' ' + SCAN_ICONS[p], tx + tw / 2, 41); }
+    for (var p = 0; p < tn; p++) { var tx = 12 + p * (tw + 3), openP = scanPageOpen(p); c.fillStyle = p === scan.page ? '#f5b53d' : openP ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'; c.fillRect(tx, 28, tw, 18); c.fillStyle = p === scan.page ? '#1a1205' : openP ? '#a0acb8' : '#4a535c'; c.font = 'bold 10px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.fillText(openP ? (p + 1) + ' ' + SCAN_ICONS[p] : 'L' + UNLOCK[SCAN_LVL[p]], tx + tw / 2, 41); }   // a locked page shows the level that opens it
     c.textAlign = 'left';
     var footH = 52;
+    if (!scanPageOpen(scan.page)) scan.page = 0;
     if (scan.page === MAP_PAGE) { scanDev.rows = []; drawScanMap(c, 8, 54, w - 16, h - 54 - footH - 6); drawScanFoot(c, w, h, footH); scanDev.tex.needsUpdate = true; return; }
     var rows = scanPageRows(scan.page); scanDev.rows = rows; if (scan.sel >= rows.length) scan.sel = Math.max(0, rows.length - 1); if (scan.sel < 0) scan.sel = 0;
     var y0 = 56, rowH = 30, maxRows = Math.floor((h - y0 - footH - 10) / rowH);   // ten px kept for the page counter under the last row
@@ -6021,8 +6263,8 @@
   // trucks at the docks, and the waypoint ring. North is up; the inbound docks are on the left.
   var MAP_PAGE = 8;
   function mapBounds() {
-    var b = { x0: -HALL.x - 16, x1: HALL.x + 16, z0: WING.z0 - 2, z1: HALL.z + 3 };   // the hall, the wing, and the trucks on both aprons
-    for (var h in HALLS) if (hallOwned(h) || S.level >= 7) { var H = HALLS[h]; b.x0 = Math.min(b.x0, H.x0 - (H.dockIn !== undefined ? 16 : 2)); b.x1 = Math.max(b.x1, H.x1 + 2); b.z0 = Math.min(b.z0, H.z0 - 2); }
+    var b = { x0: -HALL.x - 16, x1: HALL.x + 16, z0: stageHas('wing') ? WING.z0 - 2 : -HALL.z - 3, z1: HALL.z + (BOOT_STAGE === 0 ? 8 : 3) };   // the hall, the wing (from the hall stage), the trucks on both aprons, the van at the shed front
+    for (var h in HALLS) if (hallOwned(h) || stageHas('hallDoors')) { var H = HALLS[h]; b.x0 = Math.min(b.x0, H.x0 - (H.dockIn !== undefined ? 16 : 2)); b.x1 = Math.max(b.x1, H.x1 + 2); b.z0 = Math.min(b.z0, H.z0 - 2); }
     return b;
   }
   function drawScanMap(c, x, y, w, h) {
@@ -6034,11 +6276,12 @@
     c.fillStyle = 'rgba(255,255,255,0.035)'; c.fillRect(X(-HALL.x - 16), Z(-17), 16 * s, 14 * s); c.fillRect(X(HALL.x), Z(returnsHall() ? -37 : -25), 16 * s, (returnsHall() ? 34 : 22) * s);   // the aprons the trucks back onto (the east one reaches the returns dock once the returns hall is open)
     var FLOOR = 'rgba(120,140,160,0.13)', WALL = 'rgba(200,215,230,0.55)';
     rect(-HALL.x, HALL.x, -HALL.z, HALL.z, FLOOR, WALL);
-    rect(WING.x0, WING.x1, WING.z0, WING.z1, FLOOR, WALL); label('WING', (WING.x0 + WING.x1) / 2, WING.z0 + 3.2, '#6b7784', 8);
-    for (var hk in HALLS) { var H = HALLS[hk], own = hallOwned(hk); if (!own && S.level < 7) continue; rect(H.x0, H.x1, H.z0, H.z1, own ? FLOOR : null, own ? WALL : 'rgba(200,215,230,0.22)', !own); label(H.name.toUpperCase(), (H.x0 + H.x1) / 2, H.z0 + 3.2, own ? '#6b7784' : '#3d4652', 8); }
-    rect(HALL.x - 7.5, HALL.x, 18.5, HALL.z, 'rgba(245,181,61,0.08)', 'rgba(245,181,61,0.35)'); label('OFFICE', HALL.x - 3.75, 21.8, '#f5b53d', 7);
-    rect(-HALL.x, -HALL.x + 4.5, 18.5, HALL.z, null, 'rgba(200,215,230,0.3)'); label('LOBBY', -HALL.x + 2.25, 21.8, '#6b7784', 6);
-    rect(-HALL.x, -HALL.x + 7, -HALL.z, -20.2, null, 'rgba(200,215,230,0.3)'); label('BREAK', -HALL.x + 3.5, -21.6, '#6b7784', 6);
+    if (stageHas('wing')) { rect(WING.x0, WING.x1, WING.z0, WING.z1, FLOOR, WALL); label('WING', (WING.x0 + WING.x1) / 2, WING.z0 + 3.2, '#6b7784', 8); }
+    for (var hk in HALLS) { var H = HALLS[hk], own = hallOwned(hk); if (!own && !stageHas('hallDoors')) continue; rect(H.x0, H.x1, H.z0, H.z1, own ? FLOOR : null, own ? WALL : 'rgba(200,215,230,0.22)', !own); label(H.name.toUpperCase(), (H.x0 + H.x1) / 2, H.z0 + 3.2, own ? '#6b7784' : '#3d4652', 8); }
+    if (stageHas('rooms')) { var zs = HALL.z - 24, zn = 24 - HALL.z; rect(HALL.x - 7.5, HALL.x, 18.5 + zs, HALL.z, 'rgba(245,181,61,0.08)', 'rgba(245,181,61,0.35)'); label('OFFICE', HALL.x - 3.75, 21.8 + zs, '#f5b53d', 7);
+      rect(-HALL.x, -HALL.x + 4.5, 18.5 + zs, HALL.z, null, 'rgba(200,215,230,0.3)'); label('LOBBY', -HALL.x + 2.25, 21.8 + zs, '#6b7784', 6);
+      rect(-HALL.x, -HALL.x + 7, -HALL.z, -20.2 + zn, null, 'rgba(200,215,230,0.3)'); label('BREAK', -HALL.x + 3.5, -21.6 + zn, '#6b7784', 6); }
+    else label('THE SHED', 0, -HALL.z - 1.2, '#6b7784', 7);
     if (upperOwned()) { rect(-HALL.x, HALL.x, UPPER.z0, UPPER.z1, 'rgba(120,189,245,0.08)', 'rgba(120,189,245,0.3)'); label(sorterOwned() ? 'SORTATION DECK' : 'MEZZANINE', 0, UPPER.z1 - 1.0, '#78bdf5', 7); }
     // the rack rows you own, lettered, and the upper row
     groundRows().forEach(function (r) { var p0 = rackSlotPos(r, 0, 0), p1 = rackSlotPos(r, rowBays(r) - 1, 0), lo = Math.min(p0.x, p1.x) - RACK.bayW / 2, hi = Math.max(p0.x, p1.x) + RACK.bayW / 2; rect(lo, hi, p0.z - RACK.depth / 2, p0.z + RACK.depth / 2, 'rgba(245,181,61,0.55)', null); label(rowLetter(r), lo - 1.0, p0.z + 1.0, '#f5b53d', 7, 'right'); });
@@ -6068,7 +6311,8 @@
     $('h-orders').textContent = open + (packed ? ' + ' + packed + ' packed' : '') + (lateN ? ' · ' + lateN + ' late' : ''); $('h-orders').style.color = lateN ? 'var(--red)' : '';   // a late order costs half its pay: it shows on the HUD, not only on the scanner
     $('h-stock').textContent = totalStock() + ' boxes';
     $('h-rep').textContent = Math.round(S.rep);
-    $('h-lvl').textContent = 'Level ' + S.level; $('h-xp').textContent = S.xp + ' / ' + XP_FOR(S.level); $('h-xpbar').style.width = (100 * S.xp / XP_FOR(S.level)) + '%';
+    $('h-lvl').textContent = 'Level ' + S.level; $('h-xp').textContent = S.level >= LEVEL_CAP ? 'top' : S.xp + ' / ' + XP_FOR(S.level); $('h-xpbar').style.width = (S.level >= LEVEL_CAP ? 100 : 100 * S.xp / XP_FOR(S.level)) + '%';
+    var nx = $('h-next'); if (nx) { nx.textContent = nextLevelText() + (S.siteDue > S.site ? ' · the builders come in the morning' : ''); nx.hidden = false; }   // the ladder's promise (1.21.0)
     $('h-day').textContent = 'Day ' + S.day + (isSunday() ? ' · Sunday' : '') + (S.time >= DAY_END || S.time < DAY_START ? ' · night' : ''); $('h-clock').textContent = fmtTime(S.time);   // Sunday on the clock all day, not only in the toast at the roll: no trucks and no orders is the depot closed, not the game stuck
     var ev = $('h-event'); if (S.events.power) { ev.hidden = false; ev.textContent = '⚡ Power cut: reset the breaker in the office'; } else ev.hidden = true;
     var held = $('h-held'), hl = handLabel();
@@ -6088,12 +6332,17 @@
   var scan = { page: 0, sel: 0, scroll: 0, nav: null };   // page, the cursor row, the first row shown, the waypoint { x, z, y, label, staff }
   var SCAN_PAGES = ['Home', 'Orders', 'Picks', 'Putaway', 'Stock', 'Docks', 'Plant', 'Crew', 'Map'];
   function scanToggle(on) { if (on && driving) return; ui.scanOpen = on; if (on) { sfx('scan'); introStep('scanner'); drawScanner(); } }
-  function scanPage(i) { scan.selBy = scan.selBy || {}; scan.selBy[scan.page] = scan.sel; scan.page = clamp(i, 0, SCAN_PAGES.length - 1); scan.sel = scan.selBy[scan.page] || 0; scan.scroll = 0; sfx('click'); drawScanner(); }   // every page keeps its own cursor: a look at the map and back lands on the row you were on (drawScanner clamps it and scrolls to it)
+  var SCAN_LVL = [null, null, null, 'scanPutaway', 'scanStock', 'scanDocks', 'scanPlant', 'scanCrew', 'scanMap'];   // the ladder key that opens each page (1.21.0); Home, Orders and Picks are there from the shed
+  function scanPageOpen(i) { return !SCAN_LVL[i] || unlocked(SCAN_LVL[i]); }
+  function scanPage(i) { if (!scanPageOpen(i)) { sfx('bad'); toast('The ' + SCAN_PAGES[i] + ' page comes at level ' + UNLOCK[SCAN_LVL[i]] + '.', ''); return; } scan.selBy = scan.selBy || {}; scan.selBy[scan.page] = scan.sel; scan.page = clamp(i, 0, SCAN_PAGES.length - 1); scan.sel = scan.selBy[scan.page] || 0; scan.scroll = 0; sfx('click'); drawScanner(); }   // every page keeps its own cursor: a look at the map and back lands on the row you were on (drawScanner clamps it and scrolls to it)
   function sw(sku) { return '<span class="sw" style="background:' + SKU[sku].col + '"></span>'; }
 
   // ── Panels ────────────────────────────────────────────────────────
   var panel = { kind: null, tab: null };
   var PC_TABS = [['orders', 'Orders'], ['contracts', 'Contracts'], ['shop', 'Shop'], ['staff', 'Staff'], ['plant', 'Plant'], ['finance', 'Bank'], ['stock', 'Stock'], ['stats', 'Stats']];
+  var TAB_LVL = { contracts: 'contracts', plant: 'scanPlant', finance: 'loan' };   // the tabs the ladder opens later (1.21.0); the rest are there from the shed
+  function tabOpen(t) { return !TAB_LVL[t] || unlocked(TAB_LVL[t]); }
+  function pcTabs() { return PC_TABS.filter(function (t) { return tabOpen(t[0]); }); }
   function openPanel(kind, tab) {
     panel.kind = kind; panel.tab = tab || (kind === 'pc' ? 'orders' : null); ui.panelOpen = true; $('dc-panel').hidden = false; scanToggle(false);
     ui.suppressMenu = true; try { document.exitPointerLock(); } catch (e) {}
@@ -6102,10 +6351,10 @@
   function closePanel() { if (!ui.panelOpen) return; ui.panelOpen = false; $('dc-panel').hidden = true; panel.kind = null; hudDirty = true; lockPointer(); }
   function renderPanel() {
     if (!ui.panelOpen) return;
-    var title = panel.kind === 'pc' ? 'Office PC · Depot OS' : panel.kind === 'catalogue' ? 'Catalogue · build mode' : panel.kind === 'dev' ? 'Dev console (F8)' : 'Packing bench';
-    $('dc-panel-title').textContent = title;
-    $('dc-panel-tabs').innerHTML = panel.kind === 'pc' ? PC_TABS.map(function (t) { return '<button class="' + (t[0] === panel.tab ? 'on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') : '';
-    $('dc-panel-body').innerHTML = panel.kind === 'pc' ? pcHtml(panel.tab) : panel.kind === 'catalogue' ? catalogueHtml() : panel.kind === 'dev' ? devHtml() : benchHtml();
+    var title = panel.kind === 'pc' ? (BOOT_STAGE === 0 ? 'The paperwork · Depot OS' : 'Office PC · Depot OS') : panel.kind === 'catalogue' ? 'Catalogue · build mode' : 'Packing bench';
+    $('dc-panel-title').textContent = title; if (panel.kind === 'pc' && !tabOpen(panel.tab)) panel.tab = 'orders';
+    $('dc-panel-tabs').innerHTML = panel.kind === 'pc' ? pcTabs().map(function (t) { return '<button class="' + (t[0] === panel.tab ? 'on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') : '';
+    $('dc-panel-body').innerHTML = panel.kind === 'pc' ? pcHtml(panel.tab) : panel.kind === 'catalogue' ? catalogueHtml() : benchHtml();
   }
   function btn(act, arg, label, cls, disabled) { return '<button class="dc-btn small ' + (cls || '') + '" data-act="' + act + '" data-arg="' + esc(arg == null ? '' : arg) + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>'; }
   function orderCard(o, withPack) {
@@ -6122,23 +6371,23 @@
       var os = S.orders.slice().sort(function (a, b) { return a.due - b.due; });
       h += '<h3>Open orders (' + os.length + ')</h3>' + (os.length ? os.map(function (o) { return orderCard(o, false); }).join('') : '<p>Nothing open. Orders arrive between 08:00 and 17:00; more clients send more as your level rises.</p>');
       h += '<h3>Recently shipped</h3>' + (S.shipped.length ? '<table><tr><th>Order</th><th>Client</th><th>Day</th><th class="r">Paid</th></tr>' + S.shipped.slice(0, 12).map(function (s) { return '<tr><td>#' + s.num + (s.late ? ' <span class="dc-tag bad">late</span>' : '') + (s.short ? ' <span class="dc-tag warn">short</span>' : '') + '</td><td>' + esc(clientName(s.client)) + '</td><td>' + s.day + '</td><td class="r">' + money(s.paid) + '</td></tr>'; }).join('') + '</table>' : '<p>Nothing shipped yet.</p>');
-      var rts = returnsPending(); h += '<h3>Returns (' + rts.length + ' in play · ' + (S.rdesk ? S.rdesk.done : 0) + ' inspected)</h3>' + (rts.length ? rts.map(function (r) { return '<div class="dc-card"><div class="body"><b>' + esc(returnLabel(r)) + '</b><small>' + esc(r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r)) + '</small></div>' + (r.late ? '<span class="dc-tag bad">waiting a day</span>' : '<span class="dc-tag">' + money(returnFee(r)) + ' fee</span>') + '</div>'; }).join('') : '<p>None in play. From level ' + RETURNS.level + ' the outbound trucks bring the odd parcel back; ' + (returnsHall() ? 'the returns hall inspects them for a fee, and the returns truck brings more' : 'the returns desk by the bench inspects them for a fee') + '.</p>');
+      var rts = returnsPending(); if (unlocked('returns')) h += '<h3>Returns (' + rts.length + ' in play · ' + (S.rdesk ? S.rdesk.done : 0) + ' inspected)</h3>' + (rts.length ? rts.map(function (r) { return '<div class="dc-card"><div class="body"><b>' + esc(returnLabel(r)) + '</b><small>' + esc(r.lines.map(function (l) { return l.qty + '× ' + skuName(l.sku); }).join(', ') + ' · ' + r.why + ' · ' + returnPlaceText(r)) + '</small></div>' + (r.late ? '<span class="dc-tag bad">waiting a day</span>' : '<span class="dc-tag">' + money(returnFee(r)) + ' fee</span>') + '</div>'; }).join('') : '<p>None in play. From level ' + RETURNS.level + ' the outbound trucks bring the odd parcel back; ' + (returnsHall() ? 'the returns hall inspects them for a fee, and the returns truck brings more' : 'the returns desk by the bench inspects them for a fee') + '.</p>');
     } else if (tab === 'contracts') {
-      var c = S.contract;
-      h += '<p>A client offers a run of orders. Ship every one of theirs on time inside the window and the bonus is yours; miss the count and there is a penalty. Offers come from level 3, every few days.</p>';
-      if (!c) h += '<div class="dc-card"><div class="body"><b>No offer on the table</b><small>' + (S.level < 3 ? 'Reach level 3.' : 'Next offer around day ' + S.nextOffer + '.') + '</small></div></div>';
-      else if (!c.accepted) h += '<div class="dc-card hi"><div class="body"><b>' + esc(clientName(c.client)) + '</b><small>' + c.need + ' orders on time by ' + dueText(c.until) + ' · bonus ' + money(c.bonus) + ' · penalty ' + money(c.penalty) + '</small></div>' + btn('accept', '', 'Accept', 'primary') + btn('decline', '', 'Decline', '') + '</div>';
-      else h += '<div class="dc-card hi"><div class="body"><b>' + esc(clientName(c.client)) + ' · ' + c.done + ' of ' + c.need + '</b><small>until ' + dueText(c.until) + ' · bonus ' + money(c.bonus) + '</small><div class="dc-bar"><span style="width:' + Math.round(100 * c.done / c.need) + '%"></span></div></div></div>';
+      h += '<p>A client offers a run of orders. Ship every one of theirs on time inside the window and the bonus is yours; miss the count and there is a penalty. Offers come from level ' + UNLOCK.contracts + ', every few days' + (unlocked('twoContracts') ? '; two can run at once' : unlocked('contractsBig') ? '; they are bigger now' : '') + '.</p>';
+      if (!contractsAll().length) h += '<div class="dc-card"><div class="body"><b>No offer on the table</b><small>' + (!unlocked('contracts') ? 'Reach level ' + UNLOCK.contracts + '.' : 'Next offer around day ' + S.nextOffer + '.') + '</small></div></div>';
+      contractSlots().forEach(function (k) { var c = S[k]; if (!c) return;
+        if (!c.accepted) h += '<div class="dc-card hi"><div class="body"><b>' + esc(clientName(c.client)) + (c.long ? ' · long contract' : '') + '</b><small>' + c.need + ' orders on time by ' + dueText(c.until) + ' · bonus ' + money(c.bonus) + ' · penalty ' + money(c.penalty) + '</small></div>' + btn('accept', k, 'Accept', 'primary') + btn('decline', k, 'Decline', '') + '</div>';
+        else h += '<div class="dc-card hi"><div class="body"><b>' + esc(clientName(c.client)) + ' · ' + c.done + ' of ' + c.need + '</b><small>until ' + dueText(c.until) + ' · bonus ' + money(c.bonus) + '</small><div class="dc-bar"><span style="width:' + Math.round(100 * c.done / c.need) + '%"></span></div></div></div>'; });
     } else if (tab === 'shop') {
-      h += '<p>Bank: <b style="color:var(--cash)">' + money(S.bank) + '</b> · level ' + S.level + '. Everything is delivered and fitted at once.</p><div class="dc-grid">';
-      UPGRADES.forEach(function (u) {
+      h += '<p>Bank: <b style="color:var(--cash)">' + money(S.bank) + '</b> · level ' + S.level + '. Everything is delivered and fitted at once. The building itself is never bought: the halls, the deck and the annexes come with the levels.</p><div class="dc-grid">';
+      UPGRADES.filter(shopShows).forEach(function (u) {
         var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[u.id];
         var needs = rowN && S.up.rows < rowN - 1 ? 'Needs the previous row first' : u.needs && !S.up[u.needs] ? 'Needs the ' + upgradeName(u.needs).toLowerCase() + ' first' : S.level < u.lvl ? 'Level ' + u.lvl : S.bank < u.price ? 'Not enough money' : '';
         h += '<div class="dc-card"><div class="body"><b>' + esc(u.name) + '</b><small>' + esc(u.desc) + '</small></div><div style="text-align:right"><div class="price">' + money(u.price) + '</div>' + (owned ? '<span class="dc-tag good">Owned</span>' : btn('buy', u.id, 'Buy', 'primary', !!needs) + (needs ? '<small style="display:block;color:var(--muted)">' + needs + '</small>' : '')) + '</div></div>';
       });
       h += '</div>';
     } else if (tab === 'staff') {
-      h += '<p>Staff clock in at the start of their shift (day 08:00 to 18:00, early 06:00 to 16:00, late 12:00 to 22:00; two hours more on overtime, the late shift already ends at closing) and are paid at the day roll for the hours on the clock, time and a half past ten. They need the dock doors opened for them: that stays your job. A course makes a worker quicker, a raise keeps them on time for good, a second role lets them cover another job when their own queue is empty, and from level 7 the crew grows to eight. The Plant tab runs every machine from here.</p>';
+      h += '<p>Staff clock in at the start of their shift (day 08:00 to 18:00, early 06:00 to 16:00, late 12:00 to 22:00; two hours more on overtime, the late shift already ends at closing) and are paid at the day roll for the hours on the clock, time and a half past ten. They need the dock doors opened for them: that stays your job. The crew grows with your level: ' + staffCapAt(S.level) + ' now, eight at level 20. Shift patterns come at level ' + UNLOCK.shifts + ', training courses at ' + UNLOCK.training + ', raises at ' + UNLOCK.raise + ', second roles at ' + UNLOCK.cross + '.</p>';
       h += '<div class="dc-grid">' + Object.keys(STAFF_ROLES).map(function (r) { var d = STAFF_ROLES[r], locked = S.level < d.lvl || (d.needs && !S.up[d.needs]), n = S.staff.filter(function (s) { return s.role === r; }).length; return '<div class="dc-card"><div class="body"><b>' + d.name + '</b>' + (n ? '<span class="dc-tag good">' + n + ' hired</span>' : '') + '<small>' + esc(d.desc) + '</small></div><div style="text-align:right"><div class="price">' + money(d.wage) + '/day</div>' + btn('hire', r, 'Hire', 'primary', locked || S.staff.length >= staffCap()) + (locked ? '<small style="display:block;color:var(--muted)">Level ' + d.lvl + '</small>' : '') + '</div></div>'; }).join('') + '</div>';
       if (S.staff.length) h += '<h3>Your crew</h3>' + S.staff.map(function (st) { var sheet = st.sheet || [], hrs = sheet.reduce(function (a, r) { return a + r.h; }, 0), paid = sheet.reduce(function (a, r) { return a + r.pay; }, 0), lates = sheet.filter(function (r) { return r.late; }).length; return '<div class="dc-card"><div class="body"><b>' + esc(st.name) + '</b> · ' + STAFF_ROLES[st.role].name + ' · ' + money(hourly(st)) + '/h' + (st.lateToday ? ' <span class="dc-tag bad">late today</span>' : '') + (st.overtime ? ' <span class="dc-tag warn">overtime</span>' : '') + '<small>' + staffStatus(st) + ' · today ' + (Math.round((st.hoursToday || 0) * 10) / 10) + ' h · last 7 days ' + (Math.round(hrs * 10) / 10) + ' h, ' + money(paid) + (lates ? ', late ×' + lates : '') + ' · punctuality ' + Math.round((st.punct || 0.5) * 100) + '%</small></div>' + btn('fire', st.id, 'Let go', 'danger') + ' ' + btn('train', st.id, st.trained ? 'Trained' : 'Train $' + TRAIN_PRICE, 'primary', !!st.trained) + ' ' + btn('raise', st.id, st.raise ? 'Raised' : 'Raise $' + RAISE_PRICE, '', !!st.raise) + ' ' + btn('shift', st.id, 'Shift: ' + (st.shift || 'day'), '') + ' ' + btn('cross', st.id, st.cross ? 'Also ' + STAFF_ROLES[st.cross].name.toLowerCase() : 'Second role' + (st.crossPaid ? '' : ' $' + CROSS_PRICE), '') + '</div>'; }).join('');
       h += '<p>Hours come from the time clock by the staff door: nobody is paid for a day they did not clock in. Overtime, days off and a word about lateness are on the clock itself.</p>';
@@ -6146,9 +6395,9 @@
       h += '<p>Every machine on the floor, from the desk: what it is doing, its speed dial, and the button it has on its own screen.' + (S.events.power ? ' <b>No power.</b>' : '') + '</p>';
       h += '<table><tr><th>Machine</th><th>Status</th><th>Dial</th><th class="r"></th></tr>' + plantRows().filter(function (r) { return !r.dialOnly; }).map(function (r, i) { var parts = r.text.split('  ·  '); return '<tr><td><b>' + esc(parts[0].trim()) + '</b><br><small>' + esc((r.sub || '').slice(0, 110)) + '</small></td><td>' + esc(parts.slice(1).join(' · ')) + '</td><td>' + (r.key ? btn('dial', r.key, Math.round(speedOf(r.key) * 100) + '% ▸', '') : '') + '</td><td class="r">' + (r.btn && !r.btnIsDial ? btn('plant', i, r.btn.label, r.btn.on ? 'primary' : '', !r.btn.on) : '') + '</td></tr>'; }).join('') + '</table>';
     } else if (tab === 'finance') {
-      h += '<div class="dc-kpis"><div class="dc-kpi"><div class="k">Bank</div><div class="v" style="color:var(--cash)">' + money(S.bank) + '</div></div><div class="dc-kpi"><div class="k">Earned</div><div class="v">' + money(S.stats.earned) + '</div></div><div class="dc-kpi"><div class="k">Spent</div><div class="v">' + money(S.stats.spent) + '</div></div><div class="dc-kpi"><div class="k">Fines</div><div class="v">' + money(S.stats.fines) + '</div></div><div class="dc-kpi"><div class="k">Daily costs</div><div class="v">' + money(ECON.rent + S.staff.reduce(function (a, s) { return a + STAFF_ROLES[s.role].wage; }, 0)) + '</div></div></div>';
-      h += '<h3>The bank</h3><div class="dc-grid"><div class="dc-card"><div class="body"><b>Loan</b><small>' + (S.loan > 0 ? money(S.loan) + ' outstanding · 1.5% a day (' + money(Math.round(S.loan * 0.015)) + ')' : 'Borrow $5,000 at 1.5% a day. Repay when you can.') + '</small></div>' + (S.loan > 0 ? btn('repay', '', 'Repay ' + money(Math.min(S.loan, Math.max(0, S.bank))), 'primary', S.bank <= 0) : btn('borrow', '', 'Borrow $5,000', 'primary', S.level < 2)) + '</div>' +
-        '<div class="dc-card"><div class="body"><b>Theft insurance</b><small>$40 a day. Pays 80% of the value of anything that walks off at night.</small></div>' + btn('insure', '', S.insured ? 'Cancel' : 'Insure', S.insured ? '' : 'primary') + '</div></div>';
+      h += '<div class="dc-kpis"><div class="dc-kpi"><div class="k">Bank</div><div class="v" style="color:var(--cash)">' + money(S.bank) + '</div></div><div class="dc-kpi"><div class="k">Earned</div><div class="v">' + money(S.stats.earned) + '</div></div><div class="dc-kpi"><div class="k">Spent</div><div class="v">' + money(S.stats.spent) + '</div></div><div class="dc-kpi"><div class="k">Fines</div><div class="v">' + money(S.stats.fines) + '</div></div><div class="dc-kpi"><div class="k">Daily costs</div><div class="v">' + money(stageRent() + S.staff.reduce(function (a, s) { return a + STAFF_ROLES[s.role].wage; }, 0)) + '</div></div></div>';
+      h += '<h3>The bank</h3><div class="dc-grid"><div class="dc-card"><div class="body"><b>Loan</b><small>' + (S.loan > 0 ? money(S.loan) + ' outstanding · 1.5% a day (' + money(Math.round(S.loan * 0.015)) + ')' : 'Borrow $5,000 at 1.5% a day. Repay when you can.') + '</small></div>' + (S.loan > 0 ? btn('repay', '', 'Repay ' + money(Math.min(S.loan, Math.max(0, S.bank))), 'primary', S.bank <= 0) : btn('borrow', '', 'Borrow $5,000', 'primary', !unlocked('loan'))) + '</div>' +
+        '<div class="dc-card"><div class="body"><b>Theft insurance</b><small>$40 a day. Pays 80% of the value of anything that walks off at night.' + (unlocked('insurance') ? '' : ' From level ' + UNLOCK.insurance + '.') + '</small></div>' + btn('insure', '', S.insured ? 'Cancel' : 'Insure', S.insured ? '' : 'primary', !unlocked('insurance') && !S.insured) + '</div></div>';
       h += '<table><tr><th>Day</th><th>Time</th><th>What</th><th class="r">Amount</th></tr>' + S.ledger.slice(0, 30).map(function (l) { return '<tr><td>' + l.day + '</td><td>' + l.t + '</td><td>' + esc(l.why) + '</td><td class="r" style="color:' + (l.n < 0 ? 'var(--red)' : 'var(--green)') + '">' + money(l.n) + '</td></tr>'; }).join('') + '</table>';
     } else if (tab === 'stock') {
       var sum = stockSummary(), keys = Object.keys(sum).sort();
@@ -6166,41 +6415,42 @@
     var h = '', os = openOrders().sort(function (a, b) { return (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due; });
     h += '<h3>Orders to pack</h3>' + (os.length ? os.map(function (o) { return orderCard(o, true); }).join('') : '<p>No open orders. Boxes you leave here stay on the bench.</p>');
     var keys = Object.keys(S.bench.boxes).filter(function (k) { return S.bench.boxes[k] > 0; });
-    h += '<h3>On the bench (' + benchCount() + ' / ' + ECON.benchCap + ')</h3>' + (surplusCount() ? '<div class="dc-card"><div class="body"><b>' + surplusCount() + ' surplus</b><small>boxes no open order wants, on the bench or loose on the floor</small></div>' + btn('returnSurplus', '', 'Return all to the racks', 'primary') + '</div>' : '') + (keys.length ? keys.map(function (k) { return '<div class="dc-card"><div class="body">' + sw(k) + ' <b>' + esc(skuName(k)) + '</b> × ' + S.bench.boxes[k] + '</div>' + btn('takeback', k, 'Take one back', '', !!S.hand) + '</div>'; }).join('') : '<p>Nothing on the bench. Bring boxes from the racks, or unload a cart here.</p>');
+    h += '<h3>On the ' + (BOOT_STAGE === 0 ? 'table' : 'bench') + ' (' + benchCount() + ' / ' + benchCapNow() + ')</h3>' + (surplusCount() ? '<div class="dc-card"><div class="body"><b>' + surplusCount() + ' surplus</b><small>boxes no open order wants, on the bench or loose on the floor</small></div>' + btn('returnSurplus', '', 'Return all to the racks', 'primary') + '</div>' : '') + (keys.length ? keys.map(function (k) { return '<div class="dc-card"><div class="body">' + sw(k) + ' <b>' + esc(skuName(k)) + '</b> × ' + S.bench.boxes[k] + '</div>' + btn('takeback', k, 'Take one back', '', !!S.hand) + '</div>'; }).join('') : '<p>Nothing on the bench. Bring boxes from the racks, or unload a cart here.</p>');
     if (S.bench.parcels.length) h += '<h3>Parcels on the shelf</h3><p>' + S.bench.parcels.map(function (id) { var o = orderById(id); return o ? '#' + o.num + ' for ' + esc(clientName(o.client)) : ''; }).join(' · ') + '</p>';
     return h;
   }
-  function devHtml() {
-    var B = function (a, l) { return btn('dev:' + a, '', l, ''); };
-    return '<p>For testing. Nothing here is hidden from the save.</p>' +
-      '<h3>Money and progress</h3><div class="dc-menu-row">' + B('cash', '+ $1,000') + B('cash10', '+ $10,000') + B('level', '+1 level') + B('rep', 'Rep +20') + B('unlock', 'Unlock every upgrade') + B('intro', 'Finish the intro') + '</div>' +
-      '<h3>Time and weather</h3><div class="dc-menu-row">' + B('t6', '06:00') + B('t7', '07:20') + B('t10', '10:20') + B('t13', '13:20') + B('t17', '17:00') + B('t22', '22:00') + B('day', 'Next day') + '</div><div class="dc-menu-row">' + B('clear', 'Clear') + B('rain', 'Rain') + B('storm', 'Storm') + B('snow', 'Snow') + B('power', 'Toggle power cut') + '</div>' +
-      '<h3>Trucks and orders</h3><div class="dc-menu-row">' + B('truckin', 'Inbound truck now') + B('truckout', 'Outbound truck now') + B('order', 'New order') + B('rush', 'Rush order') + B('contract', 'Contract offer') + '</div>' +
-      '<h3>Stock and crew</h3><div class="dc-menu-row">' + B('fill', 'Fill the racks') + B('clearfloor', 'Clear the floor') + B('hire', 'Hire the three') + B('fire', 'Let everyone go') + B('fork', 'Forklift here') + '</div>' +
-      '<h3>Teleport</h3><div class="dc-menu-row">' + B('tpIn', 'IN 1') + B('tpOut', 'OUT 1') + B('tpBench', 'Bench') + B('tpOffice', 'Office') + B('tpBreak', 'Break room') + B('tpYard', 'Yard') + B('tpGate', 'West gate') + '</div>';
-  }
-  function devAct(a) {
-    var tp = function (x, z) { closePanel(); player.x = x; player.z = z; player.y = floorY(x, z); player.vy = 0; };
-    if (a === 'cash') pay(1000, 'Dev'); else if (a === 'cash10') pay(10000, 'Dev'); else if (a === 'level') addXp(XP_FOR(S.level) - S.xp); else if (a === 'rep') addRep(20);
-    else if (a === 'unlock') { S.up.cart = S.up.fork = S.up.lights = S.up.dock2 = S.up.sign = true; while (S.up.rows < RACK.rows.length) { S.up.rows++; buildRack(S.up.rows - 1); } placeTools(); }
+  // ── Dev commands (1.21.0: the F8 panel is gone; these answer the dev console over the link, and the tests) ──
+  // Every command writes straight into the save. The level and the stage jumps go through the same code a played game uses.
+  var DEV_COMMANDS = ['cash', 'cash10', 'level', 'setLevel', 'setStage', 'unlockAll', 'rep', 'unlock', 'intro', 't6', 't7', 't10', 't13', 't17', 't22', 'setTime', 'day', 'clear', 'rain', 'storm', 'snow', 'power', 'truckin', 'truckout', 'order', 'rush', 'contract', 'fill', 'clearfloor', 'hire', 'fire', 'fork', 'tpIn', 'tpOut', 'tpBench', 'tpOffice', 'tpBreak', 'tpYard', 'tpGate', 'saveNow', 'reload'];
+  function devCommand(a, arg) {
+    var tp = function (x, z) { closePanel(); player.x = x; player.z = z; player.y = floorY(x, z); player.vy = 0; }, msg = 'ok';
+    var n = typeof arg === 'number' ? arg : parseFloat(arg); if (isNaN(n)) n = null;
+    if (a === 'cash') pay(1000, 'Dev'); else if (a === 'cash10') pay(10000, 'Dev'); else if (a === 'level') { if (S.level < LEVEL_CAP) addXp(XP_FOR(S.level) - S.xp); else msg = 'at the cap'; } else if (a === 'rep') addRep(20);
+    else if (a === 'setLevel') { var want = clamp(Math.round(n || 1), 1, LEVEL_CAP); if (want < S.level) { S.level = want; S.xp = 0; stageEarn(); msg = 'level ' + want + ' (the building stays until a stage is earned again)'; } else { S.flags.noLevelCard = 1; while (S.level < want) { S.xp = 0; S.level++; onLevelUp(); } delete S.flags.noLevelCard; msg = 'level ' + S.level + (S.siteDue > S.site ? ', ' + stageName(S.siteDue).toLowerCase() + ' due at the day roll' : ''); } }
+    else if (a === 'setStage') { var st = clamp(Math.round(n || 0), 0, STAGE_LAST); if (st !== S.site) { S.siteDue = st; S.site = st - 1 < 0 ? 0 : S.site; if (st < S.site) S.site = st; S.siteDue = st; stageFlags(S.up, st); S.site = st; save(); try { sessionStorage.setItem('depotco-skip-splash', '1'); sessionStorage.setItem('depotco-autoplay', '1'); } catch (e) {} msg = 'stage ' + st + ': reloading'; setTimeout(function () { location.reload(); }, 200); } else msg = 'already at stage ' + st; }
+    else if (a === 'unlockAll') { S.level = LEVEL_CAP; S.xp = 0; UPGRADES.forEach(function (u) { if (/^row(\d)$/.test(u.id)) return; S.up[u.id] = true; }); S.up.rows = RACK.rows.length; stageEarn(); S.bank += 50000; msg = 'level ' + LEVEL_CAP + ', every upgrade owned' + (S.siteDue > S.site ? ', the building grows at the day roll' : ''); }
+    else if (a === 'unlock') { S.up.cart = S.up.fork = S.up.lights = S.up.sign = true; while (S.up.rows < RACK.rows.length) { S.up.rows++; buildRack(S.up.rows - 1); } placeTools(); }
     else if (a === 'intro') { S.intro.done = true; }
-    else if (a === 't6') S.time = 6; else if (a === 't7') S.time = 7.33; else if (a === 't10') S.time = 10.33; else if (a === 't13') S.time = 13.33; else if (a === 't17') S.time = 17; else if (a === 't22') S.time = 22;
+    else if (a === 't6') S.time = 6; else if (a === 't7') S.time = 7.33; else if (a === 't10') S.time = 10.33; else if (a === 't13') S.time = 13.33; else if (a === 't17') S.time = 17; else if (a === 't22') S.time = 22; else if (a === 'setTime') { if (n !== null) S.time = clamp(n, 0, 23.99); }
     else if (a === 'day') { S.time = 6; newDay(); }
     else if (a === 'clear' || a === 'rain' || a === 'storm' || a === 'snow') { S.weather = { kind: a, wet: a === 'rain' || a === 'storm' ? 1 : 0, snow: a === 'snow' ? 1 : 0, wind: a === 'storm' ? 1 : 0.4, until: nowAbs() + 6 }; }
     else if (a === 'power') { S.events.power = !S.events.power; S.events.powerUntil = S.time + 2; }
     else if (a === 'truckin') { if (!truckAtDoor(0) && !S.trucks.some(function (t) { return t.dir === 'in' && t.dock === 0 && t.state !== 'leaving'; })) spawnTruck('in', 0, S.time + TRUCK_WAIT); }
     else if (a === 'truckout') { if (!S.trucks.some(function (t) { return t.dir === 'out' && t.dock === 0 && t.state !== 'leaving'; })) spawnTruck('out', 0, S.time + 1.5); }
-    else if (a === 'order') genOrder(false); else if (a === 'rush') genOrder(true); else if (a === 'contract') { S.contract = null; S.level = Math.max(S.level, 3); offerContract(); }
-    else if (a === 'fill') { for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < RACK.bays; bb++) for (var l = 0; l < 2; l++) { var k = slotKey(r, bb, l); if (!S.slots[k] || !S.slots[k].n) { var s = pick(unlockedSkus()); S.slots[k] = { sku: s, n: 8 }; if (S.seenSkus.indexOf(s) < 0) S.seenSkus.push(s); } } }
+    else if (a === 'order') genOrder(false); else if (a === 'rush') genOrder(true); else if (a === 'contract') { S.contract = null; S.level = Math.max(S.level, UNLOCK.contracts); offerContract('contract'); }
+    else if (a === 'fill') { for (var r = 0; r < S.up.rows; r++) for (var bb = 0; bb < rowBays(r); bb++) for (var l = 0; l < 2; l++) { var k = slotKey(r, bb, l); if (!S.slots[k] || !S.slots[k].n) { var s = pick(unlockedSkus()); S.slots[k] = { sku: s, n: 8 }; if (S.seenSkus.indexOf(s) < 0) S.seenSkus.push(s); } } }
     else if (a === 'clearfloor') { S.floor = []; }
-    else if (a === 'hire') { S.level = Math.max(S.level, 4); ['receiver', 'picker', 'packer'].forEach(function (r) { if (!S.staff.some(function (s) { return s.role === r; })) hireStaff(r); }); }
+    else if (a === 'hire') { S.level = Math.max(S.level, UNLOCK.packer); ['receiver', 'picker', 'packer'].forEach(function (r) { if (!S.staff.some(function (s) { return s.role === r; })) hireStaff(r); }); }
     else if (a === 'fire') { S.staff.slice().forEach(function (s) { fireStaff(s.id); }); }
     else if (a === 'fork') { S.up.fork = true; S.fork.x = player.x - Math.sin(player.yaw) * 2.5; S.fork.z = player.z - Math.cos(player.yaw) * 2.5; S.fork.batt = 1; placeTools(); }
-    else if (a === 'tpIn') tp(-HALL.x + 3.5, -14); else if (a === 'tpOut') tp(HALL.x - 3.5, -14); else if (a === 'tpBench') tp(SPOT.bench.x - 1.4, 5.2); else if (a === 'tpOffice') tp(HALL.x - 5, 20.5); else if (a === 'tpBreak') tp(-HALL.x + 3.5, -21.5); else if (a === 'tpYard') { tp(-HALL.x, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-72, -2); player.y = YARD_Y; }
+    else if (a === 'tpIn') tp(-HALL.x + 3.5, DOCKS.in[0].z); else if (a === 'tpOut') tp(HALL.x - 3.5, DOCKS.out[0] ? DOCKS.out[0].z : 0); else if (a === 'tpBench') tp(SPOT.bench.x - 1.4, SPOT.bench.z); else if (a === 'tpOffice') tp(HALL.x - 5, HALL.z - 3.5); else if (a === 'tpBreak') tp(-HALL.x + 3.5, -HALL.z + 2.5); else if (a === 'tpYard') { tp(-HALL.x, 5); player.y = YARD_Y; } else if (a === 'tpGate') { tp(-STAGE.fence.x + 12, -2); player.y = YARD_Y; }
+    else if (a === 'saveNow') { save(); msg = 'saved'; }
+    else if (a === 'reload') { save(); try { sessionStorage.setItem('depotco-skip-splash', '1'); sessionStorage.setItem('depotco-autoplay', '1'); } catch (e) {} setTimeout(function () { location.reload(); }, 100); msg = 'reloading'; }
+    else msg = 'unknown command ' + a;
     sfx('click'); hudDirty = true; rebuildBoardSoon(); screenDirtyAll(); if (ui.panelOpen) renderPanel();
+    return msg;
   }
   function panelAct(act, arg) {
-    if (act.indexOf('dev:') === 0) { devAct(act.slice(4)); return; }
     if (act === 'pack') { var o = orderById(arg); if (o && packOrder(o)) toast('Packed #' + o.num, 'good'); }
     else if (act === 'takeback') { if (!S.hand && benchTake(arg, 1)) { handSet({ kind: 'box', sku: arg }); sfx('pickup'); } }
     else if (act === 'returnSurplus') returnSurplus();
@@ -6213,17 +6463,19 @@
     else if (act === 'cross') { var s4 = staffById(arg); if (s4) staffCrossCycle(s4); }
     else if (act === 'dial') speedCycle(arg);
     else if (act === 'plant') { var pr = plantRows().filter(function (r) { return !r.dialOnly; })[+arg]; if (pr && pr.btn && pr.btn.on) pr.btn.act(); }
-    else if (act === 'accept') contractAccept();
-    else if (act === 'decline') contractDecline();
-    else if (act === 'borrow') { if (S.level >= 2 && S.loan <= 0) { S.loan = 5000; pay(5000, 'Bank loan'); sfx('cash'); toast('$5,000 in the bank. 1.5% a day.', 'good'); } else toast(S.level < 2 ? 'The bank lends from level 2.' : 'One loan at a time.', 'bad'); }
+    else if (act === 'accept') contractAccept(arg || null);
+    else if (act === 'decline') contractDecline(arg || null);
+    else if (act === 'borrow') { if (unlocked('loan') && S.loan <= 0) { S.loan = 5000; pay(5000, 'Bank loan'); sfx('cash'); toast('$5,000 in the bank. 1.5% a day.', 'good'); } else toast(!unlocked('loan') ? 'The bank lends from level ' + UNLOCK.loan + '.' : 'One loan at a time.', 'bad'); }
     else if (act === 'repay') { var amt = Math.min(S.loan, Math.max(0, S.bank)); if (amt > 0) { S.loan -= amt; pay(-amt, 'Loan repayment'); sfx('cash'); toast('Repaid ' + money(amt), 'good'); } }
     else if (act === 'restore') { editRestore(arg); }
     else if (act === 'buy' && panel.kind === 'catalogue') { editBuy(arg); return; }
-    else if (act === 'insure') { S.insured = !S.insured; toast(S.insured ? 'Insured from tonight' : 'Insurance cancelled', ''); }
+    else if (act === 'insure') { if (!S.insured && !unlocked('insurance')) toast('Insurance comes at level ' + UNLOCK.insurance + '.', 'bad'); else { S.insured = !S.insured; toast(S.insured ? 'Insured from tonight' : 'Insurance cancelled', ''); } }
     renderPanel(); hudDirty = true;
   }
+  // what the shop lists: not the pieces a stage brings for nothing, not a rack row the building has no room for
+  function shopShows(u) { if (u.free) return false; var rowN = /^row(\d)$/.test(u.id) ? +u.id.slice(3) : 0; if (rowN && rowN > RACK.rows.length) return false; return true; }
   function buyUpgrade(id) {
-    var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; if (!u) return;
+    var u = UPGRADES.filter(function (x) { return x.id === id; })[0]; if (!u || !shopShows(u)) return;
     var rowN = /^row(\d)$/.test(id) ? +id.slice(3) : 0, owned = rowN ? S.up.rows >= rowN : !!S.up[id];
     if (owned || S.level < u.lvl || S.bank < u.price || (rowN && S.up.rows < rowN - 1) || (u.needs && !S.up[u.needs])) { sfx('bad'); return; }
     pay(-u.price, 'Bought ' + u.name);
@@ -6291,29 +6543,30 @@
   // ── The guide ─────────────────────────────────────────────────────
   function guideHtml() {
     return '<h3>What you do</h3><p>You run a small third-party warehouse. Clients send stock on trucks, you store it on the racks, their customers order from it, and you pick, pack and ship those orders out again. You are paid a fee for every pallet you receive and a cut of every order you ship on time.</p>' +
+      '<h3>The ladder</h3><p>You start in a 14 by 10 shed: one rack, one roll door, a table and a van. Everything you do earns XP, and every level opens something: a rack bay, a tool, a client, a line, a page on the scanner, a role to hire, a system. Every fifth level the building itself grows, free, overnight: the small hall at 5 (docks, office, break room, the bench and pack line, the yard with its gates), the hall at 10 (a second inbound and outbound dock and the three shipping lanes, the production wing, the car park and the road), the big hall at 15 (the mezzanine and the sortation deck, OUT 3 and the air lane, the deck accounts), the annexes at 20 (the returns hall with its own dock and truck, Hall 3 with IN 3) and Hall 4 at 25, where the depot is complete. The HUD says what the next level opens; a level card lists what the one you just reached has.</p>' +
       '<h3>Controls</h3><p><kbd>WASD</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> jump · <kbd>E</kbd> use, pick up, put on · <kbd>G</kbd> put down or let go · <kbd>Tab</kbd> the hand scanner · <kbd>1</kbd>-<kbd>9</kbd> its pages, the wheel its cursor, <kbd>F</kbd> a waypoint, <kbd>X</kbd> clears it · <kbd>F9</kbd> photo mode · <kbd>Esc</kbd> pause · <kbd>F3</kbd> FPS · <kbd>F12</kbd> screenshot · <kbd>F11</kbd> fullscreen.</p>' +
-      '<h3>Receiving</h3><p>Inbound trucks dock at IN 1 (and IN 2 once you buy the second bay) at 07:30 and 13:30. Open the dock door, walk into the trailer and take boxes off the pallets by hand, or grab the pallet jack and lift a whole pallet. A truck waits four hours and warns you half an hour before it goes; whatever is still on it goes back, unpaid, and the client remembers.</p>' +
+      '<h3>Receiving</h3><p>Inbound trucks dock at IN 1 (and IN 2 from the hall at level 10, IN 3 with Hall 3 at level 20) at 07:30 and 13:30. Open the dock door, walk into the trailer and take boxes off the pallets by hand, or grab the pallet jack and lift a whole pallet. A truck waits four hours and warns you half an hour before it goes; whatever is still on it goes back, unpaid, and the client remembers.</p>' +
       '<h3>Racks</h3><p>Every slot holds up to 12 boxes of one line. The floor and shelf levels are hand-reachable; the top level needs the forklift. Look at a slot and press E to put a box on or take one off. The jack sets a whole pallet into a floor-level slot.</p>' +
-      '<h3>The hand scanner</h3><p><kbd>Tab</kbd> raises it. Nine pages on the number keys: Home with the alerts, Orders with every line and its slot (and the returns in play), Picks (one list for every open order in walking order), Putaway (what is on the docked trucks and where it goes), Stock, Docks (every door, its lane, its truck, its bay), Plant (every machine, jams first), Crew, and a Map of the whole site from above with you, the crew, the forklift, the trucks and your waypoint on it. The wheel moves the cursor; <kbd>F</kbd> sets a waypoint on the highlighted row, a ring and a beam on the floor with the heading and the distance on the HUD, and it clears itself when you arrive (<kbd>X</kbd> clears it sooner). Point the beam at a slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it.</p>' +
+      '<h3>The hand scanner</h3><p><kbd>Tab</kbd> raises it. Nine pages on the number keys, which the ladder opens one by one (Putaway at level 2, Stock and Crew at 3, Docks and the Map at 5, Plant at 10): Home with the alerts, Orders with every line and its slot (and the returns in play), Picks (one list for every open order in walking order), Putaway (what is on the docked trucks and where it goes), Stock, Docks (every door, its lane, its truck, its bay), Plant (every machine, jams first), Crew, and a Map of the whole site from above with you, the crew, the forklift, the trucks and your waypoint on it. The wheel moves the cursor; <kbd>F</kbd> sets a waypoint on the highlighted row, a ring and a beam on the floor with the heading and the distance on the HUD, and it clears itself when you arrive (<kbd>X</kbd> clears it sooner). Point the beam at a slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it.</p>' +
       '<h3>Orders</h3><p>Orders arrive between 08:00 and 17:00 on the office PC, the wall board and the scanner. Each one lists lines and a due time, which is the departure of an outbound truck. Pick the boxes and put them on the packing bench; the terminal at the end of the bench releases an order to the pack line, and the parcel rolls onto the shelf beside it. A box on the bench is a thing you look at: E takes it back, and the prompt says whether an order wants it. The cart at the bench unloads only what the orders want and takes the surplus back in the same press. An order only ever asks for stock that is on site and not already spoken for.</p>' +
       '<h3>Conveyors</h3><p>Build mode (F2), then C: the Conveyors group sells belts by the piece, straights, curves, inclines and a high run hung from the roof. A carried piece snaps to the nearest free belt end, machine outlet, parcel shelf or inbound dock door, or to the nearest belt start, machine inlet, outbound dock door or rack bay, and says what it connects when you drop it. A belt that ends at a rack bay racks the boxes; one that ends at an outbound door with a truck in loads the parcels; one that starts at an inbound door with a signed truck in takes the boxes off its pallets.</p>' +
-      '<h3>Shipping and the three lanes</h3><p>Every client ships by one lane and every order wears it on the board: <b>SEA</b> leaves by OUT 1 (trucks 10:30 to 12:00 and 17:00 to 18:30), <b>LAND</b> by OUT 2 (09:00 to 10:30 and 16:00 to 18:00), <b>AIR</b> by OUT 3 (13:00 to 14:30 and 19:00 to 20:15), which opens with the sortation deck and brings the air clients, who pay half as much again. An order is due at the next departure of its own lane. Open the door, carry the parcel into the trailer and press E, or load the parcels off the shelf onto the picking cart (E with the cart at the shelf) and E in the trailer unloads them all. A parcel out of the wrong door still ships, for a 25% forwarding fee. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
+      '<h3>Shipping and the three lanes</h3><p>In the shed a van parks at the shed front twice a day (10:30 to 12:00, 16:00 to 17:30): E at its back doors loads a parcel, eight at most. The small hall ships everything by OUT 1. From the hall at level 10 every client ships by one lane and every order wears it on the board: <b>SEA</b> leaves by OUT 1 (trucks 10:30 to 12:00 and 17:00 to 18:30), <b>LAND</b> by OUT 2 (09:00 to 10:30 and 16:00 to 18:00), <b>AIR</b> by OUT 3 (13:00 to 14:30 and 19:00 to 20:15), which comes with the sortation deck at level 15 and brings the air clients, who pay half as much again. An order is due at the next departure of its own lane. Open the door, carry the parcel into the trailer and press E, or load the parcels off the shelf onto the picking cart (E with the cart at the shelf) and E in the trailer unloads them all. A parcel out of the wrong door still ships, for a 25% forwarding fee. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
       '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
       '<h3>Drivers</h3><p>Open the dock door and the driver walks in and waits beside it. Sign the delivery note (<kbd>E</kbd> on him) before anything comes off the truck. He will nag after two hours.</p>' +
       '<h3>The pack line and the production wing</h3><p>Boxes go on the bench as before, but packing is a machine now: pick an order on the bench terminal and the line feeds its boxes onto the infeed belt, the case taper closes them into one parcel, and the parcel rolls down the outfeed onto the shelf. It jams now and then: <kbd>E</kbd> on it clears the jam.</p><p>Through the strip curtain in the north wall is the production wing. Order pallets of raw granulate on the office PC (Production app); they come with the next inbound truck. Bring one on the jack to the hopper and <kbd>E</kbd> tips it in. Start the moulding line on its screen or with <kbd>E</kbd>, pick a product, and own-brand boxes come down the main belt into the hall, where the palletiser stacks them eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your goods once they have seen them.</p>' +
-      '<h3>Automation (shop)</h3><p>The <b>shipping belt</b> (level 3) takes parcels off the pack line shelf and runs them down the east wall to OUT 2, where the <b>dock loader</b> pushes them into any docked truck with its door up. OUT 1 stays a manual dock until the sortation deck gives it a loader of its own. The <b>AGV</b> (level 4) is a driverless pallet truck: set a pallet on its pickup square by the receiving area, or let the palletiser drop one, and it puts it away on the racks and comes back to its dock. The <b>sortation deck</b> (level 6, on the mezzanine) is where the lanes run themselves: every parcel off the pack line rides a spiral up to the deck, a scanner reads its lane, three cells crate, strap or bag it, and spirals drop it into the dock loader of its door; OUT 3 and the air clients come with it. The <b>gantry pickers</b> (level 5) put a crane over every rack row you own, and a new row brings its own crane: each one watches the open orders, takes the boxes the bench still needs out of its row and sets them on the overhead pick belts, which end at the bench. A whole order can go pick, pack, ship without a hand on it. Anything riding a belt can still be lifted off by hand. Every machine screen carries a <b>speed dial</b> (50 to 200 percent): the cranes, the AGV, the pack line, the moulding line, the baler, the wrapper, and the belts through the screen of the machine they feed. A fast pack line jams more often. All three stop in a power cut.</p>' +
+      '<h3>Automation (shop)</h3><p>The <b>shipping belt</b> (level 9) takes parcels off the pack line shelf and runs them down the east wall to the shipping bay (OUT 1 in the small hall, OUT 2 from the hall), where the <b>dock loader</b> pushes them into any docked truck with its door up. OUT 1 is a manual dock in the hall until the sortation deck gives it a loader of its own. The <b>AGV</b> (level 12) is a driverless pallet truck: set a pallet on its pickup square by the receiving area, or let the palletiser drop one, and it puts it away on the racks and comes back to its dock. The <b>sortation deck</b> (free with the big hall at level 15, on the mezzanine) is where the lanes run themselves: every parcel off the pack line rides a spiral up to the deck, a scanner reads its lane, three cells crate, strap or bag it, and spirals drop it into the dock loader of its door; OUT 3 and the air clients come with it. The <b>gantry pickers</b> (level 14) put a crane over every rack row you own, and a new row brings its own crane: each one watches the open orders, takes the boxes the bench still needs out of its row and sets them on the overhead pick belts, which end at the bench. A whole order can go pick, pack, ship without a hand on it. Anything riding a belt can still be lifted off by hand. Every machine screen carries a <b>speed dial</b> (50 to 200 percent): the cranes, the AGV, the pack line, the moulding line, the baler, the wrapper, and the belts through the screen of the machine they feed. A fast pack line jams more often. All three stop in a power cut.</p>' +
       '<h3>Tools</h3><p>While you hold a box or a parcel, a green ghost of it with a ring on the floor shows where G will set it down; it turns red where there is no floor to drop onto.</p><p>Two pallet jacks are yours from day one: jack 1 lives by the IN docks, jack 2 by OUT. With an empty jack, E on the empty pallet stack takes a pallet; loose boxes of one line go on it by hand or off the picking cart (E with the cart at a pallet unloads the matching line; at the parked cart, G takes one box off into your hand or puts the box you hold onto it), and the pallet then goes on a rack like any other, or on the jack to the bin by the bench to write the whole load off. The picking cart (shop) holds twelve boxes or parcels on three shelves and picks straight off the racks. The forklift (shop, level 2) drives with WASD, Shift cycles three gears (creep, normal, fast; fast drinks the battery and throws unwrapped loads on corners), lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
-      '<h3>Staff and the time clock</h3><p>From level 3 you can hire a receiver and a picker on the office PC, from level 4 a packer, and from level 5, once you own the forklift, a forklift driver who puts the pallets left on the hall floor away on any level and parks the forklift back in its bay. A receiver pushes a pallet jack of their own; a picker with nothing to pick walks surplus boxes back off the bench. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at the day roll. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
-      '<h3>Returns</h3><p>From level 3 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong thing, or damaged in transit. With empty hands, <kbd>E</kbd> in the trailer takes it off. Carry it to the <b>returns desk</b> between the bench and the office: <kbd>E</kbd> puts it on the desk, <kbd>E</kbd> again starts the inspection, which runs by itself. The client pays a fee for every return and every box. The boxes come out on the desk shelves: good ones go back on a rack by hand or on the cart, damaged ones go in the bin at no charge. A return left lying for a day costs reputation; a truck that leaves with one still aboard has its driver set it down inside the door. The packer handles returns when the bench has nothing for them.</p>' +
-      '<h3>The mezzanine and the halls</h3><p>The mezzanine (shop, level 6) is a steel deck over the receiving strip: set a pallet in the goods lift by IN 1 and it is racked upstairs by itself, and the upper crane sends boxes the bench needs down a chute into the pick line. The sortation deck builds on it and runs the three lanes. From level 7 the building grows off its north side: Hall 2 east of the production wing, Hall 3 west of it with a third inbound dock, Hall 4 behind the wing, each with two rack rows for the forklift, the AGV and the crew.</p>' +
+      '<h3>Staff and the time clock</h3><p>From level 3 you can hire a picker (on the clipboard in the shed, the office PC later), from level 4 a receiver, from level 8 a packer and, once you own the forklift, a forklift driver who puts the pallets left on the hall floor away on any level and parks the forklift back in its bay. The crew grows with your level: one head at 3, eight at 20. A receiver pushes a pallet jack of their own; a picker with nothing to pick walks surplus boxes back off the bench. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at the day roll. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
+      '<h3>Returns</h3><p>From level 8 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong thing, or damaged in transit. With empty hands, <kbd>E</kbd> in the trailer takes it off. Carry it to the <b>returns desk</b> between the bench and the office: <kbd>E</kbd> puts it on the desk, <kbd>E</kbd> again starts the inspection, which runs by itself. The client pays a fee for every return and every box. The boxes come out on the desk shelves: good ones go back on a rack by hand or on the cart, damaged ones go in the bin at no charge. A return left lying for a day costs reputation; a truck that leaves with one still aboard has its driver set it down inside the door. The packer handles returns when the bench has nothing for them.</p>' +
+      '<h3>The mezzanine and the halls</h3><p>The mezzanine comes with the big hall at level 15: a steel deck over the receiving strip. Set a pallet in the goods lift by IN 1 and it is racked upstairs by itself, and the upper crane sends boxes the bench needs down a chute into the pick line. The sortation deck stands on it and runs the three lanes. At level 20 the building grows off its north side: the returns hall east of the production wing and Hall 3 west of it with a third inbound dock; at level 25 Hall 4 behind the wing, each with rack rows for the forklift, the AGV and the crew.</p>' +
       '<h3>The day report</h3><p>At every day roll the day that ended is closed off: money in and out (the morning rent and wages included), orders shipped and late, pallets received, boxes picked, returns inspected, the reputation change and the bank. A card shows on the HUD for a while (any key closes it) and the Stats app on the office PC keeps the last fortnight.</p>' +
       '<h3>Photo mode</h3><p><kbd>F9</kbd> frees the camera: WASD flies it, Space and C take it up and down, Shift is fast, the mouse looks, and the wheel zooms the lens from wide to long. The HUD goes and the world holds still while you line up the shot; <kbd>F12</kbd> takes it. <kbd>F9</kbd> or <kbd>Esc</kbd> puts you back where you stood, with the lens as it was.</p>' +
-      '<h3>Trouble</h3><p>Power cuts stop the doors, the PC and new orders until you reset the breaker in the office, or the grid restores it after an hour and a half. An inspector drops in now and then and fines you for boxes left on the floor. Leave a dock door open at night with no truck in it and stock walks off. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
+      '<h3>Trouble</h3><p>Trouble arrives one kind at a time: power cuts from level 5 stop the doors, the PC and new orders until you reset the breaker in the office, or the grid restores it after an hour and a half. From level 7 leave a dock door open at night with no truck in it and stock walks off. From level 8 an inspector drops in now and then and fines you for boxes left on the floor. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
       '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
-      '<h3>Contracts and the bank</h3><p>From level 3 a client offers a contract now and then: a number of their orders on time inside a window, for a bonus; miss it and there is a penalty. The bank lends $5,000 at 1.5% a day from level 2, and theft insurance at $40 a day pays most of what walks off at night.</p>' +
+      '<h3>Contracts and the bank</h3><p>From level 5 a client offers a contract now and then: a number of their orders on time inside a window, for a bonus; miss it and there is a penalty. Contracts grow at 17, two run at once from 21, and from 24 a long one comes now and then. The bank lends $5,000 at 1.5% a day from level 6, and theft insurance (level 7) at $40 a day pays most of what walks off at night.</p>' +
       '<h3>Damaged goods</h3><p>A box dropped mid-air or shed off the forklift can be damaged. It cannot go on a rack or the bench: carry it to the bin by the packing bench and the client charges half its value.</p>' +
       '<h3>Build mode</h3><p><kbd>F2</kbd> is build mode. Aim at any piece of furniture, a machine, a poster or a sign and <kbd>E</kbd> grabs it; it follows your aim, <kbd>R</kbd> turns it a quarter, <kbd>E</kbd> puts it down, <kbd>Esc</kbd> drops it back. <kbd>Backspace</kbd> puts a piece back where it started, <kbd>Del</kbd> removes it. <kbd>C</kbd> opens the catalogue: removed pieces to bring back, and extras to buy. The layout saves when you leave build mode.</p>' +
-      '<h3>Dev console</h3><p><kbd>F8</kbd> opens a cheat menu: money, levels, the clock, weather, trucks, orders, stock, crew, teleports. For testing; it writes straight into the save.</p>' +
+      '<h3>Dev console</h3><p>A separate little program: <code>npm run devconsole</code> opens it, and <kbd>Ctrl+Shift+D</kbd> in the game (or starting the game with <code>--dev-link</code>) links the two. It shows a live readout of the save and has the cheats: money, levels, stage jumps, the clock, weather, trucks, orders, stock, crew, teleports. For testing; it writes straight into the save. The HUD shows LINKED while it is connected.</p>' +
       '<h3>Tips</h3><p>Keep one slot per line and the scanner tells you where everything is. Pack before the truck arrives, not after. Coffee makes you faster for an hour. Reputation brings more and bigger orders.</p>';
   }
   // ── Static bake ───────────────────────────────────────────────────
@@ -6357,6 +6610,34 @@
     });
     shadowDirty = true;
   }
+  // ── The dev console link ──────────────────────────────────────────
+  // The F8 cheat panel is gone. In its place a separate little Electron program (npm run devconsole) runs a local server on
+  // 127.0.0.1:8432. The game links to it only when told: Ctrl+Shift+D, or started with --dev-link (the page gets ?dev=1). While
+  // linked it posts a readout of the save once a second and takes commands over a server-sent event stream; every command goes
+  // through devCommand, the same code the tests call. The HUD shows LINKED. Nothing here runs in an unlinked game.
+  var DEV_PORT = 8432, devLink = { on: false, es: null, t: 0, sent: 0, got: 0, fails: 0, last: '' };
+  function devState() {
+    return { version: window.DEPOT_VERSION || 'dev', day: S.day, time: Math.round(S.time * 100) / 100, clock: fmtTime(S.time), bank: S.bank, level: S.level, xp: S.xp, xpFor: XP_FOR(S.level), cap: LEVEL_CAP, rep: Math.round(S.rep * 10) / 10,
+      site: S.site, siteDue: S.siteDue, stage: BOOT_STAGE, stageName: stageName(BOOT_STAGE), next: nextLevelText(), weather: S.weather ? S.weather.kind : 'clear', power: !S.events.power,
+      orders: S.orders.filter(function (o) { return o.state === 'open'; }).length, packed: S.orders.filter(function (o) { return o.state === 'packed'; }).length, late: S.orders.filter(function (o) { return o.late && o.state !== 'shipped'; }).length,
+      stock: totalStock(), trucks: S.trucks.map(function (t) { return (t.van ? 'van' : t.dir) + ' ' + dockLabel(doorIndex(t.dir, t.dock)) + ' ' + t.state; }), staff: S.staff.map(function (st) { return st.name + ' (' + st.role + ') ' + staffStatus(st); }),
+      up: Object.keys(S.up).filter(function (k) { return S.up[k] === true; }), rows: S.up.rows, player: { x: Math.round(player.x * 10) / 10, z: Math.round(player.z * 10) / 10 }, intro: S.intro && !S.intro.done ? introIndex() + ' of ' + INTRO.length : 'done', commands: DEV_COMMANDS };
+  }
+  function devLinkBadge() { var b = $('h-devlink'); if (!b) return; b.hidden = !devLink.on; b.textContent = devLink.on ? (devLink.es && devLink.es.readyState === 1 ? 'LINKED · dev console' : 'LINKING...') : ''; }
+  function devLinkToggle() {
+    if (devLink.on) { devLinkStop('Dev console unlinked'); return; }
+    if (typeof EventSource === 'undefined') { toast('No EventSource in this browser: the dev console cannot link.', 'bad'); return; }
+    devLink.on = true; devLink.fails = 0;
+    try { var es = new EventSource('http://127.0.0.1:' + DEV_PORT + '/events'); devLink.es = es;
+      es.onopen = function () { devLink.fails = 0; devLinkBadge(); toast('Dev console linked', 'good'); };
+      es.onmessage = function (ev) { var cmd; try { cmd = JSON.parse(ev.data); } catch (e) { return; } if (!cmd || !cmd.name) return; devLink.got++; var res = devCommand(cmd.name, cmd.arg); devLink.last = cmd.name + ': ' + res; devPost('/result', { id: cmd.id, name: cmd.name, result: res }); };
+      es.onerror = function () { devLink.fails++; devLinkBadge(); if (devLink.fails === 1) toast('Dev console not answering on 127.0.0.1:' + DEV_PORT + '. Start it with npm run devconsole; the game keeps trying.', ''); if (devLink.fails > 30) devLinkStop('Dev console: gave up after 30 tries'); };
+    } catch (e) { devLinkStop('Dev console: could not open the link'); return; }
+    devLinkBadge(); logEvent('Dev console link opened. Ctrl+Shift+D unlinks.');
+  }
+  function devLinkStop(why) { if (devLink.es) { try { devLink.es.close(); } catch (e) {} } devLink.es = null; devLink.on = false; devLinkBadge(); if (why) toast(why, ''); }
+  function devPost(path, body) { try { fetch('http://127.0.0.1:' + DEV_PORT + path, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true }).then(function () { devLink.sent++; }).catch(function () {}); } catch (e) {} }
+  function tickDevLink(dt) { if (!devLink.on) return; devLink.t += dt; if (devLink.t < 1) return; devLink.t = 0; if (devLink.es && devLink.es.readyState === 1) devPost('/state', devState()); }
   // ── Time ──────────────────────────────────────────────────────────
   function tickTime(dt) {
     var night = S.time >= DAY_END || S.time < DAY_START;
@@ -6368,7 +6649,7 @@
   }
   function newDay() {
     S.day++; S.stats.days++;
-    pay(-ECON.rent, 'Rent, day ' + S.day);
+    if (stageRent()) pay(-stageRent(), 'Rent, day ' + S.day);   // the shed is rent free; the halls are not
     payStaffWages(); staffNewDay(); if (S.clockedIn) { myClock(false); logEvent('The clock ran past midnight: you were clocked out automatically'); }
     if (S.loan > 0) { var interest = Math.round(S.loan * 0.015); pay(-interest, 'Loan interest (1.5%)'); }
     if (S.insured) pay(-40, 'Insurance premium');
@@ -6378,7 +6659,22 @@
     S.events.inspected = false; S.events.prowled = false;
     logEvent('Day ' + S.day + '. Rent and wages paid.', 'rare'); toast('Day ' + S.day, 'rare'); rebuildBoardSoon(); hudDirty = true; save();
     if (S.bank < -600) { toast('The bank is getting nervous: ' + money(S.bank), 'bad'); }
+    if (S.siteDue > S.site) stageRebuild();   // the builders were in overnight
   }
+  // ── The building grows (1.21.0) ────────────────────────────────────
+  // A level that earns a bigger building marks it due (S.siteDue); the walls move at the next day roll. The page was laid out for
+  // the stage it booted at, so the move is a save with the new stage and a reload behind a black fade: "scaffold now, walls in the morning".
+  function stageRebuild() {
+    if (ui.rebuilding || S.siteDue <= S.site) return;
+    var from = S.site, to = S.siteDue; S.site = to; stageFlags(S.up, to); ui.rebuilding = true;
+    S.trucks.slice().forEach(function (t) { removeTruckMesh(t.id); }); S.trucks = []; S.pallets = S.pallets.filter(function (p) { return p.place !== 'truck'; });   // nothing rides through the rebuild
+    S.flags.rebuiltFrom = from; logEvent('The builders were in: ' + stageName(from) + ' is ' + stageName(to).toLowerCase() + ' now.', 'rare'); save();
+    try { sessionStorage.setItem('depotco-skip-splash', '1'); sessionStorage.setItem('depotco-autoplay', '1'); } catch (e) {}
+    var fade = $('dc-fade'); if (fade) { fade.hidden = false; fade.style.opacity = '1'; fade.style.transition = 'none'; fade.innerHTML = '<div class="dc-fade-note"><b>The builders were in overnight.</b><span>' + esc(stageName(to)) + '</span></div>'; }
+    sfx('fanfare'); if (ui.testing) { ui.rebuildPending = true; return; } setTimeout(function () { location.reload(); }, 2200);   // the test runner reloads the page itself
+  }
+  // the stage a level earns: due now, built in the morning
+  function stageEarn() { var want = stageForLevel(S.level); if (want > S.siteDue) { S.siteDue = want; toast('The builders are booked: ' + stageName(want).toLowerCase() + ' in the morning. Sleep, or wait for the day roll.', 'rare'); logEvent('Level ' + S.level + ' earns ' + stageName(want).toLowerCase() + ': the builders come in at the day roll.', 'rare'); if (propInst.scaffold) buildProp('scaffold'); hudDirty = true; return true; } return false; }
   function cotPrompt() { return S.time >= 17 || S.time < DAY_START || isSunday() ? 'Sleep until morning (rent and wages are due)' : 'Too early to sleep: the cot is for after 17:00'; }
   function sleepNow() {
     if (!(S.time >= 17 || S.time < DAY_START || isSunday())) { toast('Too early. Come back after 17:00.', 'bad'); return; }   // a closed Sunday can be slept through at any hour
@@ -6388,7 +6684,7 @@
     S.trucks.slice().forEach(function (t) { removeTruckMesh(t.id); }); S.trucks = [];
     if (S.time >= 17 && S.time < 23) prowlerCheck();   // sleeping past 23:00 is not a way round the prowler
     if (S.time >= DAY_START) { if (S.clockedIn) myClock(false); S.time = DAY_START; newDay(); } else S.time = DAY_START;   // your card is clocked out before the roll, or the shift reads 23 hours
-    S.events.power = false; buff.coffeeUntil = 0;
+    S.events.power = false; buff.coffeeUntil = 0; if (ui.rebuilding) return;   // the builders' fade is already up
     var fade = $('dc-fade'); fade.hidden = false; fade.style.opacity = '1'; fade.style.transition = 'none';   // a black fade, not the title card
     setTimeout(function () { fade.style.transition = 'opacity .9s'; fade.style.opacity = '0'; setTimeout(function () { fade.hidden = true; fade.style.opacity = ''; fade.style.transition = ''; }, 900); }, 400);
   }
@@ -6417,7 +6713,7 @@
     var power = !S.events.power, lamps = power && !S.flags.lightsOff ? (S.up.lights ? 1.05 : 0.8) : 0;
     // the tubes do not come on at once: when the power returns or the hall is switched on they flicker up over a couple of seconds, each on its own clock
     if (!lightT2) lightT2 = {}; hallLights.forEach(function (l, i) { var want = lamps; if (want > 0) { var k = lightT2[i] = Math.min(1, (lightT2[i] || 0) + 0.1 / (1.6 + (i % 4) * 0.5)); if (k < 1) want = lamps * (k < 0.3 ? (Math.random() < 0.5 ? 0.15 : 0.7) * k * 3 : k); } else lightT2[i] = 0; l.intensity = want; });
-    officeLight.intensity = power ? 0.55 : 0; breakLight.intensity = power ? 0.45 : 0; lobbyLight.intensity = power ? 0.4 : 0;
+    officeLight.intensity = power && !officeLight.userData.off ? 0.55 : 0; breakLight.intensity = power && !breakLight.userData.off ? 0.45 : 0; lobbyLight.intensity = power && !lobbyLight.userData.off ? 0.4 : 0;   // the shed has no rooms to light
     MAT.lamp.color.setHex(power ? 0xfff6e4 : 0x3a3a3a); MAT.skylight.color.setHex(0xffffff); MAT.skylight.color.multiplyScalar(0.04 + day * 0.96);
     yardLights.forEach(function (l) { l.intensity = day < 0.5 && power && !S.flags.yardOff ? (l.userData.k || 1.3) : 0; });
     if (world.pcScreen) world.pcScreen.visible = power;
@@ -6437,8 +6733,8 @@
   function tickEvents(dt) {
     evT += dt; if (evT < 1) return; var step = evT; evT = 0;
     if (S.events.power) { if (S.time >= S.events.powerUntil) { S.events.power = false; toast('The power is back.', 'good'); logEvent('Power restored by the grid'); sfx('breaker'); } }
-    else if (S.level >= 2 && !isSunday() && S.time >= 9 && S.time < 16 && !S.flags.noEvents && Math.random() < step / HOUR_SEC * 0.05) { S.events.power = true; S.events.powerUntil = S.time + 1.5; toast('Power cut! The breaker is in the office.', 'bad'); logEvent('Power cut. Doors, PC and the coffee machine are dead until the breaker is reset.', 'bad'); sfx('power'); }
-    if (!S.events.inspected && !isSunday() && S.day >= S.events.nextInspect && S.time >= 10 && S.time < 10.5) inspection();
+    else if (unlocked('power') && !isSunday() && S.time >= 9 && S.time < 16 && !S.flags.noEvents && Math.random() < step / HOUR_SEC * 0.05) { S.events.power = true; S.events.powerUntil = S.time + 1.5; toast('Power cut! The breaker is in the office.', 'bad'); logEvent('Power cut. Doors, PC and the coffee machine are dead until the breaker is reset.', 'bad'); sfx('power'); }
+    if (!S.events.inspected && unlocked('inspector') && !isSunday() && S.day >= S.events.nextInspect && S.time >= 10 && S.time < 10.5) inspection();
     if (boardT > 0) { boardT -= step; if (boardT <= 0) { boardT = 0; drawBoard(); } }
     if (S.time >= 8 && S.time < 18 && Math.floor(S.time * 4) !== S.flags.boardQ) { S.flags.boardQ = Math.floor(S.time * 4); drawBoard(); }
   }
@@ -6455,7 +6751,7 @@
     else { addRep(3); toast('Inspector: clean floor, tidy docks. Well done.', 'good'); logEvent('Safety inspection passed', 'good'); addXp(10); }
   }
   function prowlerCheck() {
-    if (S.events.prowled) return; S.events.prowled = true;
+    if (S.events.prowled || !unlocked('prowler')) return; S.events.prowled = true;
     var open = doors.filter(function (d) { return S.doors[d.i] && !truckAtDoor(d.i); });
     if (!open.length) { var unl = hdoors.filter(function (d) { return (d.id === 'staff' || d.id === 'exit') && !hd(d.id).locked; }); if (unl.length && Math.random() < 0.5) { var keys2 = Object.keys(S.slots).filter(function (k) { return S.slots[k].n > 0; }); if (!keys2.length) return; var key2 = pick(keys2), sku2 = S.slots[key2].sku, n2 = slotTake(key2, randi(1, 3)); S.stats.stolen = (S.stats.stolen || 0) + n2; addRep(-2); if (S.insured) { var refund2 = Math.round(n2 * SKU[sku2].val * 0.8); pay(refund2, 'Insurance payout, ' + n2 + ' boxes'); toast('Insurance paid ' + money(refund2) + ' for the loss', 'good'); } sfx('glass'); toast('Someone slipped in through ' + unl[0].label + ' and took ' + n2 + ' boxes. Lock up at night.', 'bad'); logEvent(n2 + ' boxes of ' + skuName(sku2) + ' taken through the unlocked ' + unl[0].label + '. Shift+E locks a door; the control cabinet locks them all.', 'bad'); } return; }
     var keys = Object.keys(S.slots).filter(function (k) { return S.slots[k].n > 0; }); if (!keys.length) return;
@@ -6464,30 +6760,48 @@
     if (S.insured) { var refund = Math.round(n * SKU[sku].val * 0.8); pay(refund, 'Insurance payout, ' + n + ' boxes'); toast('Insurance paid ' + money(refund) + ' for the loss', 'good'); }
     toast('Someone walked off with ' + n + ' boxes through the open door at ' + dockLabel(open[0].i), 'bad'); logEvent(n + ' boxes of ' + skuName(sku) + ' stolen through the open door at ' + dockLabel(open[0].i) + '. Close the doors at night.', 'bad');
   }
+  // ── Levels (1.21.0: the ladder) ───────────────────────────────────
+  // A level pays its bonus, says what it opens (levelOpens reads the ladder tables), stands up the props that appear at it, books
+  // the builders when it earns a bigger building, and shows the card. The tip for the level goes to the HUD feed after the card.
+  var levelT = 0;
   function onLevelUp() {
-    sfx('levelup'); toast('Level ' + S.level + '!', 'rare');
-    // what this level opens, read off the shop, the roles and the tiers rather than a list that goes stale
-    var ups = UPGRADES.filter(function (u) { return u.lvl === S.level; }).map(function (u) { return u.name.toLowerCase(); }), hires = Object.keys(STAFF_ROLES).filter(function (r) { return STAFF_ROLES[r].lvl === S.level; }).map(function (r) { return STAFF_ROLES[r].name.toLowerCase(); }), bits = [];
-    if (tierFor(S.level) > tierFor(S.level - 1)) bits.push('new lines from the clients'); if (ups.length) bits.push('in the shop: ' + ups.join(', ')); if (hires.length) bits.push('for hire: ' + hires.join(', '));
-    if (S.level === 3) bits.push('rush orders and contracts start'); if (S.level === RETURNS.level) bits.push('returns start coming back on the outbound trucks'); if (S.level === 7) bits.push('the crew grows to eight');
-    var what = bits.length ? bits.join('. ').replace(/^./, function (ch) { return ch.toUpperCase(); }) + '.' : 'Bigger orders and bigger loads.';
-    logEvent('Level ' + S.level + '. ' + what, 'rare');
+    var lv = S.level, opens = levelOpens(lv), bonus = LEVEL_BONUS * lv;
+    sfx('levelup'); pay(bonus, 'Level ' + lv + ' bonus');
+    var what = opens.length ? opens.join('; ').replace(/^./, function (ch) { return ch.toUpperCase(); }) + '.' : 'Bigger orders and bigger loads.';
+    logEvent('Level ' + lv + ': ' + money(bonus) + ' bonus. ' + what, 'rare');
+    applyLevelUnlocks(lv); stageEarn(); showLevelCard(lv, opens, bonus); introStep('levelup');
+    if (LADDER_TIPS[lv]) setTimeout(function () { feedPush(LADDER_TIPS[lv], 'good'); }, 1500);
+    if (lv >= LEVEL_CAP) { logEvent('Level ' + LEVEL_CAP + ': the ladder is climbed. Everything the depot has is yours.', 'rare'); }
+    hudDirty = true; screenDirtyAll(); if (ui.panelOpen) renderPanel();
   }
+  function nextLevelText() { if (S.level >= LEVEL_CAP) return 'Level ' + LEVEL_CAP + ': the top of the ladder'; var n = S.level + 1, note = LADDER_NOTES[n] || (levelOpens(n)[0] || 'more of everything'); return 'Next: level ' + n + ', ' + note; }
+  function showLevelCard(lv, opens, bonus) {
+    if (!ui.started || S.flags.noLevelCard) return; var el = $('h-level'); if (!el) return;
+    var st = stageForLevel(lv), grows = st > stageForLevel(lv - 1);
+    el.innerHTML = '<div class="lv-head"><b>Level ' + lv + '</b><span>+' + money(bonus) + '</span></div>' + (grows ? '<div class="lv-stage">' + esc(STAGES[st].name) + ': the builders come in the morning</div>' : '') +
+      '<ul>' + opens.filter(function (o) { return !/builders come in the morning/.test(o); }).map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' +
+      (lv < LEVEL_CAP ? '<small>' + esc(nextLevelText()) + ' · any key closes</small>' : '<small>The ladder is climbed. Any key closes.</small>');
+    el.hidden = false; levelT = 18;
+  }
+  function hideLevelCard() { var el = $('h-level'); if (el && !el.hidden) el.hidden = true; levelT = 0; }
+  function tickLevelCard(dt) { if (levelT > 0) { levelT -= dt; if (levelT <= 0) hideLevelCard(); } }
 
   // ── The guided intro ──────────────────────────────────────────────
+  // 1.21.0: written for the shed, where every new game starts. A save from the halls that is still mid-intro follows the same steps;
+  // the door, the sign and the rest mean the same thing in any building.
   var INTRO = [
-    ['clockin', 'You start in the entrance lobby. Press <b>E</b> on the <b>time clock</b> on the wall beside the staff door and clock in: it keeps your hours.'],
-    ['door', 'Go through the lobby door into the hall and walk to dock <b>IN 1</b> on the west wall. Press E on the roll door, or use the console beside it. The first truck docks at 07:30.'],
-    ['sign', 'When the truck is in and the dock door is up, the driver walks in and waits beside the door. Press <b>E</b> on him to sign the delivery note. Nothing comes off until you do.'],
-    ['unload', 'Walk into the trailer. Take a box off a pallet with <b>E</b>, or grab the pallet jack from its bay by the receiving square and lift a whole pallet.'],
-    ['putaway', 'Put it on a rack: look at a slot and press <b>E</b>. Row A, floor level, is nearest. A slot holds 12 boxes of one line.'],
-    ['scanner', 'Press <b>Tab</b>. The scanner in your hand has nine pages on the number keys: the orders and their slots, the pick list, what is still on the truck, the stock, the docks, the plant, the crew, and a map of the site. The wheel moves the cursor and <b>F</b> sets a waypoint on the highlighted row.'],
-    ['order', 'Orders arrive from 08:30 on the office PC (sit down at the desk), the wall board and the scanner. Wait for the first one.'],
-    ['pick', 'Take the boxes the order needs off the rack (<b>E</b> on the slot). One box per trip until you buy the cart.'],
-    ['bench', 'Carry them to the <b>packing bench</b> on the east side and press E to put them down.'],
-    ['pack', 'With empty hands press <b>E</b> on the bench, or use the terminal on it, and pack the order. The parcel appears on the shelf beside it.'],
-    ['load', 'Pick the parcel up and look at the board: a <b>SEA</b> order leaves by OUT 1 (truck from 10:30), a <b>LAND</b> order by OUT 2 (from 09:00). Open that dock from its console, walk into the outbound trailer and press E. The wrong door ships it too, for a forwarding fee.'],
-    ['dispatch', 'Press E on the <b>DISPATCH</b> button of that dock console to send the truck now, or let it leave on schedule. You are paid when it goes.']
+    ['door', 'This is your shed: one rack, one door, one table. Walk to the roll door <b>IN 1</b> on the west wall and press <b>E</b> on it, or on the console beside it. The first truck docks at 07:30.'],
+    ['sign', 'When the truck is in and the door is up, the driver walks in and waits beside it. Press <b>E</b> on him to sign the delivery note. Nothing comes off until you do.'],
+    ['unload', 'Walk into the trailer. Take a box off a pallet with <b>E</b>, or grab the pallet jack from the south wall and lift a whole pallet.'],
+    ['putaway', 'Put it on the rack: look at a slot and press <b>E</b>. A slot holds 12 boxes of one line. The rack grows a bay every level until the hall.'],
+    ['scanner', 'Press <b>Tab</b>. The scanner in your hand shows the orders and their slots and the pick list; its other pages unlock as you level. The wheel moves the cursor and <b>F</b> sets a waypoint on the highlighted row.'],
+    ['order', 'Orders arrive from 08:30 on the board by the door and on the scanner. The clipboard on the table is your office: the shop and the crew are on it. Wait for the first order.'],
+    ['pick', 'Take the boxes the order needs off the rack (<b>E</b> on the slot). One box per trip until you buy the cart at level 3.'],
+    ['bench', 'Carry them to the <b>table</b> along the south wall and press E to put them down.'],
+    ['pack', 'With empty hands press <b>E</b> on the table: you pack the first whole order on it by hand, four seconds a parcel. The parcel appears at the back of the table.'],
+    ['load', 'Pick the parcel up and go out of the person door: the <b>van</b> parks at the shed front from 10:30 and 16:00. Press <b>E</b> at its back doors to load it.'],
+    ['dispatch', 'The van leaves on its own at 12:00 and 17:30, or press <b>E</b> on the dock console to send it early. You are paid when it goes.'],
+    ['levelup', 'Every parcel, pallet and box earns XP. Level 2 brings a second rack bay and the time clock; level 5 brings the hall, with proper docks and an office. The HUD says what the next level opens.']
   ];
   function introStep(key) {
     if (!S.intro || S.intro.done) return;
@@ -6495,7 +6809,7 @@
     if (S.intro.did[key]) return;
     S.intro.did[key] = 1;
     var i = introIndex();
-    if (i >= INTRO.length) { S.intro.done = true; pay(400, 'Intro bonus'); toast('Intro done: $400 bonus. The depot is yours.', 'rare'); logEvent('Guided intro finished. $400 bonus.', 'rare'); sfx('chime'); }
+    if (i >= INTRO.length) { S.intro.done = true; pay(400, 'Intro bonus'); toast('Intro done: $400 bonus. The depot is yours.', 'rare'); logEvent('Guided intro finished. $400 bonus. Everything from here is on the ladder: the HUD says what the next level opens.', 'rare'); sfx('chime'); }
     else if (INTRO[i][0] !== key) { /* a step done out of order still counts */ }
     hudDirty = true;
   }
@@ -6705,6 +7019,10 @@
   function reportRows() { return (S.days || []).slice(0, 7).map(function (r) { return { text: 'Day ' + r.day + '  ·  ' + r.shipped + ' shipped' + (r.late ? ' (' + r.late + ' late)' : '') + ' · ' + r.received + ' pallets in' + (r.returns ? ' · ' + r.returns + ' returns' : ''), sub: money(r.earned) + ' in, ' + money(r.spent) + ' out · rep ' + (r.rep >= 0 ? '+' : '') + r.rep + ' · bank ' + money(r.bank), right: (r.net >= 0 ? '+' : '') + money(r.net), rcol: r.net >= 0 ? '#5fd38d' : '#ff6b5e' }; }); }
   // ── Boot ──────────────────────────────────────────────────────────
   var loaded = load(); sorterSpots();   // a save that owns the sortation deck keeps jack 2 out from under the spirals
+  if (loaded && S.site !== BOOT_STAGE) { S.site = BOOT_STAGE; if (S.siteDue < S.site) S.siteDue = S.site; stageFlags(S.up, S.site); }   // the page is laid out for the stage the raw save said: the state agrees with the walls
+  // the walls moved overnight: the tools stand in the bays the new layout gives them, not where the old hall left them (jack 2 would be under the spirals)
+  if (S.flags.rebuiltFrom !== undefined) { S.jack.x = SPOT.jack.x; S.jack.z = SPOT.jack.z; S.jack.rot = Math.PI / 2; if (S.jack2) { S.jack2.x = SPOT.jack2.x; S.jack2.z = SPOT.jack2.z; S.jack2.rot = S.up.sorter ? Math.PI : -Math.PI / 2; } S.cart.x = SPOT.cart.x; S.cart.z = SPOT.cart.z; S.cart.rot = 0; S.fork.x = SPOT.fork.x; S.fork.z = SPOT.fork.z; S.fork.yaw = Math.PI; S.fork.lift = 0.1; }
+  if (S.flags.rebuiltFrom !== undefined) { var rbFrom = S.flags.rebuiltFrom; delete S.flags.rebuiltFrom; setTimeout(function () { toast('The builders were in: welcome to ' + stageName(S.site).toLowerCase() + '.', 'rare'); feedPush(LADDER_TIPS[STAGES[S.site].level] || ('The building grew from ' + stageName(rbFrom).toLowerCase() + '.'), 'good'); }, 1500); }
   buildWorld(); buildTools(); buildScanner();
   S.trucks.forEach(buildTruckMesh); S.staff.forEach(buildStaffMesh);
   // a packed order whose parcel is nowhere (an old save, say) goes back to open with its boxes on the bench
@@ -6717,14 +7035,15 @@
   buildAgv();
   if (!/nobake=1/.test(location.search)) bakeStatic();
   camera.position.set(12, 3.6, 0); camera.lookAt(0, 1.4, 0); if (!loaded) S.time = 10.5;
-  $('dc-start-stats').innerHTML = loaded ? ['Day ' + S.day, 'Level ' + S.level, money(S.bank), Math.round(S.rep) + ' rep', S.stats.shipped + ' shipped'].map(function (s) { return '<span>' + s + '</span>'; }).join('') : ['New depot', money(ECON.start), '2 rack rows', 'two pallet jacks'].map(function (s) { return '<span>' + s + '</span>'; }).join('');
+  $('dc-start-stats').innerHTML = loaded ? ['Day ' + S.day, 'Level ' + S.level, stageName(S.site), money(S.bank), Math.round(S.rep) + ' rep', S.stats.shipped + ' shipped'].map(function (s) { return '<span>' + s + '</span>'; }).join('') : ['New depot', 'The shed', money(ECON.start), 'one rack, one jack, a van'].map(function (s) { return '<span>' + s + '</span>'; }).join('');
   $('dc-start-note').textContent = loaded ? 'Slot ' + BOOT_SLOT + ' · last saved ' + (S.savedAt ? new Date(S.savedAt).toLocaleString() : 'never') : 'Slot ' + BOOT_SLOT + ' · the first truck is due at 07:30';
 
   function enter() {
     if (ui.started) return;
     ui.started = true; $('dc-start').hidden = true; $('dc-hud').hidden = false; hudDirty = true;
     lockPointer(); sfx('ok');
-    if (!loaded) { S.time = DAY_START; logEvent('Welcome to Depot Co. Open dock IN 1: the first truck is due at 07:30.', 'rare'); save(); }   // the menu backdrop showed 10:30; the shift starts at 06:00
+    if (!loaded) { S.time = DAY_START; logEvent('Welcome to Depot Co. This is your shed. Open the roll door IN 1: the first truck is due at 07:30.', 'rare'); save(); }   // the menu backdrop showed 10:30; the shift starts at 06:00
+    if (/[?&]dev=1/.test(location.search) && !devLink.on) devLinkToggle();   // started with --dev-link: linked from the first frame
     else logEvent('Back on shift. Day ' + S.day + ', ' + fmtTime(S.time) + '.');
   }
   $('dc-start-btn').addEventListener('click', enter);
@@ -6739,7 +7058,7 @@
     if (ui.started && !ui.blocked()) { if (photo.on) photoTick(dt); else { tickWorld(dt); updatePlayer(dt); } autosaveT += dt; if (autosaveT > 30) { autosaveT = 0; save(); } }   // photo mode holds the world and flies the camera
     worldTime += dt;
     doorAnim(dt); placeTools(dt); syncInstances(); lighting(dt); updateLightBudget(); shadowTick(dt); tickDressing(dt); tickYard(dt); tickLife(dt); tickBursts(dt); doorsTick(dt); drawScreens(dt); tickScanner(dt); tickReport(dt); editTick(); tickTimeClock(dt); tickPc(dt); for (var ai = 0; ai < animated.length; ai++) animated[ai](dt);
-    interact(); updatePrompt(); updateHud(dt);
+    interact(); updatePrompt(); updateHud(dt); tickLevelCard(dt); tickDevLink(dt);
     renderFrame(dt);
     if (SET.fps) { fpsN++; fpsT += dt; if (fpsT >= 0.5) { $('h-fps').textContent = Math.round(fpsN / fpsT) + ' fps · ' + (post.calls || renderer.info.render.calls) + ' draws'; fpsN = 0; fpsT = 0; } }
   }
@@ -6774,7 +7093,9 @@
       propWorld: propWorld, rdesk: rdesk, rdeskUse: rdeskUse, rdeskBoxUse: rdeskBoxUse, rdeskStart: rdeskStart, returnPlace: returnPlace, returnById: returnById, addReturn: addReturn, returnsPending: returnsPending, loadPrompt: loadPrompt, receivePallet: receivePallet,
       photo: photo, photoToggle: photoToggle, photoTick: photoTick, drawScanMap: drawScanMap, MAP_PAGE: MAP_PAGE, closeDay: closeDay, reportHtml: reportHtml, dayReportShown: function () { return !$('h-report').hidden; }, outNext: outNext, orderLate: orderLate, truckWarn: truckWarn,
       updateHud: updateHud, updatePlayer: updatePlayer, photoZoom: photoZoom, scanReturnsNav: scanReturnsNav, SET: SET, contractAccept: contractAccept, contractDecline: contractDecline, wallPlanes: wallPlanes, propWhere: propWhere, propSeed: propSeed, buff: buff, dress: dress,
-      addXp: addXp, counts: function () { return { draws: (post.calls || renderer.info.render.calls), inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; }
+      addXp: addXp, counts: function () { return { draws: (post.calls || renderer.info.render.calls), inter: inter.length, dyn: dyn.length, baked: baked.draws, hidden: baked.hidden }; },
+      // 1.21.0: the ladder and the stages
+      BOOT_STAGE: BOOT_STAGE, stageForOwned: stageForOwned, dockLabel: dockLabel, dockOwned: dockOwned, removePallet: removePallet, DOCKS: DOCKS, TRUCK_IN: TRUCK_IN, UPGRADES: UPGRADES, canPackShort: canPackShort, nextOutLeave: nextOutLeave, toolPrompt: toolPrompt, STAGES: STAGES, STAGE: STAGE, STAGE_LAST: STAGE_LAST, stageHas: stageHas, stageForLevel: stageForLevel, stageName: stageName, stageFlags: stageFlags, stageEarn: stageEarn, stageRebuild: stageRebuild, UNLOCK: UNLOCK, unlocked: unlocked, XP_TABLE: XP_TABLE, XP_FOR: XP_FOR, LEVEL_CAP: LEVEL_CAP, LEVEL_BONUS: LEVEL_BONUS, STAFF_CAPS: STAFF_CAPS, staffCapAt: staffCapAt, levelOpens: levelOpens, nextLevelText: nextLevelText, LADDER_NOTES: LADDER_NOTES, skuOpen: skuOpen, unlockedSkus: unlockedSkus, modeDock: modeDock, modeDoor: modeDoor, lanesOn: lanesOn, VAN: VAN, FIRE_X: FIRE_X, SHIP_PATH: SHIP_PATH, LOADER_DOORS: LOADER_DOORS, BAY: BAY, shelfCap: shelfCap, benchCapNow: benchCapNow, stageRent: stageRent, propStageOk: propStageOk, applyLevelUnlocks: applyLevelUnlocks, contractSlots: contractSlots, contractsAll: contractsAll, contractOffer: contractOffer, offerContract: offerContract, contractSettle: contractSettle, devCommand: devCommand, DEV_COMMANDS: DEV_COMMANDS, devLink: devLink, devLinkToggle: devLinkToggle, devState: devState, scanPageOpen: scanPageOpen, pcApps: pcApps, pcTabs: pcTabs, shopShows: shopShows, INTRO: INTRO, introText: introText, rowBays: rowBays, levelCardShown: function () { return !$('h-level').hidden; }, truckDockX: truckDockX, trailerBounds: trailerBounds, truckParcelPos: truckParcelPos, hdoors: hdoors, doors: doors, yard: yard, world: world, RACK_SLOTS: function () { return Object.keys(slotHits).length; }
     }
   };
 })();

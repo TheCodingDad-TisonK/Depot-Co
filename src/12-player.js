@@ -1,7 +1,7 @@
 //@ the player: movement, collision, looking at things, the keys
   // ── Player ────────────────────────────────────────────────────────
   var player = { x: SPOT.spawn.x, y: 0, z: SPOT.spawn.z, yaw: -Math.PI / 2 - 0.4, pitch: 0, vy: 0, grounded: true, keys: {}, locked: false, tool: null, stepT: 0, bob: 0 };
-  var ui = { started: false, menuOpen: false, panelOpen: false, scanOpen: false, blocked: function () { return ui.menuOpen || ui.panelOpen; } };
+  var ui = { started: false, menuOpen: false, panelOpen: false, scanOpen: false, rebuilding: false, testing: false, rebuildPending: false, blocked: function () { return ui.menuOpen || ui.panelOpen || ui.rebuilding; } };   // rebuilding: the builders' fade is up and the page is about to reload
   var buff = { coffeeUntil: 0, coffeeDay: 0 };
   var focus = null, focusText = '';
 
@@ -9,7 +9,7 @@
     dyn.length = 0;
     S.pallets.forEach(function (p) { if (p.place !== 'floor') return; dyn.push({ x0: p.x - 0.65, x1: p.x + 0.65, z0: p.z - 0.65, z1: p.z + 0.65, y0: (p.y || 0) - 0.1, y1: (p.y || 0) + 0.3 + Math.ceil(p.n / 4) * BOX.h }); });
     S.trucks.forEach(function (t) {
-      if (t.state === 'gone') return; var b = trailerBounds(t), cabX0 = Math.min(t.x + t.side * TRAILER.len, t.x + t.side * (TRAILER.len + 3.2)), cabX1 = Math.max(t.x + t.side * TRAILER.len, t.x + t.side * (TRAILER.len + 3.2));
+      if (t.state === 'gone') return; var b = trailerBounds(t); if (t.van) { dyn.push({ x0: b.x0 - 1.8, x1: b.x1 + 0.1, z0: b.z0 - 0.1, z1: b.z1 + 0.1, y0: -2, y1: 3 }); return; }   /* the van is one block: nobody walks into it */ var cabX0 = Math.min(t.x + t.side * TRAILER.len, t.x + t.side * (TRAILER.len + 3.2)), cabX1 = Math.max(t.x + t.side * TRAILER.len, t.x + t.side * (TRAILER.len + 3.2));
       dyn.push({ x0: b.x0, x1: b.x1, z0: b.z0 - 0.12, z1: b.z0, y0: -2, y1: 3 }); dyn.push({ x0: b.x0, x1: b.x1, z0: b.z1, z1: b.z1 + 0.12, y0: -2, y1: 3 });
       var fx = t.x + t.side * TRAILER.len; dyn.push({ x0: fx - 0.08, x1: fx + 0.08, z0: b.z0, z1: b.z1, y0: -2, y1: 3 });
       dyn.push({ x0: cabX0, x1: cabX1, z0: t.z - 1.3, z1: t.z + 1.3, y0: -2, y1: 3 });
@@ -124,12 +124,12 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.code === 'F12') { e.preventDefault(); if (ui.started) screenshot(); return; }
-    if (e.code === 'F8') { e.preventDefault(); if (ui.started) { if (ui.panelOpen && panel.kind === 'dev') closePanel(); else openPanel('dev'); } return; }
+    if (e.code === 'KeyD' && e.ctrlKey && e.shiftKey) { e.preventDefault(); devLinkToggle(); return; }   // the dev console link (1.21.0; the F8 panel is gone)
     if (e.code === 'F3') { e.preventDefault(); SET.fps = !SET.fps; $('h-fps').hidden = !SET.fps; saveSettings(); return; }
     var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT');
     if (typing && e.code !== 'Escape') return;
     if (!ui.started) return;
-    if (reportT > 0) hideDayReport();
+    if (reportT > 0) hideDayReport(); if (levelT > 0) hideLevelCard();
     if (e.code === 'F9') { e.preventDefault(); photoToggle(); return; }
     if (e.code === 'Escape') { e.preventDefault(); if (photo.on) { photoToggle(false); return; } if (pc.on) { closePc(); return; } if (edit.on && edit.grabbed) { editDrop(true); return; } if (ui.panelOpen) closePanel(); else if (ui.scanOpen) scanToggle(false); else if (ui.menuOpen) closeMenu(); else openMenu(); return; }
     if (ui.blocked()) return;

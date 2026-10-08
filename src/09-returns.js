@@ -10,7 +10,7 @@
   // 1.17.0: the returns hall (12-machines7-returns.js) takes the whole operation over once it is bought: the desk by the bench
   // goes, three inspection desks share one queue fed by the belt from the returns dock, the shelf becomes the restock cage and
   // the bin a compactor. Everything here works on "stations": station 0 is the lone desk until the hall opens.
-  var RETURNS = { level: 3, chance: 0.3, max: 2, fee: 10, perBox: 4, deskCap: 4, shelfCap: 8, inspectSec: 5, lateHours: 24, hallDeskCap: 8, hallShelfCap: 24, truckMin: 3, truckMax: 6 };
+  var RETURNS = { level: UNLOCK.returns, chance: 0.3, max: 2, fee: 10, perBox: 4, deskCap: 4, shelfCap: 8, inspectSec: 5, lateHours: 24, hallDeskCap: 8, hallShelfCap: 24, truckMin: 3, truckMax: 6 };
   var RETURN_REASONS = [['unwanted', 'the customer changed their mind', 0.5], ['wrong', 'the wrong item was sent', 0.25], ['damaged', 'damaged in transit', 0.25]];
   function returnById(id) { var rs = S.returns || []; for (var i = 0; i < rs.length; i++) if (rs[i].id === id) return rs[i]; return null; }
   function returnsHall() { return !!(S.up && S.up.hall2); }
@@ -167,7 +167,7 @@
     scText(c, 16, sc.h - 40, pend > 0 ? pend + ' more return' + (pend > 1 ? 's' : '') + ' out there: on a truck, the belt or the floor' : 'Fee: ' + money(RETURNS.fee) + ' a return and ' + money(RETURNS.perBox) + ' a box', pend > 0 ? '#f5b53d' : '#6b7784', 11);
     scText(c, 16, sc.h - 22, 'A return left a day costs reputation', '#6b7784', 10);
   }
-  defProp('returnsDesk', { label: 'returns desk', cat: 'hall', abs: true, keep: true, x: 29.4, z: 10.4, rot: 3, build: returnsDeskBuildFor(0, 'RETURNS'), when: function () { return !returnsHall(); } });   // between the bench and the office front, east lane side, the working side toward the hall; gone once the returns hall opens
+  defProp('returnsDesk', { label: 'returns desk', cat: 'hall', abs: true, keep: true, stage: 1, lvl: UNLOCK.returns, x: 29.4, z: 10.4, rot: 3, at: { 1: { x: 13.8, z: -5.2, rot: 0 } }, build: returnsDeskBuildFor(0, 'RETURNS'), when: function () { return !returnsHall(); } });   // west of the small hall's bench; it appears at the returns level   // between the bench and the office front, east lane side, the working side toward the hall; gone once the returns hall opens
   // ── The crew and the returns ──────────────────────────────────────
   // the packer's returns work (or whoever covers the packer): a return on the floor or aboard a docked truck with its door up
   // goes to the queue; a free desk is started; what comes off the shelf is racked or binned. Claims keep two workers off one return.

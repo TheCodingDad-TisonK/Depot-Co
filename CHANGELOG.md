@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.21.0 (2026-10-08)
+
+The expansion release: the game is split over 25 levels and the building grows with you. A new depot starts in a shed, and by level 25 every piece of the game is unlocked.
+
+**The ladder**
+- Twenty-five levels. Every level opens something: a rack bay, a tool, a client, a line, a scanner page, a role to hire, a system. The level card lists what the one you reached brings, the HUD says what the next one promises, and every level pays a bonus of $100 times the level.
+- Every fifth level the building itself grows, free, overnight: the small hall at 5, the hall with its three lanes at 10, the big hall with the mezzanine and the sortation deck at 15, the annexes with the returns hall and Hall 3 at 20, Hall 4 at 25. A level that earns a bigger building books the builders; the walls move at the next day roll, behind a black fade. Structure is never bought: the second inbound bay, the mezzanine, the deck and the halls have left the shop and come with their stages.
+- The XP needed per level climbs from 60 to 9,800, set against a whole ladder of about thirty hours. XP freezes at the cap; the ladder is data (`XP_TABLE`, `UNLOCK`, `STAGES`) and extends by adding rows.
+
+**The shed (levels 1 to 4)**
+- A 14 by 10 shed with one roll door (IN 1), one rack row that grows a bay a level, a trestle table you pack on by hand (four seconds a parcel, whole orders only, eight boxes and six parcels), a clipboard that is your office until there is one, and a van that parks at the shed front twice a day and takes eight parcels through its back doors. No rent, two open orders at most, one to three pallets a truck. Level 2 brings the time clock, 3 the picking cart and the first hire, 4 the coffee flask and a receiver.
+- The intro is rewritten for the shed: the door, the signature, the rack, the scanner, the table, the van, the level.
+
+**The small hall, the hall, the big hall, the annexes, the far end**
+- The small hall (level 5): 40 by 28, IN 1 and OUT 1, the office with the PC, the lobby with the time clock, the break room with the cot and the coffee machine, the bench with its pack line and terminal, the breaker and the first power cuts, the fenced yard with its barriers and gatehouses. Everything ships by OUT 1 until the lanes exist.
+- The hall (level 10): 60 by 48, IN 2 and OUT 2, the three shipping lanes and the forwarding fee, the production wing, the second jack, the car park, the road and its traffic, five rack rows in the shop.
+- The big hall (level 15): the 72 m walls, the mezzanine and the sortation deck for nothing, OUT 3 and the air lane, the three deck accounts. The shipping belt's loader serves OUT 1 in the small hall and OUT 2 from the hall on.
+- The annexes (level 20): the returns hall with its own dock and truck, Hall 3 with IN 3, eight heads. The far end (level 25): Hall 4 and the full yard.
+- Everything the game had keeps its old numbers in the halls where it was authored: the small hall is 1.7.4's layout, the hall is 1.12's, the big hall is today's.
+
+**What comes when**
+- Shop: the cart at 3, LED high bays and the roadside sign at 5, the forklift and a third row at 6, the powered pallet truck at 7, a fourth row at 8, the stacker and the shipping belt at 9, raw granulate at 10, a fifth row and the AGV at 12, the plant tune-up and AGV fast drive at 13, the gantry pickers at 14, the deck night shift and the AGV sweep at 15, the automation suite at 16.
+- Crew: a picker at 3, a receiver at 4, the packer and the forklift driver at 8; shift patterns at 7, training at 9, raises at 11, second roles at 13; the cap climbs from one head at 3 to eight at 20.
+- Lines and clients spread from 1 to 13; the deck accounts come at 15.
+- Systems: contracts, power cuts, build mode and the catalogue at 5; rush orders and the bank at 6; the prowler and insurance at 7; the inspector and returns at 8. Bigger contracts at 17, two at once at 21, the long contract at 24.
+- The scanner: Putaway at 2, Stock and Crew at 3, Docks and the Map at 5, Plant at 10. The PC apps and tabs follow the same ladder.
+- The quiet levels are filled from what exists: conveyor straights and curves at 17, inclines and the high run plus the comfort seating at 18, the deck dial to 300 percent and the yard catalogue at 19, the deck belts half as fast again at 22, the last of the furniture at 23.
+
+**Old saves**
+- A save from 1.20 or earlier lived in the 72 m hall and keeps it: it boots in the big hall at least, in the annexes if it owned a hall, at the far end if it owned Hall 4, with everything it had. A level up never shrinks a building.
+
+**The dev console**
+- The F8 panel is gone. In its place a separate little program: `npm run devconsole` opens it in a window of its own with a live readout of the save and the cheats (money, levels, stage jumps, the clock, weather, trucks, orders, stock, crew, teleports). The game links to it with `Ctrl+Shift+D`, or from the first frame when started with `npm run dev` (`--dev-link`), and shows LINKED on the HUD while it is connected. Every command goes through the same code the tests use. The console has a self test (`node tools/devconsole/selftest.js`, run by `npm test`).
+
+**Under the hood**
+- The building stage is read off the save before anything is laid out, so every layout table is built once a page load for that stage; a stage change is a save and a reload at the day roll.
+- The morning after the builders, the jacks, the cart and the forklift stand in the bays the new layout gives them, so jack 2 is never left under the deck's spirals by a hall that moved around it.
+- In the hall the pick belts meet 4 m west of the bench and the merge belt runs east and down to the bench's inlet; in the big halls the merge point is where it always was.
+- The smoke test climbs the ladder across reloads: seven scenarios (the shed, the small hall, the hall, the big hall, the annexes, the far end, a 1.20 save) in `tools/smoke-*.js`, with the shared prologue in `tools/smoke-lib.js`. 503 checks across the seven, after the dev console's own self test.
+
 ## 1.20.0 (2026-10-08)
 
 An improvement pass over the whole game: nothing removed, the rough edges smoothed.

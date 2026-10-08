@@ -23,7 +23,7 @@
     jack2: { x: 27.0, z: -23.0 },                           // jack 2's bay moves out from under the spirals to the north wall
     cellTime: { sea: 7, land: 4, air: 5 }
   };
-  var LOADER_DOORS = { dockLoader1: 2, dockLoader2: 3, dockLoader3: 4 };
+  var LOADER_DOORS = { dockLoader1: 2, dockLoader2: BOOT_STAGE < 2 ? 2 : 3, dockLoader3: 4 };   // the OUT 2 loader serves OUT 1 while that is the only outbound door (the small hall, 1.21.0)
   function sorterOwned() { return !!(S.up && S.up.sorter && S.up.upper); }
   function sortState() { if (!S.sort) S.sort = { cells: {}, table: [], scanned: 0, sorted: 0, count: { sea: 0, land: 0, air: 0 }, last: null, tableT: 0 }; var Z = S.sort; SORT.cells.forEach(function (c) { if (!Z.cells[c.mode]) Z.cells[c.mode] = { q: [], t: 0, made: 0 }; }); if (!Z.count) Z.count = { sea: 0, land: 0, air: 0 }; return Z; }
   // the helix: points every 22.5 degrees from angle a0, dir +1 anticlockwise seen from above, y from yTop to yBot; flagged so the belt builder leaves off legs and hangers
@@ -101,7 +101,7 @@
   // a three-lane gravity flow rack beside the loader, nine parcels, with a painted bay round it. The spirals and the shipping belt end
   // in the bays, never in the loaders; the loader takes from its bay, one parcel every second and a bit, while a truck of its lane
   // is docked with the door up. A parcel in a bay can be taken by hand. The bays are keyed by their loader in the save (S.stage).
-  var STAGE_CAP = 9, BAY = { x0: 33.4, len: 1.8, lanes: 3, deep: 3, pitch: 0.62, step: 0.6, h: 0.55, at: { dockLoader1: { prop: 'bay1', z0: -12.1 }, dockLoader2: { prop: 'bay2', z0: -4.1 }, dockLoader3: { prop: 'bay3', z0: -19.56 } } }, STAGE_AT = BAY.at, stageT = {};   // every bay on the open side of its loader
+  var STAGE_CAP = 9, BAY = { x0: HALL.x - 2.6, len: 1.8, lanes: 3, deep: 3, pitch: 0.62, step: 0.6, h: 0.55, at: { dockLoader1: { prop: 'bay1', z0: -12.1 }, dockLoader2: { prop: 'bay2', z0: (BOOT_STAGE < 2 && DOCKS.out[0] ? DOCKS.out[0].z : -6) + 1.9 }, dockLoader3: { prop: 'bay3', z0: -19.56 } } }, STAGE_AT = BAY.at, stageT = {};   // every bay on the open side of its loader, 2.6 m in from the east wall; OUT 2's bay stands by OUT 1 in the small hall
   function bayLoader(prop) { for (var id in BAY.at) if (BAY.at[id].prop === prop) return id; return null; }
   function stageOf(id) { if (!S.stage) S.stage = {}; if (!S.stage[id]) S.stage[id] = []; return S.stage[id]; }
   function stageSpot(id, i) { var a = BAY.at[id], lane = i % BAY.lanes, depth = Math.floor(i / BAY.lanes); return { x: BAY.x0 + BAY.len - 0.32 - depth * BAY.step, z: a.z0 + 0.31 + lane * BAY.pitch, y: BAY.h }; }
@@ -123,9 +123,9 @@
   }; }
   // the bays on the registry: a belt that ends at a bay's west face drops its parcel into the bay
   [['dockLoader1', 'bay1'], ['dockLoader2', 'bay2'], ['dockLoader3', 'bay3']].forEach(function (pr) { defMachine(pr[1], { prop: pr[1], inlets: [[0, 0.93]], accept: function (it) { if (it.kind !== 'parcel' || !powered()) return false; var o = orderById(it.order); if (!o) return true; if (!stagePush(pr[0], o.id)) return false; if (it.form && !o.form) o.form = it.form; sfx('putdown'); return true; } }); });
-  defProp('bay1', { label: 'shipping bay OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, x: BAY.x0, z: BAY.at.dockLoader1.z0, rot: 0, build: bayBuild('dockLoader1'), when: function () { return !!S.up.sorter; } });
-  defProp('bay2', { label: 'shipping bay OUT 2', cat: 'hall', abs: true, keep: true, fixed: true, x: BAY.x0, z: BAY.at.dockLoader2.z0, rot: 0, build: bayBuild('dockLoader2'), when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
-  defProp('bay3', { label: 'shipping bay OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, x: BAY.x0, z: BAY.at.dockLoader3.z0, rot: 0, build: bayBuild('dockLoader3'), when: function () { return !!S.up.sorter; } });
+  defProp('bay1', { label: 'shipping bay OUT 1', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: BAY.x0, z: BAY.at.dockLoader1.z0, rot: 0, build: bayBuild('dockLoader1'), when: function () { return !!S.up.sorter; } });
+  defProp('bay2', { label: 'shipping bay OUT 2', cat: 'hall', abs: true, keep: true, fixed: true, stage: 1, x: BAY.x0, z: BAY.at.dockLoader2.z0, rot: 0, at: { 1: { x: BAY.x0, z: BAY.at.dockLoader2.z0, rot: 0 } }, build: bayBuild('dockLoader2'), when: function () { return !!S.up.shipbelt || !!S.up.sorter; } });
+  defProp('bay3', { label: 'shipping bay OUT 3', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: BAY.x0, z: BAY.at.dockLoader3.z0, rot: 0, build: bayBuild('dockLoader3'), when: function () { return !!S.up.sorter; } });
   function tickStaging(dt) {
     for (var id in STAGE_AT) {
       var st = stageOf(id); if (!st.length || !propInst[id] || !powered()) { if (MACH[BAY.at[id].prop]) lampSet(MACH[BAY.at[id].prop], !powered() ? 'off' : 'idle'); continue; } var door = LOADER_DOORS[id], t = truckAtDoor(door); if (MACH[BAY.at[id].prop]) lampSet(MACH[BAY.at[id].prop], t && S.doors[door] ? 'run' : 'idle'); if (!t || !S.doors[door] || !doorPassable(door)) continue;
@@ -215,11 +215,11 @@
   function gateBuild(mode) { return function (c) {
     var DG = MAT_MACH.frame; c.box(0.3, 0.9, 0.3, DG, 0, 0.45, 0); c.box(0.5, 0.08, 0.5, DG, 0, 0.04, 0); var arm = c.box(0.9, 0.06, 0.06, MAT.yellow, 0.45, BELT_Y + 0.62, 0); arm.rotation.y = 0;
     c.box(0.06, 0.3, 0.5, std({ color: new THREE.Color(MODES[mode].col), roughness: 0.5 }), 0.9, BELT_Y + 0.62, 0); c.sign([MODES[mode].name.toUpperCase() + ' GATE'], 0.5, 0.14, 0, 1.05, 0.16, 0, { w: 256, h: 64, bg: '#1b232c', fg: MODES[mode].col });
-    c.hit(0.5, 1.2, 0.5, 0, 0.6, 0, { prompt: function () { return MODES[mode].name + ' gate · kicks ' + mode + ' parcels down the spiral to ' + dockLabel(MODES[mode].door); }, use: function () { sfx('click'); } }); c.solid(-0.2, 0.2, -0.2, 0.2, 0, 1.0);
+    c.hit(0.5, 1.2, 0.5, 0, 0.6, 0, { prompt: function () { return MODES[mode].name + ' gate · kicks ' + mode + ' parcels down the spiral to ' + dockLabel(modeDoor(mode)); }, use: function () { sfx('click'); } }); c.solid(-0.2, 0.2, -0.2, 0.2, 0, 1.0);
   }; }
   // ── The props ─────────────────────────────────────────────────────
   var SF = { cat: 'hall', abs: true, keep: true, fixed: true, rot: 0, when: sorterOwned };
-  function sdef(id, extra) { var d = { label: extra.label, cat: SF.cat, abs: SF.abs, keep: SF.keep, fixed: SF.fixed, rot: 0, when: SF.when, x: extra.x || 0, z: extra.z || 0, build: extra.build, after: extra.after }; defProp(id, d); }
+  function sdef(id, extra) { var d = { label: extra.label, cat: SF.cat, abs: SF.abs, keep: SF.keep, fixed: SF.fixed, stage: 3, rot: 0, when: SF.when, x: extra.x || 0, z: extra.z || 0, build: extra.build, after: extra.after }; defProp(id, d); }
   sdef('sortUp', { label: 'parcel spiral and overhead run', build: function (c) { conveyorPath(c, BELTS.sortUp.path); spiralDress(c, SORT.spiral.up.x, SORT.spiral.up.z, R, Y, 0); c.sign(['UP TO THE SORTER'], 0.9, 0.14, 31.4, 1.3, 15.9, 0, { w: 320, h: 64, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['PARCELS · TO THE DECK'], 1.2, 0.18, SORT.inX + 0.5, Y + 1.5, 0, Math.PI / 2, { w: 384, h: 64, bg: '#1b232c', fg: '#f5b53d' }); } });
   sdef('spine', { label: 'sorter spine', build: function (c) { conveyorPath(c, BELTS.spine.path); c.sign(['SORTER SPINE · KEEP CLEAR'], 1.6, 0.2, 10, Y + 1.5, SORT.spineZ + 0.5, 0, { w: 512, h: 64, bg: '#1b232c', fg: '#f5b53d' }); } });
   sdef('collector', { label: 'collector and land spiral', build: function (c) { conveyorPath(c, BELTS.collector.path); spiralDress(c, SORT.spiral.land.x, SORT.spiral.land.z, R, Y, 0); c.sign(['LAND · DOWN TO OUT 2'], 1.0, 0.14, 29.95, Y + 1.2, -9.0, Math.PI / 2, { w: 320, h: 64, bg: '#1b232c', fg: MODES.land.col }); c.sign(['COLLECTOR · TO THE DOCKS'], 1.4, 0.18, 10, Y + 1.5, SORT.collZ + 0.5, 0, { w: 448, h: 64, bg: '#1b232c', fg: '#5fd38d' }); } });
@@ -230,7 +230,7 @@
   sdef('scanner', { label: 'scanner arch', x: SORT.inX, z: SORT.scanZ, build: scannerBuild, after: raiseToDeck });
   sdef('gateSea', { label: 'sea gate', x: SORT.collX - 0.7, z: SORT.gates.sea, build: gateBuild('sea'), after: raiseToDeck });
   sdef('gateAir', { label: 'air gate', x: SORT.collX - 0.7, z: SORT.gates.air, build: gateBuild('air'), after: raiseToDeck });
-  SORT.walk.forEach(function (w) { defProp(w.id, { label: 'step-over', cat: 'hall', abs: true, keep: true, fixed: true, x: w.x, z: w.z, rot: w.rot, build: walkoverBuild, after: function (ctx, P, inst) { raiseToDeck(ctx, P, inst); WALKOVERS[inst.id] = P; }, when: sorterOwned }); });
+  SORT.walk.forEach(function (w) { defProp(w.id, { label: 'step-over', cat: 'hall', abs: true, keep: true, fixed: true, stage: 3, x: w.x, z: w.z, rot: w.rot, build: walkoverBuild, after: function (ctx, P, inst) { raiseToDeck(ctx, P, inst); WALKOVERS[inst.id] = P; }, when: sorterOwned }); });
   // the deck's hole for the spirals and the railing gaps the belts pass through, read by the mezzanine build
   function sorterHoles() { return sorterOwned() ? [{ x0: SORT.well.x0, x1: SORT.well.x1, z0: SORT.well.z0, z1: SORT.well.z1 }] : []; }
   function sorterEdgeGaps() { var g = [[22 - 0.7, 22 + 0.7]]; if (sorterOwned()) g.push([SORT.collX - 0.7, 32.3]); return g; }   // the collector and the sea bridge cross the railing; the parcel run clears it by two metres

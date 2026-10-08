@@ -4,7 +4,7 @@
   // boom pushes them into the trailer whenever a truck is docked with the door up. Nothing loads otherwise; the parcels queue on the belt.
   // the run past OUT 2 climbs 2.2 m so the dock apron under it stays clear for people and the forklift
   // the shelf feeds the shipping belt, which runs down the east wall to the dock loader at OUT 2; OUT 1 stays a manual dock
-  defBelt('shipBelt', { prop: 'shipBelt', path: [[0, 0], [0, 0.5], [2.6, 0.5], [2.6, -15.3], [0.4, -15.3], [0.4, -17.1]] });   // down the east wall, then in to the west face of the OUT 2 shipping bay (the build function carries the same path)
+  defBelt('shipBelt', { prop: 'shipBelt', path: SHIP_PATH });   // down the east wall, then in to the west face of the OUT 2 shipping bay (the build function carries the same path)
   // one loader a lane: OUT 2's comes with the shipping belt, OUT 1's and OUT 3's with the sortation deck (LOADER_DOORS is in the sorter part)
   function loaderAccept(id, door) { return function (it) {
     if (it.kind !== 'parcel' || !powered()) return false;

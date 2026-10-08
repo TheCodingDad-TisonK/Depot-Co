@@ -4,7 +4,8 @@
     return {
       ver: 1, day: 1, time: DAY_START, bank: ECON.start, xp: 0, level: 1, rep: 10,
       hall: 5,                   // the hall layout generation; 1 was the 40 x 28 hall, 2 the first big-hall build whose migration ran too late
-      up: { rows: 2, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false, upper: false, sorter: false, hall2: false, hall3: false, hall4: false },
+      site: 0, siteDue: 0,       // 1.21.0: the building stage this save is built at, and the one its level has earned (the builders come in at the day roll). Not "stage": that word is the deck's shipping bays below
+      up: { rows: 1, cart: false, fork: false, lights: false, dock2: false, sign: false, shipbelt: false, agv: false, gantry: false, upper: false, sorter: false, hall2: false, hall3: false, hall4: false },
       gantries: {}, speed: {},
       agv: { x: 0, z: 0, yaw: 0, state: 'idle', pallet: null, path: [], placed: false },
       slots: {},                 // "row,bay,level" -> { sku, n, pal (a pallet under the boxes), wrapped }
@@ -53,6 +54,10 @@
       if (oldHall) { s.hall = 3; s.layout = {}; s.custom = []; s.trucks = []; s.pallets = (s.pallets || []).filter(function (p) { return p.place !== 'truck'; }); (s.staff || []).forEach(function (st) { if (st.x !== undefined) { st.x = clamp(st.x, -HALL.x + 2, HALL.x - 2); st.z = clamp(st.z, -HALL.z + 2, HALL.z - 2); } }); s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; s.fork.x = SPOT.fork.x; s.fork.z = SPOT.fork.z; s.fork.plugged = false; (s.pallets || []).forEach(function (p) { if (p.place === 'floor') { p.x = clamp(p.x, -HALL.x + 2, HALL.x - 2); p.z = clamp(p.z, -HALL.z + 2, HALL.z - 2); } }); }
       for (var k3 in f.up) if (!(k3 in s.up)) s.up[k3] = f.up[k3];
       for (var k4 in f.events) if (!(k4 in s.events)) s.events[k4] = f.events[k4];
+      // 1.21.0: a save from before the stages lived in the 72 m hall and keeps it (and whatever it owns); its stage is what it owns, never less than the big hall
+      if (typeof s.site !== 'number') { s.site = stageForOwned(s.up); s.siteDue = s.site; } if (typeof s.siteDue !== 'number' || s.siteDue < s.site) s.siteDue = s.site;
+      s.site = clamp(Math.floor(s.site), 0, STAGE_LAST); s.siteDue = clamp(Math.floor(s.siteDue), s.site, STAGE_LAST); stageFlags(s.up, s.site);
+      if (s.level > LEVEL_CAP) s.level = LEVEL_CAP; if (s.up.rows < 1) s.up.rows = 1; if (s.up.rows > RACK.rows.length) { s.bank += ECON.rowPrice * (s.up.rows - RACK.rows.length); s.up.rows = RACK.rows.length; }
       // 1.12.8 moved the jack and cart bays off the row D end (a crane column stood in the old jack bay): tools still parked there follow
       if (!s.flags.toolBays2) { s.flags.toolBays2 = 1; var near = function (o, x, z) { return o && Math.abs(o.x - x) < 1.2 && Math.abs(o.z - z) < 1.6; }; if (near(s.jack, -25, 4)) { s.jack.x = SPOT.jack.x; s.jack.z = SPOT.jack.z; } if (near(s.cart, -25, 6.5)) { s.cart.x = SPOT.cart.x; s.cart.z = SPOT.cart.z; } }
       // 1.12.9 put the first jack by the IN docks and added a second by OUT: a jack still parked in the 1.12.8 bay follows
@@ -97,8 +102,10 @@
   // the ledger and the lifetime stats
   function pay(n, why) { S.bank += n; if (n >= 0) S.stats.earned += n; else S.stats.spent += -n; S.ledger.unshift({ day: S.day, t: fmtTime(S.time), n: n, why: why }); if (S.ledger.length > 80) S.ledger.pop(); hudDirty = true; }
   function addXp(n) {
+    if (S.level >= LEVEL_CAP) { hudDirty = true; return; }   // the top of the ladder: the bar stays where it is (1.21.0)
     S.xp += n; hudDirty = true;
-    while (S.xp >= XP_FOR(S.level)) { S.xp -= XP_FOR(S.level); S.level++; onLevelUp(); }
+    while (S.level < LEVEL_CAP && S.xp >= XP_FOR(S.level)) { S.xp -= XP_FOR(S.level); S.level++; onLevelUp(); }
+    if (S.level >= LEVEL_CAP) S.xp = Math.min(S.xp, XP_FOR(LEVEL_CAP));
   }
   function addRep(n) { S.rep = clamp(S.rep + n * (S.up.sign && n > 0 ? 1.25 : 1), 0, 100); hudDirty = true; }
   var hudDirty = true;

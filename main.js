@@ -25,7 +25,7 @@ function createWindow() {
     }
   });
   Menu.setApplicationMenu(null);
-  win.loadFile(path.join(__dirname, 'game', 'index.html'));
+  win.loadFile(path.join(__dirname, 'game', 'index.html'), process.argv.includes('--dev-link') ? { query: { dev: '1' } } : undefined);   // --dev-link: the game links to the dev console (tools/devconsole) from the first frame
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
 
   // F11 toggles fullscreen, Ctrl+Shift+I opens the developer tools, Ctrl+R reloads (the game autosaves)

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Depot Co. dev console</title>
+<style>
+  :root { --bg: #0b0f14; --panel: #121a24; --line: rgba(255,255,255,0.08); --text: #eef1f5; --muted: #a0acb8; --faint: #6b7784; --amber: #f5b53d; --green: #5fd38d; --red: #ff6b5e; --blue: #78bdf5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 Bahnschrift, "Segoe UI", Arial, sans-serif; display: grid; grid-template-columns: 340px 1fr; grid-template-rows: auto 1fr; height: 100vh; }
+  header { grid-column: 1 / 3; display: flex; align-items: center; gap: 14px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 16px; color: var(--amber); letter-spacing: .04em; }
+  header .link { margin-left: auto; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--faint); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  header .link.on { border-color: rgba(95,211,141,0.5); color: var(--green); }
+  aside { padding: 12px; border-right: 1px solid var(--line); overflow: auto; }
+  main { padding: 12px 14px; overflow: auto; }
+  h2 { margin: 12px 0 6px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; }
+  .kv i { color: var(--faint); font-style: normal; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; align-self: center; }
+  .kv b { font-weight: 600; } .kv b.cash { color: var(--green); } .kv b.amber { color: var(--amber); }
+  .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 4px 0 8px; } .bar span { display: block; height: 100%; background: var(--amber); }
+  ul.plain { margin: 0; padding-left: 16px; color: var(--muted); } ul.plain li { margin: 1px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; align-items: center; }
+  button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--text); font: inherit; cursor: pointer; }
+  button:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+  button.primary { background: rgba(245,181,61,0.14); border-color: rgba(245,181,61,0.45); color: var(--amber); }
+  button.danger { color: var(--red); border-color: rgba(255,107,94,0.4); }
+  input[type=number] { width: 64px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; background: rgba(0,0,0,0.3); color: var(--text); font: inherit; }
+  .log { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; font: 12px/1.5 Consolas, monospace; color: var(--muted); max-height: 220px; overflow: auto; }
+  .log .cmd { color: var(--blue); } .log .result { color: var(--green); } .log .link { color: var(--faint); }
+  .hint { color: var(--faint); font-size: 12px; }
+  .dim { opacity: .45; }
+</style>
+</head>
+<body>
+<header><h1>DEPOT CO. · DEV CONSOLE</h1><span class="hint">In the game, <b>Ctrl+Shift+D</b> links it (or start with <code>npm run dev</code>). Everything here writes straight into the save.</span><span class="link" id="link">no game linked</span></header>
+<aside>
+  <h2>Readout <span id="age" class="hint"></span></h2>
+  <div class="kv" id="kv"><i>waiting</i><b>for the first readout from a linked game</b></div>
+  <div class="bar"><span id="xpbar" style="width:0%"></span></div>
+  <h2>Trucks</h2><ul class="plain" id="trucks"><li class="dim">none</li></ul>
+  <h2>Crew</h2><ul class="plain" id="staff"><li class="dim">none</li></ul>
+  <h2>Owned</h2><div class="hint" id="up">nothing yet</div>
+</aside>
+<main>
+  <h2>Money and progress</h2>
+  <div class="row"><button data-cmd="cash">+ $1,000</button><button data-cmd="cash10">+ $10,000</button><button data-cmd="level" class="primary">+1 level</button><button data-cmd="rep">Rep +20</button><button data-cmd="unlock">Unlock the shop kit</button><button data-cmd="unlockAll" class="danger">Level 25, everything owned</button><button data-cmd="intro">Finish the intro</button></div>
+  <div class="row"><label>Jump to level <input type="number" id="lvl" min="1" max="25" value="5"></label><button data-cmd="setLevel" data-arg="#lvl" class="primary">Set level</button><span class="hint">a level that earns a bigger building books the builders for the next day roll</span></div>
+  <div class="row"><label>Jump to stage <input type="number" id="stg" min="0" max="5" value="1"></label><button data-cmd="setStage" data-arg="#stg" class="primary">Set stage</button><span class="hint">0 shed · 1 small hall · 2 hall · 3 big hall · 4 annexes · 5 far end. The game reloads.</span></div>
+  <h2>Time and weather</h2>
+  <div class="row"><button data-cmd="t6">06:00</button><button data-cmd="t7">07:20</button><button data-cmd="t10">10:20</button><button data-cmd="t13">13:20</button><button data-cmd="t17">17:00</button><button data-cmd="t22">22:00</button><label>Hour <input type="number" id="hr" min="0" max="23.9" step="0.25" value="9"></label><button data-cmd="setTime" data-arg="#hr">Set</button><button data-cmd="day" class="primary">Next day</button></div>
+  <div class="row"><button data-cmd="clear">Clear</button><button data-cmd="rain">Rain</button><button data-cmd="storm">Storm</button><button data-cmd="snow">Snow</button><button data-cmd="power">Toggle power cut</button></div>
+  <h2>Trucks and orders</h2>
+  <div class="row"><button data-cmd="truckin">Inbound truck now</button><button data-cmd="truckout">Outbound truck (or the van) now</button><button data-cmd="order">New order</button><button data-cmd="rush">Rush order</button><button data-cmd="contract">Contract offer</button></div>
+  <h2>Stock and crew</h2>
+  <div class="row"><button data-cmd="fill">Fill the racks</button><button data-cmd="clearfloor">Clear the floor</button><button data-cmd="hire">Hire the three</button><button data-cmd="fire" class="danger">Let everyone go</button><button data-cmd="fork">Forklift here</button></div>
+  <h2>Teleport</h2>
+  <div class="row"><button data-cmd="tpIn">IN 1</button><button data-cmd="tpOut">OUT 1</button><button data-cmd="tpBench">Bench</button><button data-cmd="tpOffice">Office</button><button data-cmd="tpBreak">Break room</button><button data-cmd="tpYard">Yard</button><button data-cmd="tpGate">West gate</button></div>
+  <h2>The save</h2>
+  <div class="row"><button data-cmd="saveNow">Save now</button><button data-cmd="reload">Reload the game</button></div>
+  <h2>Log</h2>
+  <div class="log" id="log"></div>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, games = 0;
+  function money(n) { n = Math.round(n || 0); return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US'); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function readout(st, age) {
+    if (!st) return;
+    var rows = [['version', st.version], ['day', 'Day ' + st.day + ' · ' + st.clock], ['bank', '<b class="cash">' + money(st.bank) + '</b>'], ['level', '<b class="amber">' + st.level + ' / ' + st.cap + '</b> · ' + st.xp + ' / ' + st.xpFor + ' xp'], ['building', esc(st.stageName) + ' (stage ' + st.site + (st.siteDue > st.site ? ', stage ' + st.siteDue + ' due at the day roll' : '') + ')'], ['next', esc(st.next)], ['orders', st.orders + ' open · ' + st.packed + ' packed · ' + st.late + ' late'], ['stock', st.stock + ' boxes · ' + st.rows + ' rows'], ['rep', st.rep], ['weather', esc(st.weather) + (st.power ? '' : ' · NO POWER')], ['player', st.player.x + ', ' + st.player.z], ['intro', esc(st.intro)]];
+    $('kv').innerHTML = rows.map(function (r) { return '<i>' + r[0] + '</i><b>' + r[1] + '</b>'; }).join('');
+    $('xpbar').style.width = (st.level >= st.cap ? 100 : Math.round(100 * st.xp / Math.max(1, st.xpFor))) + '%';
+    $('trucks').innerHTML = st.trucks.length ? st.trucks.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') : '<li class="dim">none</li>';
+    $('staff').innerHTML = st.staff.length ? st.staff.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') : '<li class="dim">none</li>';
+    $('up').textContent = st.up.length ? st.up.join(', ') : 'nothing yet';
+    $('age').textContent = age < 3000 ? 'live' : Math.round(age / 1000) + ' s ago';
+  }
+  function logRow(r) { var d = document.createElement('div'); d.className = r.kind; d.textContent = new Date(r.t).toLocaleTimeString() + '  ' + r.text; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; }
+  function linkState() { var el = $('link'); el.className = 'link' + (games ? ' on' : ''); el.textContent = games ? 'LINKED · ' + games + ' game' + (games > 1 ? 's' : '') : 'no game linked'; }
+  var es = new EventSource('/ui');
+  es.addEventListener('state', function (ev) { var d = JSON.parse(ev.data); readout(d.state, d.age); });
+  es.addEventListener('games', function (ev) { games = JSON.parse(ev.data).n; linkState(); });
+  es.addEventListener('log', function (ev) { logRow(JSON.parse(ev.data)); });
+  es.addEventListener('result', function () {});
+  fetch('/state').then(function (r) { return r.json(); }).then(function (d) { games = d.games; linkState(); readout(d.state, d.age); (d.log || []).forEach(logRow); }).catch(function () {});
+  document.body.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cmd]'); if (!b) return;
+    var name = b.getAttribute('data-cmd'), argSel = b.getAttribute('data-arg'), arg = argSel ? parseFloat(document.querySelector(argSel).value) : undefined;
+    fetch('/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name, arg: arg }) }).catch(function () {});
+  });
+  setInterval(function () { var a = $('age'); if (a.textContent && a.textContent !== 'live') return; }, 2000);
+})();
+</script>
+</body>
+</html>

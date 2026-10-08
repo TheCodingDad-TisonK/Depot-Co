@@ -41,13 +41,13 @@
     if (propInst.retCage) { var ca = propPlacement('retCage').rot * Math.PI / 2, lv = [0.135, 0.755, 1.375]; D.shelf.forEach(function (b, i) { var w = propWorld('retCage', -1.4 + (i % 8) * 0.4, 0), base = lv[Math.min(2, Math.floor(i / 8))]; if (b.damaged) putBoxDamaged(b.sku, w.x, base, w.z, ca, { kind: 'rdesk', idx: i }); else putBox(b.sku, w.x, base + BOX.h / 2, w.z, ca, { kind: 'rdesk', idx: i }); }); }
   }
   // ── The fixtures ──
-  defProp('retBelt', { label: 'returns belt', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.beltX0, z: RET.beltZ, rot: 0, when: retWhen, build: function (c) {
+  defProp('retBelt', { label: 'returns belt', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.beltX0, z: RET.beltZ, rot: 0, when: retWhen, stage: 4, build: function (c) {
     conveyorPath(c, BELTS.retBelt.path);
     var mx = (RET.beltX1 - RET.beltX0) / 2; c.sign(['RETURNS IN'], 1.4, 0.3, mx, 2.4, 0.6, 0, { w: 448, h: 96, bg: '#1b232c', fg: '#f5b53d' }); c.sign(['RETURNS IN'], 1.4, 0.3, mx, 2.4, -0.6, Math.PI, { w: 448, h: 96, bg: '#1b232c', fg: '#f5b53d' });
     c.cyl(0.02, 2.4, MAT.steelDark, mx, 1.2, 0.6, 8).castShadow = false; c.cyl(0.02, 2.4, MAT.steelDark, mx, 1.2, -0.6, 8).castShadow = false; c.box(0.03, 0.03, 1.2, MAT.steelDark, mx, 2.4, 0);
   } });
   // the intake: a roller table at the belt's end with a deep tray the returns queue in, a scanner post, the queue count on a screen
-  defProp('retIntake', { label: 'returns intake', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.intake.x, z: RET.intake.z, rot: 0, when: retWhen, build: function (c, P, inst) {
+  defProp('retIntake', { label: 'returns intake', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.intake.x, z: RET.intake.z, rot: 0, when: retWhen, stage: 4, build: function (c, P, inst) {
     var FR = MAT.steelDark, TOP = std({ color: 0x8f98a3, roughness: 0.45, metalness: 0.35 });
     c.box(1.6, 0.06, 0.9, TOP, 0, 0.83, 0); [[-0.72, -0.38], [0.72, -0.38], [-0.72, 0.38], [0.72, 0.38]].forEach(function (o) { c.box(0.05, 0.83, 0.05, FR, o[0], 0.415, o[1]); });
     for (var rx = -0.6; rx <= 0.6; rx += 0.15) { var rl = c.cyl(0.035, 0.84, MAT.steel, rx, 0.875, 0, 10); rl.rotation.x = Math.PI / 2; }   // rollers across the top
@@ -57,9 +57,9 @@
     c.sign(['INTAKE'], 0.7, 0.18, 0, 1.15, 0.47, 0, { w: 256, h: 72, bg: '#1b232c', fg: '#f5b53d' });
     c.solid(-0.85, 0.85, -0.5, 0.5, 0, 1.1); c.hit(1.8, 1.2, 1.1, 0, 0.6, 0, { prompt: function () { return retIntakePrompt(); }, use: function () { retIntakeUse(); } });
   } });
-  RET.desks.forEach(function (d, k) { defProp('retDesk' + k, { label: 'inspection desk ' + (k + 1), cat: 'hall', abs: true, keep: true, fixed: true, x: d.x, z: d.z, rot: 0, when: retWhen, build: returnsDeskBuildFor(k, 'INSPECTION ' + (k + 1)) }); });
+  RET.desks.forEach(function (d, k) { defProp('retDesk' + k, { label: 'inspection desk ' + (k + 1), cat: 'hall', abs: true, keep: true, fixed: true, x: d.x, z: d.z, rot: 0, when: retWhen, stage: 4, build: returnsDeskBuildFor(k, 'INSPECTION ' + (k + 1)) }); });
   // the restock cage: three mesh shelves between steel posts, 3.6 m wide, the boxes a worker takes back to the racks
-  defProp('retCage', { label: 'restock cage', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.cage.x, z: RET.cage.z, rot: 0, when: retWhen, build: function (c) {
+  defProp('retCage', { label: 'restock cage', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.cage.x, z: RET.cage.z, rot: 0, when: retWhen, stage: 4, build: function (c) {
     var FR = MAT.steelDark, MESH = std({ map: TEX.vmesh, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6, color: 0x6a737c }), W = 3.6, Dp = 0.9, H = 2.1;
     [[-W / 2, -Dp / 2], [W / 2, -Dp / 2], [-W / 2, Dp / 2], [W / 2, Dp / 2], [0, -Dp / 2], [0, Dp / 2]].forEach(function (o) { c.box(0.06, H, 0.06, FR, o[0], H / 2, o[1]); });
     [0.1, 0.72, 1.34, 1.96].forEach(function (y) { c.box(W, 0.04, Dp, MAT.steel, 0, y, 0); c.box(W, 0.04, 0.04, FR, 0, y, -Dp / 2); c.box(W, 0.04, 0.04, FR, 0, y, Dp / 2); });
@@ -69,7 +69,7 @@
     c.solid(-W / 2 - 0.05, W / 2 + 0.05, -Dp / 2 - 0.05, Dp / 2 + 0.05, 0, H);
   } });
   // the compactor: a steel body with a hopper mouth, a hydraulic ram housing on top, a hazard band and the SCRAP sign; the bin's own handlers
-  defProp('retCompactor', { label: 'cardboard compactor', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.compactor.x, z: RET.compactor.z, rot: 0, when: retWhen, build: function (c) {
+  defProp('retCompactor', { label: 'cardboard compactor', cat: 'hall', abs: true, keep: true, fixed: true, x: RET.compactor.x, z: RET.compactor.z, rot: 0, when: retWhen, stage: 4, build: function (c) {
     var BODY = std({ color: 0x3b7a3e, roughness: 0.55, metalness: 0.45 }), FR = MAT.steelDark;
     c.box(1.8, 1.7, 1.3, BODY, 0, 0.85, 0); c.box(1.9, 0.08, 1.4, FR, 0, 0.04, 0); c.box(1.9, 0.08, 1.4, FR, 0, 1.74, 0);
     c.box(1.2, 0.5, 0.8, FR, 0, 2.03, -0.1); c.cyl(0.14, 0.5, MAT.chrome, 0, 2.53, -0.1, 14); c.cyl(0.1, 0.3, FR, 0, 2.93, -0.1, 12);   // the ram housing and its cylinder
@@ -80,15 +80,15 @@
     c.solid(-0.95, 0.95, -0.7, 0.7, 0, 2.6); c.hit(2.0, 1.8, 1.6, 0, 0.9, 0.2, { prompt: function () { return binPrompt(); }, use: function () { binUse(); } });
   } });
   // the dock console on the east wall south of the returns dock, like every other dock's: the door, the truck, the queue
-  defProp('consoleRet', { label: 'dock console RETURNS', cat: 'wall', abs: true, keep: true, fixed: true, x: HALL.x - 0.3, z: RET.dockZ + 3.4, rot: 3, when: retWhen, build: consoleBuild(6) });
+  defProp('consoleRet', { label: 'dock console RETURNS', cat: 'wall', abs: true, keep: true, fixed: true, x: HALL.x - 0.3, z: RET.dockZ + 3.4, rot: 3, when: retWhen, stage: 4, build: consoleBuild(6) });
   // the floor: zone names, the hazard round the compactor and the zebra from the doorway up to the inspection row
-  defProp('retPaint', { label: 'returns hall floor paint', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, build: function (c) {
+  defProp('retPaint', { label: 'returns hall floor paint', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, stage: 4, build: function (c) {
     var lbl = function (t, x, z, w, col, ry) { var m = c.plane(w, 0.42, new THREE.MeshBasicMaterial({ map: textTex([t], { w: 512, h: 96, bg: '#8b8d8e', fg: col || '#d9a12c' }) }), x, 0.0066, z, -Math.PI / 2, 0); if (ry) m.rotation.z = ry; };
     lbl('RECEIVING', 32.2, -31.2, 2.6); lbl('INSPECTION', 23.4, -36.1, 3.0); lbl('RESTOCK', 30.5, -41.3, 2.2, '#5fd38d'); lbl('SCRAP', 15.5, -41.1, 1.8, '#ff6b5e');
     var D = HALLS.hall2.door, dcx = (D.x0 + D.x1) / 2; for (var z = -27.8; z > -31.2; z -= 0.7) c.plane(1.2, 0.35, MAT.whiteLine, dcx, 0.0065, z, -Math.PI / 2, 0);   // the zebra from the doorway walkway up into the hall
     c.plane(0.1, 3.4, MAT.yellowLine, 17.2, 0.006, -37.6, -Math.PI / 2, 0); c.plane(0.1, 3.4, MAT.yellowLine, 29.6, 0.006, -37.6, -Math.PI / 2, 0); c.plane(12.5, 0.1, MAT.yellowLine, 23.4, 0.006, -35.9, -Math.PI / 2, 0); c.plane(12.5, 0.1, MAT.yellowLine, 23.4, 0.006, -39.3, -Math.PI / 2, 0);   // the inspection row's box: from the belt's side to behind the desks
   } });
-  defProp('retSign', { label: 'returns hall sign', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, build: function (c) {
+  defProp('retSign', { label: 'returns hall sign', cat: 'hall', abs: true, keep: true, fixed: true, x: 0, z: 0, rot: 0, when: retWhen, stage: 4, build: function (c) {
     var H = HALLS.hall2;
     c.sign(['RETURNS', 'RECEIVE · INSPECT · RESTOCK · SCRAP'], 5.2, 1.3, (H.x0 + H.x1) / 2 + 4.5, 5.0, H.z0 + 0.19, 0, { w: 768, h: 192, bg: '#1b232c', fg: '#f5b53d', size: 72 });   // on the far wall, east of the hall's own name plate (x 16 to 20) and above the clock
     c.sign(['RETURNS DOCK', 'the belt takes the returns in while the door is up'], 2.6, 0.7, H.x1 - 0.2, 5.4, RET.dockZ, -Math.PI / 2, { w: 640, h: 160, bg: '#1b232c', fg: '#eef1f5' });

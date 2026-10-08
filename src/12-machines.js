@@ -9,10 +9,11 @@
   // every machine has a speed dial on its screen: 50 to 200 percent, kept per machine in S.speed
   var SPEED_STEPS = [0.5, 0.75, 1, 1.5, 2];
   function speedOf(key) { var v = S.speed && S.speed[key]; return typeof v === 'number' ? v : 1; }
-  function speedSteps() { return S.up.plantTune ? SPEED_STEPS.concat([2.5, 3]) : SPEED_STEPS; }   // the plant tune-up opens 250 and 300%
-  function speedCycle(key) { if (!S.speed) S.speed = {}; var steps = speedSteps(), i = steps.indexOf(speedOf(key)); S.speed[key] = steps[(i + 1) % steps.length]; sfx('click'); screenDirtyAll(); }
+  function speedSteps(key) { return S.up.plantTune || (key === 'sorter' && unlocked('deckTune')) ? SPEED_STEPS.concat([2.5, 3]) : SPEED_STEPS; }   // the plant tune-up opens 250 and 300%; the deck dial gets them at level 19 on its own (1.21.0)
+  function speedCycle(key) { if (!S.speed) S.speed = {}; var steps = speedSteps(key), i = steps.indexOf(speedOf(key)); S.speed[key] = steps[(i + 1) % steps.length]; sfx('click'); screenDirtyAll(); }
   function speedButton(sc, x, y, w, key, label) { var pct = Math.round(speedOf(key) * 100) + '%'; scButton(sc, x, y, w, 30, w < 80 ? pct : (label || 'SPD') + ' ' + pct, true, function () { speedCycle(key); }, '#78bdf5'); }
   function beltSpeedKey(b) { return b.speedKey || b.prop; }
+  function deckTier(b) { return b.speedKey === 'sorter' && unlocked('deckTier2') ? 1.5 : 1; }   // level 22: the deck belts run half as fast again (1.21.0)
   function defMachine(id, m) { m.id = id; m.lamps = null; MACH[id] = m; }
   var PROP_SPEED = {};   // prop id -> the dial and the rate its belt planes scroll with (a curve's segments share the prop's)
   function defBelt(id, b) { b.id = id; BELTS[id] = b; PROP_SPEED[b.prop] = { key: b.speedKey || b.prop, rate: b.rate || 1 }; }
@@ -98,7 +99,7 @@
       var ahead = Infinity;
       for (var i = 0; i < items.length; i++) {
         var it = items[i], max = Math.min(ahead - beltGapOf(it), L);
-        if (powered()) it.d = Math.min(it.d + BELT_SPEED * (b.rate || 1) * speedOf(beltSpeedKey(b)) * dt, max);   // rate: the deck belts run three times a floor belt
+        if (powered()) it.d = Math.min(it.d + BELT_SPEED * (b.rate || 1) * speedOf(beltSpeedKey(b)) * deckTier(b) * dt, max);   // rate: the deck belts run three times a floor belt; deckTier: half as fast again from level 22
         if (it.d >= L - 0.001 && sink) {
           var taken = false;
           if (sink.belt) taken = beltPush(sink.belt.id, it); else if (sink.machine && sink.machine.accept) taken = sink.machine.accept(it); else if (sink.slot && it.kind === 'box' && slotSpace(sink.slot, it.sku) > 0) { slotAdd(sink.slot, it.sku, 1); S.stats.putaway++; taken = true; }
@@ -125,11 +126,13 @@
   defMachine('taper', { prop: 'packline', inlet: [0, 2.0], outlet: [0, 3.8],
     accept: function (it) { var j = S.pack.job; if (!j || it.kind !== 'box' || !powered() || S.pack.jam) return false; j.inMach++; sfx('click'); return true; } });
   function packStatus() { if (!powered()) return 'off'; if (S.pack.jam) return 'jam'; return S.pack.job ? 'run' : 'idle'; }
+  function shelfCap() { return BOOT_STAGE === 0 ? 6 : 12; }   // parcels the shelf holds: six on the shed table, twelve on the rails
+  function shelfCount() { return S.bench.parcels.length; }
   function packOrder(o) {
     if (o.state !== 'open') return false;
-    var n = orderNeed(o); if (n.have < Math.ceil(n.tot / 2)) return false;
+    var n = orderNeed(o); if (n.have < Math.ceil(n.tot / 2)) return false; if (BOOT_STAGE === 0 && n.have < n.tot) return false;   // the shed packs whole orders only
     var boxes = []; o.lines.forEach(function (l) { l.packed = benchTake(l.sku, l.qty); for (var i = 0; i < l.packed; i++) boxes.push(l.sku); });
-    o.short = n.have < n.tot; o.state = 'packing'; S.pack.queue.push({ order: o.id, boxes: boxes, fed: 0, inMach: 0, t: 0 });
+    o.short = n.have < n.tot; o.state = 'packing'; S.pack.queue.push({ order: o.id, boxes: boxes, fed: 0, inMach: 0, t: 0, hand: BOOT_STAGE === 0 });
     sfx('click'); rebuildBoardSoon(); logEvent('Order #' + o.num + ' released to the pack line' + (o.short ? ' (short)' : ''));
     return true;
   }
@@ -146,6 +149,7 @@
     if (!P.job && P.queue.length) P.job = P.queue.shift();
     var j = P.job;
     if (j && !orderById(j.order)) { P.job = null; return; }
+    if (j && j.hand) { j.t += dt; if (j.t >= 4) { P.job = null; if (shelfCount() < shelfCap()) packFinish(j.order); else P.queue.unshift(j); } return; }   // by hand at the shed table: four seconds, no belt, no jam
     if (powered() && !P.jam && j) {
       // feed the next box onto the infeed every 1.3 s
       P.feedT += dt; if (j.fed < j.boxes.length && P.feedT >= 1.3 && beltPush('packIn', { kind: 'box', sku: j.boxes[j.fed] })) { j.fed++; P.feedT = 0; }
@@ -155,7 +159,7 @@
     if (P.out && powered() && !P.jam && beltPush('packOut', { kind: 'parcel', order: P.out })) P.out = null;
     // the outfeed end: the parcel drops onto the shelf when there is room
     var outs = beltItems('packOut'), L = beltLen(BELTS.packOut);
-    for (var i = outs.length - 1; i >= 0; i--) { if (outs[i].d >= L - 0.001 && S.bench.parcels.length < 12) { packFinish(outs[i].order); outs.splice(i, 1); } }
+    for (var i = outs.length - 1; i >= 0; i--) { if (outs[i].d >= L - 0.001 && shelfCount() < shelfCap()) { packFinish(outs[i].order); outs.splice(i, 1); } }
     lampSet(MACH.taper, packStatus());
   }
   function packPrompt() { if (S.pack.jam) return 'Clear the jam on the pack line'; if (!powered()) return 'Pack line · no power'; var j = S.pack.job; return 'Pack line · ' + (j ? 'packing order #' + (orderById(j.order) || { num: '?' }).num + ' · ' + j.inMach + '/' + j.boxes.length : S.pack.queue.length ? S.pack.queue.length + ' waiting' : 'idle') + ' · ' + S.pack.made + ' parcels made'; }
@@ -165,7 +169,7 @@
     var j = S.pack.job, o = j ? orderById(j.order) : null;
     scText(c, 16, 70, o ? 'Order #' + o.num + ' · ' + clientName(o.client) : 'No job', '#eef1f5', 16);
     scText(c, 16, 94, j ? 'Boxes in: ' + j.inMach + ' / ' + j.boxes.length + (j.inMach >= j.boxes.length ? ' · taping ' + Math.max(0, 3 - j.t).toFixed(1) + ' s' : '') : S.pack.queue.length + ' in the queue', '#a0acb8', 13);
-    scText(c, 16, 118, 'Parcels made: ' + S.pack.made + ' · shelf ' + S.bench.parcels.length + '/12', '#a0acb8', 13);
+    scText(c, 16, 118, 'Parcels made: ' + S.pack.made + ' · shelf ' + S.bench.parcels.length + '/' + shelfCap(), '#a0acb8', 13);
     if (S.pack.jam) scButton(sc, 16, 140, 150, 34, 'CLEAR JAM', true, function () { packUse(); }, '#ff6b5e');
     speedButton(sc, 176, 142, 108, 'packline'); if (speedOf('packline') > 1 && !S.up.plantAuto) scText(c, 176, 188, 'fast: jams more', '#ff6b5e', 10);
   }
