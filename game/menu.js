@@ -3,6 +3,8 @@
 (function () {
   'use strict';
   var CFG = window.DEPOT_MENU || {};
+  // the support links on the main menu (the shell sends http(s) to the real browser)
+  var LINKS = { patreon: 'https://www.patreon.com/cw/thecodingdad', paypal: 'https://www.paypal.com/paypalme/TheCodingDad' };
   var SLOTS = typeof CFG.slots === 'number' ? CFG.slots : 3;
   function $(id) { return document.getElementById(id); }
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
@@ -33,7 +35,7 @@
   }
   function showMain() {
     var rows = ''; for (var n = 1; n <= SLOTS; n++) rows += slotRow(n);
-    body('<div class="dc-slots">' + rows + '</div><div class="dc-menu-row"><button data-dc="how">📖 How to play</button><button data-dc="quit">⏏ Quit</button></div>');
+    body('<div class="dc-slots">' + rows + '</div><div class="dc-menu-row"><button data-dc="how">📖 How to play</button><button data-dc="quit">⏏ Quit</button></div><div class="dc-menu-row"><button data-dc="patreon">🧡 Support on Patreon</button><button data-dc="paypal">💙 Support via PayPal</button></div>');
   }
   function showHow() {
     body('<div class="dc-how">' + (window.DEPOT && window.DEPOT.guideHtml ? window.DEPOT.guideHtml() : '<p>The guide loads with the game.</p>') + '</div><div class="dc-menu-row"><button data-dc="back" class="primary">← Back</button></div>');
@@ -54,6 +56,7 @@
       if (n === active()) { try { sessionStorage.setItem('depotco-skip-splash', '1'); } catch (err) {} location.reload(); } else showMain();
     }
     else if (k === 'how') showHow();
+    else if (k === 'patreon' || k === 'paypal') window.open(LINKS[k], '_blank', 'noopener');   // the shell sends http(s) to the real browser
     else if (k === 'back') showMain();
     else if (k === 'quit') { window.close(); setTimeout(function () { body('<p style="color:#a0acb8">Close the window to quit.</p><div class="dc-menu-row"><button data-dc="back">← Back</button></div>'); }, 300); }
   });

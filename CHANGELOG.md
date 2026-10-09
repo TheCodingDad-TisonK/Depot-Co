@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.22.1 (2026-10-09)
+
+- Two buttons on the main menu: Support on Patreon and Support via PayPal. Each opens the page in your browser.
+
 ## 1.22.0 (2026-10-08)
 
 Depot Co. now runs on [Co Engine](https://github.com/TheCodingDad-TisonK/Co-Engine), the engine shared with Grow Co. Nothing changes for the player: the same game, the same saves, the same controls. What changed is underneath.
