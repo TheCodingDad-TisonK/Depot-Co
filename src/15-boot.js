@@ -4,6 +4,10 @@
   // static geometry, fills the start screen, starts the frame loop and publishes window.DEPOT (Co Engine 90-boot).
   GAME.handle = 'DEPOT'; GAME.versionGlobal = 'DEPOT_VERSION';
   GAME.autoplay = false;    // menu.js reads the autoplay flag itself and presses Clock in
+  GAME.editorEnter = function () {   // the Co Engine editor starts the game from the viewport: past the splash, the loaded slot's button on the main menu
+    var sp = document.getElementById('dc-splash'); if (sp && !sp.hidden) sp.click();
+    var b = document.querySelector('#dc-mainmenu .dc-slot.on [data-dc="slot"]'); if (b) b.click(); else enter();
+  };
   GAME.weather = false;     // tickLife rolls the weather, in the frame and in T.run alike
   GAME.freshState = freshState; GAME.migrate = migrateDepot;
   GAME.afterLoad = function (loaded) {
