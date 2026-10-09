@@ -96,6 +96,7 @@
     rowPrice: 950, cartPrice: 240, forkPrice: 2800, lightsPrice: 600, pcPrice: 0,
     palletCap: 8, slotCap: 12, cartCap: 12, benchCap: 24, tableCap: 8
   };
+  CO.table('ECON', ECON, 'the economy: start money, rent, prices and cuts'); CO.table('XP', XP, 'the XP each task earns');   // the editor's Settings tab tunes them
   // free: the stage that brings the piece for nothing (1.21.0): it stays in the list so its name and text are known, and leaves the shop
   var UPGRADES = [
     { id: 'cart',   name: 'Picking cart',        price: ECON.cartPrice,  lvl: UNLOCK.cart, desc: 'A trolley with three shelves that holds twelve boxes or parcels. Grab it, pick straight onto it from the racks, and empty it onto the bench in one go.' },
