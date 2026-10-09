@@ -20,7 +20,7 @@
     if (/^rack/.test(id)) def.noBlob = true;   // a rack row casts no contact blob
     // a belt piece: it snaps to belt ends and machines while carried (beltSnap), says its own placing line (the propPlaced hook), and
     // registers its belt before its build runs, the way it always did
-    if (def.beltPath) { def.snap = beltSnap; def.quietPlace = true; var build0 = def.build; def.build = function (ctx, P, inst) { var bh = P.h || 0; BELTS[inst.id] = { id: inst.id, prop: inst.id, path: def.beltPath.map(function (p) { return [p[0], p[1], (p[2] || 0) + bh, p[3]]; }), speedKey: 'belts', piece: true }; return build0(ctx, P, inst); }; }
+    if (def.beltPath) { def.snap = beltSnap; def.quietPlace = true; def.ownHeight = true;   /* a belt piece lifts its own path by P.h (Co Engine 0.6.0 lifts the whole prop otherwise) */ var build0 = def.build; def.build = function (ctx, P, inst) { var bh = P.h || 0; BELTS[inst.id] = { id: inst.id, prop: inst.id, path: def.beltPath.map(function (p) { return [p[0], p[1], (p[2] || 0) + bh, p[3]]; }), speedKey: 'belts', piece: true }; return build0(ctx, P, inst); }; }
   };
   // does this prop stand at the stage the page booted at, and at the level the save is at (the engine asks through propAllowed)
   function propStageOk(id) { var d = PROPS[id]; if (!d) return true; if (d.extra) return true; if (typeof d.stage === 'number' && BOOT_STAGE < d.stage) return false; if (BOOT_STAGE === 0 && !d.shed && !(d.at && d.at[0])) return false; if (typeof d.lvl === 'number' && S.level < d.lvl) return false; return true; }
