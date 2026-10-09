@@ -1,7 +1,7 @@
 {
   "name": "depot-co",
   "productName": "Depot Co",
-  "version": "1.22.1",
+  "version": "1.22.2",
   "description": "Standalone hobby game, NOT a Farming Simulator product. First-person warehouse simulator: receive trucks, put stock away, pick orders, pack them and ship them, then hire a crew and buy a forklift.",
   "main": "main.js",
   "author": "TheCodingDad-TisonK",
@@ -21,7 +21,7 @@
     "installer": "npm run check && npm run brand && npm run icon && node node_modules/co-engine/tools/verify-icon.js && electron-builder --win nsis --x64 --publish never"
   },
   "dependencies": {
-    "co-engine": "github:TheCodingDad-TisonK/Co-Engine#v0.5.0"
+    "co-engine": "github:TheCodingDad-TisonK/Co-Engine#v0.5.2"
   },
   "devDependencies": {
     "electron": "^33.2.1",

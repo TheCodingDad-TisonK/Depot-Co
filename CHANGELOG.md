@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.22.2 (2026-10-09)
+
+- **The main hall lights again.** Since 1.22.0 the hall's ceiling lamps, the office, the break room and the yard lamps stayed dark at every hour: the engine handed the lighting three of its four values and the power switch never arrived. They light at night and go out in a power cut, as before.
+- The traffic cars on the road have whole wheels that turn, arches along their sides, and windscreens that lean the right way.
+- Under the hood: Co Engine v0.5.2. No other change for the player.
+
 ## 1.22.1 (2026-10-09)
 
 - Two buttons on the main menu: Support on Patreon and Support via PayPal. Each opens the page in your browser.
