@@ -105,4 +105,4 @@ Depot Co. is free and stays free. If you want to follow the work and play new ve
 
 ## Licence
 
-MIT. Made by TheCodingDad.
+All rights reserved. You may download and play the game for yourself; copying, sharing, selling or reusing it needs written permission. Releases up to v1.22.2 were MIT. See [LICENSE](LICENSE). Made by TheCodingDad.
