@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.22.4 (2026-10-11): World Update
+
+# Small Patch
+Only in/after stage 5 (full warehouse building)
+- Parking lot expanded
+- Added more tree's around the yard
+- Aligned gate numbers
+- Smoking area moved to the front of the warehouse
+
 ## 1.22.2 (2026-10-09)
 
 - **The main hall lights again.** Since 1.22.0 the hall's ceiling lamps, the office, the break room and the yard lamps stayed dark at every hour: the engine handed the lighting three of its four values and the power switch never arrived. They light at night and go out in a power cut, as before.
