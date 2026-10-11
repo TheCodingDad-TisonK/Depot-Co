@@ -5,7 +5,7 @@
   // The engine parts come first in the closure, the game's parts after. The engine declares the names both sides share
   // here, unassigned, and fills them when the game calls CO.setup (the renderer, the scene, the palette) and CO.boot (the
   // state, the shell, the frame loop). A game part may use any of them at its top level once CO.setup has run.
-  var CO = { version: '0.12.2', cfg: null, game: null, root: null, flash: 0, ready: false, paused: false, stepOnce: false, editor: null };
+  var CO = { version: '0.13.0', cfg: null, game: null, root: null, flash: 0, ready: false, paused: false, stepOnce: false, editor: null };
   var S, SET, SAVE, SETTINGS_KEY, BOOT_SLOT, BOOT_SAVE;               // 40-state fills these
   var canvas, renderer, scene, camera;                                 // 10-three fills these in CO.setup
   var player = null, focus = null, hudDirty = true;                    // 42-player owns player and focus; the HUD throttle flag is read everywhere
@@ -574,8 +574,14 @@
   // The layout a game ships: where its props stand (over what the definitions say) and the copies the editor placed. The editor writes it
   // into src/00-layout.js as CO.layout({ props: { id: { x, z, rot, h, hidden } }, placed: [{ id, type, x, z, rot, h }] }), the first part
   // in the build so the boot sees it. A player's save still wins over it, as it wins over the definitions.
-  var LAYOUT = { props: {}, placed: [] };
-  CO.layout = function (L) { if (!L) return LAYOUT; if (L.props) for (var k in L.props) LAYOUT.props[k] = L.props[k]; if (L.placed) L.placed.forEach(function (p) { if (p && p.id && !placedById(p.id)) LAYOUT.placed.push(p); }); return LAYOUT; };
+  // 0.13.0: one layout a world, as with the world edits (part 26). A game that names the world a page built (GAME.worldVariant) keeps each
+  // world's layout apart, all written into the one src/00-layout.js as CO.layout({ ... }, "stage 5"). CO.layout(L) with no name adds to the
+  // current layout: the "" one while src/ loads, the page's own world once layoutPick (90-boot, before the save and the build) has run.
+  var LAYOUT_SETS = {};
+  function layoutSet(v) { v = v === undefined || v === null ? '' : String(v); return LAYOUT_SETS[v] || (LAYOUT_SETS[v] = { props: {}, placed: [] }); }
+  var LAYOUT = layoutSet('');
+  CO.layout = function (L, variant) { var T = variant === undefined ? LAYOUT : layoutSet(variant); if (!L) return T; if (L.props) for (var k in L.props) T.props[k] = L.props[k]; if (L.placed) L.placed.forEach(function (p) { if (p && p.id && !T.placed.some(function (q) { return q.id === p.id; })) T.placed.push(p); }); return T; };
+  function layoutPick() { LAYOUT = layoutSet(worldVariantOf()); return LAYOUT; }
   function placedById(id) { for (var i = 0; i < LAYOUT.placed.length; i++) if (LAYOUT.placed[i].id === id) return LAYOUT.placed[i]; return null; }
   function numOr(v, d) { return typeof v === 'number' ? v : d; }
   function defProp(id, def) { if (CO.game && CO.game.resolveDef) CO.game.resolveDef(id, def); def.id = id; if (MODEL_OVER[id]) def.build = MODEL_OVER[id]; PROPS[id] = def; PROP_ORDER.push(id); return def; }
@@ -1391,10 +1397,16 @@
   // ── World items ───────────────────────────────────────────────────
   // A key names an item by what it is and where the game built it ("lamp post@12,6", "mesh plane 34x19.2@0,13.6"), so it survives a
   // reload and most changes to the game's code. An edit is { x, y, z, ry (degrees), sx, sy, sz, hidden }, every field optional.
-  var WORLD_EDITS = {}, WORLD_ITEMS = [], WORLD_PARENT = null, WORLD_COPIES = [];
+  // 0.13.0: a game that builds more than one world (Depot's six building stages, each a page load of its own) names the one a page built
+  // in GAME.worldVariant (a string, or a function asked once the save is loaded and again after the build). Each world keeps its own edits and copies, and the editor writes
+  // every world's set into the one src/00-world.js as CO.world({ ... }, "stage 5"). A game that names none has one world, the "" set.
+  var WORLD_SETS = {}, WORLD_VARIANT = '', WORLD_ITEMS = [], WORLD_PARENT = null;
+  function worldSet(v) { v = v === undefined || v === null ? '' : String(v); return WORLD_SETS[v] || (WORLD_SETS[v] = { edits: {}, copies: [] }); }
+  var WORLD_EDITS = worldSet('').edits, WORLD_COPIES = worldSet('').copies;   // the set of the world this page built: worldEditsApply points them at it
   // copies of world items (0.9.4): { id, of (the original's key), x, y, z, ry (degrees), sx, sy, sz }, kept in src/00-world.js
-  CO.worldCopies = function (list) { (list || []).forEach(function (c) { if (c && c.id && c.of && !WORLD_COPIES.some(function (k) { return k.id === c.id; })) WORLD_COPIES.push(c); }); return WORLD_COPIES; };
-  CO.world = function (edits) { if (edits && typeof edits === 'object') for (var k in edits) WORLD_EDITS[k] = edits[k]; return WORLD_EDITS; };
+  CO.worldCopies = function (list, variant) { var set = worldSet(variant); (list || []).forEach(function (c) { if (c && c.id && c.of && !set.copies.some(function (k) { return k.id === c.id; })) set.copies.push(c); }); return set.copies; };
+  CO.world = function (edits, variant) { var set = worldSet(variant); if (edits && typeof edits === 'object') for (var k in edits) set.edits[k] = edits[k]; return set.edits; };
+  function worldVariantOf() { var g = CO.game || {}, v = typeof g.worldVariant === 'function' ? g.worldVariant() : g.worldVariant; return v === undefined || v === null ? '' : String(v); }
   // a kit call builds into a group of its own, centred on what it built and standing on the ground, so it turns and resizes about itself
   // a game marks an item movesOnly (o.userData.movesOnly = true) when its rules follow where it stands but not a turn or a new size
   function worldItem(kind, fn, parent) {
@@ -1473,7 +1485,7 @@
     o.visible = !e.hidden; o.updateMatrixWorld(true); worldSolids(o); shadowDirty = true;
   }
   // after the build and before the bake: the saved edits laid on the world, then the copies built
-  function worldEditsApply() { worldScan(); WORLD_ITEMS.forEach(function (o) { var e = WORLD_EDITS[o.userData.worldKey]; if (e) worldLay(o, e); }); WORLD_COPIES.forEach(function (c) { worldCopyBuild(c); }); }
+  function worldEditsApply() { WORLD_VARIANT = worldVariantOf(); var set = worldSet(WORLD_VARIANT); WORLD_EDITS = set.edits; WORLD_COPIES = set.copies; worldScan(); WORLD_ITEMS.forEach(function (o) { var e = WORLD_EDITS[o.userData.worldKey]; if (e) worldLay(o, e); }); WORLD_COPIES.forEach(function (c) { worldCopyBuild(c); }); }
   // a copy: the original's meshes cloned (they share its geometry and materials, so a copy costs little), its solids cloned and laid where
   // the copy stands. What the original does (a door that opens, a prompt) stays with the original: a copy is its look and its solids
   function worldCopyBuild(c) {
@@ -1501,14 +1513,17 @@
     if (Object.keys(e).length) WORLD_EDITS[key] = e; else delete WORLD_EDITS[key];
     worldSolids(o); return e;
   }
-  // the part the editor writes: src/00-world.js, or nothing when the world stands as the game builds it
+  // the part the editor writes: src/00-world.js, or nothing when the world stands as the game builds it. Every world's set is written,
+  // not only the one this page built, so editing one stage never drops what another stage keeps. The "" set comes first, as before 0.13
   function worldCode() {
-    var keys = Object.keys(WORLD_EDITS).sort(); if (!keys.length && !WORLD_COPIES.length) return '';
     var obj = function (o) { return JSON.stringify(o).replace(/"(\w+)":/g, '$1: ').replace(/,(?=\w+: )/g, ', ').replace(/^\{/, '{ ').replace(/\}$/, ' }'); };
     var lines = ['//@ the world the editor changed: what was moved, turned, resized, removed or copied of what the game builds straight into its world. Written by the Co Engine editor; it sorts first in src/ and is laid on the world as it is built. A key is the thing and where the game built it; delete a line to put that thing back, or to take a copy away.'];
-    if (keys.length) { lines.push('  CO.world({'); keys.forEach(function (k) { lines.push('    ' + JSON.stringify(k) + ': ' + obj(WORLD_EDITS[k]) + ','); }); lines.push('  });'); }
-    if (WORLD_COPIES.length) { lines.push('  CO.worldCopies(['); WORLD_COPIES.forEach(function (c) { lines.push('    ' + obj(c) + ','); }); lines.push('  ]);'); }
-    return lines.join('\n') + '\n';
+    Object.keys(WORLD_SETS).sort().forEach(function (v) {
+      var set = WORLD_SETS[v], keys = Object.keys(set.edits).sort(), tail = v ? ', ' + JSON.stringify(v) + ');' : ');';
+      if (keys.length) { lines.push('  CO.world({'); keys.forEach(function (k) { lines.push('    ' + JSON.stringify(k) + ': ' + obj(set.edits[k]) + ','); }); lines.push('  }' + tail); }
+      if (set.copies.length) { lines.push('  CO.worldCopies(['); set.copies.forEach(function (c) { lines.push('    ' + obj(c) + ','); }); lines.push('  ]' + tail); }
+    });
+    return lines.length > 1 ? lines.join('\n') + '\n' : '';
   }
   // ── Meshes ────────────────────────────────────────────────────────
   var CAR_COLS = [0xb8322a, 0x2c5f9e, 0xd8dbdf, 0x2a2d33, 0x7a8691, 0xe0a02a, 0x4f6a3a];
@@ -2815,7 +2830,7 @@
     if (o.isMesh && o.geometry && o.geometry.parameters) r.geometry = { type: o.geometry.type, params: o.geometry.parameters };
     if (o.isLight) r.light = { type: o.type, color: '#' + o.color.getHexString(), intensity: rnd(o.intensity), distance: o.distance === undefined ? null : o.distance, decay: o.decay === undefined ? null : o.decay, shadow: !!o.castShadow };
     if (propInst[id]) { var inst = propInst[id], def = inst.def || propDef(id) || {}, P = propPlacement(id), c = customById(id); r.prop = { id: id, type: c ? c.type : (placedById(id) ? placedById(id).type : id), label: def.label, cat: def.cat || null, custom: !!c, fixed: !!def.fixed, wall: !!def.wall, extra: !!def.extra, price: def.price || 0, lvl: def.lvl || null, desc: def.desc || '', x: rnd(P.x), z: rnd(P.z), rot: P.rot, h: rnd(P.h || 0), hidden: !!P.hidden, moved: !!(S && S.layout && S.layout[id]), obstacles: inst.ctx.obstacles.length }; }
-    if (o.userData.worldKey) { r.worldItem = { key: o.userData.worldKey, kind: worldKind(o), edited: !!WORLD_EDITS[o.userData.worldKey], solids: (o.userData.solids || []).length }; r.name = worldName(o); r.type = 'world'; }
+    if (o.userData.worldKey) { r.worldItem = { key: o.userData.worldKey, kind: worldKind(o), edited: !!WORLD_EDITS[o.userData.worldKey], solids: (o.userData.solids || []).length, world: WORLD_VARIANT }; r.name = worldName(o); r.type = 'world'; }
     if (editorMulti.length > 1 && editorMulti.indexOf(id) >= 0) r.together = editorMulti.length;
     if (o.userData.screen) r.screen = { title: o.userData.screen.title || '', w: o.userData.screen.w, h: o.userData.screen.h, zones: o.userData.screen.zones.length };
     try { var g = CO.game && CO.game.editorInspect ? CO.game.editorInspect(id, o) : null; if (g) r.game = g; } catch (e) { r.game = { error: String(e && e.message || e) }; }
@@ -3162,11 +3177,17 @@
     PROP_ORDER.forEach(function (id) { var d = PROPS[id]; if (d.extra) return; var P = propPlacement(id), D = propDefault(id), def = { x: d.x, z: d.z, rot: d.rot || 0, h: 0, hidden: false }; if (!sameSpot(P, D)) changed++; if (!sameSpot(P, def)) props[id] = { x: P.x, z: P.z, rot: P.rot, h: P.h || 0, hidden: !!P.hidden }; });
     LAYOUT.placed.forEach(function (p) { if (PROPS[p.id]) return; var P = propPlacement(p.id); if (!sameSpot(P, propDefault(p.id))) changed++; if (!P.hidden) placed.push({ id: p.id, type: p.type, x: P.x, z: P.z, rot: P.rot, h: P.h || 0 }); });
     (S && S.custom || []).forEach(function (c) { if (!PROPS[c.type] || placedById(c.id)) return; var P = propPlacement(c.id); if (!P.hidden) { placed.push({ id: c.id, type: c.type, x: P.x, z: P.z, rot: P.rot, h: P.h || 0 }); pendingCopies++; } });
-    var lines = ['//@ the layout the editor saved: where the props stand and the copies that ship with the game. Written by the Co Engine editor; it sorts first in src/ so the boot sees it. Move things in the editor rather than here.', '  CO.layout({', '    props: {'];
-    Object.keys(props).sort().forEach(function (id) { var p = props[id]; lines.push('      ' + JSON.stringify(id) + ': { x: ' + p.x + ', z: ' + p.z + ', rot: ' + p.rot + ', h: ' + p.h + (p.hidden ? ', hidden: true' : '') + ' },'); });
-    lines.push('    },', '    placed: [');
-    placed.forEach(function (p) { lines.push('      { id: ' + JSON.stringify(p.id) + ', type: ' + JSON.stringify(p.type) + ', x: ' + p.x + ', z: ' + p.z + ', rot: ' + p.rot + ', h: ' + p.h + ' },'); });
-    lines.push('    ]', '  });', '');
+    // every world's layout is written (0.13.0): this page's from the scene, the others as they were read, so editing one stage keeps the rest
+    var lines = ['//@ the layout the editor saved: where the props stand and the copies that ship with the game. Written by the Co Engine editor; it sorts first in src/ so the boot sees it. Move things in the editor rather than here.'];
+    var setCode = function (sp, sl, v) {
+      lines.push('  CO.layout({', '    props: {');
+      Object.keys(sp).sort().forEach(function (id) { var p = sp[id]; lines.push('      ' + JSON.stringify(id) + ': { x: ' + p.x + ', z: ' + p.z + ', rot: ' + (p.rot || 0) + ', h: ' + (p.h || 0) + (p.hidden ? ', hidden: true' : '') + ' },'); });
+      lines.push('    },', '    placed: [');
+      sl.forEach(function (p) { lines.push('      { id: ' + JSON.stringify(p.id) + ', type: ' + JSON.stringify(p.type) + ', x: ' + p.x + ', z: ' + p.z + ', rot: ' + (p.rot || 0) + ', h: ' + (p.h || 0) + ' },'); });
+      lines.push('    ]', '  }' + (v ? ', ' + JSON.stringify(v) : '') + ');');
+    };
+    Object.keys(LAYOUT_SETS).sort().forEach(function (v) { var T = LAYOUT_SETS[v]; if (T === LAYOUT) { if (!v || Object.keys(props).length || placed.length) setCode(props, placed, v); } else if (Object.keys(T.props).length || T.placed.length) setCode(T.props, T.placed, v); });
+    lines.push('');
     return { props: props, placed: placed, changed: changed, copies: placed.length, pending: changed + pendingCopies, code: lines.join('\n') };
   }
   // the file is written: what it says is now the baseline, the copies it carries leave the save, and overrides equal to the baseline go
@@ -3245,7 +3266,7 @@
     tables: tablesList, tableSet: tableSet, tablesCode: tablesCode, uiCode: uiCode, uiOpen: function (kind) { openPanel(kind); return !!UI.panels[kind]; }, uiEval: uiEval,
     packCode: function (types) { var ids = (types && types.length ? types : PROP_ORDER.filter(function (id) { return !/^pk[A-Z]/.test(id); })).filter(function (id) { return PROPS[id] && PROPS[id].build; }); var lines = ['//@ a pack made in the Co Engine editor from ' + (CO.game && CO.game.handle || 'a game') + '\'s props. A prop that calls the game\'s own functions needs them in the game it goes to.']; ids.forEach(function (id) { var d = PROPS[id], f = {}; ['label', 'cat', 'wall', 'fixed', 'price', 'desc', 'lvl', 'ico', 'noBlob'].forEach(function (k) { if (d[k] !== undefined) f[k] = d[k]; }); f.extra = true; f.shop = false; var body = JSON.stringify(f); lines.push('  defProp(' + JSON.stringify(id) + ', Object.assign(' + body + ', { build: ' + d.build.toString() + (d.after ? ', after: ' + d.after.toString() : '') + ' }));'); }); return { ids: ids, code: lines.join('\n') + '\n' }; },
     run: function (code) { var r = closureRun(String(code)); try { return r === undefined ? null : JSON.parse(JSON.stringify(r)); } catch (e) { return String(r); } },
-    model: modelOf, modelPreview: modelPreview, modelStart: modelStart, modelPick: modelPick, modelMirror: modelMirror, modelCode: modelCode, modelConvert: modelConvert, worldCode: worldCode, selection: function () { return editorMulti.slice(); }, duplicate: editorDuplicate, copy: editorCopy, paste: editorPaste, worldCopies: function () { return WORLD_COPIES.slice(); }, selectMany: function (ids) { editorMulti = (ids || []).filter(function (k) { return !!eobj(k); }); editorSel = editorMulti[editorMulti.length - 1] || null; editorHelpersShow(); return editorMulti.slice(); }, moveSel: editorMoveSel, removeSel: editorRemoveSel, worldItems: function () { return WORLD_ITEMS.map(function (o) { return { id: eid(o), key: o.userData.worldKey, name: worldName(o), hidden: !o.visible }; }); },
+    model: modelOf, modelPreview: modelPreview, modelStart: modelStart, modelPick: modelPick, modelMirror: modelMirror, modelCode: modelCode, modelConvert: modelConvert, worldCode: worldCode, selection: function () { return editorMulti.slice(); }, duplicate: editorDuplicate, copy: editorCopy, paste: editorPaste, worldCopies: function () { return WORLD_COPIES.slice(); }, worldVariant: function () { return WORLD_VARIANT; }, selectMany: function (ids) { editorMulti = (ids || []).filter(function (k) { return !!eobj(k); }); editorSel = editorMulti[editorMulti.length - 1] || null; editorHelpersShow(); return editorMulti.slice(); }, moveSel: editorMoveSel, removeSel: editorRemoveSel, worldItems: function () { return WORLD_ITEMS.map(function (o) { return { id: eid(o), key: o.userData.worldKey, name: worldName(o), hidden: !o.visible }; }); },
     physics: physicsState, bodyAdd: function (id, opt) { var o = eobj(id); if (!o) return { error: 'no such object ' + id }; var B = body(o, opt || {}); return { ok: true, id: B.id, size: [B.hx * 2, B.hy * 2, B.hz * 2] }; }, bodyRemove: function (id) { var o = eobj(id); return !!o && removeBody(o); }, impulse: function (id, vx, vy, vz) { var o = eobj(id); return !!o && impulse(o, vx, vy, vz); },
     springAdd: function (id, opt) { var o = eobj(id); if (!o) return { error: 'no such object ' + id }; var S2 = spring(o, opt || {}); return { ok: true, anchor: S2.anchor, k: S2.k }; }, springRemove: function (id) { var o = eobj(id); return !!o && unspring(o); },
     drop: editorDrop, hingeAdd: function (id, opt) { var o = eobj(id); if (!o) return { error: 'no such object ' + id }; var H = hinge(o, opt || {}); return { ok: true, pivot: H.pivot, length: H.length, axis: H.axis }; }, hingeRemove: function (id) { var o = eobj(id); return !!o && removeHinge(o); },
@@ -3392,6 +3413,7 @@
     GAME = GAME || {}; if (!CO.game) CO.game = {}; for (var k in GAME) if (!(k in CO.game)) CO.game[k] = GAME[k]; CO.gameVersion = GAME.version || window[GAME.versionGlobal || 'GAME_VERSION'] || CO.gameVersion;
     loaded = loadSave(GAME.freshState || function () { return { day: 1, time: CAL.dayStart, bank: 0, log: [], ledger: [], stats: { earned: 0, spent: 0 }, layout: {}, custom: [], hdoors: {} }; }, GAME.migrate);
     if (GAME.afterLoad) GAME.afterLoad(loaded);
+    layoutPick();   // part 20: the layout of the world this page builds (GAME.worldVariant), before anything is built
     runHooks('beforeBuild', loaded);
     terrainBuild();
     if (GAME.buildWorld) GAME.buildWorld(loaded);
@@ -3552,7 +3574,7 @@
       { id: "cp-mv3ne1p7-3m", type: "tree18", x: 20.5, z: 26.8, rot: 0, h: 0 },
       { id: "cp-mv3ne1p9-3n", type: "tree18", x: 15.95, z: 26.5, rot: 0, h: 0 },
     ]
-  });
+  }, "stage 5");
   CO.world({
     "group@-38.58,1.19,-0.69": { x: -37.73, z: 3.69 },
     "group@-38.58,2.58,-1.2": { x: -37.73, z: 5.08 },
@@ -3615,7 +3637,7 @@
     "mesh plane 3.4x0.25@43,20.14,0.22": { x: 28.95, z: 30.09 },
     "mesh plane 3.4x0.25@43,21.86,0.22": { x: 28.95, z: 31.81 },
     "mesh plane 600x600@0,0,-1.23": { x: 0.1, z: 0.1 },
-  });
+  }, "stage 5");
   CO.worldCopies([
     { id: "wc-mv3mrs09-5", of: "mesh plane 16.2x0.12@-20.9,28.25,-1.19", x: -2.5, y: -1.19, z: 28.3, ry: 0, sx: 1, sy: 1, sz: 1 },
     { id: "wc-mv3mrs0a-6", of: "mesh plane 0.12x5.5@-29,31,-1.19", x: -10.6, y: -1.19, z: 31.05, ry: 0, sx: 1, sy: 1, sz: 1 },
@@ -3657,7 +3679,7 @@
     { id: "wc-mv3nl3z8-3p", of: "mesh box 13.6x0.12x0.25@-23.6,34.6,-1.14", x: 4.5, y: -1.14, z: 27.85, ry: 0, sx: 1, sy: 1, sz: 1 },
     { id: "wc-mv3nluqf-3q", of: "mesh box 13.6x0.12x0.25@-23.6,34.6,-1.14", x: 18.1, y: -1.14, z: 27.85, ry: 0, sx: 1, sy: 1, sz: 1 },
     { id: "wc-mv3nm9gh-3r", of: "mesh box 0.25x0.12x6.2@-30.5,31.5,-1.14", x: 24.8, y: -1.14, z: 31.05, ry: 0, sx: 1, sy: 1, sz: 1 },
-  ]);
+  ], "stage 5");
 /* ============================================================
    Depot Co.: a first-person warehouse simulator in 3D, on Co Engine.
    Trucks bring pallets to the inbound dock, you put the stock on the
@@ -9550,6 +9572,7 @@
   };
   GAME.weather = false;     // tickLife rolls the weather, in the frame and in T.run alike
   GAME.freshState = freshState; GAME.migrate = migrateDepot;
+  GAME.worldVariant = function () { return 'stage ' + BOOT_STAGE; };   // each building stage is a world of its own: what the editor changes at one stage stays at that stage (src/00-world.js)
   GAME.afterLoad = function (loaded) {
     if (loaded) migrateReturnsHall();   // 1.17.0: Hall 2's rows are gone
     sorterSpots();   // a save that owns the sortation deck keeps jack 2 out from under the spirals

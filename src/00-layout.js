@@ -82,4 +82,4 @@
       { id: "cp-mv3ne1p7-3m", type: "tree18", x: 20.5, z: 26.8, rot: 0, h: 0 },
       { id: "cp-mv3ne1p9-3n", type: "tree18", x: 15.95, z: 26.5, rot: 0, h: 0 },
     ]
-  });
+  }, "stage 5");

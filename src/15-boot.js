@@ -10,6 +10,7 @@
   };
   GAME.weather = false;     // tickLife rolls the weather, in the frame and in T.run alike
   GAME.freshState = freshState; GAME.migrate = migrateDepot;
+  GAME.worldVariant = function () { return 'stage ' + BOOT_STAGE; };   // each building stage is a world of its own: what the editor changes at one stage stays at that stage (src/00-world.js)
   GAME.afterLoad = function (loaded) {
     if (loaded) migrateReturnsHall();   // 1.17.0: Hall 2's rows are gone
     sorterSpots();   // a save that owns the sortation deck keeps jack 2 out from under the spirals
