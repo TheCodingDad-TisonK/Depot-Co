@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.22.5 (2026-10-12): World Update
+
+Stage 0 warehouse fixes:
+- Cleanup of weird obstacles
+- Marking's added inside the warehouse
+- Removed the gate rope (terminal handles gate)
+- Changed bed postion and package table into the corner
+
 ## 1.22.4 (2026-10-11): World Update
 
 # Small Patch
