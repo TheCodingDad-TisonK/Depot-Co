@@ -3493,13 +3493,13 @@
   CO.boot = coBoot;
   CO.layout({
     props: {
-      "bench": { x: 4.25, z: -0.5, rot: 1, h: 0 },
+      "bench": { x: 6.15, z: -0.65, rot: 3, h: 0 },
       "binDamaged": { x: 6.5, z: -2.15, rot: 3, h: 0 },
       "clockHall": { x: 6.8, z: 2.85, rot: 3, h: 0 },
       "cot": { x: 4.85, z: 4.3, rot: 2, h: 0 },
       "dumpster": { x: -22.1, z: -6.85, rot: 1, h: 0 },
       "firstAid": { x: 6.83, z: 2.7, rot: 3, h: 0 },
-      "flask": { x: 4.15, z: -0.95, rot: 0, h: 0 },
+      "flask": { x: 6, z: 0.1, rot: 0, h: 0 },
       "lamp0": { x: -8.7, z: 6, rot: 3, h: 0 },
       "lamp2": { x: 18.8, z: -9.7, rot: 0, h: 0 },
       "timeclock": { x: -6.83, z: -2.35, rot: 1, h: 0 },
@@ -3645,7 +3645,7 @@
       { id: "cp-mv5nfyj9-1v", type: "tree5", x: -49.3, z: 27, rot: 0, h: 0 },
       { id: "cp-mv5ngai9-1w", type: "tree18", x: -24.25, z: 18.4, rot: 0, h: 0 },
       { id: "cp-mv5ngq9b-1x", type: "dumpster", x: -37.6, z: -12.9, rot: 0, h: 0 },
-      { id: "cp-mv5njl7v-21", type: "xPrinter", x: 6.45, z: 0.65, rot: 3, h: 0 },
+      { id: "cp-mv5njl7v-21", type: "xPrinter", x: 6.3, z: 1.4, rot: 3, h: 0 },
     ]
   }, "stage 0");
   CO.layout({
@@ -4069,12 +4069,18 @@
     "mesh box 0.08x2.5x0.08@NaN,NaN,0.05": { x: null, z: null },
     "mesh box 0.12x0.03x0.12@NaN,NaN,1.32": { x: null, z: null },
     "mesh box 0.12x4.8x0.12@-6.8,0,2.4": { hidden: true },
+    "mesh box 0.18x0.18x0.18@-6.2,-2.3,4.5": { x: -6.4 },
     "mesh box 0.35x0.15x0.2@-5.4,1.2,0.08": { x: -5.55, z: -1.4, ry: -90 },
     "mesh box 0.35x0.15x0.2@-5.4,1.5,0.08": { x: -5.6, z: 1.4, ry: -90 },
     "mesh box 0.3x0.25x0.3@NaN,NaN,-1.08": { x: null, z: null },
+    "mesh box 0.5x0.06x0.06@-6.5,-2.3,4.6": { x: -6.7 },
     "mesh cylinder 0.05x0.14@-6,-2.3,0.03": { x: -5.7, z: -1.85 },
     "mesh cylinder 0.05x0.14@-6,2.3,0.03": { x: -5.65, z: 1.8 },
+    "mesh cylinder 0.18x0.03@-4,0,3.3": { hidden: true },
+    "mesh cylinder 0.18x0.03@0,0,3.3": { hidden: true },
     "mesh cylinder 0.18x0.03@4,0,3.3": { hidden: true },
+    "mesh cylinder 0.3x0.1@-6.7,2.15,4.5": { x: -6.75, y: 3.3, hidden: true },
+    "mesh cylinder 1.2x0.01@-6.65,-2.1,3.6": { x: -6.85, y: 4, z: -2.3 },
     "mesh cylinder 12x0.07@0,0,3.45": { z: 0.05, hidden: true },
     "mesh cylinder 1x0.01@-23.5,4.1,1.76": { hidden: true },
     "mesh cylinder 1x0.01@-23.64,4.1,1.59": { hidden: true },
@@ -4106,12 +4112,15 @@
     "mesh icosahedron 0.27@10.08,-15.39,-1.12": { hidden: true },
     "mesh icosahedron 0.27@23.67,-0.35,-1.12": { hidden: true },
     "mesh icosahedron 0.28@-10.24,-15.48,-1.12": { x: -13.6, z: -15.7 },
+    "mesh icosahedron 0.29@-23.46,4.86,-1.12": { x: -23.45, z: 4.85, hidden: true },
     "mesh icosahedron 0.2@-13.03,-15.26,-1.12": { x: -14.3, z: -15.6 },
+    "mesh icosahedron 0.2@-23.29,8.44,-1.12": { hidden: true },
     "mesh icosahedron 0.31@-23.39,-1.03,-1.12": { hidden: true },
     "mesh icosahedron 0.31@-23.57,10.2,-1.12": { hidden: true },
     "mesh icosahedron 0.31@5.12,-15.65,-1.12": { hidden: true },
     "mesh icosahedron 0.32@-23.33,4.05,-1.12": { x: -23.3, z: 13.5 },
     "mesh icosahedron 0.32@-23.34,-0.35,-1.12": { hidden: true },
+    "mesh icosahedron 0.32@-23.43,-2.83,-1.12": { hidden: true },
     "mesh icosahedron 0.32@23.67,7.16,-1.12": { hidden: true },
     "mesh icosahedron 0.33@-16.87,-15.41,-1.12": { x: -17.85, z: -15.65 },
     "mesh icosahedron 0.33@-23.21,1.41,-1.12": { x: -23.35, z: 12.75 },
@@ -4120,6 +4129,7 @@
     "mesh icosahedron 0.34@-23.5,7.16,-1.12": { hidden: true },
     "mesh icosahedron 0.34@-23.66,10.39,-1.12": { hidden: true },
     "mesh icosahedron 0.34@23.4,11.79,-1.12": { x: 23.2, z: 11.15 },
+    "mesh icosahedron 0.3@-23.31,1.48,-1.12": { hidden: true },
     "mesh icosahedron 0.3@-23.65,6.93,-1.12": { hidden: true },
     "mesh plane 0.1x2@-6.4,-3.8,0.01": { x: -5.55, z: -2.6 },
     "mesh plane 0.1x2@6.4,-3.8,0.01": { x: 4.7, z: 2.25, hidden: true },
@@ -4132,6 +4142,8 @@
     "mesh plane 1.4x1@-5.9,3.5": { hidden: true },
     "mesh plane 1.6x0.6@0,-4.82,3.6": { z: -4.85 },
     "mesh plane 2.4x2.4@-11,-1,-1.19": { x: -10.6, z: 0 },
+    "mesh sphere 0.03@-4,0,3.2": { hidden: true },
+    "mesh sphere 0.03@0,0,3.2": { hidden: true },
     "mesh sphere 0.03@4,0,3.2": { hidden: true },
   }, "stage 0");
   CO.worldCopies([
@@ -4316,6 +4328,13 @@
     { id: "wc-mv5noetg-26", of: "mesh plane 1.2x0.35@-7,-3.4,0.01", x: -6.2, y: 0.01, z: -1.75, ry: 0, sx: 1, sy: 1, sz: 1 },
     { id: "wc-mv5nokdu-27", of: "mesh plane 0.1x2@-6.4,-3.8,0.01", x: -5.55, y: 0.01, z: -3.8, ry: 0, sx: 1, sy: 1, sz: 1 },
     { id: "wc-mv5nooio-28", of: "mesh plane 1.2x0.35@-7,-4.8,0.01", x: -6.2, y: 0.01, z: -4.45, ry: 0, sx: 1, sy: 1, sz: 1 },
+    { id: "wc-mv5q57ac-1", of: "mesh cylinder 1x0.11@-6,-2.3,0.5", x: 4.35, y: 0.5, z: -1.35, ry: 0, sx: 1, sy: 1, sz: 1 },
+    { id: "wc-mv5q5gxd-2", of: "mesh cylinder 1x0.11@-6,-2.3,0.5", x: 4.35, y: 0.5, z: -0.3, ry: 0, sx: 1, sy: 1, sz: 1 },
+    { id: "wc-mv5q5j2e-3", of: "mesh cylinder 1x0.11@-6,-2.3,0.5", x: 4.35, y: 0.5, z: 0.75, ry: 0, sx: 1, sy: 1, sz: 1 },
+    { id: "wc-mv5q5nza-4", of: "mesh cylinder 1x0.11@-6,-2.3,0.5", x: 4.35, y: 0.5, z: 1.95, ry: 0, sx: 1, sy: 1, sz: 1 },
+    { id: "wc-mv5q674x-5", of: "mesh cylinder 1x0.11@-6,-2.3,0.5", x: 3.25, y: 0.5, z: 2, ry: 0, sx: 1, sy: 1, sz: 1 },
+    { id: "wc-mv5q6dmp-6", of: "mesh cylinder 1x0.11@-6,-2.3,0.5", x: 2.2, y: 0.5, z: 2, ry: 0, sx: 1, sy: 1, sz: 1 },
+    { id: "wc-mv5q6wga-7", of: "mesh cylinder 1x0.11@-6,-2.3,0.5", x: 4.35, y: 0.5, z: -2.3, ry: 0, sx: 1, sy: 1, sz: 1 },
   ], "stage 0");
   CO.world({
     "group@-38.58,1.19,-0.69": { x: -37.73, z: 3.69 },
@@ -5225,7 +5244,8 @@
     ms.push(plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex([label], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), cx, 0.0066, cz + d / 2 - 0.3, -Math.PI / 2));
     return ms;
   }
-  function repaintJack2Bay() { (dress.jack2Bay || []).forEach(function (m) { scene.remove(m); }); dress.jack2Bay = paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); }
+  // jack 2 comes with the stage that brings it (STAGE_OF.jack2): before that there is no second jack, so no bay is painted for it
+  function repaintJack2Bay() { (dress.jack2Bay || []).forEach(function (m) { scene.remove(m); }); dress.jack2Bay = stageHas('jack2') ? paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2') : []; }
   function buildDressing() {
     var X = HALL.x, Z = HALL.z, H = HALL.h, rooms = stageHas('rooms'), zs = Z - 24, zn = 24 - Z;   // 1.21.0: the rooms' z's slide with the walls; the shed has no rooms
     // bollards guarding every dock door (the columns along the walls are the hall lining's, in 06-building)
@@ -5247,7 +5267,7 @@
     doors.forEach(dressDoor); dress.door = dressDoor;   // bollards, beacon, chocks, rails and hoist for every door standing at boot
     // the forklift bay, the tool bays and the charger on the south wall
     sorterSpots();   // jack 2 lives by the north wall once the sorter is in: paint its bay where the jack is, not where it was (the old bay sat under the OUT 3 shipping bay and the air spiral)
-    paintBay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK 1'); dress.jack2Bay = paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); paintBay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
+    paintBay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, stageHas('jack2') ? 'JACK 1' : 'JACK'); dress.jack2Bay = stageHas('jack2') ? paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2') : []; paintBay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
     plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2);
     if (rooms) {
       plane(1.0, 1.0, MAT.rubberMat, -X + 5.1, 0.004, 19.95 + zs, -Math.PI / 2);
@@ -6827,9 +6847,13 @@
     // the bench and its shelf follow the bench prop: box positions are local to it, clear of the terminal at its near end
     var BP = PROPS.bench ? propPlacement('bench') : { x: SPOT.bench.x, z: SPOT.bench.z, rot: 0 }, ba = BP.rot * Math.PI / 2, bc = Math.cos(ba), bs = Math.sin(ba);
     var benchW = function (lx, lz) { return { x: BP.x + lx * bc + lz * bs, z: BP.z - lx * bs + lz * bc }; };
-    var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) { var w = benchW(bi % 2 ? 0.23 : -0.23, -0.72 + (Math.floor(bi / 2) % 4) * 0.6); putBox(s.id, w.x, 0.94 + BOX.h / 2 + Math.floor(bi / 8) * BOX.h, w.z, ba, { kind: 'bench', sku: s.id }); } });
+    // the shed's table is 1.7 m along its own x and 0.8 deep, not the bench's 3.2 m along z: the boxes and the parcels share three
+    // columns along it, turned to fit its depth, each column stacking up from the table top so nothing hangs off it or floats
+    var shed = BOOT_STAGE === 0, colX = [-0.55, 0, 0.55], colY = [0.925, 0.925, 0.925], tk = 0;
+    var tableSlot = function (h) { var col = tk++ % 3, y = colY[col]; colY[col] += h; return { w: benchW(colX[col], 0), y: y }; };
+    var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) { if (shed) { var t = tableSlot(BOX.h); putBox(s.id, t.w.x, t.y + BOX.h / 2, t.w.z, ba + Math.PI / 2, { kind: 'bench', sku: s.id }); continue; } var w = benchW(bi % 2 ? 0.23 : -0.23, -0.72 + (Math.floor(bi / 2) % 4) * 0.6); putBox(s.id, w.x, 0.94 + BOX.h / 2 + Math.floor(bi / 8) * BOX.h, w.z, ba, { kind: 'bench', sku: s.id }); } });
     var LP = propInst.packline ? propPlacement('packline') : BP, la = LP.rot * Math.PI / 2, lc = Math.cos(la), ls = Math.sin(la);   // no pack line (the shed): the parcels stand on the table
-    S.bench.parcels.forEach(function (oid, i) { var s = shelfSlot(i); putParcel(LP.x + s.lx * lc + s.lz * ls, s.y, LP.z - s.lx * ls + s.lz * lc, la, { kind: 'shelf', order: oid }, parcelForm(oid)); });
+    S.bench.parcels.forEach(function (oid, i) { if (shed && !propInst.packline) { var t = tableSlot(0.46); putParcel(t.w.x, t.y + 0.23, t.w.z, la, { kind: 'shelf', order: oid }, parcelForm(oid)); return; } var s = shelfSlot(i); putParcel(LP.x + s.lx * lc + s.lz * ls, s.y, LP.z - s.lx * ls + s.lz * lc, la, { kind: 'shelf', order: oid }, parcelForm(oid)); });
     drawBeltItems(); drawSorterItems(); drawReturnsDesk();
     S.floor.forEach(function (f, i) { if (f.kind === 'box') { if (f.damaged) putBoxDamaged(f.sku, f.x, f.y, f.z, f.rot, { kind: 'floor', idx: i }); else putBox(f.sku, f.x, f.y + BOX.h / 2, f.z, f.rot, { kind: 'floor', idx: i }); } else if (f.kind === 'return') putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }, 'ret'); else putParcel(f.x, f.y + 0.23, f.z, f.rot, { kind: 'floor', idx: i }, parcelForm(f.order)); });
     var cw = toolWorld('cart'), cartY = [0.3, 0.82, 1.34]; S.cart.boxes.forEach(function (sku, i) { var c = Math.cos(cw.ry), s = Math.sin(cw.ry), lx = (i % 4 - 1.5) * 0.4, ly = cartY[Math.floor(i / 4)] || 1.34; putBox(sku, cw.x + lx * c, ly + BOX.h / 2, cw.z - lx * s, cw.ry, { kind: 'cart', idx: i }); });
@@ -7718,14 +7742,14 @@
   function cartLoadText() { var b = S.cart.boxes.length, p = cartParcels().length; return (b ? b + (b === 1 ? ' box' : ' boxes') : '') + (b && p ? ', ' : '') + (p ? p + (p === 1 ? ' parcel' : ' parcels') : '') || 'empty'; }
   // G at the parked cart: what you hold goes on it, empty hands take the top box (or parcel) off it
   function cartHandSwap() { if (player.tool || driving) return; if (S.hand) { if (S.hand.kind === 'parcel') { if (cartLoad() >= ECON.cartCap) { toast('The cart is full.', 'bad'); sfx('bad'); return; } cartParcels().push(S.hand.order); handSet(null); sfx('putdown'); hudDirty = true; return; } if (S.hand.kind !== 'box' || S.hand.damaged) { toast('Only good boxes ride the cart.', 'bad'); return; } if (cartLoad() >= ECON.cartCap) { toast('The cart is full.', 'bad'); sfx('bad'); return; } S.cart.boxes.push(S.hand.sku); handSet(null); sfx('putdown'); hudDirty = true; return; } if (S.cart.boxes.length) { handSet({ kind: 'box', sku: S.cart.boxes.pop() }); sfx('pickup'); hudDirty = true; return; } if (cartParcels().length) { handSet({ kind: 'parcel', order: cartParcels().pop() }); sfx('pickup'); hudDirty = true; return; } sfx('click'); }
-  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (player.tool) return null; if (S.hand) return tool === 'cart' && ((S.hand.kind === 'box' && !S.hand.damaged) || S.hand.kind === 'parcel') ? (cartLoad() < ECON.cartCap ? 'G puts the ' + (S.hand.kind === 'parcel' ? 'parcel' : 'box') + ' on the cart (' + cartLoadText() + ')' : 'The cart is full') : 'Hands full'; if (driving) return null; return isJack(tool) ? 'Grab pallet jack ' + (tool === 'jack2' ? '2 (OUT)' : '1 (IN)') : 'Grab the picking cart' + (cartLoad() ? ' (' + cartLoadText() + ') · G takes one off' : ''); }
-  function grabTool(tool) { if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
+  function toolPrompt(tool) { if (tool === 'cart' && !S.up.cart) return null; if (tool === 'jack2' && !stageHas('jack2')) return null; if (player.tool) return null; if (S.hand) return tool === 'cart' && ((S.hand.kind === 'box' && !S.hand.damaged) || S.hand.kind === 'parcel') ? (cartLoad() < ECON.cartCap ? 'G puts the ' + (S.hand.kind === 'parcel' ? 'parcel' : 'box') + ' on the cart (' + cartLoadText() + ')' : 'The cart is full') : 'Hands full'; if (driving) return null; return isJack(tool) ? 'Grab pallet jack ' + (tool === 'jack2' ? '2 (OUT)' : '1 (IN)') : 'Grab the picking cart' + (cartLoad() ? ' (' + cartLoadText() + ') · G takes one off' : ''); }
+  function grabTool(tool) { if (player.tool || S.hand || driving) return; if (tool === 'cart' && !S.up.cart) return; if (tool === 'jack2' && !stageHas('jack2')) return; player.tool = tool; sfx('pickup'); hudDirty = true; introStep(tool); }
   function releaseTool() { if (!player.tool) return; if (player.tool === 'cable') { player.tool = null; sfx('putdown'); toast('Cable hung back', ''); hudDirty = true; return; } var w = toolWorld(player.tool), tm = isJack(player.tool) ? jackMeshes[player.tool] : cartMesh; if (tm && tm.userData.towRy !== undefined) { w.ry = tm.userData.towRy; w.x = tm.position.x; w.z = tm.position.z; } var t = S[player.tool]; t.x = w.x; t.z = w.z; t.rot = w.ry; player.tool = null; sfx('putdown'); hudDirty = true; }
   function placeTools(dt) {
     var ease = 1 - Math.exp(-(dt || 1 / 60) * 6);
     // a towed tool trails the player: its heading eases toward the player's, so a look round does not whip it about
     var towed = function (tool, mesh) { var w = toolWorld(tool); if (player.tool === tool) { var cur = mesh.userData.towRy === undefined ? w.ry : mesh.userData.towRy, d = Math.atan2(Math.sin(w.ry - cur), Math.cos(w.ry - cur)); cur += d * ease; mesh.userData.towRy = cur; w.ry = cur; w.x = player.x + Math.sin(cur) * 1.15; w.z = player.z + Math.cos(cur) * 1.15; } else mesh.userData.towRy = undefined; mesh.position.set(w.x, floorY(w.x, w.z), w.z); mesh.rotation.y = w.ry; };
-    towed('jack', jackMesh); towed('jack2', jackMeshes.jack2); towed('cart', cartMesh); cartMesh.visible = !!S.up.cart;
+    towed('jack', jackMesh); towed('jack2', jackMeshes.jack2); towed('cart', cartMesh); cartMesh.visible = !!S.up.cart; jackMeshes.jack2.visible = stageHas('jack2');   // the second jack comes with its stage
     forkM.g.position.set(S.fork.x, floorY(S.fork.x, S.fork.z), S.fork.z); forkM.g.rotation.y = S.fork.yaw; forkM.car.position.y = S.fork.lift; forkM.g.visible = !!S.up.fork; if (forkM.beacon) { forkM.beacon.visible = driving || !!staffDriving(); forkM.beacon.rotation.y = worldTime * 6; } if (forkM.wheel) { var k2 = player.keys, steer2 = driving ? ((k2.KeyA ? 1 : 0) - (k2.KeyD ? 1 : 0)) : 0; forkM.wheel.rotation.y = lerp(forkM.wheel.rotation.y, steer2 * 1.4, ease * 2); }
   }
 

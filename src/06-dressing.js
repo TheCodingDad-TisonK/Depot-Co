@@ -40,7 +40,8 @@
     ms.push(plane(w * 0.8, 0.35, new THREE.MeshBasicMaterial({ map: textTex([label], { w: 512, h: 96, bg: '#8b8d8e', fg: '#d9a12c' }) }), cx, 0.0066, cz + d / 2 - 0.3, -Math.PI / 2));
     return ms;
   }
-  function repaintJack2Bay() { (dress.jack2Bay || []).forEach(function (m) { scene.remove(m); }); dress.jack2Bay = paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); }
+  // jack 2 comes with the stage that brings it (STAGE_OF.jack2): before that there is no second jack, so no bay is painted for it
+  function repaintJack2Bay() { (dress.jack2Bay || []).forEach(function (m) { scene.remove(m); }); dress.jack2Bay = stageHas('jack2') ? paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2') : []; }
   function buildDressing() {
     var X = HALL.x, Z = HALL.z, H = HALL.h, rooms = stageHas('rooms'), zs = Z - 24, zn = 24 - Z;   // 1.21.0: the rooms' z's slide with the walls; the shed has no rooms
     // bollards guarding every dock door (the columns along the walls are the hall lining's, in 06-building)
@@ -62,7 +63,7 @@
     doors.forEach(dressDoor); dress.door = dressDoor;   // bollards, beacon, chocks, rails and hoist for every door standing at boot
     // the forklift bay, the tool bays and the charger on the south wall
     sorterSpots();   // jack 2 lives by the north wall once the sorter is in: paint its bay where the jack is, not where it was (the old bay sat under the OUT 3 shipping bay and the air spiral)
-    paintBay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, 'JACK 1'); dress.jack2Bay = paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2'); paintBay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
+    paintBay(SPOT.jack.x, SPOT.jack.z, 1.6, 2.2, stageHas('jack2') ? 'JACK 1' : 'JACK'); dress.jack2Bay = stageHas('jack2') ? paintBay(SPOT.jack2.x, SPOT.jack2.z, 1.6, 2.2, 'JACK 2') : []; paintBay(SPOT.cart.x, SPOT.cart.z, 1.8, 1.4, 'CART');
     plane(1.4, 1.0, MAT.rubberMat, -X + 1.1, 0.004, SPOT.staffDoor.z, -Math.PI / 2);
     if (rooms) {
       plane(1.0, 1.0, MAT.rubberMat, -X + 5.1, 0.004, 19.95 + zs, -Math.PI / 2);

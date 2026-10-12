@@ -1,13 +1,13 @@
 //@ the layout the editor saved: where the props stand and the copies that ship with the game. Written by the Co Engine editor; it sorts first in src/ so the boot sees it. Move things in the editor rather than here.
   CO.layout({
     props: {
-      "bench": { x: 4.25, z: -0.5, rot: 1, h: 0 },
+      "bench": { x: 6.15, z: -0.65, rot: 3, h: 0 },
       "binDamaged": { x: 6.5, z: -2.15, rot: 3, h: 0 },
       "clockHall": { x: 6.8, z: 2.85, rot: 3, h: 0 },
       "cot": { x: 4.85, z: 4.3, rot: 2, h: 0 },
       "dumpster": { x: -22.1, z: -6.85, rot: 1, h: 0 },
       "firstAid": { x: 6.83, z: 2.7, rot: 3, h: 0 },
-      "flask": { x: 4.15, z: -0.95, rot: 0, h: 0 },
+      "flask": { x: 6, z: 0.1, rot: 0, h: 0 },
       "lamp0": { x: -8.7, z: 6, rot: 3, h: 0 },
       "lamp2": { x: 18.8, z: -9.7, rot: 0, h: 0 },
       "timeclock": { x: -6.83, z: -2.35, rot: 1, h: 0 },
@@ -153,7 +153,7 @@
       { id: "cp-mv5nfyj9-1v", type: "tree5", x: -49.3, z: 27, rot: 0, h: 0 },
       { id: "cp-mv5ngai9-1w", type: "tree18", x: -24.25, z: 18.4, rot: 0, h: 0 },
       { id: "cp-mv5ngq9b-1x", type: "dumpster", x: -37.6, z: -12.9, rot: 0, h: 0 },
-      { id: "cp-mv5njl7v-21", type: "xPrinter", x: 6.45, z: 0.65, rot: 3, h: 0 },
+      { id: "cp-mv5njl7v-21", type: "xPrinter", x: 6.3, z: 1.4, rot: 3, h: 0 },
     ]
   }, "stage 0");
   CO.layout({

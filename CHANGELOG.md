@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.22.6 (2026-10-12)
+
+## Stage 0 warehouse fixes:
+**Boxes stay on the packing table.**
+- In the shed, the boxes you put on the packing table were laid out for the big packing bench of the later halls, so some of them landed beside the table and hung in the air. They now stand in three stacks along the table, turned to fit it, and the packed parcels share the same stacks, so nothing overlaps or floats.
+
+**One pallet jack to start with.**
+- The second pallet jack and its JACK 2 parking bay were there from the very first day, though the second jack belongs to a later stage. The shed now starts with one jack, in a bay marked JACK; the second jack and its bay arrive with the stage that brings them.
+- The start menu says so too: a new depot starts with a pallet jack, not two.
+
+**Inside the shed**
+- Leftover obstacles removed accros the shed
+
 ## 1.22.5 (2026-10-12): World Update
 
 Stage 0 warehouse fixes:
