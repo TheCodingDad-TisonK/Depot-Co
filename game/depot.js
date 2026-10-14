@@ -9371,6 +9371,126 @@
     if (pc.on && pc.screen) { pc.scroll = Math.max(0, pc.scroll + dir); pc.screen.dirty = true; return true; }
     return driving;   // no screen scrolls from the forklift seat
   };
+  // ── Key bindings ──────────────────────────────────────────────────
+  // Tyson (2026-10-14): "a new button that opens the keybind menu where the player can rebind ALL controls". The engine and the game
+  // read physical key codes everywhere (e.code === 'KeyE', player.keys.KeyW), so nothing that reads a key changes: a capture-phase
+  // listener on the window catches each key before the engine's document listeners, and when the player has rebound it, stops it and
+  // dispatches the same event again with the code of the action it is bound to. A key whose action moved elsewhere is swallowed, a key
+  // no action uses passes through untouched. Each action is the default key it stands for, so one action keeps every job that key
+  // has in each context (E uses, pages the scanner up and grabs in build mode). Binding a key another action holds swaps the two.
+  // Escape stays Escape (it is the way out of everything) and F11 stays F11 (the Electron shell takes it before the page sees it).
+  var KB_KEY = 'depotco-keys';
+  var KB_ACTIONS = [
+    { id: 'fwd', code: 'KeyW', label: 'Move forward', sub: 'walk, drive, fly the photo camera' },
+    { id: 'back', code: 'KeyS', label: 'Move back' },
+    { id: 'left', code: 'KeyA', label: 'Move left', sub: 'steer left when driving' },
+    { id: 'right', code: 'KeyD', label: 'Move right', sub: 'steer right when driving' },
+    { id: 'run', code: 'ShiftLeft', also: ['ShiftRight'], label: 'Run', sub: 'the forklift gear; with Use, locks a door' },
+    { id: 'jump', code: 'Space', label: 'Jump', sub: 'photo mode: up' },
+    { id: 'use', code: 'KeyE', label: 'Use, pick up, put on', sub: 'scanner: next page; build mode: grab and drop' },
+    { id: 'put', code: 'KeyG', label: 'Put down, let go', sub: 'build mode: put a piece back' },
+    { id: 'scan', code: 'Tab', label: 'Hand scanner', sub: 'raise and lower it' },
+    { id: 'scanPrev', code: 'KeyQ', label: 'Scanner: previous page' },
+    { id: 'wayp', code: 'KeyF', label: 'Scanner: set a waypoint', sub: 'forklift: forks down' },
+    { id: 'clear', code: 'KeyX', label: 'Clear the waypoint' },
+    { id: 'scanAct', code: 'Enter', also: ['NumpadEnter'], label: 'Scanner: run the row’s action' },
+    { id: 'forkUp', code: 'KeyR', label: 'Forklift: forks up', sub: 'build mode: turn a piece' },
+    { id: 'build', code: 'F2', label: 'Build mode' },
+    { id: 'cat', code: 'KeyC', label: 'Build mode: catalogue', sub: 'photo mode: down' },
+    { id: 'reset', code: 'Backspace', label: 'Build mode: put back where it started' },
+    { id: 'remove', code: 'Delete', label: 'Build mode: remove' },
+    { id: 'photo', code: 'F9', label: 'Photo mode' },
+    { id: 'shot', code: 'F12', label: 'Screenshot' },
+    { id: 'fps', code: 'F3', label: 'Show FPS' }
+  ];
+  var KB_FIXED = [['Escape', 'Pause, close, cancel'], ['F11', 'Fullscreen'], ['Ctrl+Shift+D', 'Link the dev console']];
+  var KB_BY = {}; KB_ACTIONS.forEach(function (a) { KB_BY[a.id] = a; });
+  var kb = { map: {}, listen: null, inject: false };   // map: action id -> the physical code the player chose (absent: the default)
+  try { var kbSaved = JSON.parse(localStorage.getItem(KB_KEY) || 'null'); if (kbSaved && typeof kbSaved === 'object') for (var kbi in kbSaved) if (KB_BY[kbi] && typeof kbSaved[kbi] === 'string') kb.map[kbi] = kbSaved[kbi]; } catch (e) {}
+  function kbSave() { try { localStorage.setItem(KB_KEY, JSON.stringify(kb.map)); } catch (e) {} }
+  function kbOf(id) { return kb.map[id] || KB_BY[id].code; }   // the physical key bound to an action
+  function kbDefault(a) { return [a.code].concat(a.also || []); }
+  // physical code -> the code the game reads; null swallows it; undefined passes it through
+  function kbResolve(code) {
+    var hit, isDefault = false;
+    KB_ACTIONS.forEach(function (a) { if (hit) return; var cur = kb.map[a.id]; if (cur ? cur === code : kbDefault(a).indexOf(code) >= 0) hit = a; if (kbDefault(a).indexOf(code) >= 0) isDefault = true; });
+    if (hit) return kb.map[hit.id] ? hit.code : code;   // a key still on its default keeps its own code (ShiftRight stays ShiftRight)
+    return isDefault ? null : undefined;
+  }
+  function kbName(code) {
+    if (!code) return '?';
+    var N = { Space: 'Space', ShiftLeft: 'Shift', ShiftRight: 'Right Shift', ControlLeft: 'Ctrl', ControlRight: 'Right Ctrl', AltLeft: 'Alt', AltRight: 'Right Alt', Enter: 'Enter', NumpadEnter: 'Num Enter', Backspace: 'Backspace', Delete: 'Del', Tab: 'Tab', CapsLock: 'Caps Lock', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Insert: 'Ins', Home: 'Home', End: 'End', PageUp: 'PgUp', PageDown: 'PgDn' };
+    if (N[code]) return N[code];
+    var m = /^Key([A-Z])$/.exec(code) || /^Digit(\d)$/.exec(code); if (m) return m[1];
+    m = /^Numpad(.+)$/.exec(code); if (m) return 'Num ' + m[1];
+    return code;
+  }
+  function kbLabel(id) { return kbName(kbOf(id)); }
+  // a key label as the guide and the help write it ('E', 'Shift+E', 'WASD'), turned into the keys bound now
+  var KB_TEXT = { W: 'fwd', S: 'back', A: 'left', D: 'right', Shift: 'run', Space: 'jump', E: 'use', G: 'put', Tab: 'scan', Q: 'scanPrev', F: 'wayp', X: 'clear', Enter: 'scanAct', R: 'forkUp', F2: 'build', C: 'cat', Backspace: 'reset', Del: 'remove', F9: 'photo', F12: 'shot', F3: 'fps' };
+  function kbd(t) {
+    if (t === 'WASD') { var w = ['fwd', 'left', 'back', 'right'].map(kbLabel); return '<kbd>' + (w.every(function (x) { return x.length === 1; }) ? (w[0] + w[1] + w[2] + w[3] === 'WASD' ? 'WASD' : w.join(' ')) : w.join(' ')) + '</kbd>'; }
+    if (/^Ctrl\+Shift\+D$/.test(t)) return '<kbd>' + t + '</kbd>';
+    return '<kbd>' + t.split('+').map(function (p) { return KB_TEXT[p] ? kbLabel(KB_TEXT[p]) : p; }).join('+') + '</kbd>';
+  }
+  function kbBind(id, code) {
+    var a = KB_BY[id]; if (!a) return;
+    var old = kbOf(id);
+    KB_ACTIONS.forEach(function (o) { if (o.id !== id && (kb.map[o.id] ? kb.map[o.id] === code : kbDefault(o).indexOf(code) >= 0)) kb.map[o.id] = old; });   // the action that had this key takes the old one
+    kb.map[id] = code;
+    KB_ACTIONS.forEach(function (o) { if (kb.map[o.id] === o.code) delete kb.map[o.id]; });   // back on its own default: no entry
+    kbSave(); kbRelease();
+  }
+  function kbResetAll() { kb.map = {}; kbSave(); kbRelease(); }
+  function kbRelease() { if (player && player.keys) for (var k in player.keys) player.keys[k] = false; }   // a held key must not stay down under its old meaning
+  function kbRemapped() { return Object.keys(kb.map).length > 0; }
+  function kbOnKey(e) {
+    if (kb.inject) return;   // our own re-dispatch
+    if (kb.listen && e.type === 'keydown') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      var id = kb.listen; kb.listen = null;
+      if (e.code === 'Escape') { sfx('click'); kbRedraw(); return; }
+      if (e.code === 'F11' || /^(Meta|OS)/.test(e.code) || !e.code) { toast(kbName(e.code) + ' cannot be bound.', 'bad'); kbRedraw(); return; }
+      kbBind(id, e.code); sfx('click'); kbRedraw(); return;
+    }
+    if (kb.listen && e.type === 'keyup') { e.stopImmediatePropagation(); return; }
+    if (!kbRemapped() || e.code === 'Escape' || (CO.editor && CO.editor.on)) return;
+    var t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+    var to = kbResolve(e.code);
+    if (to === undefined || to === e.code) return;
+    e.stopImmediatePropagation();
+    if (to === null) { if (e.type === 'keydown' && /^(Tab|F\d+|Backspace)$/.test(e.code)) e.preventDefault(); return; }   // a key that lost its job does nothing, and Tab does not move the focus
+    var ev = new KeyboardEvent(e.type, { code: to, key: e.key, repeat: e.repeat, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, bubbles: true, cancelable: true });
+    kb.inject = true; try { (t || document).dispatchEvent(ev); } finally { kb.inject = false; }
+    if (ev.defaultPrevented || /^(Tab|F\d+)$/.test(to)) e.preventDefault();
+  }
+  window.addEventListener('keydown', kbOnKey, true);
+  window.addEventListener('keyup', kbOnKey, true);
+  // the prompt chip is the engine's and always reads E: show the key Use is bound to
+  (function () { var p = document.getElementById('h-prompt'); if (!p || typeof MutationObserver === 'undefined') return; new MutationObserver(function () { var b = p.firstChild; if (b && b.tagName === 'B' && b.textContent === 'E' && kbOf('use') !== 'KeyE') b.textContent = kbLabel('use'); }).observe(p, { childList: true }); })();
+
+  // ── The menu ──────────────────────────────────────────────────────
+  function keybindsHtml() {
+    var rows = KB_ACTIONS.map(function (a) {
+      var on = kb.listen === a.id, moved = !!kb.map[a.id];
+      return '<div class="dc-kb-row"><div class="dc-kb-name">' + esc(a.label) + (a.sub ? '<small>' + esc(a.sub) + '</small>' : '') + '</div>' +
+        '<button class="dc-kb-key' + (on ? ' listening' : moved ? ' moved' : '') + '" data-menu="kb:' + a.id + '">' + (on ? 'Press a key…' : esc(kbLabel(a.id))) + '</button></div>';
+    }).join('');
+    var fixed = KB_FIXED.map(function (f) { return '<div class="dc-kb-row fixed"><div class="dc-kb-name">' + esc(f[1]) + '<small>fixed</small></div><span class="dc-kb-key">' + esc(f[0]) + '</span></div>'; }).join('');
+    return '<div class="dc-menu-row" style="margin:0 0 10px"><button data-menu="settings">← Settings</button><button data-menu="kbReset"' + (kbRemapped() ? '' : ' disabled') + '>Reset all to default</button></div>' +
+      '<p style="color:var(--muted);margin:0 0 8px">Click a key, then press the new one. A key another control uses swaps with it. Esc cancels.</p>' +
+      '<div class="dc-kb-list">' + rows + fixed + '</div>';
+  }
+  function kbRedraw() { var b = document.getElementById('dc-menu-body'); if (b && !b.hidden && b.querySelector('.dc-kb-list')) { var sc = b.scrollTop; menuBody(keybindsHtml()); b.scrollTop = sc; } }   // menuBody rewrites the body: keep the place in the list
+  function keybindsMenu(k) {
+    if (k === 'keybinds') { kb.listen = null; menuBody(keybindsHtml()); return true; }
+    if (k === 'kbReset') { kb.listen = null; kbResetAll(); kbRedraw(); toast('Every key is back on its default', 'good'); return true; }
+    if (k.indexOf('kb:') === 0 && KB_BY[k.slice(3)]) { kb.listen = kb.listen === k.slice(3) ? null : k.slice(3); kbRedraw(); return true; }
+    return false;
+  }
+  GAME.menu = function (k, b) { keybindsMenu(k, b); };
+  // leaving the menu while a button waits for a key stops the wait
+  hook('menuOpen', function () { kb.listen = null; });
   // ── The office PC ─────────────────────────────────────────────────
   var pc = { on: false, app: 'home', scroll: 0, saved: null, look: { yaw: 0, pitch: 0 }, screen: null };
   var PC_APPS = [['home', '🏠', 'Desktop'], ['orders', '📦', 'Orders'], ['contracts', '📝', 'Contracts'], ['shop', '🛒', 'Shop'], ['staff', '👷', 'Staff'], ['bank', '🏦', 'Bank'], ['stock', '🗄', 'Stock'], ['factory', '🏭', 'Production'], ['plant', '⚙', 'Plant'], ['stats', '📊', 'Stats']];
@@ -10105,36 +10225,36 @@
   GAME.statsHtml = function () { return pcHtml('stats'); };
   GAME.guideHtml = function () { return guideHtml(); };
   GAME.saveLooksRight = function (s) { return typeof s.bank === 'number'; };
-  GAME.settingsHtml = function () { return '<label><span>Guided intro</span><input type="checkbox" ' + (!S.intro.off ? 'checked' : '') + ' data-set="intro"></label>'; };
+  GAME.settingsHtml = function () { return '<label><span>Guided intro</span><input type="checkbox" ' + (!S.intro.off ? 'checked' : '') + ' data-set="intro"></label>' + '<div class="dc-menu-row"><button data-menu="keybinds">⌨ Key bindings' + (kbRemapped() ? ' (changed)' : '') + '</button></div>'; };   // the key bindings menu: 13-keybinds
   GAME.setting = function (k, v) { if (k === 'intro') S.intro.off = !v; };
 
   // ── The guide ─────────────────────────────────────────────────────
   function guideHtml() {
     return '<h3>What you do</h3><p>You run a small third-party warehouse. Clients send stock on trucks, you store it on the racks, their customers order from it, and you pick, pack and ship those orders out again. You are paid a fee for every pallet you receive and a cut of every order you ship on time.</p>' +
       '<h3>The ladder</h3><p>You start in a 14 by 10 shed: one rack, one roll door, a table and a van. Everything you do earns XP, and every level opens something: a rack bay, a tool, a client, a line, a page on the scanner, a role to hire, a system. Every fifth level the building itself grows, free, overnight: the small hall at 5 (docks, office, break room, the bench and pack line, the yard with its gates), the hall at 10 (a second inbound and outbound dock and the three shipping lanes, the production wing, the car park and the road), the big hall at 15 (the mezzanine and the sortation deck, OUT 3 and the air lane, the deck accounts), the annexes at 20 (the returns hall with its own dock and truck, Hall 3 with IN 3) and Hall 4 at 25, where the depot is complete. The HUD says what the next level opens; a level card lists what the one you just reached has.</p>' +
-      '<h3>Controls</h3><p><kbd>WASD</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> jump · <kbd>E</kbd> use, pick up, put on · <kbd>G</kbd> put down or let go · <kbd>Tab</kbd> the hand scanner · <kbd>Q</kbd> and <kbd>E</kbd> its pages, the wheel its cursor, <kbd>F</kbd> a waypoint, <kbd>X</kbd> clears it · <kbd>F9</kbd> photo mode · <kbd>Esc</kbd> pause · <kbd>F3</kbd> FPS · <kbd>F12</kbd> screenshot · <kbd>F11</kbd> fullscreen.</p>' +
+      '<h3>Controls</h3><p>' + kbd('WASD') + ' move · ' + kbd('Shift') + ' run · ' + kbd('Space') + ' jump · ' + kbd('E') + ' use, pick up, put on · ' + kbd('G') + ' put down or let go · ' + kbd('Tab') + ' the hand scanner · ' + kbd('Q') + ' and ' + kbd('E') + ' its pages, the wheel its cursor, ' + kbd('F') + ' a waypoint, ' + kbd('X') + ' clears it · ' + kbd('F9') + ' photo mode · ' + kbd('Esc') + ' pause · ' + kbd('F3') + ' FPS · ' + kbd('F12') + ' screenshot · ' + kbd('F11') + ' fullscreen.</p>' +
       '<h3>Receiving</h3><p>Inbound trucks dock at IN 1 (and IN 2 from the hall at level 10, IN 3 with Hall 3 at level 20) at 07:30 and 13:30. Open the dock door, walk into the trailer and take boxes off the pallets by hand, or grab the pallet jack and lift a whole pallet. A truck waits four hours and warns you half an hour before it goes; whatever is still on it goes back, unpaid, and the client remembers.</p>' +
       '<h3>Racks</h3><p>Every slot holds up to 12 boxes of one line. The floor and shelf levels are hand-reachable; the top level needs the forklift. Look at a slot and press E to put a box on or take one off. The jack sets a whole pallet into a floor-level slot.</p>' +
-      '<h3>The hand scanner</h3><p><kbd>Tab</kbd> raises it. <kbd>Q</kbd> and <kbd>E</kbd> page back and on through nine pages (while it is up, E pages it and uses nothing else), which the ladder opens one by one (Putaway at level 2, Stock and Crew at 3, Docks and the Map at 5, Plant at 10): Home with the alerts, Orders with every line and its slot (and the returns in play), Picks (one list for every open order in walking order), Putaway (what is on the docked trucks and where it goes), Stock, Docks (every door, its lane, its truck, its bay), Plant (every machine, jams first), Crew, and a Map of the whole site from above with you, the crew, the forklift, the trucks and your waypoint on it. The wheel moves the cursor; <kbd>F</kbd> sets a waypoint on the highlighted row, a ring and a beam on the floor with the heading and the distance on the HUD, and it clears itself when you arrive (<kbd>X</kbd> clears it sooner). Point the beam at a slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it. It runs on a battery, shown top right on the display: it drains slowly on your belt and faster with the screen up, and flat it will not come up. <kbd>Tab</kbd> it down, then <kbd>E</kbd> at the scanner dock on the wall (in the lobby by the notice board, on the east wall in the shed) sets it in its cradle to charge, its light amber while it charges and green when it is full, and <kbd>E</kbd> again takes it.</p>' +
+      '<h3>The hand scanner</h3><p>' + kbd('Tab') + ' raises it. ' + kbd('Q') + ' and ' + kbd('E') + ' page back and on through nine pages (while it is up, E pages it and uses nothing else), which the ladder opens one by one (Putaway at level 2, Stock and Crew at 3, Docks and the Map at 5, Plant at 10): Home with the alerts, Orders with every line and its slot (and the returns in play), Picks (one list for every open order in walking order), Putaway (what is on the docked trucks and where it goes), Stock, Docks (every door, its lane, its truck, its bay), Plant (every machine, jams first), Crew, and a Map of the whole site from above with you, the crew, the forklift, the trucks and your waypoint on it. The wheel moves the cursor; ' + kbd('F') + ' sets a waypoint on the highlighted row, a ring and a beam on the floor with the heading and the distance on the HUD, and it clears itself when you arrive (' + kbd('X') + ' clears it sooner). Point the beam at a slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it. It runs on a battery, shown top right on the display: it drains slowly on your belt and faster with the screen up, and flat it will not come up. ' + kbd('Tab') + ' it down, then ' + kbd('E') + ' at the scanner dock on the wall (in the lobby by the notice board, on the east wall in the shed) sets it in its cradle to charge, its light amber while it charges and green when it is full, and ' + kbd('E') + ' again takes it.</p>' +
       '<h3>Orders</h3><p>Orders arrive between 08:00 and 17:00 on the office PC, the wall board and the scanner. Each one lists lines and a due time, which is the departure of an outbound truck. Pick the boxes and put them on the packing bench; the terminal at the end of the bench releases an order to the pack line, and the parcel rolls onto the shelf beside it. A box on the bench is a thing you look at: E takes it back, and the prompt says whether an order wants it. The cart at the bench unloads only what the orders want and takes the surplus back in the same press. An order only ever asks for stock that is on site and not already spoken for.</p>' +
       '<h3>Conveyors</h3><p>Build mode (F2), then C: the Conveyors group sells belts by the piece, straights, curves, inclines and a high run hung from the roof. A carried piece snaps to the nearest free belt end, machine outlet, parcel shelf or inbound dock door, or to the nearest belt start, machine inlet, outbound dock door or rack bay, and says what it connects when you drop it. A belt that ends at a rack bay racks the boxes; one that ends at an outbound door with a truck in loads the parcels; one that starts at an inbound door with a signed truck in takes the boxes off its pallets.</p>' +
       '<h3>Shipping and the three lanes</h3><p>In the shed a van parks at the shed front twice a day (10:30 to 12:00, 16:00 to 17:30): E at its back doors loads a parcel, eight at most. The small hall ships everything by OUT 1. From the hall at level 10 every client ships by one lane and every order wears it on the board: <b>SEA</b> leaves by OUT 1 (trucks 10:30 to 12:00 and 17:00 to 18:30), <b>LAND</b> by OUT 2 (09:00 to 10:30 and 16:00 to 18:00), <b>AIR</b> by OUT 3 (13:00 to 14:30 and 19:00 to 20:15), which comes with the sortation deck at level 15 and brings the air clients, who pay half as much again. An order is due at the next departure of its own lane. Open the door, carry the parcel into the trailer and press E, or load the parcels off the shelf onto the picking cart (E with the cart at the shelf) and E in the trailer unloads them all. A parcel out of the wrong door still ships, for a 25% forwarding fee. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
-      '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: <kbd>E</kbd> opens, <kbd>Shift+E</kbd> locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
-      '<h3>Drivers</h3><p>Open the dock door and the driver walks in and waits beside it. Sign the delivery note (<kbd>E</kbd> on him) before anything comes off the truck. He will nag after two hours.</p>' +
-      '<h3>The pack line and the production wing</h3><p>Boxes go on the bench as before, but packing is a machine now: pick an order on the bench terminal and the line feeds its boxes onto the infeed belt, the case taper closes them into one parcel, and the parcel rolls down the outfeed onto the shelf. It jams now and then: <kbd>E</kbd> on it clears the jam.</p><p>Through the strip curtain in the north wall is the production wing. Order pallets of raw granulate on the office PC (Production app); they come with the next inbound truck. Bring one on the jack to the hopper and <kbd>E</kbd> tips it in. Start the moulding line on its screen or with <kbd>E</kbd>, pick a product, and own-brand boxes come down the main belt into the hall, where the palletiser stacks them eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your goods once they have seen them.</p>' +
+      '<h3>Doors and the cabinet</h3><p>The office, break room, staff entrance and fire exit have doors: ' + kbd('E') + ' opens, ' + kbd('Shift+E') + ' locks. The control cabinet by the office door switches the lights, every dock door, and night mode, which locks the lot. Unlocked at night means stock walks.</p>' +
+      '<h3>Drivers</h3><p>Open the dock door and the driver walks in and waits beside it. Sign the delivery note (' + kbd('E') + ' on him) before anything comes off the truck. He will nag after two hours.</p>' +
+      '<h3>The pack line and the production wing</h3><p>Boxes go on the bench as before, but packing is a machine now: pick an order on the bench terminal and the line feeds its boxes onto the infeed belt, the case taper closes them into one parcel, and the parcel rolls down the outfeed onto the shelf. It jams now and then: ' + kbd('E') + ' on it clears the jam.</p><p>Through the strip curtain in the north wall is the production wing. Order pallets of raw granulate on the office PC (Production app); they come with the next inbound truck. Bring one on the jack to the hopper and ' + kbd('E') + ' tips it in. Start the moulding line on its screen or with ' + kbd('E') + ', pick a product, and own-brand boxes come down the main belt into the hall, where the palletiser stacks them eight to a pallet and drops the pallet beside it. Rack it like any delivery. Clients start ordering your goods once they have seen them.</p>' +
       '<h3>Automation (shop)</h3><p>The <b>shipping belt</b> (level 9) takes parcels off the pack line shelf and runs them down the east wall to the shipping bay (OUT 1 in the small hall, OUT 2 from the hall), where the <b>dock loader</b> pushes them into any docked truck with its door up. OUT 1 is a manual dock in the hall until the sortation deck gives it a loader of its own. The <b>AGV</b> (level 12) is a driverless pallet truck: set a pallet on its pickup square by the receiving area, or let the palletiser drop one, and it puts it away on the racks and comes back to its dock. The <b>sortation deck</b> (free with the big hall at level 15, on the mezzanine) is where the lanes run themselves: every parcel off the pack line rides a spiral up to the deck, a scanner reads its lane, three cells crate, strap or bag it, and spirals drop it into the dock loader of its door; OUT 3 and the air clients come with it. The <b>gantry pickers</b> (level 14) put a crane over every rack row you own, and a new row brings its own crane: each one watches the open orders, takes the boxes the bench still needs out of its row and sets them on the overhead pick belts, which end at the bench. A whole order can go pick, pack, ship without a hand on it. Anything riding a belt can still be lifted off by hand. Every machine screen carries a <b>speed dial</b> (50 to 200 percent): the cranes, the AGV, the pack line, the moulding line, the baler, the wrapper, and the belts through the screen of the machine they feed. A fast pack line jams more often. All three stop in a power cut.</p>' +
       '<h3>Tools</h3><p>While you hold a box or a parcel, a green ghost of it with a ring on the floor shows where G will set it down; it turns red where there is no floor to drop onto.</p><p>Two pallet jacks are yours from day one: jack 1 lives by the IN docks, jack 2 by OUT. With an empty jack, E on the empty pallet stack takes a pallet; loose boxes of one line go on it by hand or off the picking cart (E with the cart at a pallet unloads the matching line; at the parked cart, G takes one box off into your hand or puts the box you hold onto it), and the pallet then goes on a rack like any other, or on the jack to the bin by the bench to write the whole load off. The picking cart (shop) holds twelve boxes or parcels on three shelves and picks straight off the racks. The forklift (shop, level 2) drives with WASD, Shift cycles three gears (creep, normal, fast; fast drinks the battery and throws unwrapped loads on corners), lifts with R and F, and takes pallets to the top level. G gets off. It runs on a battery: take the cable off the charging point on the south wall, walk it to the forklift and E plugs it in; it charges only while plugged, and driving off pulls the plug. Flat, the forklift crawls. Wrap a pallet at the stretch wrapper before you drive it round corners, or it sheds boxes.</p>' +
       '<h3>Staff and the time clock</h3><p>From level 3 you can hire a picker (on the clipboard in the shed, the office PC later), from level 4 a receiver, from level 8 a packer and, once you own the forklift, a forklift driver who puts the pallets left on the hall floor away on any level and parks the forklift back in its bay. The crew grows with your level: one head at 3, eight at 20. A receiver pushes a pallet jack of their own; a picker with nothing to pick walks surplus boxes back off the bench. They walk in from the yard, clock in at the reader by the staff door, work, clock out at 18:00 and leave. Pay is their clocked hours at the hourly rate, time and a half past ten hours, paid at the day roll. Some drift in late: the clock screen lets you have a word, put them on overtime till 20:00, or give them tomorrow off. They call in sick now and then. You can clock in too: your hours are tracked and you get a shift report when you clock out. They will not open dock doors: that stays your job.</p>' +
-      '<h3>Returns</h3><p>From level 8 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong thing, or damaged in transit. With empty hands, <kbd>E</kbd> in the trailer takes it off. Carry it to the <b>returns desk</b> between the bench and the office: <kbd>E</kbd> puts it on the desk, <kbd>E</kbd> again starts the inspection, which runs by itself. The client pays a fee for every return and every box. The boxes come out on the desk shelves: good ones go back on a rack by hand or on the cart, damaged ones go in the bin at no charge. A return left lying for a day costs reputation; a truck that leaves with one still aboard has its driver set it down inside the door. The packer handles returns when the bench has nothing for them.</p>' +
+      '<h3>Returns</h3><p>From level 8 an outbound truck now and then brings a parcel a customer sent back: unwanted, the wrong thing, or damaged in transit. With empty hands, ' + kbd('E') + ' in the trailer takes it off. Carry it to the <b>returns desk</b> between the bench and the office: ' + kbd('E') + ' puts it on the desk, ' + kbd('E') + ' again starts the inspection, which runs by itself. The client pays a fee for every return and every box. The boxes come out on the desk shelves: good ones go back on a rack by hand or on the cart, damaged ones go in the bin at no charge. A return left lying for a day costs reputation; a truck that leaves with one still aboard has its driver set it down inside the door. The packer handles returns when the bench has nothing for them.</p>' +
       '<h3>The mezzanine and the halls</h3><p>The mezzanine comes with the big hall at level 15: a steel deck over the receiving strip. Set a pallet in the goods lift by IN 1 and it is racked upstairs by itself, and the upper crane sends boxes the bench needs down a chute into the pick line. The sortation deck stands on it and runs the three lanes. At level 20 the building grows off its north side: the returns hall east of the production wing and Hall 3 west of it with a third inbound dock; at level 25 Hall 4 behind the wing, each with rack rows for the forklift, the AGV and the crew.</p>' +
       '<h3>The day report</h3><p>At every day roll the day that ended is closed off: money in and out (the morning rent and wages included), orders shipped and late, pallets received, boxes picked, returns inspected, the reputation change and the bank. A card shows on the HUD for a while (any key closes it) and the Stats app on the office PC keeps the last fortnight.</p>' +
-      '<h3>Photo mode</h3><p><kbd>F9</kbd> frees the camera: WASD flies it, Space and C take it up and down, Shift is fast, the mouse looks, and the wheel zooms the lens from wide to long. The HUD goes and the world holds still while you line up the shot; <kbd>F12</kbd> takes it. <kbd>F9</kbd> or <kbd>Esc</kbd> puts you back where you stood, with the lens as it was.</p>' +
+      '<h3>Photo mode</h3><p>' + kbd('F9') + ' frees the camera: WASD flies it, Space and C take it up and down, Shift is fast, the mouse looks, and the wheel zooms the lens from wide to long. The HUD goes and the world holds still while you line up the shot; ' + kbd('F12') + ' takes it. ' + kbd('F9') + ' or ' + kbd('Esc') + ' puts you back where you stood, with the lens as it was.</p>' +
       '<h3>Trouble</h3><p>Trouble arrives one kind at a time: power cuts from level 5 stop the doors, the PC and new orders until you reset the breaker in the office, or the grid restores it after an hour and a half. From level 7 leave a dock door open at night with no truck in it and stock walks off. From level 8 an inspector drops in now and then and fines you for boxes left on the floor. Sleep on the cot in the break room to skip to the next morning, which charges rent and wages.</p>' +
       '<h3>Weather and Sundays</h3><p>Seasons of seven days, rain, storms, snow. Sunday is closed: sleep through it. The break-room radio has three stations.</p>' +
       '<h3>Contracts and the bank</h3><p>From level 5 a client offers a contract now and then: a number of their orders on time inside a window, for a bonus; miss it and there is a penalty. Contracts grow at 17, two run at once from 21, and from 24 a long one comes now and then. The bank lends $5,000 at 1.5% a day from level 6, and theft insurance (level 7) at $40 a day pays most of what walks off at night.</p>' +
       '<h3>Damaged goods</h3><p>A box dropped mid-air or shed off the forklift can be damaged. It cannot go on a rack or the bench: carry it to the bin by the packing bench and the client charges half its value.</p>' +
-      '<h3>Build mode</h3><p><kbd>F2</kbd> is build mode. Aim at any piece of furniture, a machine, a poster or a sign and <kbd>E</kbd> grabs it; it follows your aim, <kbd>R</kbd> turns it a quarter, <kbd>E</kbd> puts it down, <kbd>Esc</kbd> drops it back. <kbd>Backspace</kbd> puts a piece back where it started, <kbd>Del</kbd> removes it. <kbd>C</kbd> opens the catalogue: removed pieces to bring back, and extras to buy. The layout saves when you leave build mode.</p>' +
-      '<h3>Dev console</h3><p>A separate little program: <code>npm run devconsole</code> opens it, and <kbd>Ctrl+Shift+D</kbd> in the game (or starting the game with <code>--dev-link</code>) links the two. It shows a live readout of the save and has the cheats: money, levels, stage jumps, the clock, weather, trucks, orders, stock, crew, teleports. For testing; it writes straight into the save. The HUD shows LINKED while it is connected.</p>' +
+      '<h3>Build mode</h3><p>' + kbd('F2') + ' is build mode. Aim at any piece of furniture, a machine, a poster or a sign and ' + kbd('E') + ' grabs it; it follows your aim, ' + kbd('R') + ' turns it a quarter, ' + kbd('E') + ' puts it down, ' + kbd('Esc') + ' drops it back. ' + kbd('Backspace') + ' puts a piece back where it started, ' + kbd('Del') + ' removes it. ' + kbd('C') + ' opens the catalogue: removed pieces to bring back, and extras to buy. The layout saves when you leave build mode.</p>' +
+      '<h3>Dev console</h3><p>A separate little program: <code>npm run devconsole</code> opens it, and ' + kbd('Ctrl+Shift+D') + ' in the game (or starting the game with <code>--dev-link</code>) links the two. It shows a live readout of the save and has the cheats: money, levels, stage jumps, the clock, weather, trucks, orders, stock, crew, teleports. For testing; it writes straight into the save. The HUD shows LINKED while it is connected.</p>' +
       '<h3>Tips</h3><p>Keep one slot per line and the scanner tells you where everything is. Pack before the truck arrives, not after. Coffee makes you faster for an hour. Reputation brings more and bigger orders.</p>';
   }
   // ── Time ──────────────────────────────────────────────────────────

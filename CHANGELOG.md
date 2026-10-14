@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.23.2 (2026-10-14): Keybind Update
+
+## Key Bindings
+
+[ Rebind every control ]
+- Settings in the pause menu has a new Key bindings button. It opens a list of every control in the game with the key it is on now.
+- Click a key, then press the new one. Esc cancels. A key you have changed shows in amber.
+- If the key you pick is already in use, the two controls swap, so no two controls ever share a key.
+- Reset all to default puts every key back where it started.
+- Your bindings are saved on your computer and stay after you close the game.
+
+[ What you can rebind ]
+- Moving, running and jumping.
+- Use, and Put down.
+- The hand scanner: raising it, paging back, setting and clearing a waypoint, and running a row's action.
+- The forklift forks.
+- Build mode and its keys: the catalogue, putting a piece back, and removing one.
+- Photo mode, screenshots and the FPS counter.
+
+[ One key keeps all its jobs ]
+- A key does different things in different places. E uses things, turns the scanner's pages and grabs pieces in build mode. When you move Use to another key, all of those move with it. The list shows each key's other jobs under its name.
+
+[ The game shows your keys ]
+- The key on the prompt at the centre of the screen shows the key Use is bound to.
+- Every key in How to play shows your bindings.
+ 
+[ Keys that stay put ]
+- Esc always pauses and closes things, so there is always a way out. F11 always toggles fullscreen. Both are listed in the menu as fixed.
+
+!! Some hints in the world, like "G puts it down", still name the default key. !!
+
 ## 1.23.1 (2026-10-14): Bug Patch
 
 ## Packing Bench Fixes

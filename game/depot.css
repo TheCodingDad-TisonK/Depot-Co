@@ -218,3 +218,15 @@ textarea.dc-ta { width: 100%; height: 140px; font: 12px var(--mono); padding: 8p
 .dc-levelcard small { display: block; color: var(--muted); font-size: 11px; }
 #dc-fade .dc-fade-note { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; color: #eef1f5; font: 600 22px var(--display); animation: fadein .6s; }
 #dc-fade .dc-fade-note span { display: block; margin-top: 8px; color: var(--amber); font: 600 30px var(--display); }
+
+/* key bindings (Settings → Key bindings, src/13-keybinds.js) */
+.dc-kb-list { display: flex; flex-direction: column; }
+.dc-kb-row { display: flex; align-items: center; gap: 12px; padding: 6px 2px; border-bottom: 1px solid var(--hair); }
+.dc-kb-name { flex: 1; min-width: 0; }
+.dc-kb-name small { display: block; color: var(--faint); font-size: 12px; }
+.dc-kb-key { min-width: 112px; padding: 6px 10px; border: 1px solid var(--panel-line); border-bottom-width: 2px; border-radius: var(--r1); background: var(--sink); color: var(--ink); font: 13px var(--mono); text-align: center; }
+button.dc-kb-key:hover { filter: brightness(1.2); }
+.dc-kb-key.moved { border-color: var(--amber); color: var(--amber); }
+.dc-kb-key.listening { background: var(--amber); color: #1a1205; border-color: transparent; }
+.dc-kb-row.fixed .dc-kb-key { opacity: 0.6; }
+.dc-menu-row button[disabled] { opacity: 0.45; filter: none; cursor: default; }
