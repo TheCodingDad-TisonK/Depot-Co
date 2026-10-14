@@ -12,7 +12,7 @@ module.exports = `
   const pw = T.propWorld('packline', 0, 7.0); ok(pw.z > 6 && pw.z < 8.4 && pw.x > 16 && pw.x < 17.2, 'the parcel shelf is clear of the office front (z 8.5): ' + pw.x.toFixed(1) + ',' + pw.z.toFixed(1));
   ok(T.FIRE_X === 13.5 && !T.collides(13.5, -13.3) && T.collides(11.5, -13.9), 'the fire exit is cut 6.5 m in from the east wall' + (T.collides(13.5, -13.3) ? ' · blocked by ' + JSON.stringify(T.solids.filter((s) => 13.5 > s.x0 - 0.4 && 13.5 < s.x1 + 0.4 && -13.3 > s.z0 - 0.4 && -13.3 < s.z1 + 0.4).map((s) => [s.prop || 'wall', s.x0, s.x1, s.z0, s.z1, s.y0, s.y1])) : ''));
   ok(T.insideHall(-18, 11) && T.propWhere('timeclock') === 'lobby' && T.propWhere('desk') === 'office' && T.propWhere('cot') === 'break room', 'the lobby, the office and the break room are where the small hall put them');
-  ok(T.stageRent() === 60 && T.STAGE.maxOpen === 4 && T.benchCapNow() === 24 && T.shelfCap() === 12, 'rent $60, four open orders, a 24-box bench, a shelf of twelve');
+  ok(T.stageRent() === 60 && T.STAGE.maxOpen === 4 && T.benchCapNow() === 32 && T.shelfCap() === 12, 'rent $60, four open orders, a 32-box bench, a shelf of twelve');
   ok(T.yard.gates.length === 2 && T.yard.guards.length === 2 && T.STAGE.fence.x === 50, 'a barrier and a gatehouse each side, the fence at 50 m');
   ok(T.unlocked('pc') && T.pcTabs().some((t) => t[0] === 'contracts') && !T.pcTabs().some((t) => t[0] === 'finance'), 'Depot OS has contracts now, the bank waits for level 6');
   ok(T.scanPageOpen(5) && T.scanPageOpen(8) && !T.scanPageOpen(6), 'the Docks and Map pages are open, Plant waits for the hall');

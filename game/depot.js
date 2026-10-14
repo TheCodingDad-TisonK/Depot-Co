@@ -4553,7 +4553,7 @@
     start: 600, rent: 110, rawPrice: 120, receiveFee: 12, handling: 14, margin: 0.22, lateCut: 0.5, shortCut: 0.6,
     wage: { receiver: 85, picker: 85, packer: 75, driver: 95 },
     rowPrice: 950, cartPrice: 240, forkPrice: 2800, lightsPrice: 600, pcPrice: 0,
-    palletCap: 8, slotCap: 12, cartCap: 12, benchCap: 24, tableCap: 8
+    palletCap: 8, slotCap: 12, cartCap: 12, benchCap: 32, tableCap: 8
   };
   CO.table('ECON', ECON, 'the economy: start money, rent, prices and cuts'); CO.table('XP', XP, 'the XP each task earns');   // the editor's Settings tab tunes them
   // free: the stage that brings the piece for nothing (1.21.0): it stays in the list so its name and text are known, and leaves the shop
@@ -4665,7 +4665,7 @@
   var SPOT_SHED = { bench: { x: 4.6, z: 2.6 }, benchOut: { x: 4.6, z: 4.4 }, stageIn: { x: -3.0, z: 0.2 }, stageOut: { x: 3.5, z: -0.5 }, pc: { x: 5.5, z: -3.0 }, breaker: { x: 6.7, z: 2.0 }, cot: { x: -5.5, z: 4.45 }, coffee: { x: 4.6, z: 2.6 }, jack: { x: -2.4, z: 4.0 }, jack2: { x: 5.5, z: -1.0 }, cart: { x: 2.0, z: 4.3 }, fork: { x: 0, z: 3.9 }, spawn: { x: -5.8, z: 3.2 }, staffDoor: { x: -7, z: 3.5 } };   // the shed, 14 by 10: the rack along the north wall, the door and the receiving square on the west, the table and the cart along the south wall, the cot in the south-west corner
   for (var spk in SPOT) { if (BOOT_STAGE === 0) { if (SPOT_SHED[spk]) SPOT[spk] = SPOT_SHED[spk]; } else if (BOOT_STAGE === 1) { if (SPOT_SMALL[spk]) SPOT[spk] = SPOT_SMALL[spk]; else { SPOT[spk].x = ungrown(SPOT[spk].x); SPOT[spk].z = ungrown(SPOT[spk].z); } } else SPOT[spk].x = wallX(SPOT[spk].x, SPOT[spk].z, false); }
   function stageRent() { return STAGE.rent; }
-  function benchCapNow() { return BOOT_STAGE === 0 ? ECON.tableCap : ECON.benchCap; }   // the shed's table holds eight, the bench 24
+  function benchCapNow() { return BOOT_STAGE === 0 ? ECON.tableCap : ECON.benchCap; }   // the shed's table holds eight, the bench 32: three layers of eight on top and one on the shelf under it (1.23.1)
   // what a level brings, in words, for the card and the log: the shop, the roles, the lines, the clients, the systems, the heads, the building
   var UNLOCK_WORDS = { cart: 'the picking cart in the shop', lights: 'the LED high bays in the shop', sign: 'the roadside sign in the shop', row3: 'a third rack row in the shop', fork: 'the forklift in the shop', jackPower: 'the powered pallet truck in the shop', row4: 'a fourth rack row in the shop', jackLift: 'the high-lift stacker in the shop', shipbelt: 'the shipping belt and dock loader in the shop', raw: 'raw granulate on the Production app', row5: 'a fifth rack row in the shop', agv: 'the AGV in the shop', plantTune: 'the plant tune-up in the shop', agvFast: 'AGV fast drive in the shop', gantry: 'the gantry pickers in the shop', deckNight: 'the deck night shift in the shop', agvSweep: 'the AGV floor sweep in the shop', plantAuto: 'the plant automation suite in the shop',
     beltsA: 'conveyor straights and curves in the catalogue', beltsB: 'conveyor inclines and the high run in the catalogue', seating: 'the comfort seating in the catalogue', deckTune: 'the deck dial to 300 percent', yardCat: 'the yard catalogue', deckTier2: 'the deck belts half as fast again', decor: 'the last of the furniture in the catalogue',
@@ -5686,8 +5686,8 @@
     c.cyl(0.02, 0.9, MAT.steelDark, -0.4, 1.4, 1.4, 8); c.box(0.3, 0.08, 0.15, MAT.lamp, -0.3, 1.85, 1.4);
     [-0.3, 0.3].forEach(function (bx) { c.box(0.03, 0.3, 0.03, MAT.steelDark, bx, 1.09, 1.5); c.box(0.08, 0.02, 0.08, MAT.steelDark, bx, 0.95, 1.5); }); c.cyl(0.012, 0.66, MAT.chrome, 0, 1.25, 1.5, 8).rotation.z = Math.PI / 2;
     c.cyl(0.11, 0.5, std({ color: 0xe6ecf2, roughness: 0.35, transparent: true, opacity: 0.85 }), 0, 1.25, 1.5, 18).rotation.z = Math.PI / 2; c.plane(0.48, 0.26, std({ color: 0xe6ecf2, roughness: 0.35, transparent: true, opacity: 0.7, side: THREE.DoubleSide }), 0, 1.07, 1.615, 0, 0);
-    // the shelf below: flat cardboard and a bale of folded boxes
-    c.box(0.7, 0.12, 0.8, CARD, 0, 0.38, -0.6); c.box(0.66, 0.02, 0.76, TAN, 0, 0.45, -0.6); c.box(0.6, 0.09, 0.7, CARD, 0.02, 0.365, 0.7).rotation.y = 0.05; c.box(0.02, 0.1, 0.72, MAT.black, -0.2, 0.37, 0.7); c.box(0.02, 0.1, 0.72, MAT.black, 0.2, 0.37, 0.7);
+    // the shelf below holds the last eight boxes since 1.23.1 (local z -0.95 to 1.3, like the top), so the flat cardboard lies at its near end
+    c.box(0.7, 0.05, 0.36, CARD, 0, 0.345, -1.22); c.box(0.66, 0.02, 0.32, TAN, 0, 0.375, -1.22);
     var tl = new THREE.PointLight(0xfff0d0, 0.45, 5, 2); tl.position.set(-0.3, 1.7, 1.4); c.add(tl);   // the task lamp lights the far end of the bench
     c.hit(1.1, 1.2, 3.2, 0, 1.4, 0, { prompt: function () { return benchPrompt(); }, use: function () { benchUse(); } });
     // the terminal: a floor stand on the east corner past the near end, screen at 1.7 m turned to face the working side across the
@@ -5702,11 +5702,11 @@
     c.cyl(0.17, 0.04, MAT.black, -1.0, 0.65, -0.4, 16); c.cyl(0.02, 0.6, MAT.chrome, -1.0, 0.32, -0.4, 8); c.cyl(0.2, 0.03, MAT.steelDark, -1.0, 0.03, -0.4, 16);
   }
   function benchScreenDraw(c, sc) {
-    var allO = openOrders().sort(function (a, b2) { return (b2.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b2.due; }); sc.scrollMax = Math.max(0, allO.length - 4); sc.scroll = clamp(sc.scroll || 0, 0, sc.scrollMax);
+    var foc = benchFocus(), allO = foc.concat(openOrders().filter(function (o) { return foc.indexOf(o) < 0; }).sort(function (a, b2) { return (b2.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b2.due; })); sc.scrollMax = Math.max(0, allO.length - 4); sc.scroll = clamp(sc.scroll || 0, 0, sc.scrollMax);
     scBg(c, sc.w, sc.h); scHead(c, sc.w, 'PACKING', benchCount() + ' / ' + benchCapNow() + ' on the bench · ' + allO.length + ' open');
     var os = allO.slice(sc.scroll, sc.scroll + 4), y = 56;
     if (!os.length) scText(c, 16, 76, 'No open orders.', '#a0acb8', 14);
-    os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : ''), o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
+    os.forEach(function (o) { var n = orderNeed(o); scText(c, 16, y + 12, '#' + o.num + ' ' + clientName(o.client).slice(0, 16) + (o.rush ? ' RUSH' : '') + (o.late ? ' LATE' : '') + (o.state === 'open' && foc.indexOf(o) < 0 ? ' QUEUED' : ''), o.state === 'open' && foc.indexOf(o) < 0 ? '#6b7784' : o.late || o.rush ? '#ff6b5e' : '#eef1f5', 13); scText(c, 16, y + 28, o.lines.map(function (l) { return Math.min(l.qty, S.bench.boxes[l.sku] || 0) + '/' + l.qty + ' ' + skuName(l.sku).slice(0, 12); }).join(' · ').slice(0, 44), '#a0acb8', 11); var can = canPack(o), short = canPackShort(o); scButton(sc, 300, y + 4, 86, 32, can ? 'PACK' : short ? 'SHORT' : n.have + '/' + n.tot, can || short, function () { if (packOrder(o)) toast('Packed #' + o.num, 'good'); }, can ? '#5fd38d' : '#f5b53d'); y += 46; });
     if (sc.scrollMax > 0) { scText(c, 16, 290, 'Orders ' + (sc.scroll + 1) + ' to ' + Math.min(allO.length, sc.scroll + 4) + ' of ' + allO.length + ' · wheel scrolls', '#6b7784', 10); scButton(sc, 300, 262, 40, 26, 'UP', sc.scroll > 0, function () { sc.scroll = Math.max(0, sc.scroll - 1); }, '#f5b53d'); scButton(sc, 346, 262, 40, 26, 'DOWN', sc.scroll < sc.scrollMax, function () { sc.scroll = Math.min(sc.scrollMax, sc.scroll + 1); }, '#f5b53d'); }
     else scText(c, 16, 290, 'Look at a box on the bench to take it back · the cart takes surplus', '#6b7784', 10);
     var surN = surplusCount(); scButton(sc, 116, 258, 118, 26, surN ? 'RETURN ' + surN + ' SURPLUS' : 'NO SURPLUS', surN > 0, function () { returnSurplus(); }, '#f5b53d');
@@ -6852,7 +6852,8 @@
     // columns along it, turned to fit its depth, each column stacking up from the table top so nothing hangs off it or floats
     var shed = BOOT_STAGE === 0, colX = [-0.55, 0, 0.55], colY = [0.925, 0.925, 0.925], tk = 0;
     var tableSlot = function (h) { var col = tk++ % 3, y = colY[col]; colY[col] += h; return { w: benchW(colX[col], 0), y: y }; };
-    var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) { if (shed) { var t = tableSlot(BOX.h); putBox(s.id, t.w.x, t.y + BOX.h / 2, t.w.z, ba + Math.PI / 2, { kind: 'bench', sku: s.id }); continue; } var w = benchW(bi % 2 ? 0.23 : -0.23, -0.72 + (Math.floor(bi / 2) % 4) * 0.6); putBox(s.id, w.x, 0.94 + BOX.h / 2 + Math.floor(bi / 8) * BOX.h, w.z, ba, { kind: 'bench', sku: s.id }); } });
+    // the bench's top takes three layers of eight, the shelf under it the last eight (1.23.1)
+    var bi = 0; SKUS.forEach(function (s) { var n = S.bench.boxes[s.id] || 0; for (var i = 0; i < n; i++, bi++) { if (shed) { var t = tableSlot(BOX.h); putBox(s.id, t.w.x, t.y + BOX.h / 2, t.w.z, ba + Math.PI / 2, { kind: 'bench', sku: s.id }); continue; } var under = bi >= 24, k = under ? bi - 24 : bi, w = benchW(k % 2 ? 0.23 : -0.23, -0.72 + (Math.floor(k / 2) % 4) * 0.6); putBox(s.id, w.x, under ? 0.32 + BOX.h / 2 : 0.94 + BOX.h / 2 + Math.floor(k / 8) * BOX.h, w.z, ba, { kind: 'bench', sku: s.id }); } });
     var LP = propInst.packline ? propPlacement('packline') : BP, la = LP.rot * Math.PI / 2, lc = Math.cos(la), ls = Math.sin(la);   // no pack line (the shed): the parcels stand on the table
     S.bench.parcels.forEach(function (oid, i) { if (shed && !propInst.packline) { var t = tableSlot(0.46); putParcel(t.w.x, t.y + 0.23, t.w.z, la, { kind: 'shelf', order: oid }, parcelForm(oid)); return; } var s = shelfSlot(i); putParcel(LP.x + s.lx * lc + s.lz * ls, s.y, LP.z - s.lx * ls + s.lz * lc, la, { kind: 'shelf', order: oid }, parcelForm(oid)); });
     drawBeltItems(); drawSorterItems(); drawReturnsDesk();
@@ -7268,21 +7269,33 @@
     S.orders.forEach(function (o) { if (o.state === 'open' || o.state === 'packing') o.lines.forEach(function (l) { add(l.sku, -(l.qty - (l.packed || 0))); }); });
     return free;
   }
-  // what the open orders still want that is not on the bench yet, and what sits on the bench that no open order wants
-  function benchNeed() { var need = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); }); for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k]; for (var q in need) if (need[q] <= 0) delete need[q]; return need; }
-  function benchSurplus() { var want = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); var sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
+  // the orders the bench works toward: open orders, late first, then rush, then due, then nearest done, as many as fit the bench
+  // together. Tyson (2026-10-14): five open orders of 14 to 23 boxes each against a bench of 24. The cranes, the pickers and the
+  // cart fed every open order at once, filled the bench with part of each, and none could be packed. Now they finish orders in turn.
+  function benchFocus() {
+    var cap = benchCapNow(), used = 0, out = [], os = S.orders.filter(function (o) { return o.state === 'open'; });
+    os.sort(function (a, b) { var A = orderNeed(a), B = orderNeed(b); return (b.late ? 1 : 0) - (a.late ? 1 : 0) || (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due || (A.tot - A.have) - (B.tot - B.have); });
+    os.forEach(function (o) { var t = orderNeed(o).tot; if (!out.length || used + t <= cap) { out.push(o); used += t; } });   // the first always counts: an older save may hold an order bigger than the bench (it packs SHORT)
+    return out;
+  }
+  function wantOf(orders) { var want = {}; orders.forEach(function (o) { o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); return want; }
+  // full and nothing packs: the boxes the focus orders do not want are in the way, so they count as surplus and go back to the racks
+  function benchStuck() { return benchCount() >= benchCapNow() && !S.orders.some(canPack); }   // a SHORT pack does not count: it pays 60%, and the cranes cannot finish the order while the bench is full
+  // what the focus orders still want that is not on the bench yet, and what sits on the bench that no open order wants
+  function benchNeed() { var need = wantOf(benchFocus()); for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k]; for (var q in need) if (need[q] <= 0) delete need[q]; return need; }
+  function benchSurplus() { var want = wantOf(benchStuck() ? benchFocus() : S.orders.filter(function (o) { return o.state === 'open'; })), sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
   function genOrder(rush) {
     var free = freeStock(), avail = unlockedSkus().filter(function (s) { return (free[s] || 0) > 0; }); if (!avail.length) return null;
     var live = contractsLive(), cc = live.length && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === pick(live).client; })[0] : null, client = cc || pick(activeClients()), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
     var nLines = client.deck ? randi(2, 4) : randi(1, Math.min(BOOT_STAGE === 0 ? 2 : 3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));   // a deck account orders two to four lines; the shed's orders are one or two
-    var lines = [], used = {};
-    for (var i = 0; i < nLines; i++) {
+    var lines = [], used = {}, room = benchCapNow();   // never more boxes in one order than the bench holds, or it can only ever pack short
+    for (var i = 0; i < nLines && room > 0; i++) {
       // what the client likes and you have free, else anything you have free; never more of a line than is free
       var liked = pool.filter(function (s) { return !used[s] && free[s] > 0; }), any = avail.filter(function (s) { return !used[s] && free[s] > 0; });
       var from = liked.length && (i === 0 || Math.random() < 0.85) ? liked : any;
       if (!from.length) break;
       var sku = pick(from); used[sku] = 1;
-      var qty = client.deck ? clamp(randi(2, 8), 1, Math.min(8, free[sku])) : clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, Math.min(6, free[sku])); free[sku] -= qty;
+      var qty = client.deck ? clamp(randi(2, 8), 1, Math.min(8, free[sku])) : clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, Math.min(6, free[sku])); qty = Math.min(qty, room); room -= qty; free[sku] -= qty;
       lines.push({ sku: sku, qty: qty });
     }
     if (!lines.length) return null;
@@ -7931,8 +7944,7 @@
     return n;
   }
   function skuDemand(sku) {
-    var need = 0; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { if (l.sku === sku) need += l.qty; }); });
-    need -= (S.bench.boxes[sku] || 0);
+    var need = benchNeed()[sku] || 0;   // the focus orders only, less the bench: see benchFocus
     need -= pickInFlight()[sku] || 0;
     return need;
   }
@@ -8690,8 +8702,7 @@
   function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); if (S.up.upper && propInst.gantry5) out.push(UPPER.row); return out; }
   function gantryState(r) { r = r || 0; if (!S.gantries) S.gantries = {}; if (!S.gantries[r]) S.gantries[r] = { x: GANTRY_DROP_X, lift: 5.0, state: 'idle', sku: null, key: null, t: 0, picked: 0 }; return S.gantries[r]; }
   function gantryNeed(r) {
-    var need = {}; S.orders.forEach(function (o) { if (o.state !== 'open') return; o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); });
-    for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k];
+    var need = benchNeed();   // the focus orders only, less the bench: see benchFocus
     var fl = pickInFlight(); for (var fk in fl) need[fk] = (need[fk] || 0) - fl[fk];   // the belts, the other cranes, the pickers' hands and their claims: see pickInFlight
     for (var sku in need) if (need[sku] > 0) { if (r === UPPER.row && groundStock(sku) > 0) continue; for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === r && s && s.sku === sku && s.n > 0) return { sku: sku, key: key, to: 'ground' }; } }   // the upper crane sends down only what the ground floor has none of
     return null;
@@ -9780,7 +9791,7 @@
   // ── The scanner battery and its dock ──────────────────────────────
   // Tyson (2026-10-14): "a charging system behind the scanner ... a dock that sits on the wall where we can charge it ... see the
   // scanner sitting on the wall dock with a little charging light". The charge (S.scanner.batt, 0 to 1) drains slowly on your belt
-  // and faster with the screen up; flat, Tab will not raise it. E at the dock puts the scanner in its cradle and takes it out again.
+  // and faster with the screen up; flat, Tab will not raise it. E at the dock (with the scanner down) puts the scanner in its cradle and takes it out again.
   // While it is docked the device itself (scanDev.g) leaves the camera and rides the cradle at true size, its screen shows the
   // charge, and the light on the cradle's lip pulses amber while it charges and shows steady green when it is full. No power, no charge.
   var SCAN_BATT = { open: 1200, idle: 7200, charge: 120, low: 0.15 };   // seconds: screen-up drain, on-the-belt drain, empty to full in the dock
@@ -10104,7 +10115,7 @@
       '<h3>Controls</h3><p><kbd>WASD</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> jump · <kbd>E</kbd> use, pick up, put on · <kbd>G</kbd> put down or let go · <kbd>Tab</kbd> the hand scanner · <kbd>Q</kbd> and <kbd>E</kbd> its pages, the wheel its cursor, <kbd>F</kbd> a waypoint, <kbd>X</kbd> clears it · <kbd>F9</kbd> photo mode · <kbd>Esc</kbd> pause · <kbd>F3</kbd> FPS · <kbd>F12</kbd> screenshot · <kbd>F11</kbd> fullscreen.</p>' +
       '<h3>Receiving</h3><p>Inbound trucks dock at IN 1 (and IN 2 from the hall at level 10, IN 3 with Hall 3 at level 20) at 07:30 and 13:30. Open the dock door, walk into the trailer and take boxes off the pallets by hand, or grab the pallet jack and lift a whole pallet. A truck waits four hours and warns you half an hour before it goes; whatever is still on it goes back, unpaid, and the client remembers.</p>' +
       '<h3>Racks</h3><p>Every slot holds up to 12 boxes of one line. The floor and shelf levels are hand-reachable; the top level needs the forklift. Look at a slot and press E to put a box on or take one off. The jack sets a whole pallet into a floor-level slot.</p>' +
-      '<h3>The hand scanner</h3><p><kbd>Tab</kbd> raises it. <kbd>Q</kbd> and <kbd>E</kbd> page back and on through nine pages (while it is up, E pages it and uses nothing else), which the ladder opens one by one (Putaway at level 2, Stock and Crew at 3, Docks and the Map at 5, Plant at 10): Home with the alerts, Orders with every line and its slot (and the returns in play), Picks (one list for every open order in walking order), Putaway (what is on the docked trucks and where it goes), Stock, Docks (every door, its lane, its truck, its bay), Plant (every machine, jams first), Crew, and a Map of the whole site from above with you, the crew, the forklift, the trucks and your waypoint on it. The wheel moves the cursor; <kbd>F</kbd> sets a waypoint on the highlighted row, a ring and a beam on the floor with the heading and the distance on the HUD, and it clears itself when you arrive (<kbd>X</kbd> clears it sooner). Point the beam at a slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it. It runs on a battery, shown top right on the display: it drains slowly on your belt and faster with the screen up, and flat it will not come up. <kbd>E</kbd> at the scanner dock on the wall (in the lobby by the notice board, on the east wall in the shed) sets it in its cradle to charge, its light amber while it charges and green when it is full, and <kbd>E</kbd> again takes it.</p>' +
+      '<h3>The hand scanner</h3><p><kbd>Tab</kbd> raises it. <kbd>Q</kbd> and <kbd>E</kbd> page back and on through nine pages (while it is up, E pages it and uses nothing else), which the ladder opens one by one (Putaway at level 2, Stock and Crew at 3, Docks and the Map at 5, Plant at 10): Home with the alerts, Orders with every line and its slot (and the returns in play), Picks (one list for every open order in walking order), Putaway (what is on the docked trucks and where it goes), Stock, Docks (every door, its lane, its truck, its bay), Plant (every machine, jams first), Crew, and a Map of the whole site from above with you, the crew, the forklift, the trucks and your waypoint on it. The wheel moves the cursor; <kbd>F</kbd> sets a waypoint on the highlighted row, a ring and a beam on the floor with the heading and the distance on the HUD, and it clears itself when you arrive (<kbd>X</kbd> clears it sooner). Point the beam at a slot, a pallet, a box, a parcel, a truck or a machine and the bottom of the display reads it. It runs on a battery, shown top right on the display: it drains slowly on your belt and faster with the screen up, and flat it will not come up. <kbd>Tab</kbd> it down, then <kbd>E</kbd> at the scanner dock on the wall (in the lobby by the notice board, on the east wall in the shed) sets it in its cradle to charge, its light amber while it charges and green when it is full, and <kbd>E</kbd> again takes it.</p>' +
       '<h3>Orders</h3><p>Orders arrive between 08:00 and 17:00 on the office PC, the wall board and the scanner. Each one lists lines and a due time, which is the departure of an outbound truck. Pick the boxes and put them on the packing bench; the terminal at the end of the bench releases an order to the pack line, and the parcel rolls onto the shelf beside it. A box on the bench is a thing you look at: E takes it back, and the prompt says whether an order wants it. The cart at the bench unloads only what the orders want and takes the surplus back in the same press. An order only ever asks for stock that is on site and not already spoken for.</p>' +
       '<h3>Conveyors</h3><p>Build mode (F2), then C: the Conveyors group sells belts by the piece, straights, curves, inclines and a high run hung from the roof. A carried piece snaps to the nearest free belt end, machine outlet, parcel shelf or inbound dock door, or to the nearest belt start, machine inlet, outbound dock door or rack bay, and says what it connects when you drop it. A belt that ends at a rack bay racks the boxes; one that ends at an outbound door with a truck in loads the parcels; one that starts at an inbound door with a signed truck in takes the boxes off its pallets.</p>' +
       '<h3>Shipping and the three lanes</h3><p>In the shed a van parks at the shed front twice a day (10:30 to 12:00, 16:00 to 17:30): E at its back doors loads a parcel, eight at most. The small hall ships everything by OUT 1. From the hall at level 10 every client ships by one lane and every order wears it on the board: <b>SEA</b> leaves by OUT 1 (trucks 10:30 to 12:00 and 17:00 to 18:30), <b>LAND</b> by OUT 2 (09:00 to 10:30 and 16:00 to 18:00), <b>AIR</b> by OUT 3 (13:00 to 14:30 and 19:00 to 20:15), which comes with the sortation deck at level 15 and brings the air clients, who pay half as much again. An order is due at the next departure of its own lane. Open the door, carry the parcel into the trailer and press E, or load the parcels off the shelf onto the picking cart (E with the cart at the shelf) and E in the trailer unloads them all. A parcel out of the wrong door still ships, for a 25% forwarding fee. Press E on the dock console to send a loaded truck early. You are paid when it leaves. Late orders pay half; a short order pays 60%.</p>' +
@@ -10529,7 +10540,7 @@
     cableUse: cableUse, cablePlugInto: cablePlugInto,
     hopperUse: hopperUse, moulderUse: moulderUse, buildProp: buildProp, agvState: agvState, balerUse: balerUse, addWaste: addWaste, wrapperUse: wrapperUse, palletiserEject: palletiserEject, packUse: packUse, beltItems: beltItems, beltSink: beltSink, beltPoint: beltPoint, gantryNeed: gantryNeed, gantryState: gantryState, buildGantries: buildGantries, drawScreens: drawScreens, screenTap: screenTap, collides: collides, solids: solids, SPOT: SPOT, RACK: RACK, grabTool: grabTool, releaseTool: releaseTool, screens: screens, agvScreen: function () { return agvScreen; }, palletWorld: palletWorld, rackSlotPos: rackSlotPos, speedOf: speedOf, speedCycle: speedCycle, HALL: HALL, wallX: wallX, focusAlt: function () { if (focus && focus.alt) focus.alt(); }, shelfPrompt: shelfPrompt, loadPrompt: loadPrompt, cartParcels: cartParcels, dropMarker: dropMarker, updateDropMarker: updateDropMarker, dropPoint: dropPoint, BELTS: BELTS, MACH: MACH, inWing: inWing,
     openPc: openPc, closePc: closePc, pc: pc, load: load, save: save, state: function () { return S; }, parcelExists: parcelExists, speedCycle: speedCycle, UPPER: UPPER, liftState: liftState, upperSlotFor: upperSlotFor, buildUpper: buildUpper, buildSorter: buildSorter, sortState: sortState, orderMode: orderMode, MODES: MODES, TRUCK_OUT: TRUCK_OUT, SORT: SORT, floorYAt: floorY, stageOf: stageOf, deckNightRun: deckNightRun, walkoverY: walkoverY, HALLS: HALLS, buildHall: buildHall, returnSurplus: returnSurplus, surplusCount: surplusCount, scan: scan, scanGo: scanGo, scanClearNav: scanClearNav, scanScroll: scanScroll, scanPageRows: scanPageRows, scanRows: function () { return scanDev.rows; }, scanReadout: scanReadout, drawScanner: drawScanner, scanPage: scanPage, tickScanner: tickScanner, inAnnex: inAnnex, insideHall: insideHall, DOOR_MAP: DOOR_MAP, doorIndex: doorIndex, groundRows: groundRows, rowBays: rowBays, slotTotal: slotTotal, plantRows: plantRows, staffTrain: staffTrain, staffRaise: staffRaise, staffShiftCycle: staffShiftCycle, staffCrossCycle: staffCrossCycle, shiftStart: shiftStart, staffCap: staffCap, activeClients: activeClients,
-    beltSnap: beltSnap, beltFeeder: beltFeeder, BELT_PIECES: BELT_PIECES, machinePoints: machinePoints, freeStock: freeStock, benchNeed: benchNeed, benchSurplus: benchSurplus, benchBoxUse: benchBoxUse,
+    beltSnap: beltSnap, beltFeeder: beltFeeder, BELT_PIECES: BELT_PIECES, machinePoints: machinePoints, freeStock: freeStock, benchNeed: benchNeed, benchFocus: benchFocus, benchStuck: benchStuck, benchSurplus: benchSurplus, benchBoxUse: benchBoxUse,
     myClock: myClock, staffNewDay: staffNewDay, payStaffWages: payStaffWages, staffStatus: staffStatus, hourly: hourly,
     editToggle: editToggle, editGrab: editGrab, editDrop: editDrop, editRotate: editRotate, editReset: editReset, editRemove: editRemove, editRestore: editRestore, editBuy: editBuy, propInst: propInst, PROPS: PROPS, edit: edit, buildProp: buildProp,
     propWorld: propWorld, rdesk: rdesk, rdeskUse: rdeskUse, rdeskBoxUse: rdeskBoxUse, rdeskStart: rdeskStart, returnPlace: returnPlace, returnById: returnById, addReturn: addReturn, returnsPending: returnsPending, loadPrompt: loadPrompt, receivePallet: receivePallet,

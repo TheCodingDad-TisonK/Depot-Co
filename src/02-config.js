@@ -94,7 +94,7 @@
     start: 600, rent: 110, rawPrice: 120, receiveFee: 12, handling: 14, margin: 0.22, lateCut: 0.5, shortCut: 0.6,
     wage: { receiver: 85, picker: 85, packer: 75, driver: 95 },
     rowPrice: 950, cartPrice: 240, forkPrice: 2800, lightsPrice: 600, pcPrice: 0,
-    palletCap: 8, slotCap: 12, cartCap: 12, benchCap: 24, tableCap: 8
+    palletCap: 8, slotCap: 12, cartCap: 12, benchCap: 32, tableCap: 8
   };
   CO.table('ECON', ECON, 'the economy: start money, rent, prices and cuts'); CO.table('XP', XP, 'the XP each task earns');   // the editor's Settings tab tunes them
   // free: the stage that brings the piece for nothing (1.21.0): it stays in the list so its name and text are known, and leaves the shop
@@ -206,7 +206,7 @@
   var SPOT_SHED = { bench: { x: 4.6, z: 2.6 }, benchOut: { x: 4.6, z: 4.4 }, stageIn: { x: -3.0, z: 0.2 }, stageOut: { x: 3.5, z: -0.5 }, pc: { x: 5.5, z: -3.0 }, breaker: { x: 6.7, z: 2.0 }, cot: { x: -5.5, z: 4.45 }, coffee: { x: 4.6, z: 2.6 }, jack: { x: -2.4, z: 4.0 }, jack2: { x: 5.5, z: -1.0 }, cart: { x: 2.0, z: 4.3 }, fork: { x: 0, z: 3.9 }, spawn: { x: -5.8, z: 3.2 }, staffDoor: { x: -7, z: 3.5 } };   // the shed, 14 by 10: the rack along the north wall, the door and the receiving square on the west, the table and the cart along the south wall, the cot in the south-west corner
   for (var spk in SPOT) { if (BOOT_STAGE === 0) { if (SPOT_SHED[spk]) SPOT[spk] = SPOT_SHED[spk]; } else if (BOOT_STAGE === 1) { if (SPOT_SMALL[spk]) SPOT[spk] = SPOT_SMALL[spk]; else { SPOT[spk].x = ungrown(SPOT[spk].x); SPOT[spk].z = ungrown(SPOT[spk].z); } } else SPOT[spk].x = wallX(SPOT[spk].x, SPOT[spk].z, false); }
   function stageRent() { return STAGE.rent; }
-  function benchCapNow() { return BOOT_STAGE === 0 ? ECON.tableCap : ECON.benchCap; }   // the shed's table holds eight, the bench 24
+  function benchCapNow() { return BOOT_STAGE === 0 ? ECON.tableCap : ECON.benchCap; }   // the shed's table holds eight, the bench 32: three layers of eight on top and one on the shelf under it (1.23.1)
   // what a level brings, in words, for the card and the log: the shop, the roles, the lines, the clients, the systems, the heads, the building
   var UNLOCK_WORDS = { cart: 'the picking cart in the shop', lights: 'the LED high bays in the shop', sign: 'the roadside sign in the shop', row3: 'a third rack row in the shop', fork: 'the forklift in the shop', jackPower: 'the powered pallet truck in the shop', row4: 'a fourth rack row in the shop', jackLift: 'the high-lift stacker in the shop', shipbelt: 'the shipping belt and dock loader in the shop', raw: 'raw granulate on the Production app', row5: 'a fifth rack row in the shop', agv: 'the AGV in the shop', plantTune: 'the plant tune-up in the shop', agvFast: 'AGV fast drive in the shop', gantry: 'the gantry pickers in the shop', deckNight: 'the deck night shift in the shop', agvSweep: 'the AGV floor sweep in the shop', plantAuto: 'the plant automation suite in the shop',
     beltsA: 'conveyor straights and curves in the catalogue', beltsB: 'conveyor inclines and the high run in the catalogue', seating: 'the comfort seating in the catalogue', deckTune: 'the deck dial to 300 percent', yardCat: 'the yard catalogue', deckTier2: 'the deck belts half as fast again', decor: 'the last of the furniture in the catalogue',

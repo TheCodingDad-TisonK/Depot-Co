@@ -24,21 +24,33 @@
     S.orders.forEach(function (o) { if (o.state === 'open' || o.state === 'packing') o.lines.forEach(function (l) { add(l.sku, -(l.qty - (l.packed || 0))); }); });
     return free;
   }
-  // what the open orders still want that is not on the bench yet, and what sits on the bench that no open order wants
-  function benchNeed() { var need = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); }); for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k]; for (var q in need) if (need[q] <= 0) delete need[q]; return need; }
-  function benchSurplus() { var want = {}; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); var sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
+  // the orders the bench works toward: open orders, late first, then rush, then due, then nearest done, as many as fit the bench
+  // together. Tyson (2026-10-14): five open orders of 14 to 23 boxes each against a bench of 24. The cranes, the pickers and the
+  // cart fed every open order at once, filled the bench with part of each, and none could be packed. Now they finish orders in turn.
+  function benchFocus() {
+    var cap = benchCapNow(), used = 0, out = [], os = S.orders.filter(function (o) { return o.state === 'open'; });
+    os.sort(function (a, b) { var A = orderNeed(a), B = orderNeed(b); return (b.late ? 1 : 0) - (a.late ? 1 : 0) || (b.rush ? 1 : 0) - (a.rush ? 1 : 0) || a.due - b.due || (A.tot - A.have) - (B.tot - B.have); });
+    os.forEach(function (o) { var t = orderNeed(o).tot; if (!out.length || used + t <= cap) { out.push(o); used += t; } });   // the first always counts: an older save may hold an order bigger than the bench (it packs SHORT)
+    return out;
+  }
+  function wantOf(orders) { var want = {}; orders.forEach(function (o) { o.lines.forEach(function (l) { want[l.sku] = (want[l.sku] || 0) + l.qty; }); }); return want; }
+  // full and nothing packs: the boxes the focus orders do not want are in the way, so they count as surplus and go back to the racks
+  function benchStuck() { return benchCount() >= benchCapNow() && !S.orders.some(canPack); }   // a SHORT pack does not count: it pays 60%, and the cranes cannot finish the order while the bench is full
+  // what the focus orders still want that is not on the bench yet, and what sits on the bench that no open order wants
+  function benchNeed() { var need = wantOf(benchFocus()); for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k]; for (var q in need) if (need[q] <= 0) delete need[q]; return need; }
+  function benchSurplus() { var want = wantOf(benchStuck() ? benchFocus() : S.orders.filter(function (o) { return o.state === 'open'; })), sur = {}; for (var k in S.bench.boxes) { var n = S.bench.boxes[k] - (want[k] || 0); if (n > 0) sur[k] = n; } return sur; }
   function genOrder(rush) {
     var free = freeStock(), avail = unlockedSkus().filter(function (s) { return (free[s] || 0) > 0; }); if (!avail.length) return null;
     var live = contractsLive(), cc = live.length && Math.random() < 0.5 ? CLIENTS.filter(function (c) { return c.id === pick(live).client; })[0] : null, client = cc || pick(activeClients()), pool = client.likes.filter(function (s) { return avail.indexOf(s) >= 0; }); if (!pool.length) { pool = avail; }
     var nLines = client.deck ? randi(2, 4) : randi(1, Math.min(BOOT_STAGE === 0 ? 2 : 3, 1 + Math.floor(S.level / 2) + (Math.random() < 0.35 ? 1 : 0)));   // a deck account orders two to four lines; the shed's orders are one or two
-    var lines = [], used = {};
-    for (var i = 0; i < nLines; i++) {
+    var lines = [], used = {}, room = benchCapNow();   // never more boxes in one order than the bench holds, or it can only ever pack short
+    for (var i = 0; i < nLines && room > 0; i++) {
       // what the client likes and you have free, else anything you have free; never more of a line than is free
       var liked = pool.filter(function (s) { return !used[s] && free[s] > 0; }), any = avail.filter(function (s) { return !used[s] && free[s] > 0; });
       var from = liked.length && (i === 0 || Math.random() < 0.85) ? liked : any;
       if (!from.length) break;
       var sku = pick(from); used[sku] = 1;
-      var qty = client.deck ? clamp(randi(2, 8), 1, Math.min(8, free[sku])) : clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, Math.min(6, free[sku])); free[sku] -= qty;
+      var qty = client.deck ? clamp(randi(2, 8), 1, Math.min(8, free[sku])) : clamp(randi(1, 2 + Math.floor(S.level / 2)), 1, Math.min(6, free[sku])); qty = Math.min(qty, room); room -= qty; free[sku] -= qty;
       lines.push({ sku: sku, qty: qty });
     }
     if (!lines.length) return null;

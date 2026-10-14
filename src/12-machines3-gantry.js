@@ -28,8 +28,7 @@
   function gantryRows() { var out = []; for (var r = 0; r < RACK.rows.length; r++) if (r < S.up.rows && propInst['gantry' + r]) out.push(r); if (S.up.upper && propInst.gantry5) out.push(UPPER.row); return out; }
   function gantryState(r) { r = r || 0; if (!S.gantries) S.gantries = {}; if (!S.gantries[r]) S.gantries[r] = { x: GANTRY_DROP_X, lift: 5.0, state: 'idle', sku: null, key: null, t: 0, picked: 0 }; return S.gantries[r]; }
   function gantryNeed(r) {
-    var need = {}; S.orders.forEach(function (o) { if (o.state !== 'open') return; o.lines.forEach(function (l) { need[l.sku] = (need[l.sku] || 0) + l.qty; }); });
-    for (var k in S.bench.boxes) need[k] = (need[k] || 0) - S.bench.boxes[k];
+    var need = benchNeed();   // the focus orders only, less the bench: see benchFocus
     var fl = pickInFlight(); for (var fk in fl) need[fk] = (need[fk] || 0) - fl[fk];   // the belts, the other cranes, the pickers' hands and their claims: see pickInFlight
     for (var sku in need) if (need[sku] > 0) { if (r === UPPER.row && groundStock(sku) > 0) continue; for (var key in S.slots) { var p = slotParse(key), s = S.slots[key]; if (p.r === r && s && s.sku === sku && s.n > 0) return { sku: sku, key: key, to: 'ground' }; } }   // the upper crane sends down only what the ground floor has none of
     return null;

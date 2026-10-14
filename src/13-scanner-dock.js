@@ -2,7 +2,7 @@
   // ── The scanner battery and its dock ──────────────────────────────
   // Tyson (2026-10-14): "a charging system behind the scanner ... a dock that sits on the wall where we can charge it ... see the
   // scanner sitting on the wall dock with a little charging light". The charge (S.scanner.batt, 0 to 1) drains slowly on your belt
-  // and faster with the screen up; flat, Tab will not raise it. E at the dock puts the scanner in its cradle and takes it out again.
+  // and faster with the screen up; flat, Tab will not raise it. E at the dock (with the scanner down) puts the scanner in its cradle and takes it out again.
   // While it is docked the device itself (scanDev.g) leaves the camera and rides the cradle at true size, its screen shows the
   // charge, and the light on the cradle's lip pulses amber while it charges and shows steady green when it is full. No power, no charge.
   var SCAN_BATT = { open: 1200, idle: 7200, charge: 120, low: 0.15 };   // seconds: screen-up drain, on-the-belt drain, empty to full in the dock

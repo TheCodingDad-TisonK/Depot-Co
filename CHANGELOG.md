@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.23.1 (2026-10-14): Bug Patch
+
+## Packing Bench Fixes
+
+[The bench no longer jams]
+- With several big orders open, the gantry cranes, the pickers and the cart used to fetch boxes for every order at once. The bench filled up with part of each order, none of them could be packed, and everything stopped.
+- The bench now works through the orders in turn: late orders first, then rush orders, then the one due soonest. It takes on as many orders as fit on the bench together, and the cranes, the pickers, the cart and the scanner's pick list only fetch boxes for those. When an order is packed, the next one starts.
+- The bench terminal lists the orders it is working on first. The others are greyed out and marked QUEUED until there is room for them.
+
+[A full bench clears itself]
+- If the bench is full and no order can be packed, the boxes the current orders don't need count as surplus. RETURN SURPLUS on the terminal puts them back on the racks in one press, and the packer clears them on their own.
+- A save that is already stuck recovers this way.
+
+[More room on the bench]
+- The shelf under the packing bench now holds a layer of boxes too. The bench takes 32 boxes instead of 24: three layers on top as before, and the last eight on the shelf underneath, so the stacks don't get any taller.
+
+[Orders fit the bench]
+- A single order could ask for more boxes than the bench holds, so it could only ever be packed short. New orders are now never bigger than the bench.
+
+!! Older saves keep any order that is already bigger than the bench. It still packs SHORT. !!
+
 ## 1.23.0 (2026-10-14): The Scanner Update
 
 ## A new hand scanner

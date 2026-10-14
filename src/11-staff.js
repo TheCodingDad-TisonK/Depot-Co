@@ -100,8 +100,7 @@
     return n;
   }
   function skuDemand(sku) {
-    var need = 0; S.orders.forEach(function (o) { if (o.state === 'open') o.lines.forEach(function (l) { if (l.sku === sku) need += l.qty; }); });
-    need -= (S.bench.boxes[sku] || 0);
+    var need = benchNeed()[sku] || 0;   // the focus orders only, less the bench: see benchFocus
     need -= pickInFlight()[sku] || 0;
     return need;
   }
