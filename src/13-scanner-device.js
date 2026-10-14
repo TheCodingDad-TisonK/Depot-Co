@@ -1,7 +1,7 @@
 //@ the hand scanner: a real terminal raised into view on Tab, eight pages, a cursor, a go-to waypoint with a floor marker and a heading on the HUD, and a readout of whatever the beam lands on
   // ── The scanner device ────────────────────────────────────────────
   // 1.15.0 (Tyson: "a BIG BIG update to the hand scanner"). The device is a proper terminal now: a sharp 300 x 380 display drawn at
-  // double resolution, nine pages picked with the number keys, the wheel walks a cursor down the page, F sets a waypoint on the
+  // double resolution, nine pages paged with Q and E (the number keys before that), the wheel walks a cursor down the page, F sets a waypoint on the
   // selected row, Enter does what the row offers (a door, a signature, a dispatch, a pack, a machine's button, a word with a
   // worker: 1.19.0), and the rest of the comment below stands as written in 1.15:
   // highlighted thing (a rack slot, a dock, a machine, a worker) and X clears it. The waypoint is a ring and a beam on the floor and
@@ -9,22 +9,63 @@
   // crosshair is on: a slot, a pallet, a box, a parcel, a truck, a machine, a worker. Every page is a list of rows; the rows carry
   // their own waypoint, so one F does the right thing on any page.
   var scanDev = { g: null, canvas: null, ctx: null, tex: null, t: 0, redrawT: 0, laser: null, laserT: 0, lastFocusKey: null, lastBeep: null, led: null, marker: null, rows: [], navShown: false };
+  // where the device rides on the camera: down at the hip, up in front of you on Tab, and the tick eases between the two
+  scanDev.pose = { down: { p: [0.26, -0.62, -0.42], r: [-0.45, -0.35, 0.1], s: 1.9 }, up: { p: [0.2, -0.2, -0.38], r: [-0.15, -0.2, 0.1], s: 1.9 } };
   var SCAN_W = 300, SCAN_H = 380, SCAN_RES = 2;
+  // a rounded rectangle as a Shape (or into a Path for a hole), centred on the origin
+  function scanRRect(w, h, r, s) {
+    s = s || new THREE.Shape(); var x = -w / 2, y = -h / 2;
+    s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r); s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); return s;
+  }
+  // a raised frame with eased edges, cut in one piece so its corners have no seams: the bezel round the display, the rim round the scan window.
+  // The bevel eats bs off the hole on every side, so the hole is drawn that much bigger and its walls land on the opening asked for.
+  function scanFrameGeo(ow, oh, iw, ih, r, d) {
+    var bs = 0.0012, s = scanRRect(ow, oh, r); s.holes.push(scanRRect(iw + bs * 2, ih + bs * 2, Math.min(r * 0.35, 0.002), new THREE.Path()));
+    return new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: bs, bevelSegments: 2, curveSegments: 6 });
+  }
   function buildScanner() {
     var g = new THREE.Group(); g.userData.dynamic = true; handGroup.add(g); scanDev.g = g;
-    var body = std({ color: 0x2b3038, roughness: 0.55 }), rub = std({ color: 0x1b1e23, roughness: 0.95 }), key = std({ color: 0x4a515b, roughness: 0.6 });
-    var shell = new THREE.Mesh(bevelGeo(0.12, 0.26, 0.03, 0.008), body); g.add(shell);
-    box(0.126, 0.03, 0.034, rub, 0, 0.13, 0, g); box(0.126, 0.03, 0.034, rub, 0, -0.13, 0, g); box(0.012, 0.26, 0.034, rub, -0.063, 0, 0, g); box(0.012, 0.26, 0.034, rub, 0.063, 0, 0, g);
-    box(0.07, 0.016, 0.02, glowMat(0xff2a1a, 0.5), 0, 0.146, 0.0, g);   // the scan window on the nose
-    var grip = box(0.055, 0.13, 0.045, rub, 0, -0.12, -0.04, g); grip.rotation.x = 0.5; box(0.03, 0.02, 0.02, MAT.yellow, 0, -0.07, -0.058, g);   // the pistol grip and its trigger
-    for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) box(0.018, 0.012, 0.006, c === 3 && r === 2 ? MAT.yellow : key, -0.036 + c * 0.024, -0.062 - r * 0.017, 0.017, g);
-    scanDev.led = box(0.008, 0.008, 0.004, glowMat(0x5fd38d, 1.2), 0.05, 0.128, 0.017, g);   // the status LED: bright with a waypoint set
+    // after 1.22.6 (Tyson: "the scanner should look more 3D"): the slab with strips on its edges is a real device now. A deep housing
+    // with a lighter faceplate proud of it, rubber boots on the corners, the display sunk in a raised bezel under its glass, a scan
+    // head with a framed window on top, domed keys over a keypad well, buttons on the flanks, and a battery on
+    // the back. Small parts get their radius asked for, since an eased box under 30 mm otherwise comes out sharp and reads as flat.
+    var housing = std({ color: 0x23272d, roughness: 0.62, metalness: 0.05 }), face = std({ color: 0x353b44, roughness: 0.38, metalness: 0.15 }), rub = std({ color: 0x1b1e23, roughness: 0.92 });
+    var key = std({ color: 0x4a515b, roughness: 0.5 }), bezel = std({ color: 0x0c0e11, roughness: 0.28, metalness: 0.25 }), well = std({ color: 0x15181c, roughness: 0.85 });
+    var part = function (geo, mat, x, y, z, parent) { var m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); (parent || g).add(m); return m; };
+    var rb = function (w, h, d, r, mat, x, y, z, parent) { return part(bevelGeo(w, h, d, r, r > 0.008 ? 3 : 2), mat, x, y, z, parent); };
+    // the body: housing, faceplate, the corner boots and the rails between them
+    rb(0.136, 0.28, 0.036, 0.012, housing, 0, 0, -0.006);
+    rb(0.124, 0.264, 0.008, 0.004, face, 0, 0, 0.013);   // front at 0.017
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (s) { rb(0.026, 0.03, 0.044, 0.01, rub, s[0] * 0.063, s[1] * 0.128, -0.008); });
+    [-1, 1].forEach(function (s) { rb(0.01, 0.09, 0.032, 0.0045, rub, s * 0.069, -0.06, -0.006); });
+    rb(0.007, 0.036, 0.016, 0.003, MAT.yellow, -0.0695, 0.04, -0.004);   // the side scan button, on the flank you see
+    rb(0.006, 0.03, 0.012, 0.0028, key, 0.0695, 0.05, -0.004);   // the volume rocker
+    rb(0.1, 0.12, 0.012, 0.005, housing, 0, 0.05, -0.027);   // the battery on the back
+    // the display: a bezel standing proud of the faceplate, the screen sunk inside it and the glass over the screen
+    part(scanFrameGeo(0.118, 0.1447, 0.1, 0.1267, 0.007, 0.004), bezel, 0, 0.05, 0.0185);   // 0.017 to 0.024
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (s) { var sc = cyl(0.003, 0.002, MAT.chrome, s[0] * 0.056, s[1] * 0.128, 0.018, g, 10); sc.rotation.x = Math.PI / 2; sc.castShadow = false; });   // four screws hold the faceplate
+    // the scan head: a rubber collar, the head and a rimmed window on top, the status LED and a speaker grille on its face
+    var head = new THREE.Group(); head.position.set(0, 0.147, -0.006); head.scale.set(0.8, 0.65, 0.85); g.add(head);   // Tyson: "the scan thingy on top is a little too big": narrower and lower, its collar still on the body's top
+    rb(0.104, 0.016, 0.042, 0.005, rub, 0, -0.002, 0, head);
+    rb(0.096, 0.032, 0.05, 0.012, housing, 0, 0.016, 0, head);
+    var rim = part(scanFrameGeo(0.07, 0.026, 0.056, 0.012, 0.005, 0.002), bezel, 0, 0.0335, 0, head); rim.rotation.x = -Math.PI / 2;
+    part(new THREE.BoxGeometry(0.056, 0.002, 0.012), glowMat(0xff2a1a, 0.6), 0, 0.032, 0, head);   // the scan window: red light under smoked glass
+    var smoke = part(new THREE.PlaneGeometry(0.056, 0.012), std({ color: 0x2a0606, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.4, depthWrite: false }), 0, 0.0345, 0, head); smoke.rotation.x = -Math.PI / 2; smoke.renderOrder = 2;
+    scanDev.led = part(bevelGeo(0.008, 0.008, 0.004, 0.0018, 2), glowMat(0x5fd38d, 1.2), 0.034, 0.018, 0.025, head);   // the status LED: bright with a waypoint set
+    for (var gi = 0; gi < 4; gi++) part(new THREE.BoxGeometry(0.0018, 0.007, 0.001), well, -0.04 + gi * 0.004, 0.016, 0.0252, head);
+    // the keys: a well, two soft keys and a round nav pad over it, then the twelve keys, the last one the yellow enter
+    rb(0.112, 0.078, 0.003, 0.003, well, 0, -0.0625, 0.0185);   // 0.017 to 0.020
+    rb(0.026, 0.01, 0.005, 0.0024, MAT.green, -0.038, -0.036, 0.0225); rb(0.026, 0.01, 0.005, 0.0024, MAT.red, 0.038, -0.036, 0.0225);
+    var pad = cyl(0.011, 0.005, key, 0, -0.036, 0.0225, g, 24); pad.rotation.x = Math.PI / 2; pad.castShadow = false;
+    var padOk = cyl(0.0052, 0.003, face, 0, -0.036, 0.0255, g, 18); padOk.rotation.x = Math.PI / 2; padOk.castShadow = false;
+    for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) rb(0.021, 0.013, 0.006, 0.003, c === 3 && r === 2 ? MAT.yellow : key, -0.039 + c * 0.026, -0.058 - r * 0.0175, 0.0225);
     var cv = document.createElement('canvas'); cv.width = SCAN_W * SCAN_RES; cv.height = SCAN_H * SCAN_RES; scanDev.canvas = cv; scanDev.ctx = cv.getContext('2d');
     var tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 8; scanDev.tex = tx;
-    var scr = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.1267), new THREE.MeshBasicMaterial({ map: tx })); scr.position.set(0, 0.05, 0.016); g.add(scr);
-    var gl = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.1267), MAT.screenGlass); gl.position.set(0, 0.05, 0.0165); gl.renderOrder = 2; g.add(gl);
+    var scr = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.1267), new THREE.MeshBasicMaterial({ map: tx })); scr.position.set(0, 0.05, 0.019); g.add(scr);   // sunk 5 mm below the bezel's lip
+    var gl = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.1267), MAT.screenGlass); gl.position.set(0, 0.05, 0.0215); gl.renderOrder = 2; g.add(gl);
     var laser = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.004), new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0, depthWrite: false })); laser.position.set(0, 0.18, 0.6); scanDev.laser = laser; g.add(laser);
-    sign(['DEPOT CO. · DT-8'], 0.07, 0.012, 0, -0.118, 0.016, 0, { w: 256, h: 48, bg: '#2b3038', fg: '#a0acb8' }, g);
+    sign(['DEPOT CO. · DT-8'], 0.07, 0.012, 0, -0.118, 0.0172, 0, { w: 256, h: 48, bg: '#353b44', fg: '#a0acb8' }, g);
     g.position.set(0.3, -0.62, -0.42); g.rotation.set(-0.45, -0.35, 0.1); g.scale.set(1.9, 1.9, 1.9); g.visible = false;
     // the waypoint marker: a ring on the floor, a beam of light and a bobbing tip, pulsing
     var m = new THREE.Group(); m.userData.dynamic = true; m.visible = false; scene.add(m); scanDev.marker = m;
@@ -71,6 +112,7 @@
       var surN = surplusCount(); if (surN) al.push([surN + ' surplus box' + (surN > 1 ? 'es' : ''), 'Enter puts them back on the racks', scanPropNav('bench', 'Packing bench'), { label: 'RETURN', run: function () { returnSurplus(); } }]);
       var rpn = returnsPending(); if (rpn.length) al.push([rpn.length + ' return' + (rpn.length > 1 ? 's' : '') + ' to inspect', rpn.map(function (r) { return '#' + r.num + ' ' + returnPlaceText(r); }).join(' · '), scanReturnsNav()]);
       var loose = S.floor.filter(function (f) { return f.kind === 'parcel'; }).length; if (loose) al.push([loose + ' parcel' + (loose > 1 ? 's' : '') + ' on the floor', 'the inspector counts these', null]);
+      if (scanBatt() < 0.25) al.push(['Scanner battery ' + Math.round(scanBatt() * 100) + '%', 'E at its dock on the wall puts it on charge', scanPropNav('scanDock', 'Scanner dock')]);
       if (S.up.fork && (S.fork.batt === undefined ? 1 : S.fork.batt) < 0.25) al.push(['Forklift battery ' + Math.round((S.fork.batt || 0) * 100) + '%', 'plug it in at the charger by the south wall', scanPropNav('charger', 'Charger')]);
       for (var id in (S.stage || {})) if (S.stage[id].length >= STAGE_CAP - 1 && LOADER_DOORS[id] !== undefined) al.push([dockLabel(LOADER_DOORS[id]) + ' shipping bay nearly full', S.stage[id].length + ' of ' + STAGE_CAP + ' · it empties when a truck of its lane docks', scanDoorNav(LOADER_DOORS[id])]);
       if (sorterOwned() && S.sort && S.sort.table.length >= 4) al.push(['Sorter turntable backing up', S.sort.table.length + ' parcels going round again', null]);
@@ -157,9 +199,11 @@
     var c = scanDev.ctx; if (!c) return; var w = SCAN_W, h = SCAN_H; c.setTransform(SCAN_RES, 0, 0, SCAN_RES, 0, 0);
     c.fillStyle = '#0a0f13'; c.fillRect(0, 0, w, h); var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(245,181,61,0.14)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h);
     c.fillStyle = '#f5b53d'; c.font = 'bold 15px Bahnschrift, Arial, sans-serif'; c.textAlign = 'left'; c.fillText(SCAN_PAGES[scan.page].toUpperCase(), 12, 20);
-    c.fillStyle = '#a0acb8'; c.font = '11px Bahnschrift, Arial, sans-serif'; c.textAlign = 'right'; c.fillText(fmtTime(S.time) + '  ▮▮▮', w - 12, 20); c.textAlign = 'left';
+    var bt = scanBatt(), bcol = bt < SCAN_BATT.low ? '#ff6b5e' : bt < 0.4 ? '#f5b53d' : '#5fd38d';   // the battery: a little cell with its fill, the percentage beside it
+    c.strokeStyle = bcol; c.lineWidth = 1; c.strokeRect(w - 34.5, 11.5, 20, 10); c.fillStyle = bcol; c.fillRect(w - 14, 14, 2, 5); c.fillRect(w - 33, 13, Math.max(1, Math.round(17 * bt)), 7);
+    c.fillStyle = '#a0acb8'; c.font = '11px Bahnschrift, Arial, sans-serif'; c.textAlign = 'right'; c.fillText(fmtTime(S.time) + '  ' + Math.round(bt * 100) + '%', w - 40, 20); c.textAlign = 'left';
     var tn = SCAN_PAGES.length, tw = Math.floor((w - 24 - (tn - 1) * 3) / tn);
-    for (var p = 0; p < tn; p++) { var tx = 12 + p * (tw + 3), openP = scanPageOpen(p); c.fillStyle = p === scan.page ? '#f5b53d' : openP ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'; c.fillRect(tx, 28, tw, 18); c.fillStyle = p === scan.page ? '#1a1205' : openP ? '#a0acb8' : '#4a535c'; c.font = 'bold 10px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.fillText(openP ? (p + 1) + ' ' + SCAN_ICONS[p] : 'L' + UNLOCK[SCAN_LVL[p]], tx + tw / 2, 41); }   // a locked page shows the level that opens it
+    for (var p = 0; p < tn; p++) { var tx = 12 + p * (tw + 3), openP = scanPageOpen(p); c.fillStyle = p === scan.page ? '#f5b53d' : openP ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'; c.fillRect(tx, 28, tw, 18); c.fillStyle = p === scan.page ? '#1a1205' : openP ? '#a0acb8' : '#4a535c'; c.font = 'bold 10px Bahnschrift, Arial, sans-serif'; c.textAlign = 'center'; c.fillText(SCAN_ICONS[p], tx + tw / 2, 41); }   // the icon alone; a locked page is dimmed, and Q and E pass it by
     c.textAlign = 'left';
     var footH = 52;
     if (!scanPageOpen(scan.page)) scan.page = 0;
@@ -191,7 +235,7 @@
     var rd = scanReadout(), fy = h - footH;
     if (rd) { c.fillStyle = 'rgba(95,211,141,0.15)'; c.fillRect(0, fy, w, footH); c.fillStyle = '#5fd38d'; c.font = 'bold 11px Bahnschrift, Arial, sans-serif'; c.fillText(scanFit(c, '▶ ' + rd.head, w - 24), 12, fy + 16); c.fillStyle = '#eef1f5'; c.font = '10px Bahnschrift, Arial, sans-serif'; c.fillText(scanFit(c, rd.body, w - 24), 12, fy + 31); }
     else if (scan.nav) { var d = Math.sqrt(dist2(scan.nav.x, scan.nav.z, player.x, player.z)); c.fillStyle = 'rgba(245,181,61,0.14)'; c.fillRect(0, fy, w, footH); c.fillStyle = '#f5b53d'; c.font = 'bold 11px Bahnschrift, Arial, sans-serif'; c.fillText(scanFit(c, scanArrow() + ' ' + scan.nav.label, w - 24), 12, fy + 16); c.fillStyle = '#eef1f5'; c.font = '10px Bahnschrift, Arial, sans-serif'; c.fillText(Math.round(d) + ' m · X clears the waypoint', 12, fy + 31); }
-    else { c.fillStyle = '#6b7784'; c.font = '10px Bahnschrift, Arial, sans-serif'; c.fillText(scanFit(c, 'Point the beam at a slot, a pallet, a parcel, a truck or a machine', w - 24), 12, fy + 16); c.fillText(scanFit(c, '1-9 pages · wheel · F waypoint on ⌖ · Enter acts on ⏎ rows', w - 24), 12, fy + 31); }
+    else { c.fillStyle = '#6b7784'; c.font = '10px Bahnschrift, Arial, sans-serif'; c.fillText(scanFit(c, 'Point the beam at a slot, a pallet, a parcel, a truck or a machine', w - 24), 12, fy + 16); c.fillText(scanFit(c, 'Q / E pages · wheel · F waypoint on ⌖ · Enter acts on ⏎ rows', w - 24), 12, fy + 31); }
     c.fillStyle = '#6b7784'; c.font = '8px Bahnschrift, Arial, sans-serif'; c.textAlign = 'right'; c.fillText('Tab closes', w - 12, h - 6); c.textAlign = 'left';
   }
   // ── The waypoint ──────────────────────────────────────────────────
@@ -215,10 +259,14 @@
   function scanScroll(dir) { var n = scanDev.rows.length; if (!n) return; scan.sel = clamp(scan.sel + dir, 0, n - 1); drawScanner(); }
   function tickScanner(dt) {
     if (!scanDev.g) return;
-    var want = ui.scanOpen && !driving ? 1 : 0;
-    scanDev.t = lerp(scanDev.t, want, 1 - Math.pow(0.002, dt));
-    scanDev.g.visible = scanDev.t > 0.02;
-    scanDev.g.position.set(0.26 - scanDev.t * 0.06, -0.62 + scanDev.t * 0.42, -0.42 + scanDev.t * 0.04); scanDev.g.rotation.set(-0.45 + scanDev.t * 0.3, -0.35 + scanDev.t * 0.15, 0.1);
+    tickScanBattery(dt);   // 13-scanner-dock.js: the charge, and the device in its cradle on the wall
+    if (!scanDocked()) {
+      var want = ui.scanOpen && !driving ? 1 : 0;
+      scanDev.t = lerp(scanDev.t, want, 1 - Math.pow(0.002, dt));
+      scanDev.g.visible = scanDev.t > 0.02;
+      var pd = scanDev.pose.down, pu = scanDev.pose.up, t = scanDev.t, s = lerp(pd.s, pu.s, t);
+      scanDev.g.position.set(lerp(pd.p[0], pu.p[0], t), lerp(pd.p[1], pu.p[1], t), lerp(pd.p[2], pu.p[2], t)); scanDev.g.rotation.set(lerp(pd.r[0], pu.r[0], t), lerp(pd.r[1], pu.r[1], t), lerp(pd.r[2], pu.r[2], t)); scanDev.g.scale.set(s, s, s);
+    }
     if (scanDev.laserT > 0) { scanDev.laserT -= dt; scanDev.laser.material.opacity = Math.max(0, scanDev.laserT * 3); }
     if (scanDev.led) scanDev.led.material.emissiveIntensity = scan.nav ? 1.2 + Math.sin(worldTime * 6) * 0.6 : 0.15;
     if (scan.nav) {

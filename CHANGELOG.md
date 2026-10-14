@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.23.0 (2026-10-14): The Scanner Update
+
+## A new hand scanner
+- The scanner is now a proper rugged handheld instead of a flat slab: a deep housing with rubber corners, the screen sunk in a raised bezel under glass, raised keys, side buttons and a scan head on top.
+- It sits close in front of you when you raise it with Tab, the way it used to.
+
+## The scanner runs on a battery
+- The charge shows top right on the scanner's screen. It drains slowly while the scanner is on your belt and faster with the screen up.
+- When it runs low you get a warning, and the Home page shows an alert with a waypoint to the dock. When it's flat, the scanner won't come up until you charge it.    
+
+## The scanner dock
+- A charging cradle hangs on the wall: in the shed by the packing table, and in the lobby next to the notice board once you move into the hall.
+- E at the dock puts the scanner in its cradle, and E again takes it out. You can see it sitting there, with its screen showing the charge.
+- A little light on the cradle pulses amber while it charges and turns green when it's full. There's no charging during a power cut.
+- The dock is a wall fixture, so you can move it in build mode.
+
+## Paging with Q and E
+- With the scanner up, Q and E flip back and forward through its pages. While it's up, E only turns pages, so nothing in the world gets used by accident.
+- The page tabs show just their icons now, with no numbers.
+
+!! Older saves start with a full battery. !!
+
 ## 1.22.6 (2026-10-12)
 
 ## Stage 0 warehouse fixes:

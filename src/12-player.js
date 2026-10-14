@@ -75,13 +75,14 @@
   GAME.escape = function () { if (pc.on) { closePc(); return true; } return false; };
   GAME.editBlocked = function () { return driving || pc.on; };
   GAME.photoBlocked = function () { return driving || pc.on; };
-  GAME.promptHidden = function () { return driving; };
+  GAME.promptHidden = function () { return driving || ui.scanOpen; };   // with the scanner up E pages it, so no E prompt from the world
   hook('photo', function (on) { if (on) dropMarker.g.visible = false; });
   GAME.scanToggle = function (on) { scanToggle(on); };
-  // the depot's keys, before the engine's own: the scanner (Tab, the digits, F, X, Enter) and the forklift (G stops, Shift shifts)
+  // the depot's keys, before the engine's own: the scanner (Tab, Q and E, F, X, Enter) and the forklift (G stops, Shift shifts)
   GAME.key = function (e) {
     if (e.code === 'Tab') { e.preventDefault(); if (!pc.on) scanToggle(!ui.scanOpen); return true; }
-    if (ui.scanOpen && /^Digit[1-9]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return true; }
+    if (ui.scanOpen && (e.code === 'KeyQ' || e.code === 'KeyE')) { e.preventDefault(); if (!e.repeat) scanPageStep(e.code === 'KeyE' ? 1 : -1); return true; }   // Q and E page the scanner; with it up, E uses nothing in the world
+    if (ui.scanOpen && /^Digit[1-9]$/.test(e.code)) { scanPage(+e.code.slice(5) - 1); return true; }   // the digits still jump straight to a page, unlabelled
     if (ui.scanOpen && e.code === 'KeyF') { e.preventDefault(); scanGo(); return true; }
     if (ui.scanOpen && e.code === 'KeyX') { e.preventDefault(); scanClearNav(); return true; }
     if (ui.scanOpen && (e.code === 'Enter' || e.code === 'NumpadEnter')) { e.preventDefault(); scanAct(); return true; }   // the selected row's action

@@ -21,6 +21,7 @@
       jack: { pallet: null, x: SPOT.jack.x, z: SPOT.jack.z, rot: Math.PI / 2 },
       jack2: { pallet: null, x: SPOT.jack2.x, z: SPOT.jack2.z, rot: -Math.PI / 2 },
       fork: { x: SPOT.fork.x, z: SPOT.fork.z, yaw: Math.PI, lift: 0.1, pallet: null, batt: 1 },
+      scanner: { batt: 1, docked: false },   // the hand scanner's charge, and whether it sits in its wall dock (13-scanner-dock.js)
       weather: null, radio: { on: false, station: 0 },
       loan: 0, insured: false, contract: null, nextOffer: 3, binned: 0,
       layout: {}, custom: [],
