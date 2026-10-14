@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.23.3 (2026-10-14): Small Patch
+
+- The desktop and Start menu shortcuts now just say "Depot Co (Made with Co-Engine) [vX.Y.Z]" when you hover over them, instead of the long description.
+
 ## 1.23.2 (2026-10-14): Keybind Update
 
 ## Key Bindings
